@@ -1,26 +1,29 @@
-<!-- assets/favicon.svg -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Alpine Passes">
   <defs>
-    <linearGradient id="sky" x1="12" y1="8" x2="52" y2="56" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#26323a"/>
+    <linearGradient id="badge" x1="8" y1="6" x2="56" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#161a1d"/>
       <stop offset="1" stop-color="#0e1418"/>
     </linearGradient>
-    <linearGradient id="road" x1="20" y1="19" x2="46" y2="49" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#f8fafc"/>
-      <stop offset="1" stop-color="#b9c6d0"/>
+    <linearGradient id="leftPeak" x1="12" y1="52" x2="31" y2="14" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3ddc84"/>
+      <stop offset="1" stop-color="#54d1ff"/>
     </linearGradient>
-    <linearGradient id="ridge" x1="16" y1="20" x2="50" y2="52" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#5edcff"/>
-      <stop offset="1" stop-color="#3ddc84"/>
+    <linearGradient id="rightPeak" x1="35" y1="52" x2="51" y2="14" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8cebd6"/>
+      <stop offset="1" stop-color="#54d1ff"/>
+    </linearGradient>
+    <linearGradient id="road" x1="31" y1="56" x2="38" y2="28" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#ffb020"/>
     </linearGradient>
   </defs>
 
-  <rect x="5" y="5" width="54" height="54" rx="16" fill="#0e1418"/>
-  <rect x="7" y="7" width="50" height="50" rx="14" fill="url(#sky)"/>
+  <rect x="4" y="4" width="56" height="56" rx="14" fill="url(#badge)"/>
+  <rect x="4.75" y="4.75" width="54.5" height="54.5" rx="13.25" fill="none" stroke="#263238" stroke-width="1.5"/>
 
-  <path d="M14 46 27 22l8 14 7-11 10 21Z" fill="url(#ridge)"/>
+  <path d="M8 52L25 14L35 38L33 52Z" fill="url(#leftPeak)"/>
+  <path d="M31 52L39 38L45 14L56 52Z" fill="url(#rightPeak)"/>
 
-  <path d="M18 47 32 38 46 50" fill="none" stroke="#0e1418" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M18 47 32 38 46 50" fill="none" stroke="url(#road)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-  <rect x="7" y="7" width="50" height="50" rx="14" fill="none" stroke="#ffffff" stroke-opacity=".12" stroke-width="1"/>
+  <path d="M31 56L36 46L32 38L38 29" fill="none" stroke="#0e1418" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M31 56L36 46L32 38L38 29" fill="none" stroke="url(#road)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

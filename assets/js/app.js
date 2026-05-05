@@ -199,7 +199,6 @@ PASSES.forEach(p => {
 const PASS_BY_ID = new Map(PASSES.map(p => [p.id, p]));
 
 document.getElementById("passCount").textContent = PASSES.length.toLocaleString();
-
 /* ─────────────────────── Switzerland POI dataset ───────────────────────
    Loaded from `swiss-pois.js` (see that file for the source schema).
    POIs are normalised into the same field shape as PASSES so the existing
@@ -296,6 +295,12 @@ const POI_CATEGORY_GLYPH = {
 };
 function poiCategoryLabel(cat) { return POI_CATEGORY_LABELS[cat] || cat || "POI"; }
 function poiCategoryGlyph(cat) { return POI_CATEGORY_GLYPH[cat] || "📍"; }
+
+/* Header counter for POIs (mirrors `passCount`). */
+{
+  const el = document.getElementById("poiCount");
+  if (el) el.textContent = POIS.length.toLocaleString();
+}
 
 const STATE_LABEL = { open: "Open", restricted: "Open with restrictions",
                       closed: "Closed", unknown: "Status unknown" };
@@ -1322,9 +1327,11 @@ function escapeHtml(s) {
 
 function passIconHtml(p, className = "pass-art-icon") {
   if (!p.iconAsset) return "";
-  const cell = Math.max(0, Math.min(4, Number(p.iconAsset.cell) || 0));
-  const pos = cell === 0 ? "0%" : `${cell * 25}%`;
-  return `<span class="${className} lazy-pass-icon" role="img" aria-label="${escapeHtml(p.name)} icon" data-pass-icon-sheet="${escapeHtml(p.iconAsset.sheet)}" data-pass-icon-position="${pos} center"></span>`;
+  const col = Math.max(0, Math.min(4, Number(p.iconAsset.col) || 0));
+  const row = Math.max(0, Math.min(4, Number(p.iconAsset.row) || 0));
+  const posX = col === 0 ? "0%" : `${col * 25}%`;
+  const posY = row === 0 ? "0%" : `${row * 25}%`;
+  return `<span class="${className} lazy-pass-icon" role="img" aria-label="${escapeHtml(p.name)} icon" data-pass-icon-sheet="${escapeHtml(p.iconAsset.sheet)}" data-pass-icon-position="${posX} ${posY}"></span>`;
 }
 
 const passIconObserver = "IntersectionObserver" in window
@@ -1515,8 +1522,9 @@ POIS.forEach(poi => {
   poi._marker = m;
 });
 poiCluster.addLayers(poiMarkers);
-/* POI layer is OFF by default to keep first-load focused on passes; users
-   toggle it from the layer control added below. */
+/* POI layer is ON by default so users see the POI integration immediately;
+   they can hide it via the layer control on the top-right. */
+map.addLayer(poiCluster);
 
 /* Popup-delegated handler: "Add to selected route" button on POI popups. */
 document.addEventListener("click", e => {
@@ -1813,6 +1821,9 @@ function toggleSelectedPoi(id, checked = !selectedPoiIds.has(id)) {
   renderAdvancedPoiSelection();
   renderAdvancedPoiPicker();
   renderAdvancedPicker();
+  /* The sidebar POI list highlights selected rows when in advanced mode,
+     so refresh it whenever selection state changes. */
+  if (typeof renderPoiList === "function") renderPoiList();
 }
 function syncAdvancedMode() {
   const advanced = advancedModeEl.checked;
@@ -1827,6 +1838,7 @@ function syncAdvancedMode() {
   renderAdvancedPoiSelection();
   renderAdvancedPoiPicker();
   if (typeof renderList === "function") renderList();
+  if (typeof renderPoiList === "function") renderPoiList();
 }
 
 distSlider.addEventListener("input", () => { distLabel.textContent = `${distSlider.value} km`; });
@@ -3056,6 +3068,199 @@ function renderList() {
     : `${total} ${filterTag}in view${total > VIEW_LIMIT ? ` (showing first ${VIEW_LIMIT})` : ""} · ${PASSES.filter(passesAllFilters).length} ${filterTag}total`;
 }
 
+/* ─────────────────────── POI side-panel rendering ─────────────────────── */
+const poiListEl = document.getElementById("poiList");
+const poiSearchEl = document.getElementById("poiSearch");
+const poiSortEl = document.getElementById("poiSort");
+const poiCatFilterEl = document.getElementById("poiCatFilter");
+const poiRegionFilterEl = document.getElementById("poiRegionFilter");
+const poiPlannableOnlyEl = document.getElementById("poiPlannableOnly");
+const poiTopOnlyEl = document.getElementById("poiTopOnly");
+const tabPasses = document.getElementById("tabPasses");
+const tabPois   = document.getElementById("tabPois");
+const tabPanePasses = document.getElementById("tabPanePasses");
+const tabPanePois   = document.getElementById("tabPanePois");
+const tabCountPasses = document.getElementById("tabCountPasses");
+const tabCountPois   = document.getElementById("tabCountPois");
+
+let activeExplorerTab = "passes";
+
+function populatePoiSidebarFilters() {
+  if (!poiCatFilterEl) return;
+  /* Categories ordered by frequency for natural UX (most common first). */
+  const counts = {};
+  POIS.forEach(p => { counts[p.poiCategory] = (counts[p.poiCategory] || 0) + 1; });
+  const cats = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+  for (const c of cats) {
+    const opt = document.createElement("option");
+    opt.value = c;
+    opt.textContent = `${poiCategoryGlyph(c)} ${poiCategoryLabel(c)} (${counts[c]})`;
+    poiCatFilterEl.appendChild(opt);
+  }
+  /* Regions in canonical Alpine-Passes order (matches swiss-pois.js header). */
+  const regionCounts = {};
+  POIS.forEach(p => { regionCounts[p.poiRegion] = (regionCounts[p.poiRegion] || 0) + 1; });
+  const regions = Object.keys(regionCounts).sort((a, b) => regionCounts[b] - regionCounts[a]);
+  for (const r of regions) {
+    if (!r) continue;
+    const opt = document.createElement("option");
+    opt.value = r;
+    opt.textContent = `${r} (${regionCounts[r]})`;
+    poiRegionFilterEl.appendChild(opt);
+  }
+}
+populatePoiSidebarFilters();
+
+function poiInViewport(p) {
+  return map.getBounds().contains([p.lat, p.lon]);
+}
+function poiPassesAllFilters(p) {
+  if (poiPlannableOnlyEl?.checked && !isPlannablePoi(p)) return false;
+  if (poiTopOnlyEl?.checked && (p.quality || 0) < 0.8) return false;
+  const cat = poiCatFilterEl?.value || "";
+  if (cat && p.poiCategory !== cat) return false;
+  const region = poiRegionFilterEl?.value || "";
+  if (region && p.poiRegion !== region) return false;
+  return true;
+}
+function poiSearchMatches(p, q) {
+  if (!q) return true;
+  const hay = `${p.name} ${p.poiRegion} ${poiCategoryLabel(p.poiCategory)} ${(p.poiThemes || []).join(" ")}`.toLowerCase();
+  return hay.includes(q);
+}
+function comparePoiBySort(a, b, sort, start) {
+  if (sort === "name") return a.name.localeCompare(b.name);
+  if (sort === "category") {
+    const ca = poiCategoryLabel(a.poiCategory).localeCompare(poiCategoryLabel(b.poiCategory));
+    if (ca !== 0) return ca;
+    return (b.quality || 0) - (a.quality || 0);
+  }
+  if (sort === "region") {
+    const ra = (a.poiRegion || "").localeCompare(b.poiRegion || "");
+    if (ra !== 0) return ra;
+    return (b.quality || 0) - (a.quality || 0);
+  }
+  if (sort === "distance") {
+    const da = start ? haversine(start, a) : -(a.quality || 0);
+    const db = start ? haversine(start, b) : -(b.quality || 0);
+    return da - db;
+  }
+  /* default: notability score (high → low). */
+  return (b.quality || 0) - (a.quality || 0);
+}
+
+function renderPoiList() {
+  if (!poiListEl) return;
+  const q = (poiSearchEl?.value || "").trim().toLowerCase();
+  const sort = poiSortEl?.value || "score";
+  const start = currentStart();
+  const useSearch = q.length > 0;
+
+  let items = useSearch
+    ? POIS.filter(p => poiSearchMatches(p, q))
+    : POIS.filter(poiInViewport);
+  items = items.filter(poiPassesAllFilters);
+  items = items.slice().sort((a, b) => comparePoiBySort(a, b, sort, start));
+
+  const total = items.length;
+  const shown = items.slice(0, VIEW_LIMIT);
+
+  if (shown.length === 0) {
+    poiListEl.innerHTML = `<li class="empty">No sights ${useSearch ? "match" : "in view"}.</li>`;
+  } else {
+    poiListEl.innerHTML = shown.map(p => {
+      const dist = start ? `· ${Math.round(haversine(start, p))} km from ${start.name}` : "";
+      const dwell = p.visitDwellSec ? `· ${(p.visitDwellSec / 3600).toFixed(1)} h visit` : "";
+      const elev = p.elev ? `${p.elev} m · ` : "";
+      const advanced = advancedModeEl.checked && isPlannablePoi(p);
+      const selected = advanced && selectedPoiIds.has(p.id);
+      const notDrivable = !isPlannablePoi(p);
+      const titleAttr = advanced
+        ? "Add this sight to the route"
+        : notDrivable
+          ? `Not directly reachable by car (${p.poiAccess.join(", ")})`
+          : "Zoom to this sight";
+      return `<li data-poi-id="${escapeHtml(p.id)}" class="poi-row${selected ? " selected" : ""}${notDrivable ? " not-drivable" : ""}" title="${escapeHtml(titleAttr)}">
+        <span class="poi-row-glyph" data-cat="${escapeHtml(p.poiCategory)}" aria-hidden="true">${poiCategoryGlyph(p.poiCategory)}</span>
+        <span>
+          <div class="name">${escapeHtml(p.name)} ${qualityStarsCompact(p.quality)}</div>
+          <div class="meta">${escapeHtml(elev)}${escapeHtml(poiCategoryLabel(p.poiCategory))} · ${escapeHtml(p.poiRegion)} ${escapeHtml(dwell)} ${escapeHtml(dist)}</div>
+        </span>
+        ${notDrivable ? '<span class="poi-row-badge" title="Not car-accessible">⚠</span>' : ""}
+      </li>`;
+    }).join("");
+
+    poiListEl.querySelectorAll("li[data-poi-id]").forEach(li => {
+      li.addEventListener("click", () => {
+        const p = POI_BY_ID.get(li.dataset.poiId);
+        if (!p) return;
+        if (advancedModeEl.checked && isPlannablePoi(p)) {
+          toggleSelectedPoi(p.id);
+          return;
+        }
+        li.setAttribute("aria-busy", "true");
+        if (!map.hasLayer(poiCluster)) map.addLayer(poiCluster);
+        map.flyTo([p.lat, p.lon], Math.max(map.getZoom(), 11), { duration: 0.45 });
+        setTimeout(() => {
+          li.removeAttribute("aria-busy");
+          p._marker?.openPopup?.();
+        }, 480);
+      });
+    });
+  }
+
+  /* Update tab counters: passes total reflects passes-in-view count;
+     POI total reflects the POI list. */
+  if (tabCountPois) {
+    tabCountPois.textContent = `· ${total}${total > VIEW_LIMIT ? `+` : ""}`;
+  }
+
+  /* When the POI tab is active, mirror noteEl text to the POI footnote. */
+  if (activeExplorerTab === "pois") {
+    noteEl.textContent = useSearch
+      ? `${total} match${total === 1 ? "" : "es"}${total > VIEW_LIMIT ? ` (showing first ${VIEW_LIMIT})` : ""}`
+      : `${total} in view${total > VIEW_LIMIT ? ` (showing first ${VIEW_LIMIT})` : ""} · ${POIS.length} total`;
+  }
+}
+
+/* Tab counter for passes is the in-view count (matches the existing footnote
+   style). Updated whenever the pass list re-renders by piggy-backing on
+   renderList — patch that here rather than weaving it into the pass code. */
+const _origRenderList = renderList;
+renderList = function () {
+  _origRenderList.apply(this, arguments);
+  if (tabCountPasses) {
+    /* Read the count from the existing footnote text (it's authoritative)
+       to avoid duplicating the filter logic. */
+    const m = noteEl.textContent.match(/^(\d+)/);
+    tabCountPasses.textContent = m ? `· ${m[1]}` : "";
+  }
+};
+
+function showExplorerTab(tab) {
+  activeExplorerTab = tab;
+  const passesActive = tab === "passes";
+  tabPasses?.classList.toggle("active", passesActive);
+  tabPois?.classList.toggle("active", !passesActive);
+  tabPasses?.setAttribute("aria-selected", String(passesActive));
+  tabPois?.setAttribute("aria-selected", String(!passesActive));
+  if (tabPanePasses) tabPanePasses.hidden = !passesActive;
+  if (tabPanePois)   tabPanePois.hidden   = passesActive;
+  /* Re-render the now-active tab so it picks up any viewport changes that
+     happened while it was hidden. */
+  if (passesActive) renderList(); else renderPoiList();
+}
+
+tabPasses?.addEventListener("click", () => showExplorerTab("passes"));
+tabPois?.addEventListener("click",   () => showExplorerTab("pois"));
+
+poiSearchEl?.addEventListener("input", renderPoiList);
+poiSortEl?.addEventListener("change", renderPoiList);
+poiCatFilterEl?.addEventListener("change", renderPoiList);
+poiRegionFilterEl?.addEventListener("change", renderPoiList);
+poiPlannableOnlyEl?.addEventListener("change", renderPoiList);
+poiTopOnlyEl?.addEventListener("change", renderPoiList);
+
 searchEl.addEventListener("input", renderList);
 sortEl  .addEventListener("change", renderList);
 sortOpenFirstEl.addEventListener("change", renderList);
@@ -3064,15 +3269,24 @@ showOpenOnlyEl.addEventListener("change", syncOpenOnlyFilter);
 showNotableOnlyEl.addEventListener("change", syncOpenOnlyFilter);
 
 /* Debounce viewport-driven re-renders: panning fires moveend many times
-   per second; renderList() is cheap (~5 ms) but rebuilding 80 li's is
-   visible jank on slow devices. */
+   per second; renderList() / renderPoiList() are each cheap (~5 ms) but
+   rebuilding 80 li's is visible jank on slow devices. We re-render both
+   lists so the off-screen tab's count stays accurate; the tab badge in
+   the header reads "X" / "Y" regardless of which tab is foregrounded. */
 let moveTimer = null;
 map.on("moveend", () => {
-  if (searchEl.value) return;       /* search results aren't viewport-bound */
+  /* Pass list: skip when its search is active (search results aren't viewport-bound). */
+  const passSearchActive = searchEl.value;
+  const poiSearchActive  = poiSearchEl?.value;
+  if (passSearchActive && poiSearchActive) return;
   clearTimeout(moveTimer);
-  moveTimer = setTimeout(renderList, 120);
+  moveTimer = setTimeout(() => {
+    if (!passSearchActive) renderList();
+    if (!poiSearchActive)  renderPoiList();
+  }, 120);
 });
 renderList();
+renderPoiList();
 syncAdvancedMode();
 
 /* ─────── kick off live status load ─────── */
@@ -3200,4 +3414,3 @@ document.getElementById("refreshBtn").addEventListener("click", () => {
   /* Reload the page without bypassing the daily live-source cache. */
   location.reload();
 });
-

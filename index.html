@@ -37,7 +37,7 @@
   <section class="side-head" aria-labelledby="site-title">
     <p class="eyebrow">Alpine Pass Planner</p>
     <h1 id="site-title">Find beautiful open passes</h1>
-    <p><strong><span id="passCount">…</span> passes</strong> across the Alps · live status from
+    <p><strong><span id="passCount">…</span> passes</strong> &amp; <strong><span id="poiCount">…</span> sights</strong> across the Alps · live status from
       <a href="https://www.alpen-paesse.ch/en/" target="_blank" rel="noopener">alpen-paesse.ch</a> (CH),
       OSM road rules and seasonal estimates elsewhere</p>
   </section>
@@ -129,47 +129,88 @@
     </details>
 
     <details class="legend-panel">
-      <summary><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-legend"></use></svg> Status legend</summary>
-      <section class="legend" aria-label="Pass status legend">
+      <summary><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-legend"></use></svg> Map legend</summary>
+      <section class="legend" aria-label="Map marker legend">
         <span><span class="dot open" aria-hidden="true"></span>Open</span>
         <span><span class="dot restricted" aria-hidden="true"></span>Restrictions</span>
         <span><span class="dot closed" aria-hidden="true"></span>Closed</span>
         <span><span class="dot open estimated" aria-hidden="true"></span>Estimated</span>
         <span><span class="dot unknown" aria-hidden="true"></span>Unknown</span>
+        <span class="legend-divider" aria-hidden="true"></span>
+        <span><span class="dot poi" aria-hidden="true"></span>Sight / POI</span>
+        <span><span class="dot poi dim" aria-hidden="true"></span>Not by car</span>
       </section>
     </details>
 
-    <section class="pass-explorer" aria-label="Pass search and sorting">
+    <section class="explorer" aria-label="Browse passes and sights">
       <div class="explorer-head">
-        <div>
+        <div class="explorer-head-titles">
           <p class="eyebrow">Explore</p>
-          <h2><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-explore"></use></svg> Passes in view</h2>
+          <div class="explorer-tabs" role="tablist" aria-label="Choose what to browse">
+            <button type="button" class="explorer-tab active" role="tab" data-tab="passes" aria-selected="true" aria-controls="tabPanePasses" id="tabPasses">
+              <span aria-hidden="true">⛰</span> Passes <em class="tab-count" id="tabCountPasses">…</em>
+            </button>
+            <button type="button" class="explorer-tab" role="tab" data-tab="pois" aria-selected="false" aria-controls="tabPanePois" id="tabPois">
+              <span aria-hidden="true">📍</span> Sights <em class="tab-count" id="tabCountPois">…</em>
+            </button>
+          </div>
         </div>
         <div class="list-footnote" id="listNote">…</div>
       </div>
-      <section class="controls" aria-label="Pass filters">
-        <input id="search" type="search" placeholder="Search pass name…" autocomplete="off" aria-label="Search passes by name">
-        <select id="sort" title="Sort" aria-label="Sort passes">
-          <option value="quality">Quality ★</option>
-          <option value="status">Status</option>
-          <option value="distance">Distance</option>
-          <option value="elevation">Elevation</option>
-          <option value="name">Name</option>
-        </select>
-        <label class="check compact">
-          <input id="sortOpenFirst" type="checkbox">
-          <span>Open first</span>
-        </label>
-        <label class="check compact">
-          <input id="showOpenOnly" type="checkbox">
-          <span>Open only</span>
-        </label>
-        <label class="check compact">
-          <input id="showNotableOnly" type="checkbox">
-          <span>Notable only</span>
-        </label>
-      </section>
-      <ul class="pass-list" id="passList"></ul>
+
+      <div class="tab-pane" id="tabPanePasses" role="tabpanel" aria-labelledby="tabPasses">
+        <section class="controls" aria-label="Pass filters">
+          <input id="search" type="search" placeholder="Search pass name…" autocomplete="off" aria-label="Search passes by name">
+          <select id="sort" title="Sort" aria-label="Sort passes">
+            <option value="quality">Quality ★</option>
+            <option value="status">Status</option>
+            <option value="distance">Distance</option>
+            <option value="elevation">Elevation</option>
+            <option value="name">Name</option>
+          </select>
+          <label class="check compact">
+            <input id="sortOpenFirst" type="checkbox">
+            <span>Open first</span>
+          </label>
+          <label class="check compact">
+            <input id="showOpenOnly" type="checkbox">
+            <span>Open only</span>
+          </label>
+          <label class="check compact">
+            <input id="showNotableOnly" type="checkbox">
+            <span>Notable only</span>
+          </label>
+        </section>
+        <ul class="pass-list" id="passList"></ul>
+      </div>
+
+      <div class="tab-pane" id="tabPanePois" role="tabpanel" aria-labelledby="tabPois" hidden>
+        <section class="controls" aria-label="Sight filters">
+          <input id="poiSearch" type="search" placeholder="Search sights, region, theme…" autocomplete="off" aria-label="Search sights">
+          <select id="poiSort" title="Sort" aria-label="Sort sights">
+            <option value="score">Notability ★</option>
+            <option value="name">Name</option>
+            <option value="category">Category</option>
+            <option value="region">Region</option>
+            <option value="distance">Distance</option>
+          </select>
+          <select id="poiCatFilter" title="Filter by category" aria-label="Filter sights by category">
+            <option value="">All categories</option>
+          </select>
+          <select id="poiRegionFilter" title="Filter by region" aria-label="Filter sights by region">
+            <option value="">All regions</option>
+          </select>
+          <label class="check compact">
+            <input id="poiPlannableOnly" type="checkbox">
+            <span>Drivable only</span>
+          </label>
+          <label class="check compact">
+            <input id="poiTopOnly" type="checkbox">
+            <span>Top notable (★8+)</span>
+          </label>
+        </section>
+        <ul class="pass-list poi-list" id="poiList"></ul>
+      </div>
     </section>
   </div>
 </aside>

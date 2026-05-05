@@ -363,8 +363,13 @@ function statusSignature(status) {
 
 function sourceBadgeHtml(status) {
   const d = statusDisplay(status);
-  const sourceLabel = d.sourceLabel ? ` <span class="source-label">${escapeHtml(d.sourceLabel)}</span>` : "";
-  return `<span class="src-badge ${d.sourceMeta.className}" title="${escapeHtml(d.sourceMeta.title)}">● ${escapeHtml(d.sourceMeta.label)}</span>${sourceLabel}`;
+  /* Fold the descriptive source label (e.g. "elevation/month") into the
+     badge title attribute instead of rendering it inline — keeps the
+     status row uncluttered while still surfacing the detail on hover. */
+  const fullTitle = d.sourceLabel
+    ? `${d.sourceMeta.title} — ${d.sourceLabel}`
+    : d.sourceMeta.title;
+  return `<span class="src-badge ${d.sourceMeta.className}" title="${escapeHtml(fullTitle)}">● ${escapeHtml(d.sourceMeta.label)}</span>`;
 }
 
 function listStatusLabel(status) {
@@ -1248,9 +1253,11 @@ function buildPopupHtml(p, status, wiki) {
 
   const stateLine = status
     ? `<span class="badge ${statusView.className}">${escapeHtml(statusView.label)}</span>` +
-      (statusView.detail ? ` <span class="sub status-detail">${escapeHtml(statusView.detail)}</span>` : "") +
       ` <span class="popup-source">${sourceBadgeHtml(status)}</span>`
     : `<span class="badge unknown">Loading…</span>`;
+  const statusDetailBlock = status && statusView.detail
+    ? `<div class="popup-status-detail">${escapeHtml(statusView.detail)}</div>`
+    : "";
   const meta = [
     status?.weather ? `🌡 ${status.weather}` : null,
     status?.since ? `since ${status.since}` : null,
@@ -1290,11 +1297,12 @@ function buildPopupHtml(p, status, wiki) {
         <h2>${passIconHtml(p)}<span>${p.name}</span></h2>
         ${qualityStars(p.quality)}
       </div>
-      <div class="popup-headline">
+      ${p.alt ? `<div class="popup-alt">${escapeHtml(p.alt)}</div>` : ""}
+      <div class="popup-status">
         <span class="popup-elev">${p.elev} m</span>
-        ${p.alt ? `<span class="popup-alt">${escapeHtml(p.alt)}</span>` : ""}
+        ${stateLine}
       </div>
-      <div class="popup-status">${stateLine}</div>
+      ${statusDetailBlock}
       ${metaBlock}
       ${projectionBlock}
       ${openingBlock}

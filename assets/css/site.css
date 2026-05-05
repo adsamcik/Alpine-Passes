@@ -774,7 +774,7 @@ select option:checked {
 .est-mark { font-size: 10px; color: var(--fg-dim); margin-left: 4px; }
 .popup-status {
   display: flex; align-items: center; flex-wrap: wrap;
-  gap: 6px 8px; margin: 8px 0 4px;
+  gap: 6px 8px; margin: 6px 0 0;
 }
 .popup-source {
   display: inline-flex; align-items: center;
@@ -842,6 +842,15 @@ select option:checked {
 .popup-alt {
   color: var(--fg-dim);
   font-size: 12px; line-height: 1.35;
+  margin: 2px 0 6px;
+}
+/* Status detail (e.g. "Typical season: Apr–Nov") on its own row below
+   the status pill — keeps the pill row compact and uncluttered. */
+.popup-status-detail {
+  font-size: 12px;
+  color: var(--fg-dim);
+  line-height: 1.4;
+  margin: 4px 2px 0;
 }
 
 /* "Why this rating" header row — stars + score chips on a wrapping line. */

@@ -564,7 +564,7 @@ select option:checked {
   height: 38px;
   flex: 0 0 auto;
   border-radius: 9px;
-  background-size: 500% 100%;
+  background-size: 500% 500%;
   background-repeat: no-repeat;
   box-shadow: 0 8px 18px rgba(0,0,0,.32), inset 0 0 0 1px rgba(255,255,255,.18);
   vertical-align: middle;
@@ -1173,4 +1173,31 @@ body.picking #map { cursor: crosshair; }
   .pass-list .alt { display: none; }
   .pass-list li { grid-template-columns: auto 1fr; }
   .footer-status { border-radius: 12px; align-items: flex-start; }
+}
+
+/* ─── Responsive polish ─── overrides applied after the cascading
+   mobile rules above so they reliably win regardless of order. */
+@media (max-width: 800px) {
+  body {
+    /* Map keeps a usable minimum height in landscape phones (45-52vh on
+       a 375px-tall landscape viewport collapses to ~170-195px). dvh
+       avoids layout jumps on iOS Safari as the chrome shows/hides. */
+    grid-template-rows: minmax(280px, 50dvh) minmax(0, 1fr) auto;
+  }
+
+  /* Bigger zoom buttons for finger taps. */
+  .leaflet-control-zoom a {
+    width: 38px;
+    height: 38px;
+    line-height: 36px;
+    font-size: 22px;
+  }
+
+  /* Popup never exceeds the viewport; scrolls internally when content
+     is taller than the available space. */
+  .leaflet-popup-content {
+    max-height: calc(100dvh - 100px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
 }

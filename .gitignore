@@ -52,3 +52,10 @@ coverage/
 
 # Session / agent scratch
 .copilot/
+
+# Local automation / verification artifacts
+.playwright-mcp/
+_*-preview.html
+_*-test.html
+*-verify.png
+round*-*.png

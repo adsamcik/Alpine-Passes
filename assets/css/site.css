@@ -199,6 +199,24 @@ select option:checked {
 .dot.closed     { background: var(--closed); }
 .dot.unknown    { background: var(--unknown); }
 .dot.estimated  { border: 1px dashed rgba(255,255,255,.9); box-shadow: none; }
+.dot.poi {
+  background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%);
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg) translateY(-1px);
+  box-shadow: 0 0 0 2px rgba(0,0,0,.25);
+}
+.dot.poi.dim { background: linear-gradient(135deg, #94a3b8 0%, #475569 100%); }
+.legend-divider {
+  display: inline-block; width: 1px; height: 14px;
+  background: var(--border-strong); padding: 0; margin: 0 1px;
+  border: 0; box-shadow: none; background-clip: padding-box;
+}
+.legend-divider {
+  /* Override the default `.legend span { background … border … padding }`
+     so the divider really is just a thin separator. */
+  border: 0; padding: 0; background: var(--border-strong);
+  border-radius: 0;
+}
 
 /* Planner */
 .planner {
@@ -442,8 +460,9 @@ select option:checked {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Pass explorer */
-.pass-explorer {
+/* Pass explorer (now houses both passes & POIs via tabs). */
+.pass-explorer,
+.explorer {
   display: flex; flex-direction: column;
   margin-top: 12px;
   border-top: 1px solid var(--border);
@@ -453,6 +472,7 @@ select option:checked {
   display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
   padding: 14px 16px 8px;
 }
+.explorer-head-titles { min-width: 0; flex: 1; }
 .explorer-head h2 {
   display: flex; align-items: center; gap: 7px;
   margin: 0;
@@ -460,6 +480,38 @@ select option:checked {
   letter-spacing: -.01em;
 }
 .explorer-head .eyebrow { margin-bottom: 5px; }
+
+/* Tab strip — two segmented buttons under the eyebrow. */
+.explorer-tabs {
+  display: inline-flex; gap: 0;
+  background: rgba(255,255,255,.04);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 3px;
+}
+.explorer-tab {
+  appearance: none; background: transparent; color: var(--fg-dim);
+  border: 0; border-radius: 9px;
+  padding: 6px 11px;
+  font: 600 12.5px/1.1 system-ui,sans-serif;
+  cursor: pointer;
+  display: inline-flex; align-items: baseline; gap: 5px;
+  transition: background-color .12s ease, color .12s ease;
+}
+.explorer-tab:hover { color: var(--fg); }
+.explorer-tab.active {
+  background: var(--bg-3);
+  color: var(--fg);
+  box-shadow: 0 1px 2px rgba(0,0,0,.35);
+}
+.explorer-tab .tab-count {
+  font-style: normal; font-size: 11px; color: var(--fg-dim); font-weight: 500;
+}
+.explorer-tab.active .tab-count { color: var(--accent); }
+
+.tab-pane[hidden] { display: none; }
+.tab-pane { display: flex; flex-direction: column; }
+
 .controls {
   display: flex; gap: 8px; padding: 8px 16px 12px;
   border-bottom: 1px solid var(--border); align-items: center;
@@ -558,6 +610,40 @@ select option:checked {
   opacity: .7;
 }
 .pass-list .empty:hover { transform: none; box-shadow: none; border-color: var(--border-strong); }
+
+/* POI rows in the sidebar list (reuse .pass-list shell + extra modifiers). */
+.pass-list .poi-row .poi-row-glyph {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%);
+  color: #fff;
+  font-size: 14px;
+  box-shadow: 0 3px 9px rgba(76,29,149,.45), 0 0 0 1px rgba(0,0,0,.32);
+  flex: 0 0 auto;
+}
+.pass-list .poi-row .poi-row-glyph > * {
+  /* Counter-rotate the glyph back to upright. */
+  display: inline-block;
+  transform: rotate(45deg);
+}
+.pass-list .poi-row .poi-row-glyph[data-cat] { /* category-aware hook for future per-cat tints */ }
+.pass-list .poi-row.not-drivable .poi-row-glyph {
+  background: linear-gradient(135deg, #94a3b8 0%, #475569 100%);
+  opacity: .65;
+}
+.pass-list .poi-row .poi-row-badge {
+  font-size: 14px; color: var(--restricted);
+  align-self: center;
+  flex: 0 0 auto;
+}
+.pass-list .poi-row.selected {
+  background: rgba(124,58,237,.16);
+  border-color: rgba(167,139,250,.4);
+  box-shadow: inset 3px 0 0 #a78bfa, var(--shadow-soft);
+}
+.pass-list .poi-row.selected::after { color: #d8c5ff; }
 .pass-art-icon {
   display: inline-block;
   width: 38px;
@@ -1200,4 +1286,30 @@ body.picking #map { cursor: crosshair; }
     overflow-y: auto;
     overscroll-behavior: contain;
   }
+}
+
+/* ─── Input-feedback polish ──────────────────────────────────────────
+   Make disabled controls clearly inactive (was visually identical to
+   enabled), and give clicks on the pass-list items a "busy" cue while
+   the map flies to the marker. */
+
+button:disabled,
+input:disabled,
+select:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+button:disabled {
+  pointer-events: none;
+}
+input[type="range"]:disabled {
+  filter: grayscale(.6);
+}
+
+.pass-list li[aria-busy="true"],
+.pois-list li[aria-busy="true"] {
+  background: rgba(84, 209, 255, .09);
+  border-color: rgba(84, 209, 255, .22);
+  cursor: wait;
+  transform: none;
 }

@@ -1019,10 +1019,10 @@ function buildPopupHtml(p, status, wiki) {
       ` <span class="popup-source">${sourceBadgeHtml(status)}</span>`
     : `<span class="badge unknown">Loading…</span>`;
   const meta = [
-    `${p.elev} m`,
     status?.weather ? `🌡 ${status.weather}` : null,
     status?.since ? `since ${status.since}` : null,
   ].filter(Boolean).join(" · ");
+  const metaBlock = meta ? `<div class="popup-meta">${meta}</div>` : "";
   const info = status?.info
     ? `<div class="popup-info">${status.info.split("\n\n").map(par => `<p>${escapeHtml(par)}</p>`).join("")}</div>` : "";
   const tldrBlock = p.tldr
@@ -1049,9 +1049,12 @@ function buildPopupHtml(p, status, wiki) {
         <h2>${p.name}</h2>
         ${qualityStars(p.quality)}
       </div>
-      <div class="sub">${p.alt || ""}</div>
+      <div class="popup-headline">
+        <span class="popup-elev">${p.elev} m</span>
+        ${p.alt ? `<span class="popup-alt">${escapeHtml(p.alt)}</span>` : ""}
+      </div>
       <div class="popup-status">${stateLine}</div>
-      <div class="popup-meta">${meta}</div>
+      ${metaBlock}
       ${projectionBlock}
       ${openingBlock}
       ${historyBlock}
@@ -1077,17 +1080,18 @@ function whyRatingLine(p) {
   const sg = p.qualitySignals;
   let breakdown = "";
   if (sg && typeof sg.sB === "number") {
-    breakdown = ` <span class="why-sub" title="Agent sub-scores 0-10">`
-      + `<b>${sg.sB.toFixed(1)}</b> scenic`
-      + ` · <b>${sg.dE.toFixed(1)}</b> driving`
-      + ` · <b>${sg.sI.toFixed(1)}</b> summit`
-      + ` · <b>${sg.pp.toFixed(1)}</b> known`
+    breakdown =
+        `<span class="why-chips" title="Agent sub-scores 0-10">`
+      + `<span class="score-chip">scenic <b>${sg.sB.toFixed(1)}</b></span>`
+      + `<span class="score-chip">driving <b>${sg.dE.toFixed(1)}</b></span>`
+      + `<span class="score-chip">summit <b>${sg.sI.toFixed(1)}</b></span>`
+      + `<span class="score-chip">known <b>${sg.pp.toFixed(1)}</b></span>`
       + `</span>`;
   }
   if (!reasoning && !breakdown) return "";
   const cf = p.confidence;
   const cfTag = cf === "l" ? ' <span class="cf-tag" title="Low confidence — sparse data">·low confidence</span>' : "";
-  return `<div><b>${starStr}</b>${breakdown}${cfTag}</div>`
+  return `<div class="why-summary"><span class="why-stars"><b>${starStr}</b></span>${breakdown}${cfTag}</div>`
        + (reasoning ? `<div class="why-reasoning">${reasoning}</div>` : "");
 }
 

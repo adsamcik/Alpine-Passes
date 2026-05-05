@@ -1,3 +1,33 @@
+/* ───────────────────────── Alpine geographic filter ─────────────────────────
+   Approximates the Alpine Convention extent. Tuned to exclude Apennines (IT),
+   Jura (FR/CH), Vosges and Black Forest (FR/DE), Swabian and Bavarian Forest
+   (DE), Mühlviertel (AT), and the Velebit/Karst (HR) — ranges that frequently
+   leak into Alpine OSM `mountain_pass=yes` queries. Vertices are [lon, lat]
+   to match GeoJSON convention. */
+const ALPS_POLYGON = [
+  [5.00, 44.05], [5.05, 44.95], [5.55, 45.50], [5.85, 46.00],
+  [6.20, 46.30], [6.85, 46.85], [7.55, 47.05], [8.50, 47.40],
+  [9.55, 47.55], [10.55, 47.65], [11.50, 47.85], [12.40, 47.85],
+  [13.50, 48.00], [14.80, 48.20], [16.10, 48.15], [16.55, 47.65],
+  [16.55, 46.70], [15.70, 46.40], [14.50, 45.55], [13.65, 45.75],
+  [12.55, 45.85], [11.45, 45.65], [10.50, 45.50], [9.50, 45.40],
+  [8.65, 45.05], [8.40, 44.40], [8.05, 44.05], [7.55, 43.70],
+  [6.65, 43.65],
+];
+function pointInAlps(lon, lat) {
+  let inside = false;
+  const poly = ALPS_POLYGON;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const xi = poly[i][0], yi = poly[i][1];
+    const xj = poly[j][0], yj = poly[j][1];
+    if ((yi > lat) !== (yj > lat) &&
+        lon < (xj - xi) * (lat - yi) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
 /* Map common Swiss alpen-paesse.ch slugs from a pass name. */
 const SWISS_SLUG_RULES = [
   [/\balbulapass\b|\balbula\s*pass\b/i,                              "albulapass"],
@@ -98,7 +128,11 @@ function defaultStatus(p) {
 }
 
 /* Transform raw OSM data into our internal model. */
-const PASSES = ALPS_RAW.map((d, i) => {
+const ALPS_INPUT = ALPS_RAW.filter(d => pointInAlps(d.lo, d.la));
+if (ALPS_INPUT.length !== ALPS_RAW.length) {
+  console.info(`Filtered ${ALPS_RAW.length - ALPS_INPUT.length} non-Alpine entries (kept ${ALPS_INPUT.length}/${ALPS_RAW.length}).`);
+}
+const PASSES = ALPS_INPUT.map((d, i) => {
   const fullName = d.n;
   const parts = fullName.split(/\s*\/\s*|\s*-\s*/);
   const slug = swissSlug(fullName);
@@ -1271,7 +1305,7 @@ function renderAdvancedSelection() {
 function renderAdvancedPicker() {
   const q = advancedPassSearchEl.value.trim().toLowerCase();
   const items = selectablePlannerPasses()
-    .filter(passesOpenFilter)
+    .filter(passesAllFilters)
     .filter(p => passPickerMatches(p, q))
     .sort((a, b) => {
       const aSel = selectedPassIds.has(a.id) ? 1 : 0;
@@ -2295,7 +2329,12 @@ const searchEl = document.getElementById("search");
 const sortEl   = document.getElementById("sort");
 const sortOpenFirstEl = document.getElementById("sortOpenFirst");
 const showOpenOnlyEl = document.getElementById("showOpenOnly");
+const showNotableOnlyEl = document.getElementById("showNotableOnly");
 const VIEW_LIMIT = 80;
+
+/* "Notable" gates out low-confidence entries plus everything below this
+   quality cutoff. Tune here to widen or tighten the highlights filter. */
+const NOTABLE_MIN_QUALITY = 0.5;
 
 function inViewport(p) {
   return map.getBounds().contains([p.lat, p.lon]);
@@ -2303,8 +2342,17 @@ function inViewport(p) {
 function isOpenForDisplay(p) {
   return statusDisplay(passStatus(p)).state === "open";
 }
+function isNotablePass(p) {
+  return p.confidence !== "l" && (p.quality || 0) >= NOTABLE_MIN_QUALITY;
+}
 function passesOpenFilter(p) {
   return !showOpenOnlyEl.checked || isOpenForDisplay(p);
+}
+function passesNotableFilter(p) {
+  return !showNotableOnlyEl.checked || isNotablePass(p);
+}
+function passesAllFilters(p) {
+  return passesOpenFilter(p) && passesNotableFilter(p);
 }
 function compareBySelectedSort(a, b, sort, start) {
   if (sort === "name") return a.name.localeCompare(b.name);
@@ -2322,7 +2370,7 @@ function compareBySelectedSort(a, b, sort, start) {
 }
 function syncMarkerVisibility() {
   const visibleMarkers = PASSES
-    .filter(passesOpenFilter)
+    .filter(passesAllFilters)
     .map(p => p._marker)
     .filter(Boolean);
   passCluster.clearLayers();
@@ -2343,7 +2391,7 @@ function renderList() {
   let items = useSearch
     ? PASSES.filter(p => p.name.toLowerCase().includes(q) || (p.alt && p.alt.toLowerCase().includes(q)))
     : PASSES.filter(inViewport);
-  items = items.filter(passesOpenFilter);
+  items = items.filter(passesAllFilters);
 
   items = items.slice().sort((a, b) => {
     if (sortOpenFirstEl.checked) {
@@ -2357,9 +2405,14 @@ function renderList() {
   const total = items.length;
   const shown = items.slice(0, VIEW_LIMIT);
   const openOnly = showOpenOnlyEl.checked;
+  const notableOnly = showNotableOnlyEl.checked;
+  const filterTag = openOnly && notableOnly ? "open notable "
+                  : openOnly                 ? "open "
+                  : notableOnly              ? "notable "
+                  : "";
 
   if (shown.length === 0) {
-    listEl.innerHTML = `<li class="empty">No ${openOnly ? "open " : ""}passes ${useSearch ? "match" : "in view"}.</li>`;
+    listEl.innerHTML = `<li class="empty">No ${filterTag}passes ${useSearch ? "match" : "in view"}.</li>`;
   } else {
     listEl.innerHTML = shown.map(p => {
       const status = passStatus(p);
@@ -2396,8 +2449,8 @@ function renderList() {
   }
 
   noteEl.textContent = useSearch
-    ? `${total} ${openOnly ? "open " : ""}match${total === 1 ? "" : "es"}${total > VIEW_LIMIT ? ` (showing first ${VIEW_LIMIT})` : ""}`
-    : `${total} ${openOnly ? "open " : ""}in view${total > VIEW_LIMIT ? ` (showing first ${VIEW_LIMIT})` : ""} · ${PASSES.filter(passesOpenFilter).length} ${openOnly ? "open " : ""}total`;
+    ? `${total} ${filterTag}match${total === 1 ? "" : "es"}${total > VIEW_LIMIT ? ` (showing first ${VIEW_LIMIT})` : ""}`
+    : `${total} ${filterTag}in view${total > VIEW_LIMIT ? ` (showing first ${VIEW_LIMIT})` : ""} · ${PASSES.filter(passesAllFilters).length} ${filterTag}total`;
 }
 
 searchEl.addEventListener("input", renderList);
@@ -2405,6 +2458,7 @@ sortEl  .addEventListener("change", renderList);
 sortOpenFirstEl.addEventListener("change", renderList);
 startSel.addEventListener("change", renderList);
 showOpenOnlyEl.addEventListener("change", syncOpenOnlyFilter);
+showNotableOnlyEl.addEventListener("change", syncOpenOnlyFilter);
 
 /* Debounce viewport-driven re-renders: panning fires moveend many times
    per second; renderList() is cheap (~5 ms) but rebuilding 80 li's is

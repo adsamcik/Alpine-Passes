@@ -185,6 +185,11 @@ const STATUS_SOURCE_META = {
   estimate: { className: "est",  label: "Estimate", title: "Elevation/month seasonal estimate" },
   unknown:  { className: "unknown", label: "Unknown", title: "No status source" },
 };
+const ICON_SPRITE = "assets/icons.svg";
+
+function iconSvg(id, className = "app-icon") {
+  return `<svg class="${className}" aria-hidden="true"><use href="${ICON_SPRITE}#${id}"></use></svg>`;
+}
 
 function isEstimatedStatus(status) {
   return !!status && (status.estimated || status.source === "estimate");
@@ -974,13 +979,106 @@ const map = L.map("map", {
   fadeAnimation: true,
   inertia: true,
   inertiaDeceleration: 2200,
-  /* Fractional zoom for buttery wheel/pinch — MapLibre handles fractional
-     levels natively, and Leaflet now animates between them. */
+  /* Fractional zoom — used by double-click and keyboard zoom. Wheel zoom
+     is handled by our smooth-zoom rAF loop below. */
   zoomSnap: 0,
   zoomDelta: 0.5,
-  wheelPxPerZoomLevel: 110,
-  wheelDebounceTime: 30,
+  scrollWheelZoom: false,
 }).setView([46.7, 10.0], 7);
+
+/* ───────────────────── Smooth wheel zoom (Google-Maps style) ─────────────────────
+   Replaces Leaflet's default stepped wheel zoom with continuous, frame-by-frame
+   interpolation toward an accumulated target zoom. Uses Leaflet's internal
+   `_move(center, zoom)` per rAF (events on) so that:
+     · The maplibre bridge's `zoom`/`move` listeners fire each frame and the
+       WebGL basemap follows along seamlessly via setCenter/setZoom.
+     · Per-marker `zoom` handlers reposition icons each frame (smooth visual).
+     · `zoomstart`/`zoomend` are NOT spammed, so MarkerClusterGroup doesn't
+       reflow 60 times/sec — only when the gesture settles.
+   At the end of the gesture, `_moveEnd(true)` fires zoomend+moveend exactly
+   once, letting the cluster, route polylines and bridge cleanly commit. */
+const SMOOTH_WHEEL_SENSITIVITY = 0.0035;  // wheel-pixels → target zoom-levels
+const SMOOTH_WHEEL_LERP = 0.30;           // 0..1 approach factor per frame
+const SMOOTH_WHEEL_END_DELAY = 200;       // ms after last wheel before settling
+const SMOOTH_WHEEL_STOP = 0.005;          // |goal-cur| below this is "done"
+
+let _smoothActive = false;
+let _smoothGoalZoom = 0;
+let _smoothCursorPoint = null;
+let _smoothCenterPoint = null;
+let _smoothAnchorLatLng = null;
+let _smoothRAF = 0;
+let _smoothEndTimer = 0;
+
+function _smoothBegin(e) {
+  _smoothActive = true;
+  map.stop();
+  _smoothCenterPoint = map.getSize().divideBy(2);
+  _smoothCursorPoint = map.mouseEventToContainerPoint(e);
+  _smoothAnchorLatLng = map.containerPointToLatLng(_smoothCursorPoint);
+  _smoothGoalZoom = map.getZoom();
+  map._moveStart(true, false);
+}
+
+function _smoothFinalise() {
+  if (!_smoothActive) return;
+  _smoothActive = false;
+  if (_smoothRAF) { cancelAnimationFrame(_smoothRAF); _smoothRAF = 0; }
+  map._moveEnd(true);
+}
+
+function _smoothTick() {
+  _smoothRAF = 0;
+  if (!_smoothActive) return;
+  const cur = map.getZoom();
+  const diff = _smoothGoalZoom - cur;
+  if (Math.abs(diff) < SMOOTH_WHEEL_STOP) return;
+
+  let next = cur + diff * SMOOTH_WHEEL_LERP;
+  next = Math.round(next * 1000) / 1000;
+
+  /* Keep _smoothAnchorLatLng under _smoothCursorPoint at the new zoom by
+     projecting the anchor at `next`, subtracting cursor offset from view
+     centre, and unprojecting to get the new map centre. */
+  const cursorOffset = _smoothCursorPoint.subtract(_smoothCenterPoint);
+  const newCenter = map.unproject(
+    map.project(_smoothAnchorLatLng, next).subtract(cursorOffset),
+    next
+  );
+  map._move(newCenter, next);
+  _smoothRAF = requestAnimationFrame(_smoothTick);
+}
+
+map.getContainer().addEventListener("wheel", e => {
+  if (!e.deltaY) return;
+  const at = map.getZoom();
+  const minZ = map.getMinZoom();
+  const maxZ = map.getMaxZoom();
+  /* At a hard zoom limit in the wheel direction → leave default scroll
+     behaviour alone so the page can scroll as expected. */
+  const goalAtLimit = (at <= minZ && e.deltaY > 0) || (at >= maxZ && e.deltaY < 0);
+  if (goalAtLimit) return;
+
+  e.preventDefault();
+  if (!_smoothActive) _smoothBegin(e);
+
+  /* Refresh the cursor anchor each event — handles cursor moving between
+     wheel ticks (e.g. trackpad gestures with built-in jitter). */
+  _smoothCursorPoint = map.mouseEventToContainerPoint(e);
+  _smoothAnchorLatLng = map.containerPointToLatLng(_smoothCursorPoint);
+
+  const lineMul = e.deltaMode === 1 ? 16 : 1;       // Firefox line-mode
+  /* Browser-pinch on trackpad arrives as wheel + ctrlKey with much larger
+     deltaY values; tone it down so a pinch isn't a 3-level jump. */
+  const ctrlMul = e.ctrlKey ? 0.5 : 1;
+  const delta = -e.deltaY * lineMul * ctrlMul * SMOOTH_WHEEL_SENSITIVITY;
+
+  _smoothGoalZoom = Math.max(minZ, Math.min(maxZ, _smoothGoalZoom + delta));
+
+  if (!_smoothRAF) _smoothRAF = requestAnimationFrame(_smoothTick);
+  clearTimeout(_smoothEndTimer);
+  _smoothEndTimer = setTimeout(_smoothFinalise, SMOOTH_WHEEL_END_DELAY);
+}, { passive: false });
 
 const baseLayers = buildVectorBaseLayers();
 const defaultBaseLayerName = VECTOR_BASEMAPS[0].name;
@@ -996,7 +1094,7 @@ function makeMarkerIcon(statusOrState, badgeNumber = null, estimated = false) {
   const badge = badgeNumber != null ? `<div class="tour-badge">${badgeNumber}</div>` : "";
   return L.divIcon({
     className: "",
-    html: `<div class="pass-marker-wrap"><div class="pass-marker ${cls}"></div>${badge}</div>`,
+    html: `<div class="pass-marker-wrap"><div class="pass-marker ${cls}">${iconSvg("alpine-status", "marker-icon")}</div>${badge}</div>`,
     iconSize: [24, 24], iconAnchor: [12, 12],
   });
 }
@@ -2434,7 +2532,7 @@ function renderList() {
       const dist  = start ? `· ${Math.round(haversine(start, p))} km from ${start.name}` : "";
       const selected = advancedModeEl.checked && selectedPassIds.has(p.id);
       return `<li data-id="${p.id}" class="${selected ? "selected" : ""}" title="${advancedModeEl.checked ? "Select this pass for the route" : "Zoom to this pass"}">
-        <span class="dot ${statusView.className}" aria-hidden="true"></span>
+        ${iconSvg("alpine-status", `status-icon ${statusView.className}`)}
         <span>
           <div class="name">${p.name} ${qualityStarsCompact(p.quality)}</div>
           <div class="meta">${p.elev} m · ${label} · ${sourceLabel} ${dist}</div>

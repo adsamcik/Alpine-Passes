@@ -1077,6 +1077,17 @@ select option:checked {
 .overlay-meta { color: var(--fg-dim); font-size: 11px; }
 .leaflet-control-layers-overlays label { display: flex; align-items: center; }
 
+/* Compact planner — the planner is open by default and was eating most
+   of the sidebar height, pushing the pass list below the fold even on
+   tall viewports. Tighten internal paddings/gaps so the list is reachable
+   without scrolling. */
+.planner > summary { padding: 11px 14px 9px; }
+.planner-body { padding: 10px; gap: 8px; }
+.planner-card { padding: 10px; gap: 8px; }
+.planner-card.compact { gap: 6px; }
+.planner-body label.check { padding: 7px 10px; }
+.planner-body label > span { margin-bottom: 3px; }
+
 /* Cluster markers — match dark theme */
 .marker-cluster div { background-color: rgba(76,201,240,.85); color:#0b0e10; font-weight: 700; }
 .marker-cluster     { background-color: rgba(76,201,240,.30); }

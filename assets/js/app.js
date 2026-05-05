@@ -132,12 +132,14 @@ const ALPS_INPUT = ALPS_RAW.filter(d => pointInAlps(d.lo, d.la));
 if (ALPS_INPUT.length !== ALPS_RAW.length) {
   console.info(`Filtered ${ALPS_RAW.length - ALPS_INPUT.length} non-Alpine entries (kept ${ALPS_INPUT.length}/${ALPS_RAW.length}).`);
 }
+const PASS_CAMS_MAP = (typeof window !== "undefined" && window.PASS_CAMS) || {};
 const PASSES = ALPS_INPUT.map((d, i) => {
   const fullName = d.n;
   const parts = fullName.split(/\s*\/\s*|\s*-\s*/);
   const slug = swissSlug(fullName);
   return {
     id: "p" + i,
+    rawName: fullName,
     name: parts[0].trim(),
     alt: parts.length > 1 ? parts.slice(1).join(" / ").trim() : "",
     elev: d.e,
@@ -165,6 +167,33 @@ const PASSES = ALPS_INPUT.map((d, i) => {
     wikiLang: d.wl || "en",
     wikiTitle: d.wt || fullName.replace(/\s+/g, "_"),
   };
+});
+
+/* Attach live-cam links: curated set (passes-cams.js) + auto-added entries
+   for Swiss passes (their alpen-paesse.ch detail page hosts cam embeds) +
+   a generic "more nearby" Windy.com pin anchored on lat/lon. Pass with no
+   curated/auto entries get no cams section. */
+PASSES.forEach(p => {
+  const cams = [];
+  const curated = PASS_CAMS_MAP[p.rawName];
+  if (Array.isArray(curated) && curated.length) cams.push(...curated);
+  if (p.slug) {
+    cams.push({
+      l: "Live cams on alpen-paesse.ch",
+      u: `https://www.alpen-paesse.ch/en/alpenpaesse/${p.slug}/#webcams`,
+      s: "alpen-paesse.ch",
+    });
+  }
+  if (cams.length) {
+    cams.push({
+      l: "More webcams nearby",
+      u: `https://www.windy.com/-Webcams/${p.lat.toFixed(4)}/${p.lon.toFixed(4)}/12`,
+      s: "windy.com",
+    });
+    p.cams = cams;
+  } else {
+    p.cams = null;
+  }
 });
 const PASS_BY_ID = new Map(PASSES.map(p => [p.id, p]));
 
@@ -1145,6 +1174,14 @@ function buildPopupHtml(p, status, wiki) {
     : "";
   const whyLine = whyRatingLine(p);
   const whyBlock = whyLine ? `<div class="popup-why">${whyLine}</div>` : "";
+  const camsBlock = p.cams && p.cams.length
+    ? `<div class="popup-cams" aria-label="Live webcams">
+         <div class="popup-cams-label">📹 Live cams</div>
+         <ul class="popup-cams-list">
+           ${p.cams.map(c => `<li><a href="${escapeHtml(c.u)}" target="_blank" rel="noopener"><span class="cam-label">${escapeHtml(c.l)}</span><span class="cam-source">${escapeHtml(c.s)}</span></a></li>`).join("")}
+         </ul>
+       </div>`
+    : "";
   const linkParts = [];
   if (passDetail) linkParts.push(`<a href="${passDetail}" target="_blank" rel="noopener">↗ alpen-paesse.ch</a>`);
   linkParts.push(`<a href="${wikiHref}" target="_blank" rel="noopener">↗ Wikipedia</a>`);
@@ -1167,6 +1204,7 @@ function buildPopupHtml(p, status, wiki) {
       ${tldrBlock}
       ${whyBlock}
       ${info}
+      ${camsBlock}
       <div class="popup-links">${linkParts.join("")}</div>
     </div></div>`;
 }

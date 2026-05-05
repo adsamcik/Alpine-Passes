@@ -24,6 +24,7 @@
 
 <link rel="stylesheet" href="assets/css/site.css">
 <script src="assets/js/passes-data.js" defer></script>
+<script src="assets/js/passes-cams.js" defer></script>
 <script src="assets/js/app.js" defer></script>
 </head>
 <body>
@@ -44,12 +45,12 @@
   <div class="sidebar-scroll">
     <details class="planner" id="planner" open>
       <summary>
-        <span class="summary-title"><span aria-hidden="true">🧭</span> Plan a sightseeing tour</span>
+        <span class="summary-title"><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-compass"></use></svg> Plan a sightseeing tour</span>
         <span class="summary-subtitle">Start, date, route size and pass confidence</span>
       </summary>
       <div class="planner-body">
         <div class="planner-card">
-          <div class="section-label">Route basics</div>
+          <div class="section-label"><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-route"></use></svg> Route basics</div>
           <label>
             <span>Start point</span>
             <div class="start-row">
@@ -75,7 +76,7 @@
                 <option value="munich">Munich (DE)</option>
                 <option value="custom" disabled>(custom — click map)</option>
               </select>
-              <button id="planPick" type="button" title="Click on map to set start" aria-label="Pick a custom start point on the map" aria-pressed="false">📍</button>
+              <button id="planPick" type="button" title="Click on map to set start" aria-label="Pick a custom start point on the map" aria-pressed="false"><svg class="button-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-pin"></use></svg></button>
             </div>
           </label>
           <label>
@@ -90,7 +91,7 @@
         </div>
 
         <div class="planner-card compact">
-          <div class="section-label">Planning mode</div>
+          <div class="section-label"><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-tune"></use></svg> Planning mode</div>
           <label class="check">
             <input id="planOpenOnly" type="checkbox" checked>
             <span>Projected open/restricted only <em>(guesses are marked)</em></span>
@@ -116,7 +117,7 @@
     </details>
 
     <details class="legend-panel">
-      <summary>Status legend</summary>
+      <summary><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-legend"></use></svg> Status legend</summary>
       <section class="legend" aria-label="Pass status legend">
         <span><span class="dot open" aria-hidden="true"></span>Open</span>
         <span><span class="dot restricted" aria-hidden="true"></span>Restrictions</span>
@@ -130,7 +131,7 @@
       <div class="explorer-head">
         <div>
           <p class="eyebrow">Explore</p>
-          <h2>Passes in view</h2>
+          <h2><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-explore"></use></svg> Passes in view</h2>
         </div>
         <div class="list-footnote" id="listNote">…</div>
       </div>
@@ -165,7 +166,7 @@
 
 <footer class="site-footer">
   <span class="footer-status" id="updated"><span id="updatedText">Loading live status…</span><button id="refreshBtn" type="button"
-    class="refresh-button" title="Reload page; live source cache refreshes daily">↻ reload</button></span>
+    class="refresh-button" title="Reload page; live source cache refreshes daily"><svg class="button-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-reload"></use></svg> reload</button></span>
   <span id="mapInfo">Vector map initialising…</span>
   <span class="footer-credits">Vector tiles © <a href="https://openfreemap.org/" target="_blank" rel="noopener">OpenFreeMap</a> /
         <a href="https://openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a> ·

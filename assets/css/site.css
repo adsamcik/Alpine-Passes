@@ -747,6 +747,57 @@ select, input[type="search"], input[type="date"] { color-scheme: dark; }
   color: var(--fg); font-weight: 700;
 }
 
+/* Live webcams section in the pass popup. */
+.popup-cams {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.popup-cams-label {
+  font-size: 11px;
+  color: var(--fg-dim);
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.popup-cams-list {
+  margin: 0; padding: 0; list-style: none;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.popup-cams-list a {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 12px;
+  padding: 7px 11px;
+  background: rgba(255, 255, 255, .04);
+  border: 1px solid rgba(255, 255, 255, .07);
+  border-radius: 7px;
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 13px;
+  line-height: 1.3;
+  transition: background-color .12s ease, border-color .12s ease;
+}
+.popup-cams-list a:hover {
+  background: rgba(84, 209, 255, .10);
+  border-color: rgba(84, 209, 255, .25);
+  text-decoration: none;
+}
+.popup-cams-list .cam-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.popup-cams-list .cam-source {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--fg-dim);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  font-weight: 600;
+}
+
 /* Route tooltip */
 .route-three-pass { --route-color: #ff9f1c; }
 .route-four-pass { --route-color: #e63946; }

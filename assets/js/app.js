@@ -1669,6 +1669,17 @@ async function osrmRoute(coordsStr) {
 
    Returns: { perm: [{passIdx, enterSide, exitSide, mode}], km, h, k,
               totalQuality, inRange, modes } */
+
+/* Quality scoring knobs for bestTourGated. Without these, traceQuality
+   is a raw sum and the planner stuffs the route with mediocre filler.
+     PASS_QUALITY_POWER  exponent on per-visit raw quality. >1 emphasises
+                         individual pass quality over headcount.
+     PASS_PER_VISIT_COST flat cost subtracted per pass. Sub-median passes
+                         contribute negatively, so they only get added
+                         when they meaningfully fill out a tour. */
+const PASS_QUALITY_POWER = 3;
+const PASS_PER_VISIT_COST = 1.0;
+
 function bestTourGated(matrix, N, targetKm, tolerance, maxPasses, passQ) {
   const cap = Math.min(maxPasses, N);
   if (N === 0) return null;
@@ -1677,7 +1688,6 @@ function bestTourGated(matrix, N, targetKm, tolerance, maxPasses, passQ) {
   const SIZE = 1 << N;
   const dist = matrix.dist;
   const Q = passQ || new Array(N).fill({ qSummit: 0.5, qApproach: 0.5 });
-
   /* Matrix index helper: pass i, point p ∈ {0=A, 1=summit, 2=B}. */
   const mi = (i, p) => 1 + 3 * i + p;
   const baseA = (i) => mi(i, 0), summit = (i) => mi(i, 1), baseB = (i) => mi(i, 2);
@@ -1696,9 +1706,17 @@ function bestTourGated(matrix, N, targetKm, tolerance, maxPasses, passQ) {
   }
   function visitQuality(i, enterSide, exitSide) {
     const q = Q[i];
-    return enterSide === exitSide
+    const raw = enterSide === exitSide
       ? q.qApproach + q.qSummit       // out-and-back: one approach + summit
       : 2 * q.qApproach + q.qSummit;  // traversal: both approaches + summit
+    /* Cube transform + per-pass cost so the planner stops stuffing the
+       route with low-quality filler. Without this, traceQuality is a
+       pure sum of raw quality and an extra mediocre pass *always* lifts
+       the score, leading to e.g. five Pre-Alps cols beating one Klausen.
+       The cube emphasises individual pass quality (a 0.9-quality pass is
+       ~3× more valuable than a 0.6-quality pass instead of 1.5×); the
+       constant cost makes a sub-median pass hurt the tour score. */
+    return Math.pow(raw, PASS_QUALITY_POWER) - PASS_PER_VISIT_COST;
   }
 
   /* g[mask*N*2 + i*2 + s] = min metres tour-segment cost reaching exit-side

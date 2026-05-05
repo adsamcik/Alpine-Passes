@@ -24,7 +24,9 @@
 
 <link rel="stylesheet" href="assets/css/site.css">
 <script src="assets/js/passes-data.js" defer></script>
+<script src="assets/js/swiss-pois.js" defer></script>
 <script src="assets/js/passes-cams.js" defer></script>
+<script src="assets/js/pass-icons.js" defer></script>
 <script src="assets/js/app.js" defer></script>
 </head>
 <body>
@@ -102,13 +104,23 @@
           </label>
           <div class="advanced-planner" id="advancedPlanner" hidden>
             <div class="advanced-planner-head">
-              <span><strong id="selectedPassCount">0</strong> selected <em>(max 10)</em></span>
-              <button id="clearSelectedPasses" type="button">Clear</button>
+              <span><strong id="selectedStopCount">0</strong> selected <em>(<span id="selectedPassMini">0</span> passes + <span id="selectedPoiMini">0</span> POIs · max 10)</em></span>
+              <button id="clearSelectedPasses" type="button">Clear all</button>
             </div>
+            <div class="advanced-section-label"><span aria-hidden="true">⛰</span> Passes</div>
             <input id="planPassSearch" type="search" placeholder="Search passes to add…" autocomplete="off" aria-label="Search selectable passes">
             <div class="selected-passes" id="selectedPasses" aria-live="polite"></div>
             <div class="pass-picker" id="planPassPicker" aria-label="Selectable passes"></div>
-            <p class="planner-help" id="advancedPlannerNote">Advanced mode optimizes the shortest loop through every selected pass and returns to the start.</p>
+            <div class="advanced-section-label"><span aria-hidden="true">📍</span> Sights / POIs <em class="planner-help inline">(car-accessible only)</em></div>
+            <div class="poi-filters">
+              <select id="planPoiRegion" aria-label="Filter POIs by region"><option value="">All regions</option></select>
+              <select id="planPoiCategory" aria-label="Filter POIs by category"><option value="">All categories</option></select>
+              <select id="planPoiTheme" aria-label="Filter POIs by theme"><option value="">All themes</option></select>
+            </div>
+            <input id="planPoiSearch" type="search" placeholder="Search sights to add…" autocomplete="off" aria-label="Search selectable POIs">
+            <div class="selected-passes" id="selectedPois" aria-live="polite"></div>
+            <div class="pass-picker" id="planPoiPicker" aria-label="Selectable POIs"></div>
+            <p class="planner-help" id="advancedPlannerNote">Advanced mode optimizes the shortest loop through every selected pass and POI, then returns to the start.</p>
           </div>
         </div>
         <button id="planRun" type="button">Plan optimal tour</button>

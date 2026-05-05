@@ -673,6 +673,150 @@ select option:checked {
   border: 2px solid #1a1300; box-shadow: 0 2px 4px rgba(0,0,0,.5);
 }
 
+/* ─────────────────────── POI markers + cluster ─────────────────────── */
+.poi-marker-wrap { position: relative; width: 22px; height: 22px; }
+.poi-marker {
+  width: 22px; height: 22px; border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%);
+  border: 2px solid rgba(255,255,255,.92);
+  box-shadow: 0 5px 14px rgba(76,29,149,.55), 0 0 0 1px rgba(0,0,0,.32);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+.poi-marker.dim {
+  /* Non-car POIs: visible on the map but visually de-emphasised, since
+     they cannot be added to a route. */
+  background: linear-gradient(135deg, #94a3b8 0%, #475569 100%);
+  opacity: .6;
+}
+.poi-marker-glyph {
+  transform: rotate(45deg);
+  font-size: 12px; line-height: 1;
+  color: #fff;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,.55));
+}
+.poi-tour-badge {
+  /* Re-anchor for the rotated POI marker. */
+  top: -10px; right: -10px;
+  background: #c084fc; color: #20063e;
+  border-color: #20063e;
+}
+.poi-cluster {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: rgba(124,58,237,.85);
+  border: 2px solid rgba(255,255,255,.92);
+  display: flex; align-items: center; justify-content: center;
+  font: 700 12px/1 system-ui,sans-serif; color: #fff;
+  box-shadow: 0 4px 12px rgba(76,29,149,.55);
+}
+.poi-overlay-swatch {
+  display: inline-block; width: 12px; height: 12px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg) translateY(-1px);
+  background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%);
+  margin-right: 8px; vertical-align: middle;
+}
+
+/* ─────────────────────── POI popup styling ─────────────────────── */
+.poi-popup .popup-head {
+  padding: 10px 14px 4px;
+}
+.poi-popup .popup-head-row {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;
+}
+.poi-popup .popup-title {
+  margin: 0; font-size: 15px; font-weight: 700; color: var(--fg);
+  line-height: 1.25;
+}
+.poi-cat-badge {
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px; border-radius: 999px;
+  font-size: 11px; font-weight: 600;
+  background: rgba(167,139,250,.18); color: #d8c5ff;
+  border: 1px solid rgba(167,139,250,.35);
+  white-space: nowrap;
+}
+.poi-popup .popup-meta {
+  font-size: 11.5px; color: var(--fg-dim); margin-top: 4px;
+}
+.poi-popup .popup-tldr {
+  margin: 0 0 8px; font-size: 13px; line-height: 1.45; color: var(--fg);
+}
+.poi-popup .popup-foot {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  padding: 10px 14px 12px;
+  border-top: 1px solid var(--border);
+}
+.popup-link {
+  color: var(--accent); text-decoration: none; font-size: 12px; font-weight: 600;
+}
+.popup-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.popup-add-btn {
+  background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%);
+  color: #fff; border: 0; border-radius: 8px;
+  padding: 6px 11px; font-size: 12px; font-weight: 600; cursor: pointer;
+  box-shadow: 0 3px 10px rgba(124,58,237,.4);
+}
+.popup-add-btn:hover { filter: brightness(1.08); }
+.poi-theme-chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0 8px; }
+.poi-theme-chip {
+  font-size: 10.5px; padding: 2px 7px; border-radius: 999px;
+  background: rgba(255,255,255,.06); color: var(--fg-dim);
+  border: 1px solid var(--border);
+}
+
+/* ─────────────────────── POI section in advanced planner ─────────────────────── */
+.advanced-section-label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11.5px; color: var(--fg-dim);
+  margin-top: 6px; padding-top: 8px;
+  border-top: 1px solid var(--border);
+  text-transform: uppercase; letter-spacing: .04em; font-weight: 600;
+}
+.advanced-section-label:first-of-type { border-top: 0; padding-top: 0; margin-top: 0; }
+.advanced-section-label .planner-help.inline {
+  text-transform: none; letter-spacing: 0; font-weight: 400;
+  font-size: 11px;
+}
+.poi-filters {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;
+}
+.poi-filters select {
+  background: var(--bg-3); color: var(--fg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 5px 7px; font-size: 11.5px; min-width: 0;
+}
+.selected-pass-chip.poi-chip {
+  background: rgba(124,58,237,.14); border-color: rgba(167,139,250,.35);
+}
+.selected-pass-chip.poi-chip .chip-glyph {
+  font-size: 12px; opacity: .9;
+}
+.pass-picker-row.poi-picker-row .pass-picker-name {
+  /* Glyph + name share the same line; the glyph already comes from JS. */
+  letter-spacing: 0;
+}
+
+/* ─────────────────────── Tour result rows (mixed) ─────────────────────── */
+.tour-stop {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 1px 0;
+}
+.tour-stop.poi-stop {
+  color: #d8c5ff;
+}
+.poi-stop-glyph {
+  font-size: 11px; opacity: .9;
+}
+.dwell-badge {
+  font-size: 10.5px; padding: 1px 6px; border-radius: 999px;
+  background: rgba(124,58,237,.18); color: #d8c5ff;
+  border: 1px solid rgba(167,139,250,.35);
+  font-weight: 500;
+}
+.time-breakdown { color: var(--fg-dim); font-size: 11px; font-weight: 400; }
+
 .leaflet-popup-content-wrapper {
   background: rgba(20,28,34,.98); color: var(--fg);
   border: 1px solid var(--border-strong); border-radius: 16px;
@@ -928,11 +1072,8 @@ select option:checked {
   font-weight: 600;
 }
 
-/* Layer-control overlay rows (POI etc.) */
-.poi-overlay-swatch {
-  display: inline-block; width: 10px; height: 10px; border-radius: 50%;
-  background: var(--accent-2); margin-right: 6px;
-}
+/* Layer-control overlay rows (the POI swatch is defined earlier, with the
+   POI-marker visual identity, so the rows match the on-map markers). */
 .overlay-meta { color: var(--fg-dim); font-size: 11px; }
 .leaflet-control-layers-overlays label { display: flex; align-items: center; }
 

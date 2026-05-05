@@ -1324,7 +1324,36 @@ function passIconHtml(p, className = "pass-art-icon") {
   if (!p.iconAsset) return "";
   const cell = Math.max(0, Math.min(4, Number(p.iconAsset.cell) || 0));
   const pos = cell === 0 ? "0%" : `${cell * 25}%`;
-  return `<span class="${className}" role="img" aria-label="${escapeHtml(p.name)} icon" style="background-image:url('${escapeHtml(p.iconAsset.sheet)}');background-position:${pos} center"></span>`;
+  return `<span class="${className} lazy-pass-icon" role="img" aria-label="${escapeHtml(p.name)} icon" data-pass-icon-sheet="${escapeHtml(p.iconAsset.sheet)}" data-pass-icon-position="${pos} center"></span>`;
+}
+
+const passIconObserver = "IntersectionObserver" in window
+  ? new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        loadPassIcon(entry.target);
+        passIconObserver.unobserve(entry.target);
+      });
+    }, { rootMargin: "240px 0px" })
+  : null;
+
+function loadPassIcon(el) {
+  const sheet = el?.dataset?.passIconSheet;
+  if (!sheet || el.dataset.passIconLoaded === "true") return;
+  el.style.backgroundImage = `url("${sheet}")`;
+  el.style.backgroundPosition = el.dataset.passIconPosition || "center";
+  el.dataset.passIconLoaded = "true";
+  delete el.dataset.passIconSheet;
+  delete el.dataset.passIconPosition;
+}
+
+function lazyLoadPassIcons(root = document, immediate = false) {
+  const icons = root.querySelectorAll?.(".lazy-pass-icon[data-pass-icon-sheet]");
+  if (!icons?.length) return;
+  icons.forEach(icon => {
+    if (immediate || !passIconObserver) loadPassIcon(icon);
+    else passIconObserver.observe(icon);
+  });
 }
 
 /* "Why this rating" line — uses the LLM reasoning sentence as the primary
@@ -1381,10 +1410,12 @@ PASSES.forEach(p => {
   m.on("popupopen", async () => {
     if (!m._popupBuilt) {
       m.setPopupContent(buildPopupHtml(p, passStatus(p), null));
+      lazyLoadPassIcons(m.getPopup()?.getElement(), true);
       m._popupBuilt = true;
     }
     const wiki = await fetchWiki(p.wikiTitle, p.wikiLang);
     m.setPopupContent(buildPopupHtml(p, passStatus(p), wiki));
+    lazyLoadPassIcons(m.getPopup()?.getElement(), true);
   });
   m.bindPopup("…", { maxWidth: 300, autoPan: true });
   passMarkers.push(m);
@@ -1869,10 +1900,18 @@ function clearPlannedTour() {
   const oldTourIds = plannedTourIds;
   plannedTourIds = [];
   oldTourIds.forEach(id => {
-    const p = PASSES.find(x => x.id === id);
-    if (p && p._marker) {
-      updatePassMarkerIcon(p);
-      p._marker.setZIndexOffset(0);
+    /* IDs may be either a pass ("p<i>") or a POI ("poi<i>"); reset whichever
+       this id maps to. */
+    const pass = PASS_BY_ID.get(id);
+    if (pass && pass._marker) {
+      updatePassMarkerIcon(pass);
+      pass._marker.setZIndexOffset(0);
+      return;
+    }
+    const poi = POI_BY_ID.get(id);
+    if (poi && poi._marker) {
+      poi._marker.setIcon(makePoiIcon(poi));
+      poi._marker.setZIndexOffset(0);
     }
   });
 }
@@ -2746,29 +2785,36 @@ function showPlanResult(r) {
   if (r.loading) {
     planResult.setAttribute("aria-busy", "true");
     const title = r.advanced ? "Optimizing selected route…" : "Planning best tour…";
-    const detail = r.advanced ? "Checking selected passes and route order." : "Scoring candidates, routing, and avoiding projected closures.";
+    const detail = r.advanced ? "Checking selected stops and route order." : "Scoring candidates, routing, and avoiding projected closures.";
     planResult.innerHTML = `<div class="loading-row"><span class="spinner" aria-hidden="true"></span><span><strong>${title}</strong><span>${detail}</span></span></div>`;
     return;
   }
   if (r.error)   { planResult.innerHTML = `<div class="warn">${r.error}</div>`; return; }
+  /* Auto-discovery flow still uses `tourPasses`; advanced flow now uses
+     `tourStops`. Accept either for backwards compatibility. */
+  const stops = r.tourStops || r.tourPasses || [];
   const arrow = ' <span class="arrow">→</span> ';
-  /* Annotate each pass with its visit mode: traversal or summit-and-back. */
-  const passList = r.tourPasses.map((p, i) => {
+  const stopList = stops.map((p, i) => {
     const t = r.modes[i];
-    const modeBadge = t.mode === "out-and-back"
+    if (p.isPoi) {
+      const dwell = p.visitDwellSec ? ` <span class="dwell-badge" title="Typical visit time">${(p.visitDwellSec / 3600).toFixed(1)}h</span>` : "";
+      return `<span class="tour-stop poi-stop"><span class="poi-stop-glyph" title="${escapeHtml(poiCategoryLabel(p.poiCategory))}">${poiCategoryGlyph(p.poiCategory)}</span> ${escapeHtml(p.name)}${dwell}</span>`;
+    }
+    const modeBadge = t?.mode === "out-and-back"
       ? ` <span class="mode-badge" title="Visit summit and return same way">↻</span>`
       : ``;
-    return `${p.name}${modeBadge}${qualityStarsCompact(p.quality)}`;
+    return `<span class="tour-stop pass-stop">${escapeHtml(p.name)}${modeBadge}${qualityStarsCompact(p.quality)}</span>`;
   }).join(arrow);
-  const avgQ = r.tourPasses.length
-    ? r.tourPasses.reduce((s, p) => s + (p.quality || 0), 0) / r.tourPasses.length
+  const passOnly = stops.filter(p => !p.isPoi);
+  const avgQ = passOnly.length
+    ? passOnly.reduce((s, p) => s + (p.quality || 0), 0) / passOnly.length
     : 0;
-  const obCount = r.modes.filter(m => m.mode === "out-and-back").length;
+  const obCount = (r.modes || []).filter(m => m.mode === "out-and-back").length;
   const modeNote = obCount > 0
-    ? `<div class="popup-meta tight"><span class="mode-badge">↻</span> ${obCount} of ${r.modes.length} passes visited summit-and-back</div>`
+    ? `<div class="popup-meta tight"><span class="mode-badge">↻</span> ${obCount} of ${passOnly.length} pass${passOnly.length === 1 ? "" : "es"} visited summit-and-back</div>`
     : "";
   const qualityLine = avgQ > 0
-    ? `<div class="popup-meta tight">Tour quality: <strong class="tour-quality">${"★".repeat(Math.round(avgQ * 5))}</strong> <span>(avg ${avgQ.toFixed(2)})</span></div>`
+    ? `<div class="popup-meta tight">Pass quality: <strong class="tour-quality">${"★".repeat(Math.round(avgQ * 5))}</strong> <span>(avg ${avgQ.toFixed(2)})</span></div>`
     : "";
   const warn = !r.inRange
     ? `<div class="warn">No tour within ±20% of ${r.targetKm} km. Showing closest fit.</div>` : "";
@@ -2779,18 +2825,32 @@ function showPlanResult(r) {
   const avoided = r.avoided
     ? `<div class="popup-meta tight success">↻ Re-planned to avoid closed pass${r.avoided.length > 1 ? "es" : ""}: ${r.avoided.join(", ")}</div>` : "";
   const title = r.advanced ? "Optimized selected route" : "Best tour";
+  /* Time accounting — drive vs dwell vs total. Auto-discovery mode has no
+     POIs and so dwellH = 0 / totalH = driveH; only show the breakdown when
+     dwell time is nonzero to keep the line concise. */
+  const driveH = r.driveH ?? r.h ?? 0;
+  const dwellH = r.dwellH ?? 0;
+  const totalH = r.totalH ?? driveH;
+  const timeBlock = dwellH > 0
+    ? `~<strong>${fmtDuration(totalH)}</strong> total <span class="time-breakdown">(${fmtDuration(driveH)} driving + ${fmtDuration(dwellH)} on site)</span>`
+    : `~<strong>${fmtDuration(driveH)}</strong> driving`;
+  const passN = passOnly.length;
+  const poiN  = stops.length - passN;
+  const stopSummary = poiN > 0
+    ? `<strong>${passN}</strong> pass${passN === 1 ? "" : "es"} + <strong>${poiN}</strong> POI${poiN === 1 ? "" : "s"}`
+    : `<strong>${r.matched}</strong> selected pass${r.matched === 1 ? "" : "es"}`;
   const statsLine = r.advanced
-    ? `<strong>${r.matched}</strong> selected pass${r.matched === 1 ? "" : "es"} ·
-       <strong>${Math.round(r.km)} km</strong> · ~<strong>${fmtDuration(r.h)}</strong> driving`
+    ? `${stopSummary} ·
+       <strong>${Math.round(r.km)} km</strong> · ${timeBlock}`
     : `<strong>${r.matched}</strong> of ${r.poolSize} candidates
        ${r.openOnly ? `(out of ${r.totalOpen} projected open/restricted passes)` : ""} ·
-       <strong>${Math.round(r.km)} km</strong> · ~<strong>${fmtDuration(r.h)}</strong> driving`;
+       <strong>${Math.round(r.km)} km</strong> · ${timeBlock}`;
   const tripDateLine = r.tripDate
     ? `<div class="popup-meta tight projection${daysBetweenDates(todayLocalDate(), r.tripDate) > 0 ? " guess" : ""}">Trip date: ${escapeHtml(formatTripDate(r.tripDate))} · projected pass states; guesses are marked “Likely” / “guess”.</div>`
     : "";
   planResult.innerHTML = `
     <h3>${title} from ${r.start.name}</h3>
-    <div class="tour-passes">${passList}</div>
+    <div class="tour-passes">${stopList}</div>
     <div class="stats">${statsLine}</div>
     ${tripDateLine}
     ${qualityLine}
@@ -2806,8 +2866,8 @@ function showPlanResult(r) {
   };
 }
 
-function drawPlannedTour(start, tourPasses, latlngs) {
-  plannedTourIds = tourPasses.map(p => p.id);
+function drawPlannedTour(start, tourStops, latlngs) {
+  plannedTourIds = tourStops.map(p => p.id);
   plannedLayer = L.layerGroup().addTo(map);
   plannedStartMarker = L.marker([start.lat, start.lon], {
     icon: L.divIcon({
@@ -2817,9 +2877,20 @@ function drawPlannedTour(start, tourPasses, latlngs) {
     }), zIndexOffset: 500,
   }).addTo(map).bindTooltip(`Start: ${start.name}`, { direction: "top", offset: [0, -12] });
 
-  tourPasses.forEach((p, idx) => {
-    p._marker.setIcon(makeMarkerIcon(passStatus(p), idx + 1));
-    p._marker._currentState = `${statusSignature(passStatus(p))}:${idx + 1}`;
+  /* Auto-add the POI cluster if any POIs are in this tour, so user sees them
+     even if they hadn't enabled the POI layer. */
+  if (tourStops.some(p => p.isPoi) && !map.hasLayer(poiCluster)) {
+    map.addLayer(poiCluster);
+  }
+
+  tourStops.forEach((p, idx) => {
+    if (!p._marker) return;
+    if (p.isPoi) {
+      p._marker.setIcon(makePoiIcon(p, idx + 1));
+    } else {
+      p._marker.setIcon(makeMarkerIcon(passStatus(p), idx + 1));
+      p._marker._currentState = `${statusSignature(passStatus(p))}:${idx + 1}`;
+    }
     p._marker.setZIndexOffset(400);
   });
 
@@ -2831,7 +2902,7 @@ function drawPlannedTour(start, tourPasses, latlngs) {
     map.fitBounds(L.latLngBounds(latlngs).pad(0.10));
   } else {
     /* Fallback to straight lines if router was unavailable. */
-    const wp = [[start.lat, start.lon], ...tourPasses.map(p => [p.lat, p.lon]), [start.lat, start.lon]];
+    const wp = [[start.lat, start.lon], ...tourStops.map(p => [p.lat, p.lon]), [start.lat, start.lon]];
     plannedLayer.addLayer(L.polyline(wp, { color:"#000",    weight:6,   opacity:0.40, lineCap:"round", lineJoin:"round" }));
     plannedLayer.addLayer(L.polyline(wp, { color:"#ffd166", weight:3.5, opacity:0.85, dashArray:"4 6", lineCap:"round", lineJoin:"round" }));
     map.fitBounds(L.latLngBounds(wp).pad(0.15));
@@ -2977,6 +3048,7 @@ function renderList() {
         }, 480);
       });
     });
+    lazyLoadPassIcons(listEl);
   }
 
   noteEl.textContent = useSearch

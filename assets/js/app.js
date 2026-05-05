@@ -166,6 +166,7 @@ const PASSES = ALPS_INPUT.map((d, i) => {
     confidence: d.cf || "",
     wikiLang: d.wl || "en",
     wikiTitle: d.wt || fullName.replace(/\s+/g, "_"),
+    iconAsset: window.PASS_ICON_ASSETS?.[`${fullName}|${d.e}`] || null,
   };
 });
 
@@ -1189,7 +1190,7 @@ function buildPopupHtml(p, status, wiki) {
   return `<div class="popup">${img}
     <div class="popup-body">
       <div class="popup-title">
-        <h2>${p.name}</h2>
+        <h2>${passIconHtml(p)}<span>${p.name}</span></h2>
         ${qualityStars(p.quality)}
       </div>
       <div class="popup-headline">
@@ -1212,6 +1213,13 @@ function buildPopupHtml(p, status, wiki) {
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+}
+
+function passIconHtml(p, className = "pass-art-icon") {
+  if (!p.iconAsset) return "";
+  const cell = Math.max(0, Math.min(4, Number(p.iconAsset.cell) || 0));
+  const pos = cell === 0 ? "0%" : `${cell * 25}%`;
+  return `<span class="${className}" role="img" aria-label="${escapeHtml(p.name)} icon" style="background-image:url('${escapeHtml(p.iconAsset.sheet)}');background-position:${pos} center"></span>`;
 }
 
 /* "Why this rating" line — uses the LLM reasoning sentence as the primary
@@ -1673,13 +1681,22 @@ async function osrmRoute(coordsStr) {
 
 /* Quality scoring knobs for bestTourGated. Without these, traceQuality
    is a raw sum and the planner stuffs the route with mediocre filler.
-     PASS_QUALITY_POWER  exponent on per-visit raw quality. >1 emphasises
-                         individual pass quality over headcount.
-     PASS_PER_VISIT_COST flat cost subtracted per pass. Sub-median passes
-                         contribute negatively, so they only get added
-                         when they meaningfully fill out a tour. */
+     PASS_QUALITY_POWER         exponent on per-visit raw quality. >1
+                                emphasises individual pass quality over
+                                headcount.
+     PASS_PER_VISIT_COST        flat cost subtracted per pass. Sub-median
+                                passes contribute negatively, so they
+                                only get added when they meaningfully
+                                fill out a tour.
+     OUT_AND_BACK_RETRACE_PENALTY
+                                extra hit for visiting a pass as out-and-
+                                back: the car drives the same approach
+                                road up and down. Pushes the planner to
+                                prefer traversals (different roads in /
+                                out) wherever a through-pass exists. */
 const PASS_QUALITY_POWER = 3;
 const PASS_PER_VISIT_COST = 1.0;
+const OUT_AND_BACK_RETRACE_PENALTY = 1.0;
 
 function bestTourGated(matrix, N, targetKm, tolerance, maxPasses, passQ) {
   const cap = Math.min(maxPasses, N);
@@ -1707,7 +1724,8 @@ function bestTourGated(matrix, N, targetKm, tolerance, maxPasses, passQ) {
   }
   function visitQuality(i, enterSide, exitSide) {
     const q = Q[i];
-    const raw = enterSide === exitSide
+    const outAndBack = enterSide === exitSide;
+    const raw = outAndBack
       ? q.qApproach + q.qSummit       // out-and-back: one approach + summit
       : 2 * q.qApproach + q.qSummit;  // traversal: both approaches + summit
     /* Cube transform + per-pass cost so the planner stops stuffing the
@@ -1716,8 +1734,13 @@ function bestTourGated(matrix, N, targetKm, tolerance, maxPasses, passQ) {
        the score, leading to e.g. five Pre-Alps cols beating one Klausen.
        The cube emphasises individual pass quality (a 0.9-quality pass is
        ~3× more valuable than a 0.6-quality pass instead of 1.5×); the
-       constant cost makes a sub-median pass hurt the tour score. */
-    return Math.pow(raw, PASS_QUALITY_POWER) - PASS_PER_VISIT_COST;
+       constant cost makes a sub-median pass hurt the tour score.
+       The retrace penalty discourages out-and-back even further: the
+       quality already drops (1× approach instead of 2×) but driving the
+       same road twice deserves an explicit hit on top of that. */
+    let v = Math.pow(raw, PASS_QUALITY_POWER) - PASS_PER_VISIT_COST;
+    if (outAndBack) v -= OUT_AND_BACK_RETRACE_PENALTY;
+    return v;
   }
 
   /* g[mask*N*2 + i*2 + s] = min metres tour-segment cost reaching exit-side
@@ -1921,9 +1944,13 @@ function bestExactSelectedTour(matrix, N, passQ) {
   }
   function visitQuality(i, enterSide, exitSide) {
     const q = Q[i];
-    return enterSide === exitSide
+    const outAndBack = enterSide === exitSide;
+    const raw = outAndBack
       ? q.qApproach + q.qSummit
       : 2 * q.qApproach + q.qSummit;
+    let v = Math.pow(raw, PASS_QUALITY_POWER) - PASS_PER_VISIT_COST;
+    if (outAndBack) v -= OUT_AND_BACK_RETRACE_PENALTY;
+    return v;
   }
 
   const g = new Float64Array(SIZE * N * 2);

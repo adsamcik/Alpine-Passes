@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Alpine pass">
+  <rect width="64" height="64" rx="14" fill="#161a1d"/>
+  <path d="M7 49 25 15l9 17 6-10 17 27H7Z" fill="#4cc9f0"/>
+  <path d="m25 15 5 10-6-2-5 8-3-4 9-12Zm15 7 5 8-5-2-4 7-3-5 7-8Z" fill="#e8eef2"/>
+  <path d="M13 49c7-9 16-13 27-12 7 1 12 4 17 12H13Z" fill="#3ddc84"/>
+</svg>

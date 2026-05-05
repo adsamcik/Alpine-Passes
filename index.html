@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Interactive Alpine pass map with live Swiss road status, seasonal estimates, pass search, and a sightseeing tour planner.">
+<meta name="theme-color" content="#161a1d">
+<title>Alpine Passes — live map &amp; tour planner</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="alternate icon" href="favicon.ico">
+
+<link rel="preconnect" href="https://unpkg.com">
+<link rel="preconnect" href="https://tiles.openfreemap.org">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" defer></script>
+<script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js" defer></script>
+<script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.0.22/leaflet-maplibre-gl.js" defer></script>
+
+<link rel="stylesheet" href="assets/css/site.css">
+<script src="assets/js/passes-data.js" defer></script>
+<script src="assets/js/app.js" defer></script>
+</head>
+<body>
+
+<noscript class="noscript-warning">This map and tour planner needs JavaScript enabled.</noscript>
+
+<aside class="app-sidebar" aria-label="Planner and pass list">
+  <section class="side-head" aria-labelledby="site-title">
+    <p class="eyebrow">Alpine Pass Planner</p>
+    <h1 id="site-title">Find beautiful open passes</h1>
+    <p><strong><span id="passCount">…</span> passes</strong> across the Alps · live status from
+      <a href="https://www.alpen-paesse.ch/en/" target="_blank" rel="noopener">alpen-paesse.ch</a> (CH),
+      OSM road rules and seasonal estimates elsewhere</p>
+  </section>
+
+  <div class="banner hidden" id="banner" role="status" aria-live="polite"></div>
+
+  <details class="planner" id="planner" open>
+    <summary>
+      <span class="summary-title"><span aria-hidden="true">🧭</span> Plan a sightseeing tour</span>
+      <span class="summary-subtitle">Start, date, route size and pass confidence</span>
+    </summary>
+    <div class="planner-body">
+      <div class="planner-card">
+        <div class="section-label">Route basics</div>
+        <label>
+          <span>Start point</span>
+          <div class="start-row">
+            <select id="planStart" aria-label="Start point">
+              <option value="" selected>Nothing</option>
+              <option value="lucerne">Lucerne</option>
+              <option value="andermatt">Andermatt (CH)</option>
+              <option value="engelberg">Engelberg (CH)</option>
+              <option value="interlaken">Interlaken (CH)</option>
+              <option value="stmoritz">St. Moritz (CH)</option>
+              <option value="chur">Chur (CH)</option>
+              <option value="bellinzona">Bellinzona (CH)</option>
+              <option value="aosta">Aosta (IT)</option>
+              <option value="bolzano">Bolzano (IT)</option>
+              <option value="trento">Trento (IT)</option>
+              <option value="cortina">Cortina d'Ampezzo (IT)</option>
+              <option value="innsbruck">Innsbruck (AT)</option>
+              <option value="salzburg">Salzburg (AT)</option>
+              <option value="klagenfurt">Klagenfurt (AT)</option>
+              <option value="ljubljana">Ljubljana (SI)</option>
+              <option value="chamonix">Chamonix (FR)</option>
+              <option value="grenoble">Grenoble (FR)</option>
+              <option value="munich">Munich (DE)</option>
+              <option value="custom" disabled>(custom — click map)</option>
+            </select>
+            <button id="planPick" type="button" title="Click on map to set start" aria-label="Pick a custom start point on the map" aria-pressed="false">📍</button>
+          </div>
+        </label>
+        <label>
+          <span>Trip date</span>
+          <input id="planDate" type="date" aria-label="Trip date">
+          <em class="planner-help" id="planDateHint">Pass expectations update from live dates, OSM rules, history, and clearly marked guesses.</em>
+        </label>
+        <label class="distance-control">
+          <span>Distance: <strong id="distLabel">200 km</strong> <em>(±20%)</em></span>
+          <input id="planDist" type="range" min="60" max="500" step="10" value="200" aria-label="Distance in kilometers">
+        </label>
+      </div>
+
+      <div class="planner-card compact">
+        <div class="section-label">Planning mode</div>
+        <label class="check">
+          <input id="planOpenOnly" type="checkbox" checked>
+          <span>Projected open/restricted only <em>(guesses are marked)</em></span>
+        </label>
+        <label class="check">
+          <input id="planAdvanced" type="checkbox">
+          <span>Advanced mode <em>(select exact passes)</em></span>
+        </label>
+        <div class="advanced-planner" id="advancedPlanner" hidden>
+          <div class="advanced-planner-head">
+            <span><strong id="selectedPassCount">0</strong> selected <em>(max 10)</em></span>
+            <button id="clearSelectedPasses" type="button">Clear</button>
+          </div>
+          <input id="planPassSearch" type="search" placeholder="Search passes to add…" autocomplete="off" aria-label="Search selectable passes">
+          <div class="selected-passes" id="selectedPasses" aria-live="polite"></div>
+          <div class="pass-picker" id="planPassPicker" aria-label="Selectable passes"></div>
+          <p class="planner-help" id="advancedPlannerNote">Advanced mode optimizes the shortest loop through every selected pass and returns to the start.</p>
+        </div>
+      </div>
+      <button id="planRun" type="button">Plan optimal tour</button>
+      <div class="plan-result empty" id="planResult" aria-live="polite"></div>
+    </div>
+  </details>
+
+  <details class="legend-panel" open>
+    <summary>Status legend</summary>
+    <section class="legend" aria-label="Pass status legend">
+      <span><span class="dot open" aria-hidden="true"></span>Open</span>
+      <span><span class="dot restricted" aria-hidden="true"></span>Restrictions</span>
+      <span><span class="dot closed" aria-hidden="true"></span>Closed</span>
+      <span><span class="dot open estimated" aria-hidden="true"></span>Estimated</span>
+      <span><span class="dot unknown" aria-hidden="true"></span>Unknown</span>
+    </section>
+  </details>
+
+  <section class="pass-explorer" aria-label="Pass search and sorting">
+    <div class="explorer-head">
+      <div>
+        <p class="eyebrow">Explore</p>
+        <h2>Passes in view</h2>
+      </div>
+      <div class="list-footnote" id="listNote">…</div>
+    </div>
+    <section class="controls" aria-label="Pass filters">
+      <input id="search" type="search" placeholder="Search pass name…" autocomplete="off" aria-label="Search passes by name">
+      <select id="sort" title="Sort" aria-label="Sort passes">
+        <option value="quality">Quality ★</option>
+        <option value="status">Status</option>
+        <option value="distance">Distance</option>
+        <option value="elevation">Elevation</option>
+        <option value="name">Name</option>
+      </select>
+      <label class="check compact">
+        <input id="sortOpenFirst" type="checkbox">
+        <span>Open first</span>
+      </label>
+      <label class="check compact">
+        <input id="showOpenOnly" type="checkbox">
+        <span>Open only</span>
+      </label>
+    </section>
+    <ul class="pass-list" id="passList"></ul>
+  </section>
+</aside>
+
+<main id="map" aria-label="Interactive Alpine pass map"></main>
+
+<footer class="site-footer">
+  <span class="footer-status" id="updated"><span id="updatedText">Loading live status…</span><button id="refreshBtn" type="button"
+    class="refresh-button" title="Reload page; live source cache refreshes daily">↻ reload</button></span>
+  <span id="mapInfo">Vector map initialising…</span>
+  <span class="footer-credits">Vector tiles © <a href="https://openfreemap.org/" target="_blank" rel="noopener">OpenFreeMap</a> /
+        <a href="https://openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a> ·
+        Pass data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors ·
+        Status © <a href="https://www.alpen-paesse.ch/" target="_blank" rel="noopener">IG Alpenpässe</a> ·
+        Routing © <a href="http://project-osrm.org/" target="_blank" rel="noopener">OSRM</a> ·
+        Photos © <a href="https://commons.wikimedia.org/" target="_blank" rel="noopener">Wikimedia</a></span>
+</footer>
+</body>
+</html>
+

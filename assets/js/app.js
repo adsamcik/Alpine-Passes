@@ -1340,8 +1340,9 @@ async function drawRoute(layer) {
   if (!geom) { geom = r.waypoints.map(([la,lo]) => [lo,la]); fallback = true; }
   const latlngs = geom.map(([lo, la]) => [la, lo]);
   const passNames = r.passes.map(slug => PASSES.find(p => p.slug === slug)?.name).filter(Boolean).join(" → ");
-  layer.addLayer(L.polyline(latlngs, { color:"#fff", weight:8, opacity:0.55, lineCap:"round", lineJoin:"round" }));
-  const main = L.polyline(latlngs, { color:r.color, weight:4.5, opacity:0.95, lineCap:"round", lineJoin:"round" });
+  layer.addLayer(L.polyline(latlngs, { color:"#000", weight:11, opacity:0.45, lineCap:"round", lineJoin:"round" }));
+  layer.addLayer(L.polyline(latlngs, { color:"#fff", weight:7,  opacity:0.90, lineCap:"round", lineJoin:"round" }));
+  const main = L.polyline(latlngs, { color:r.color, weight:5, opacity:1, lineCap:"round", lineJoin:"round" });
   layer.addLayer(main);
   const statsLine = stats ? `${stats.distanceKm} km · ~${stats.durationH} h driving`
                           : (fallback ? "approximate (router unavailable)" : "");
@@ -2465,13 +2466,15 @@ function drawPlannedTour(start, tourPasses, latlngs) {
 
   /* Geometry was already fetched by the planner.  Just draw it. */
   if (latlngs && latlngs.length > 1) {
-    plannedLayer.addLayer(L.polyline(latlngs, { color:"#fff", weight:8, opacity:0.55, lineCap:"round", lineJoin:"round" }));
-    plannedLayer.addLayer(L.polyline(latlngs, { color:"#ffd166", weight:4.5, opacity:0.95, lineCap:"round", lineJoin:"round" }));
+    plannedLayer.addLayer(L.polyline(latlngs, { color:"#000",    weight:11, opacity:0.45, lineCap:"round", lineJoin:"round" }));
+    plannedLayer.addLayer(L.polyline(latlngs, { color:"#fff",    weight:7,  opacity:0.90, lineCap:"round", lineJoin:"round" }));
+    plannedLayer.addLayer(L.polyline(latlngs, { color:"#ffd166", weight:5,  opacity:1,    lineCap:"round", lineJoin:"round" }));
     map.fitBounds(L.latLngBounds(latlngs).pad(0.10));
   } else {
     /* Fallback to straight lines if router was unavailable. */
     const wp = [[start.lat, start.lon], ...tourPasses.map(p => [p.lat, p.lon]), [start.lat, start.lon]];
-    plannedLayer.addLayer(L.polyline(wp, { color:"#ffd166", weight:3, opacity:0.55, dashArray:"4 6" }));
+    plannedLayer.addLayer(L.polyline(wp, { color:"#000",    weight:6,   opacity:0.40, lineCap:"round", lineJoin:"round" }));
+    plannedLayer.addLayer(L.polyline(wp, { color:"#ffd166", weight:3.5, opacity:0.85, dashArray:"4 6", lineCap:"round", lineJoin:"round" }));
     map.fitBounds(L.latLngBounds(wp).pad(0.15));
   }
 }

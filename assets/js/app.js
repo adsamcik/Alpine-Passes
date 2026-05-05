@@ -200,6 +200,103 @@ const PASS_BY_ID = new Map(PASSES.map(p => [p.id, p]));
 
 document.getElementById("passCount").textContent = PASSES.length.toLocaleString();
 
+/* ─────────────────────── Switzerland POI dataset ───────────────────────
+   Loaded from `swiss-pois.js` (see that file for the source schema).
+   POIs are normalised into the same field shape as PASSES so the existing
+   planner, popup and tour-rendering helpers can treat them uniformly.
+
+   For routing purposes a POI is a single geographic point, so we set
+   `baseA == baseB == summit`.  POIs that aren't reachable by car
+   (Jungfraujoch, Mürren, …) are excluded from the planner picker — they
+   still appear on the map for context but can't be added to a tour.
+   `isPoi: true` is the discriminator used throughout the planner. */
+const POI_RAW = (typeof SWISS_POIS !== "undefined" && Array.isArray(SWISS_POIS)) ? SWISS_POIS : [];
+const POIS = POI_RAW.map((d, i) => ({
+  id: "poi" + i,
+  rawName: d.n,
+  name: d.n,
+  alt: "",
+  elev: typeof d.e === "number" ? d.e : null,
+  lat: d.la,
+  lon: d.lo,
+  slug: null,
+  baseA: { lat: d.la, lon: d.lo },
+  baseB: { lat: d.la, lon: d.lo },
+  closureRules: null,
+  seasonal: false,
+  /* Quality 0..1 derived from the curated 1-10 notability score. */
+  quality:   typeof d.sc === "number" ? d.sc / 10 : 0,
+  qSummit:   typeof d.sc === "number" ? d.sc / 10 : 0,
+  qApproach: 0,
+  qualitySignals: null,
+  tldr:       d.td || "",
+  tldrSource: "agent",
+  reasoning:  d.rs || "",
+  bestPhoto:  d.bp || null,
+  confidence: "h",
+  wikiLang:   d.wl || "en",
+  wikiTitle:  d.wt || (d.n || "").replace(/\s+/g, "_"),
+  cams: null,
+  /* POI-specific metadata. */
+  isPoi: true,
+  poiCategory: d.cat,
+  poiThemes: Array.isArray(d.themes) ? d.themes.slice() : [],
+  poiAccess:  Array.isArray(d.access) ? d.access.slice() : [],
+  poiSeason:  Array.isArray(d.season) ? d.season.slice() : [],
+  poiRegion:  d.region || "",
+  /* Visit-time at destination (separate from driving time). */
+  visitDwellSec: typeof d.dur === "number" ? Math.round(d.dur * 3600) : 0,
+}));
+const POI_BY_ID = new Map(POIS.map(p => [p.id, p]));
+/* Hard-filter to POIs the OSRM road router can actually reach.  Anything
+   without "car" access (cogwheel-only summits, car-free mountain villages)
+   is shown on the map but not allowed in a planned tour. */
+const PLANNABLE_POIS = POIS.filter(p => p.poiAccess.includes("car"));
+const PLANNABLE_POI_IDS = new Set(PLANNABLE_POIS.map(p => p.id));
+function isPlannablePoi(p) { return p?.isPoi && PLANNABLE_POI_IDS.has(p.id); }
+
+/* Static taxonomy used by the POI picker filter dropdowns. */
+const POI_CATEGORY_LABELS = {
+  "mountain-summit":     "Mountain summit",
+  "alpine-lake":         "Alpine lake",
+  "waterfall-gorge":     "Waterfall / gorge",
+  "glacier":             "Glacier",
+  "old-town":            "Old town",
+  "castle-fortress":     "Castle / fortress",
+  "monastery-church":    "Monastery / church",
+  "scenic-railway":      "Scenic railway",
+  "bridge-engineering":  "Bridge / engineering",
+  "village":             "Village",
+  "national-park":       "National park",
+  "spa-wellness":        "Spa / wellness",
+  "viewpoint-panorama":  "Viewpoint",
+  "museum-cultural":     "Museum / cultural",
+  "geology-cave":        "Geology / cave",
+  "wine-region":         "Wine region",
+  "special-experience":  "Special experience",
+};
+const POI_CATEGORY_GLYPH = {
+  "mountain-summit":     "⛰",
+  "alpine-lake":         "🜄",
+  "waterfall-gorge":     "🌊",
+  "glacier":             "❄",
+  "old-town":            "🏛",
+  "castle-fortress":     "🏰",
+  "monastery-church":    "✝",
+  "scenic-railway":      "🚂",
+  "bridge-engineering":  "🌉",
+  "village":             "🏘",
+  "national-park":       "🌲",
+  "spa-wellness":        "♨",
+  "viewpoint-panorama":  "👁",
+  "museum-cultural":     "🏛",
+  "geology-cave":        "🪨",
+  "wine-region":         "🍇",
+  "special-experience":  "✨",
+};
+function poiCategoryLabel(cat) { return POI_CATEGORY_LABELS[cat] || cat || "POI"; }
+function poiCategoryGlyph(cat) { return POI_CATEGORY_GLYPH[cat] || "📍"; }
+
 const STATE_LABEL = { open: "Open", restricted: "Open with restrictions",
                       closed: "Closed", unknown: "Status unknown" };
 const ESTIMATED_STATE_LABEL = {
@@ -1293,80 +1390,117 @@ PASSES.forEach(p => {
    (cluster recomputes per insert otherwise). */
 passCluster.addLayers(passMarkers);
 
-/* ───────────────────────── preset routes (CH) ───────────────────────── */
-const ROUTES = [
-  { id: "three-pass", name: "Drei-Pässe-Tour", short: "3 passes",
-    summary: "The Swiss alpine classic — Susten · Grimsel · Furka.", color: "#ff9f1c",
-    passes: ["sustenpass", "grimselpass", "furkapass"],
-    waypoints: [[47.0502,8.3093],[46.7081,8.5993],[46.7283,8.4458],[46.7060,8.2275],
-                [46.5614,8.3372],[46.5714,8.3739],[46.5722,8.4147],[46.6122,8.4914],
-                [46.6364,8.5942],[47.0502,8.3093]] },
-  { id: "four-pass", name: "Vier-Pässe-Tour", short: "4 passes",
-    summary: "Three-Pass + Gotthard via the cobbled Tremola road.", color: "#e63946",
-    passes: ["sustenpass", "grimselpass", "furkapass", "gotthardpass"],
-    waypoints: [[47.0502,8.3093],[46.7081,8.5993],[46.7283,8.4458],[46.7060,8.2275],
-                [46.5614,8.3372],[46.5714,8.3739],[46.5722,8.4147],[46.6122,8.4914],
-                [46.6364,8.5942],[46.6202,8.5675],[46.5550,8.5642],[46.5294,8.6097],
-                [46.7081,8.5993],[47.0502,8.3093]] },
-  { id: "klausen-pragel", name: "Klausen + Pragel", short: "Eastern loop",
-    summary: "Quiet, technical and beautiful — Klausenpass east, Pragelpass back.", color: "#4cc9f0",
-    passes: ["klausenpass", "pragelpass"],
-    waypoints: [[47.0502,8.3093],[46.8800,8.6422],[46.8725,8.7717],[46.8694,8.8556],
-                [46.8847,8.9094],[46.9197,8.9881],[46.9856,8.8533],[46.9750,8.7625],
-                [47.0207,8.6533],[47.0502,8.3093]] },
-  { id: "bruenig-glaubenbielen", name: "Brünig + Glaubenbielen", short: "Panoramastrasse",
-    summary: "Gentler scenic loop through Obwalden + Entlebuch's Panoramastrasse.", color: "#2ec4b6",
-    passes: ["bruenigpass", "glaubenbielenpass"],
-    waypoints: [[47.0502,8.3093],[46.8954,8.2453],[46.7833,8.1633],[46.7634,8.1413],
-                [46.7269,8.1856],[46.7634,8.1413],[46.8333,8.1869],[46.7989,8.0625],
-                [46.8164,8.0381],[46.9528,8.0214],[46.9919,8.0639],[47.0502,8.3093]] },
-];
-
-const overlayLayers = {};
-ROUTES.forEach(r => {
-  const lg = L.layerGroup();
-  lg.__route = r; lg.__loaded = false;
-  overlayLayers[
-    `<span class="route-layer-swatch route-${r.id}"></span>` +
-    `${r.name} <span class="route-layer-meta">· ${r.short}</span>`
-  ] = lg;
-});
-L.control.layers(baseLayers, overlayLayers, { position: "topright", collapsed: true }).addTo(map);
-map.on("overlayadd", e => { if (e.layer.__route && !e.layer.__loaded) drawRoute(e.layer); });
-
-const ROUTE_TTL = 30 * 24 * 60 * 60 * 1000;
-async function drawRoute(layer) {
-  layer.__loaded = true;
-  const r = layer.__route;
-  let geom = null, stats = null, fallback = false;
-  try {
-    const coords = r.waypoints.map(([la,lo]) => `${lo},${la}`).join(";");
-    const out = await osrmRoute(coords);
-    geom = out.geom;
-    stats = { distanceKm: out.distanceKm, durationH: out.durationH };
-  } catch (e) { console.warn("OSRM failed for", r.id, e); }
-  if (!geom) { geom = r.waypoints.map(([la,lo]) => [lo,la]); fallback = true; }
-  const latlngs = geom.map(([lo, la]) => [la, lo]);
-  const passNames = r.passes.map(slug => PASSES.find(p => p.slug === slug)?.name).filter(Boolean).join(" → ");
-  layer.addLayer(L.polyline(latlngs, { color:"#000", weight:11, opacity:0.45, lineCap:"round", lineJoin:"round" }));
-  layer.addLayer(L.polyline(latlngs, { color:"#fff", weight:7,  opacity:0.90, lineCap:"round", lineJoin:"round" }));
-  const main = L.polyline(latlngs, { color:r.color, weight:5, opacity:1, lineCap:"round", lineJoin:"round" });
-  layer.addLayer(main);
-  const statsLine = stats ? `${stats.distanceKm} km · ~${stats.durationH} h driving`
-                          : (fallback ? "approximate (router unavailable)" : "");
-  main.bindTooltip(
-    `<div class="route-tooltip-name route-${r.id}">${r.name}</div>
-     <div class="route-tooltip-stats">${statsLine}</div>`,
-    { sticky:true, direction:"top", className:"route-tt" });
-  main.bindPopup(
-    `<div class="popup-body route-popup-body route-${r.id}">
-       <h2>${r.name}</h2>
-       <div class="sub">${r.summary}</div>
-       <div class="popup-meta">${statsLine}</div>
-       <div class="popup-meta">Passes: ${passNames}</div>
-       ${fallback ? '<div class="popup-meta warning">Routing API unavailable.</div>' : ''}
-     </div>`, { maxWidth: 280 });
+/* ───────────────────────── POI markers + popups ─────────────────────────
+   Separate cluster + divIcon so POIs and passes are visually distinct.
+   POIs use a violet accent and a category glyph; non-plannable POIs (no
+   car access) are rendered with reduced opacity so users understand they
+   can't be added to a tour. */
+function makePoiIcon(poi, badgeNumber = null) {
+  const glyph = poiCategoryGlyph(poi.poiCategory);
+  const dim = isPlannablePoi(poi) ? "" : " dim";
+  const badge = badgeNumber != null ? `<div class="tour-badge poi-tour-badge">${badgeNumber}</div>` : "";
+  return L.divIcon({
+    className: "",
+    html: `<div class="poi-marker-wrap"><div class="poi-marker${dim}" data-cat="${poi.poiCategory}"><span class="poi-marker-glyph">${glyph}</span></div>${badge}</div>`,
+    iconSize: [22, 22], iconAnchor: [11, 11],
+  });
 }
+
+function buildPoiPopupHtml(poi) {
+  const wikiHref = `https://${poi.wikiLang}.wikipedia.org/wiki/${encodeURIComponent(poi.wikiTitle)}`;
+  const img = poi.bestPhoto
+    ? `<img class="popup-img" src="${escapeHtml(poi.bestPhoto)}" alt="${escapeHtml(poi.name)}" loading="lazy">`
+    : `<div class="popup-img placeholder">no photo</div>`;
+  const themeBadges = poi.poiThemes.slice(0, 6).map(t =>
+    `<span class="poi-theme-chip">${escapeHtml(t)}</span>`).join("");
+  const elevLine = poi.elev ? `${poi.elev} m · ` : "";
+  const accessLine = poi.poiAccess.map(a => escapeHtml(a)).join(" · ");
+  const seasonLine = poi.poiSeason.length === 4 ? "year-round" : poi.poiSeason.map(escapeHtml).join(" · ");
+  const dwellLine = poi.visitDwellSec
+    ? `${(poi.visitDwellSec / 3600).toFixed(poi.visitDwellSec >= 3600 ? 1 : 1)} h typical visit`
+    : "";
+  const planBtn = isPlannablePoi(poi)
+    ? `<button class="popup-add-btn" type="button" data-poi-add="${escapeHtml(poi.id)}" aria-label="Add ${escapeHtml(poi.name)} to tour">＋ Add to selected route</button>`
+    : `<div class="popup-meta tight" title="POI is not directly reachable by car (${escapeHtml(accessLine)})">⚠ Not car-accessible — view-only on the map</div>`;
+  return `
+    <article class="popup poi-popup" data-poi="${escapeHtml(poi.id)}">
+      ${img}
+      <header class="popup-head">
+        <div class="popup-head-row">
+          <h3 class="popup-title">${escapeHtml(poi.name)}</h3>
+          <span class="poi-cat-badge" data-cat="${poi.poiCategory}">${poiCategoryGlyph(poi.poiCategory)} ${escapeHtml(poiCategoryLabel(poi.poiCategory))}</span>
+        </div>
+        <div class="popup-meta">${escapeHtml(elevLine)}${escapeHtml(poi.poiRegion)}${dwellLine ? " · " + escapeHtml(dwellLine) : ""}</div>
+      </header>
+      <div class="popup-body">
+        <p class="popup-tldr">${escapeHtml(poi.tldr)}</p>
+        ${themeBadges ? `<div class="poi-theme-chips">${themeBadges}</div>` : ""}
+        <div class="popup-meta tight"><strong>Access:</strong> ${accessLine || "—"}</div>
+        <div class="popup-meta tight"><strong>Season:</strong> ${seasonLine || "—"}</div>
+      </div>
+      <footer class="popup-foot">
+        <a class="popup-link" href="${wikiHref}" target="_blank" rel="noopener">Wikipedia ↗</a>
+        ${planBtn}
+      </footer>
+    </article>`;
+}
+
+const poiCluster = L.markerClusterGroup({
+  showCoverageOnHover: false,
+  spiderfyOnMaxZoom: true,
+  maxClusterRadius: 60,
+  disableClusteringAtZoom: 11,
+  chunkedLoading: true,
+  iconCreateFunction(cluster) {
+    const n = cluster.getChildCount();
+    return L.divIcon({
+      html: `<div class="poi-cluster"><span>${n}</span></div>`,
+      className: "",
+      iconSize: [34, 34],
+    });
+  },
+});
+
+const poiMarkers = [];
+POIS.forEach(poi => {
+  const m = L.marker([poi.lat, poi.lon], { icon: makePoiIcon(poi) });
+  m.bindTooltip(`${poi.name} · ${poiCategoryLabel(poi.poiCategory)}`, { direction: "top", offset: [0, -10] });
+  m.bindPopup("…", { maxWidth: 360, autoPan: true });
+  m.on("popupopen", () => {
+    if (!m._popupBuilt) {
+      m.setPopupContent(buildPoiPopupHtml(poi));
+      m._popupBuilt = true;
+    }
+  });
+  poiMarkers.push(m);
+  poi._marker = m;
+});
+poiCluster.addLayers(poiMarkers);
+/* POI layer is OFF by default to keep first-load focused on passes; users
+   toggle it from the layer control added below. */
+
+/* Popup-delegated handler: "Add to selected route" button on POI popups. */
+document.addEventListener("click", e => {
+  const btn = e.target.closest("[data-poi-add]");
+  if (!btn) return;
+  const id = btn.dataset.poiAdd;
+  if (typeof toggleSelectedPoi === "function" && PLANNABLE_POI_IDS.has(id)) {
+    /* Make sure advanced mode is on so the user actually sees the change. */
+    if (typeof advancedModeEl !== "undefined" && !advancedModeEl.checked) {
+      advancedModeEl.checked = true;
+      if (typeof syncAdvancedMode === "function") syncAdvancedMode();
+    }
+    toggleSelectedPoi(id, true);
+  }
+});
+
+/* ───────────────────────── overlays / layer control ───────────────────────── */
+const overlayLayers = {};
+overlayLayers[
+  `<span class="poi-overlay-swatch"></span>` +
+  `Sights / POIs <span class="overlay-meta">· ${POIS.length} curated</span>`
+] = poiCluster;
+L.control.layers(baseLayers, overlayLayers, { position: "topright", collapsed: true }).addTo(map);
 
 /* ─────────────────────────── tour planner ─────────────────────────── */
 const PRESET_STARTS = {
@@ -1403,12 +1537,24 @@ const advancedPlannerEl = document.getElementById("advancedPlanner");
 const advancedPassSearchEl = document.getElementById("planPassSearch");
 const advancedPassPickerEl = document.getElementById("planPassPicker");
 const selectedPassesEl = document.getElementById("selectedPasses");
-const selectedPassCountEl = document.getElementById("selectedPassCount");
+const selectedStopCountEl = document.getElementById("selectedStopCount");
+const selectedPassMiniEl = document.getElementById("selectedPassMini");
+const selectedPoiMiniEl = document.getElementById("selectedPoiMini");
 const clearSelectedPassesBtn = document.getElementById("clearSelectedPasses");
 const advancedPlannerNoteEl = document.getElementById("advancedPlannerNote");
-const ADVANCED_MAX_PASSES = 10;
+/* POI picker elements (added when POI integration shipped). */
+const advancedPoiSearchEl = document.getElementById("planPoiSearch");
+const advancedPoiPickerEl = document.getElementById("planPoiPicker");
+const selectedPoisEl = document.getElementById("selectedPois");
+const advancedPoiRegionEl = document.getElementById("planPoiRegion");
+const advancedPoiCategoryEl = document.getElementById("planPoiCategory");
+const advancedPoiThemeEl = document.getElementById("planPoiTheme");
+/* Combined cap covers passes + POIs together — Held-Karp is O(N²·2^N), and
+   31 OSRM matrix nodes (1 + 3·10) keeps us well under public-server limits. */
+const ADVANCED_MAX_STOPS = 10;
 const ADVANCED_PICKER_LIMIT = 100;
 const selectedPassIds = new Set();
+const selectedPoiIds  = new Set();
 
 function currentStart() {
   if (startSel.value === "custom" && customStart) return customStart;
@@ -1429,14 +1575,32 @@ function setPlannerBusy(label = "Planning…") {
 function selectablePlannerPasses() {
   return PASSES.filter(p => p.baseA && p.baseB);
 }
+function selectablePlannerPois() {
+  return PLANNABLE_POIS;
+}
 function selectedAdvancedPasses() {
   return [...selectedPassIds].map(id => PASS_BY_ID.get(id)).filter(p => p?.baseA && p?.baseB);
 }
+function selectedAdvancedPois() {
+  return [...selectedPoiIds].map(id => POI_BY_ID.get(id)).filter(Boolean);
+}
+/* Mixed pass + POI list, in stable insertion order: passes first, then POIs.
+   Order doesn't affect optimization (Held-Karp permutes everything) but it
+   keeps the post-result rendering deterministic. */
+function selectedAdvancedStops() {
+  return [...selectedAdvancedPasses(), ...selectedAdvancedPois()];
+}
+function selectedAdvancedTotalCount() {
+  return selectedPassIds.size + selectedPoiIds.size;
+}
 function advancedDefaultNote() {
-  const count = selectedPassIds.size;
-  return count === 0
-    ? "Advanced mode optimizes the shortest loop through every selected pass and returns to the start."
-    : `Selected route will visit all ${count} pass${count === 1 ? "" : "es"} in the shortest optimized order.`;
+  const count = selectedAdvancedTotalCount();
+  if (count === 0) return "Advanced mode optimizes the shortest loop through every selected pass and POI, then returns to the start.";
+  const passN = selectedPassIds.size, poiN = selectedPoiIds.size;
+  const parts = [];
+  if (passN) parts.push(`${passN} pass${passN === 1 ? "" : "es"}`);
+  if (poiN)  parts.push(`${poiN} POI${poiN === 1 ? "" : "s"}`);
+  return `Selected route will visit ${parts.join(" + ")} in the shortest optimized order.`;
 }
 function setAdvancedNote(message = advancedDefaultNote(), warn = false) {
   advancedPlannerNoteEl.textContent = message;
@@ -1446,9 +1610,17 @@ function passPickerMatches(p, q) {
   if (!q) return true;
   return `${p.name} ${p.alt || ""}`.toLowerCase().includes(q);
 }
+function poiPickerMatches(p, q) {
+  if (!q) return true;
+  return `${p.name} ${p.poiRegion || ""} ${(p.poiThemes || []).join(" ")}`.toLowerCase().includes(q);
+}
+function refreshSelectedCounters() {
+  if (selectedStopCountEl) selectedStopCountEl.textContent = String(selectedAdvancedTotalCount());
+  if (selectedPassMiniEl)  selectedPassMiniEl.textContent  = String(selectedPassIds.size);
+  if (selectedPoiMiniEl)   selectedPoiMiniEl.textContent   = String(selectedPoiIds.size);
+}
 function renderAdvancedSelection() {
   const selected = selectedAdvancedPasses();
-  selectedPassCountEl.textContent = String(selected.length);
   selectedPassesEl.classList.toggle("empty", selected.length === 0);
   selectedPassesEl.innerHTML = selected.length
     ? selected.map(p => `
@@ -1457,6 +1629,22 @@ function renderAdvancedSelection() {
         <button type="button" data-remove-id="${escapeHtml(p.id)}" aria-label="Remove ${escapeHtml(p.name)}">×</button>
       </span>`).join("")
     : "No passes selected.";
+  refreshSelectedCounters();
+  setAdvancedNote();
+}
+function renderAdvancedPoiSelection() {
+  if (!selectedPoisEl) return;
+  const selected = selectedAdvancedPois();
+  selectedPoisEl.classList.toggle("empty", selected.length === 0);
+  selectedPoisEl.innerHTML = selected.length
+    ? selected.map(p => `
+      <span class="selected-pass-chip poi-chip">
+        <span class="chip-glyph" aria-hidden="true">${poiCategoryGlyph(p.poiCategory)}</span>
+        <span title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</span>
+        <button type="button" data-remove-poi-id="${escapeHtml(p.id)}" aria-label="Remove ${escapeHtml(p.name)}">×</button>
+      </span>`).join("")
+    : "No sights selected.";
+  refreshSelectedCounters();
   setAdvancedNote();
 }
 function renderAdvancedPicker() {
@@ -1478,7 +1666,7 @@ function renderAdvancedPicker() {
   }
   advancedPassPickerEl.innerHTML = shown.map(p => {
     const selected = selectedPassIds.has(p.id);
-    const disabled = !selected && selectedPassIds.size >= ADVANCED_MAX_PASSES;
+    const disabled = !selected && selectedAdvancedTotalCount() >= ADVANCED_MAX_STOPS;
     const status = passStatus(p);
     const label = listStatusLabel(status);
     const source = statusDisplay(status).sourceMeta.label;
@@ -1493,13 +1681,72 @@ function renderAdvancedPicker() {
     ? `<div class="pass-picker-empty">${items.length - shown.length} more match${items.length - shown.length === 1 ? "" : "es"} — keep typing to narrow.</div>`
     : "");
 }
+function renderAdvancedPoiPicker() {
+  if (!advancedPoiPickerEl) return;
+  const q = (advancedPoiSearchEl?.value || "").trim().toLowerCase();
+  const region = advancedPoiRegionEl?.value || "";
+  const cat = advancedPoiCategoryEl?.value || "";
+  const theme = advancedPoiThemeEl?.value || "";
+  const items = selectablePlannerPois()
+    .filter(p => !region || p.poiRegion === region)
+    .filter(p => !cat || p.poiCategory === cat)
+    .filter(p => !theme || p.poiThemes.includes(theme))
+    .filter(p => poiPickerMatches(p, q))
+    .sort((a, b) => {
+      const aSel = selectedPoiIds.has(a.id) ? 1 : 0;
+      const bSel = selectedPoiIds.has(b.id) ? 1 : 0;
+      if (aSel !== bSel) return bSel - aSel;
+      if (!q && (a.quality || 0) !== (b.quality || 0)) return (b.quality || 0) - (a.quality || 0);
+      return a.name.localeCompare(b.name);
+    });
+  const shown = items.slice(0, ADVANCED_PICKER_LIMIT);
+  if (shown.length === 0) {
+    advancedPoiPickerEl.innerHTML = `<div class="pass-picker-empty">No selectable sights match these filters.</div>`;
+    return;
+  }
+  advancedPoiPickerEl.innerHTML = shown.map(p => {
+    const selected = selectedPoiIds.has(p.id);
+    const disabled = !selected && selectedAdvancedTotalCount() >= ADVANCED_MAX_STOPS;
+    const dwell = p.visitDwellSec ? `${(p.visitDwellSec / 3600).toFixed(1)} h visit` : "";
+    return `<label class="pass-picker-row poi-picker-row${selected ? " selected" : ""}">
+      <input type="checkbox" value="${escapeHtml(p.id)}"${selected ? " checked" : ""}${disabled ? " disabled" : ""}>
+      <span>
+        <span class="pass-picker-name">${poiCategoryGlyph(p.poiCategory)} ${escapeHtml(p.name)} ${qualityStarsCompact(p.quality)}</span>
+        <span class="pass-picker-meta">${escapeHtml(poiCategoryLabel(p.poiCategory))} · ${escapeHtml(p.poiRegion)}${dwell ? " · " + escapeHtml(dwell) : ""}</span>
+      </span>
+    </label>`;
+  }).join("") + (items.length > shown.length
+    ? `<div class="pass-picker-empty">${items.length - shown.length} more match${items.length - shown.length === 1 ? "" : "es"} — refine filters or search.</div>`
+    : "");
+}
+function populatePoiFilterOptions() {
+  if (!advancedPoiRegionEl) return;
+  const regions = [...new Set(selectablePlannerPois().map(p => p.poiRegion).filter(Boolean))].sort();
+  for (const r of regions) {
+    const opt = document.createElement("option");
+    opt.value = r; opt.textContent = r;
+    advancedPoiRegionEl.appendChild(opt);
+  }
+  const cats = [...new Set(selectablePlannerPois().map(p => p.poiCategory).filter(Boolean))].sort();
+  for (const c of cats) {
+    const opt = document.createElement("option");
+    opt.value = c; opt.textContent = poiCategoryLabel(c);
+    advancedPoiCategoryEl.appendChild(opt);
+  }
+  const themes = [...new Set(selectablePlannerPois().flatMap(p => p.poiThemes))].sort();
+  for (const t of themes) {
+    const opt = document.createElement("option");
+    opt.value = t; opt.textContent = t;
+    advancedPoiThemeEl.appendChild(opt);
+  }
+}
 function toggleSelectedPass(id, checked = !selectedPassIds.has(id)) {
   const p = PASS_BY_ID.get(id);
   if (!p?.baseA || !p?.baseB) return;
   if (checked) {
-    if (!selectedPassIds.has(id) && selectedPassIds.size >= ADVANCED_MAX_PASSES) {
+    if (!selectedPassIds.has(id) && selectedAdvancedTotalCount() >= ADVANCED_MAX_STOPS) {
       renderAdvancedPicker();
-      setAdvancedNote(`Advanced mode supports up to ${ADVANCED_MAX_PASSES} passes at once. Clear one before adding another.`, true);
+      setAdvancedNote(`Advanced mode supports up to ${ADVANCED_MAX_STOPS} stops at once. Clear one before adding another.`, true);
       return;
     }
     selectedPassIds.add(id);
@@ -1508,7 +1755,25 @@ function toggleSelectedPass(id, checked = !selectedPassIds.has(id)) {
   }
   renderAdvancedSelection();
   renderAdvancedPicker();
+  renderAdvancedPoiPicker();
   if (typeof renderList === "function") renderList();
+}
+function toggleSelectedPoi(id, checked = !selectedPoiIds.has(id)) {
+  const p = POI_BY_ID.get(id);
+  if (!p || !PLANNABLE_POI_IDS.has(id)) return;
+  if (checked) {
+    if (!selectedPoiIds.has(id) && selectedAdvancedTotalCount() >= ADVANCED_MAX_STOPS) {
+      renderAdvancedPoiPicker();
+      setAdvancedNote(`Advanced mode supports up to ${ADVANCED_MAX_STOPS} stops at once. Clear one before adding another.`, true);
+      return;
+    }
+    selectedPoiIds.add(id);
+  } else {
+    selectedPoiIds.delete(id);
+  }
+  renderAdvancedPoiSelection();
+  renderAdvancedPoiPicker();
+  renderAdvancedPicker();
 }
 function syncAdvancedMode() {
   const advanced = advancedModeEl.checked;
@@ -1520,6 +1785,8 @@ function syncAdvancedMode() {
   resetPlanButton();
   renderAdvancedSelection();
   renderAdvancedPicker();
+  renderAdvancedPoiSelection();
+  renderAdvancedPoiPicker();
   if (typeof renderList === "function") renderList();
 }
 
@@ -1542,12 +1809,28 @@ selectedPassesEl.addEventListener("click", e => {
   const btn = e.target.closest("button[data-remove-id]");
   if (btn) toggleSelectedPass(btn.dataset.removeId, false);
 });
+/* POI picker wiring (mirrors the pass picker). */
+advancedPoiSearchEl?.addEventListener("input", renderAdvancedPoiPicker);
+advancedPoiRegionEl?.addEventListener("change", renderAdvancedPoiPicker);
+advancedPoiCategoryEl?.addEventListener("change", renderAdvancedPoiPicker);
+advancedPoiThemeEl?.addEventListener("change", renderAdvancedPoiPicker);
+advancedPoiPickerEl?.addEventListener("change", e => {
+  if (e.target.matches('input[type="checkbox"]')) toggleSelectedPoi(e.target.value, e.target.checked);
+});
+selectedPoisEl?.addEventListener("click", e => {
+  const btn = e.target.closest("button[data-remove-poi-id]");
+  if (btn) toggleSelectedPoi(btn.dataset.removePoiId, false);
+});
 clearSelectedPassesBtn.addEventListener("click", () => {
   selectedPassIds.clear();
+  selectedPoiIds.clear();
   renderAdvancedSelection();
   renderAdvancedPicker();
+  renderAdvancedPoiSelection();
+  renderAdvancedPoiPicker();
   renderList();
 });
+populatePoiFilterOptions();
 
 let pickingStart = false;
 function syncPickButtonState() {
@@ -1592,10 +1875,10 @@ async function fetchTable(points) {
 }
 
 /* ───────────────────── OSRM caching helpers ─────────────────────
-   Repeat tour-plans with the same start + candidates (or repeat preset-route
-   toggles) hit OSRM unnecessarily.  Cache table + route results in
-   localStorage keyed by a short hash of the coordinate string.  TTLs are
-   long because road networks rarely change. */
+   Repeat tour-plans with the same start + candidates hit OSRM
+   unnecessarily.  Cache table + route results in localStorage keyed by
+   a short hash of the coordinate string.  TTLs are long because road
+   networks rarely change. */
 const OSRM_TABLE_TTL = 7  * 24 * 60 * 60 * 1000;   // 7 days
 const OSRM_ROUTE_TTL = 30 * 24 * 60 * 60 * 1000;   // 30 days
 
@@ -1921,7 +2204,7 @@ function matrixValue(table, from, to) {
 
 /* Exact advanced-mode optimizer: visit every selected pass once, choose each
    pass direction/out-and-back mode, and minimize the closed-loop distance. */
-function bestExactSelectedTour(matrix, N, passQ) {
+function bestExactSelectedTour(matrix, N, passQ, stops) {
   if (N === 0) return null;
   const SIZE = 1 << N;
   const fullMask = SIZE - 1;
@@ -2037,21 +2320,43 @@ function bestExactSelectedTour(matrix, N, passQ) {
     curSide = prevS;
   }
 
-  let totalS = 0, totalQuality = 0, prevIdx = 0;
+  /* CANONICALIZE POI MODE — rubber-duck blocking #1.
+     For a POI we have baseA == baseB == summit, so all four (enterSide,
+     exitSide) combinations have identical cost and the DP picks one
+     arbitrarily based on tie-break order. The reconstructed mode label
+     ("traverse" / "out-and-back") would therefore be meaningless. Force
+     a single canonical representation so downstream code can rely on it. */
+  if (stops) {
+    for (const t of tour) {
+      if (stops[t.passIdx]?.isPoi) {
+        t.enterSide = 0;
+        t.exitSide = 0;
+        t.mode = "poi";
+      }
+    }
+  }
+
+  let totalDriveS = 0, totalDwellS = 0, totalQuality = 0, prevIdx = 0;
   for (const t of tour) {
     const enterIdx = sideIdx(t.passIdx, t.enterSide);
     const exitIdx = sideIdx(t.passIdx, t.exitSide);
-    totalS += matrixValue(dur, prevIdx, enterIdx);
-    totalS += visitDur(t.passIdx, t.enterSide, t.exitSide);
+    totalDriveS += matrixValue(dur, prevIdx, enterIdx);
+    totalDriveS += visitDur(t.passIdx, t.enterSide, t.exitSide);
     totalQuality += visitQuality(t.passIdx, t.enterSide, t.exitSide);
+    if (stops?.[t.passIdx]?.isPoi) {
+      totalDwellS += stops[t.passIdx].visitDwellSec || 0;
+    }
     prevIdx = exitIdx;
   }
-  totalS += matrixValue(dur, prevIdx, 0);
+  totalDriveS += matrixValue(dur, prevIdx, 0);
 
   return {
     perm: tour,
     km: bestTotal / 1000,
-    h: totalS / 3600,
+    h: totalDriveS / 3600,
+    driveH: totalDriveS / 3600,
+    dwellH: totalDwellS / 3600,
+    totalH: (totalDriveS + totalDwellS) / 3600,
     k: N,
     totalQuality,
     inRange: true,
@@ -2106,9 +2411,13 @@ function bestTour(matrix, N, targetKm, tolerance, maxPasses) {
 const PLANNER_MAX_CANDIDATES = 15;
 const PLANNER_MAX_PASSES = 6;
 
-function plannerPointsForPasses(start, passes) {
+function plannerPointsForPasses(start, stops) {
+  /* Stops can be passes (3 distinct points: baseA, summit, baseB) or POIs
+     (3 identical copies of lat/lon since baseA == baseB == summit). The
+     duplication wastes 2 OSRM matrix entries per POI but lets the existing
+     1+3N matrix layout work unchanged. */
   const points = [start];
-  passes.forEach(p => {
+  stops.forEach(p => {
     points.push({ lat: p.baseA.lat, lon: p.baseA.lon });
     points.push({ lat: p.lat,        lon: p.lon       });
     points.push({ lat: p.baseB.lat, lon: p.baseB.lon });
@@ -2116,10 +2425,17 @@ function plannerPointsForPasses(start, passes) {
   return points;
 }
 
-function waypointsForTour(start, passes, perm) {
+function waypointsForTour(start, stops, perm) {
+  /* For OSRM route geometry we send one point per POI (not three duplicates)
+     so the rendered polyline doesn't wiggle. Passes still send all three
+     points so OSRM is forced to climb the actual pass road. */
   const waypoints = [[start.lat, start.lon]];
   perm.forEach(t => {
-    const p = passes[t.passIdx];
+    const p = stops[t.passIdx];
+    if (p.isPoi) {
+      waypoints.push([p.lat, p.lon]);
+      return;
+    }
     const enter = t.enterSide === 0 ? p.baseA : p.baseB;
     const exit  = t.exitSide  === 0 ? p.baseA : p.baseB;
     waypoints.push([enter.lat, enter.lon]);
@@ -2134,8 +2450,9 @@ function coordsFromWaypoints(waypoints) {
   return waypoints.map(([la, lo]) => `${lo},${la}`).join(";");
 }
 
-function advancedStatusWarning(tourPasses) {
-  const flagged = tourPasses.filter(p => {
+function advancedStatusWarning(tourStops) {
+  /* POIs don't have a road-status concept — only filter passes. */
+  const flagged = tourStops.filter(p => !p.isPoi).filter(p => {
     const d = statusDisplay(passStatus(p));
     if (d.estimated || d.source === "unknown") return true;
     return d.state !== "open" && d.state !== "restricted";
@@ -2153,13 +2470,13 @@ async function planSelectedTour() {
   const start = currentStart();
   if (!start) { showPlanResult({ error: "Pick a start point." }); return; }
 
-  const selected = selectedAdvancedPasses();
+  const selected = selectedAdvancedStops();
   if (selected.length === 0) {
-    showPlanResult({ error: "Select at least one pass for advanced planning." });
+    showPlanResult({ error: "Select at least one pass or sight for advanced planning." });
     return;
   }
-  if (selected.length > ADVANCED_MAX_PASSES) {
-    showPlanResult({ error: `Select no more than ${ADVANCED_MAX_PASSES} passes at once.` });
+  if (selected.length > ADVANCED_MAX_STOPS) {
+    showPlanResult({ error: `Select no more than ${ADVANCED_MAX_STOPS} stops at once.` });
     return;
   }
 
@@ -2179,42 +2496,49 @@ async function planSelectedTour() {
     qSummit: p.qSummit || 0,
     qApproach: p.qApproach || 0,
   }));
-  const result = bestExactSelectedTour(matrix, selected.length, passQ);
+  const result = bestExactSelectedTour(matrix, selected.length, passQ, selected);
   if (!result) {
     resetPlanButton();
-    showPlanResult({ error: "No route found through the selected passes." });
+    showPlanResult({ error: "No route found through the selected stops." });
     return;
   }
 
-  const tourPasses = result.perm.map(t => selected[t.passIdx]);
+  const tourStops = result.perm.map(t => selected[t.passIdx]);
   const waypoints = waypointsForTour(start, selected, result.perm);
+  /* Driving time/distance from the planner matrix as a baseline; OSRM full
+     route below replaces them with road-accurate values. Dwell time stays
+     separate so it's never lost or mis-labelled (rubber-duck blocking #2). */
+  let driveH = result.h;
+  let driveKm = result.km;
+  const dwellH = result.dwellH || 0;
   let latlngs = null;
   let routeWarning = "";
   try {
     const routeOut = await osrmRoute(coordsFromWaypoints(waypoints));
     latlngs = routeOut.geom.map(([lo, la]) => [la, lo]);
-    result.km = routeOut.distanceKm;
-    result.h = routeOut.durationH;
+    driveKm = routeOut.distanceKm;
+    driveH  = routeOut.durationH;
   } catch (e) {
     routeWarning = "Could not fetch detailed route geometry; map line is approximate.";
   }
+  const totalH = driveH + dwellH;
 
   resetPlanButton();
   showPlanResult({
     start,
-    tourPasses,
-    km: result.km,
-    h: result.h,
+    tourStops,
+    km: driveKm,
+    driveH, dwellH, totalH,
     matched: selected.length,
     poolSize: selected.length,
     inRange: true,
     advanced: true,
     routeWarning,
-    statusWarning: advancedStatusWarning(tourPasses),
+    statusWarning: advancedStatusWarning(tourStops),
     tripDate: currentTripDate(),
     modes: result.perm,
   });
-  drawPlannedTour(start, tourPasses, latlngs);
+  drawPlannedTour(start, tourStops, latlngs);
 }
 
 async function planTour() {
@@ -2617,8 +2941,11 @@ function renderList() {
       const sourceLabel = statusView.sourceMeta.label;
       const dist  = start ? `· ${Math.round(haversine(start, p))} km from ${start.name}` : "";
       const selected = advancedModeEl.checked && selectedPassIds.has(p.id);
+      const listIcon = p.iconAsset
+        ? `<span class="pass-list-icon-wrap">${passIconHtml(p, "pass-art-icon list")} ${iconSvg("alpine-status", `status-icon ${statusView.className}`)}</span>`
+        : iconSvg("alpine-status", `status-icon ${statusView.className}`);
       return `<li data-id="${p.id}" class="${selected ? "selected" : ""}" title="${advancedModeEl.checked ? "Select this pass for the route" : "Zoom to this pass"}">
-        ${iconSvg("alpine-status", `status-icon ${statusView.className}`)}
+        ${listIcon}
         <span>
           <div class="name">${p.name} ${qualityStarsCompact(p.quality)}</div>
           <div class="meta">${p.elev} m · ${label} · ${sourceLabel} ${dist}</div>

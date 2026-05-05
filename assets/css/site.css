@@ -919,25 +919,12 @@ select option:checked {
   font-weight: 600;
 }
 
-/* Route tooltip */
-.route-three-pass { --route-color: #ff9f1c; }
-.route-four-pass { --route-color: #e63946; }
-.route-klausen-pragel { --route-color: #4cc9f0; }
-.route-bruenig-glaubenbielen { --route-color: #2ec4b6; }
-.route-layer-swatch {
+/* Layer-control overlay rows (POI etc.) */
+.poi-overlay-swatch {
   display: inline-block; width: 10px; height: 10px; border-radius: 50%;
-  background: var(--route-color); margin-right: 6px;
+  background: var(--accent-2); margin-right: 6px;
 }
-.route-layer-meta { color: var(--fg-dim); font-size: 11px; }
-.route-tooltip-name { font-weight: 600; color: var(--route-color); }
-.route-tooltip-stats { font-size: 11px; color: #fff; }
-.route-popup-body { width: 240px; }
-.route-popup-body h2 { color: var(--route-color); margin-top: 0; }
-.leaflet-tooltip.route-tt {
-  background: rgba(15,20,24,.92); border: 1px solid var(--border);
-  color: var(--fg); box-shadow: var(--shadow); padding: 6px 10px;
-}
-.leaflet-tooltip.route-tt::before { display: none; }
+.overlay-meta { color: var(--fg-dim); font-size: 11px; }
 .leaflet-control-layers-overlays label { display: flex; align-items: center; }
 
 /* Cluster markers — match dark theme */

@@ -966,12 +966,20 @@ const map = L.map("map", {
   zoomControl: true,
   minZoom: 4,
   maxZoom: 18,
-  /* Avoid split animation paths between Leaflet panes and the MapLibre
-     bridge; synchronized redraws are more important here than inertia. */
-  zoomAnimation: false,
-  markerZoomAnimation: false,
-  fadeAnimation: false,
-  inertia: false,
+  /* Smooth interactions enabled now that maplibre-gl-leaflet 0.1.3 keeps
+     the WebGL basemap in sync during pan/zoom animations (the older 0.0.22
+     bridge desynced and we used to force everything synchronous). */
+  zoomAnimation: true,
+  markerZoomAnimation: true,
+  fadeAnimation: true,
+  inertia: true,
+  inertiaDeceleration: 2200,
+  /* Fractional zoom for buttery wheel/pinch — MapLibre handles fractional
+     levels natively, and Leaflet now animates between them. */
+  zoomSnap: 0,
+  zoomDelta: 0.5,
+  wheelPxPerZoomLevel: 110,
+  wheelDebounceTime: 30,
 }).setView([46.7, 10.0], 7);
 
 const baseLayers = buildVectorBaseLayers();

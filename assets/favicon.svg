@@ -1,6 +1,26 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Alpine pass">
-  <rect width="64" height="64" rx="14" fill="#161a1d"/>
-  <path d="M7 49 25 15l9 17 6-10 17 27H7Z" fill="#4cc9f0"/>
-  <path d="m25 15 5 10-6-2-5 8-3-4 9-12Zm15 7 5 8-5-2-4 7-3-5 7-8Z" fill="#e8eef2"/>
-  <path d="M13 49c7-9 16-13 27-12 7 1 12 4 17 12H13Z" fill="#3ddc84"/>
+<!-- assets/favicon.svg -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Alpine Passes">
+  <defs>
+    <linearGradient id="sky" x1="12" y1="8" x2="52" y2="56" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#26323a"/>
+      <stop offset="1" stop-color="#0e1418"/>
+    </linearGradient>
+    <linearGradient id="road" x1="20" y1="19" x2="46" y2="49" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f8fafc"/>
+      <stop offset="1" stop-color="#b9c6d0"/>
+    </linearGradient>
+    <linearGradient id="ridge" x1="16" y1="20" x2="50" y2="52" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5edcff"/>
+      <stop offset="1" stop-color="#3ddc84"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="5" y="5" width="54" height="54" rx="16" fill="#0e1418"/>
+  <rect x="7" y="7" width="50" height="50" rx="14" fill="url(#sky)"/>
+
+  <path d="M14 46 27 22l8 14 7-11 10 21Z" fill="url(#ridge)"/>
+
+  <path d="M18 47 32 38 46 50" fill="none" stroke="#0e1418" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M18 47 32 38 46 50" fill="none" stroke="url(#road)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="7" y="7" width="50" height="50" rx="14" fill="none" stroke="#ffffff" stroke-opacity=".12" stroke-width="1"/>
 </svg>

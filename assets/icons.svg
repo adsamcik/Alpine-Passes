@@ -1,0 +1,46 @@
+<!-- assets/icons.svg -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <symbol id="alpine-compass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="8.5"/>
+    <path d="M14 14 10 18l1-7 4-4-1 7Z"/>
+  </symbol>
+
+  <symbol id="alpine-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 21s6-5.5 6-11a6 6 0 0 0-12 0c0 5.5 6 11 6 11Z"/>
+    <circle cx="12" cy="10" r="2"/>
+  </symbol>
+
+  <symbol id="alpine-route" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5 7h6l-4 5h7l-4 5h9"/>
+    <circle cx="5" cy="7" r="2"/>
+    <circle cx="19" cy="17" r="2"/>
+  </symbol>
+
+  <symbol id="alpine-tune" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6 4v16M12 4v16M18 4v16"/>
+    <path d="M4.5 9h3M10.5 15h3M16.5 8h3"/>
+  </symbol>
+
+  <symbol id="alpine-legend" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="6" cy="7" r="2" fill="#3ddc84"/>
+    <circle cx="6" cy="12" r="2" fill="#ffb020"/>
+    <circle cx="6" cy="17" r="2" fill="#ef4444"/>
+    <path d="M11 7h8M11 12h8M11 17h8" stroke="currentColor" stroke-width="1.75"/>
+  </symbol>
+
+  <symbol id="alpine-explore" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="10.5" cy="10.5" r="6.5"/>
+    <path d="M15.5 15.5 20 20"/>
+    <path d="M7 13l3-3 5 5"/>
+  </symbol>
+
+  <symbol id="alpine-reload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M18.5 8.5A7 7 0 1 0 19 15"/>
+    <path d="M18.5 4.5v4h-4"/>
+  </symbol>
+
+  <symbol id="alpine-status" viewBox="0 0 24 24">
+    <path d="M4.5 18.5 12 5.5l7.5 13H4.5Z" fill="currentColor"/>
+    <path d="M9 16.5 12 10.5l3 6H9Z" fill="var(--icon-cut, #0e1418)"/>
+  </symbol>
+</svg>

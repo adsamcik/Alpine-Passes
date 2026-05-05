@@ -2035,12 +2035,50 @@ async function osrmRoute(coordsStr) {
                                 back: the car drives the same approach
                                 road up and down. Pushes the planner to
                                 prefer traversals (different roads in /
-                                out) wherever a through-pass exists. */
-const PASS_QUALITY_POWER = 3;
-const PASS_PER_VISIT_COST = 1.0;
-const OUT_AND_BACK_RETRACE_PENALTY = 1.0;
+                                out) wherever a through-pass exists.
+     SHARED_GATEWAY_KM /
+     SHARED_GATEWAY_PENALTY     each pair of passes in a tour whose closest
+                                approach gateways sit within this km
+                                threshold gets penalised. Catches "drove
+                                the same valley twice" cases (passes that
+                                share a connector road) without needing
+                                actual route-segment matching. */
+const PASS_QUALITY_POWER = 4;
+const PASS_PER_VISIT_COST = 1.5;
+const OUT_AND_BACK_RETRACE_PENALTY = 1.5;
+const SHARED_GATEWAY_KM = 5;
+const SHARED_GATEWAY_PENALTY = 2.0;
 
-function bestTourGated(matrix, N, targetKm, tolerance, maxPasses, passQ) {
+/* Pre-compute an N×N flag matrix marking which candidate passes have
+   approach gateways close enough that any tour visiting both would
+   likely retrace the same connector valley. Uses haversine on the
+   four base-pair distances (bA-bA, bA-bB, bB-bA, bB-bB) — true
+   road-distance overlap detection would need actual route geometry,
+   but proximity of the bases is a strong proxy for "shares a valley". */
+function computeSharedGatewayFlags(candidates) {
+  const N = candidates.length;
+  const flags = Array.from({ length: N }, () => new Uint8Array(N));
+  for (let i = 0; i < N; i++) {
+    const A = candidates[i];
+    if (!A.baseA || !A.baseB) continue;
+    for (let j = i + 1; j < N; j++) {
+      const B = candidates[j];
+      if (!B.baseA || !B.baseB) continue;
+      const dMin = Math.min(
+        haversine(A.baseA, B.baseA),
+        haversine(A.baseA, B.baseB),
+        haversine(A.baseB, B.baseA),
+        haversine(A.baseB, B.baseB),
+      );
+      if (dMin < SHARED_GATEWAY_KM) {
+        flags[i][j] = flags[j][i] = 1;
+      }
+    }
+  }
+  return flags;
+}
+
+function bestTourGated(matrix, N, targetKm, tolerance, maxPasses, passQ, sharedFlags) {
   const cap = Math.min(maxPasses, N);
   if (N === 0) return null;
   const lo = targetKm * (1 - tolerance) * 1000;
@@ -2145,6 +2183,24 @@ function bestTourGated(matrix, N, targetKm, tolerance, maxPasses, passQ) {
        - bestSol  (in budget):  maximise quality + small closeness tiebreak
        - fallback (out of bud): minimise distance from target — quality
                                 does NOT compensate for blowing the budget. */
+  /* Cache the shared-gateway penalty per mask. Each mask's penalty is
+     intrinsic to its set of passes; (lastI, lastS) doesn't change it. */
+  const sharedPenaltyByMask = sharedFlags ? new Float32Array(SIZE) : null;
+  function maskSharedPenalty(mask) {
+    if (!sharedFlags) return 0;
+    if (sharedPenaltyByMask[mask] !== 0) return sharedPenaltyByMask[mask];
+    let count = 0;
+    for (let i = 0; i < N; i++) {
+      if (!(mask & (1 << i))) continue;
+      for (let j = i + 1; j < N; j++) {
+        if ((mask & (1 << j)) && sharedFlags[i][j]) count++;
+      }
+    }
+    const p = count * SHARED_GATEWAY_PENALTY;
+    sharedPenaltyByMask[mask] = p || -1e-9;  /* sentinel "computed=zero" */
+    return p;
+  }
+
   let bestSol = null, fallback = null;
   for (let mask = 1; mask < SIZE; mask++) {
     const k = popcount(mask);
@@ -2161,8 +2217,9 @@ function bestTourGated(matrix, N, targetKm, tolerance, maxPasses, passQ) {
         const inRange = total >= lo && total <= hi;
         if (inRange) {
           const traceQ = traceQuality(mask, i, s);
+          const sharedPenalty = maskSharedPenalty(mask);
           const closeness = -Math.abs(total - targetKm * 1000) / 1000;
-          const score = traceQ * 1e6 + closeness;
+          const score = (traceQ - sharedPenalty) * 1e6 + closeness;
           if (!bestSol || score > bestSol.score) {
             bestSol = { mask, total, lastI: i, lastS: s, k, quality: traceQ, score, inRange: true };
           }
@@ -2676,7 +2733,8 @@ async function planTour() {
       qSummit: p.qSummit || 0,
       qApproach: p.qApproach || 0,
     }));
-    const result = bestTourGated(matrix, candidates.length, targetKm, 0.20, PLANNER_MAX_PASSES, passQ);
+    const sharedFlags = computeSharedGatewayFlags(candidates);
+    const result = bestTourGated(matrix, candidates.length, targetKm, 0.20, PLANNER_MAX_PASSES, passQ, sharedFlags);
     plannerMs += performance.now() - t0;
     if (!result) break;
 

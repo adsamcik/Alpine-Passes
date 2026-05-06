@@ -250,6 +250,12 @@ const POIS = POI_RAW.map((d, i) => ({
   poiRegion:  d.region || "",
   /* Visit-time at destination (separate from driving time). */
   visitDwellSec: typeof d.dur === "number" ? Math.round(d.dur * 3600) : 0,
+  /* Starting price (filled in async by loadPoiPrices()). */
+  priceKind:         null,
+  priceFromAdultChf: null,
+  priceAsOf:         null,
+  priceSourceUrl:    null,
+  priceNotes:        null,
 }));
 const POI_BY_ID = new Map(POIS.map(p => [p.id, p]));
 /* Hard-filter to POIs the OSRM road router can actually reach.  Anything
@@ -258,6 +264,79 @@ const POI_BY_ID = new Map(POIS.map(p => [p.id, p]));
 const PLANNABLE_POIS = POIS.filter(p => p.poiAccess.includes("car"));
 const PLANNABLE_POI_IDS = new Set(PLANNABLE_POIS.map(p => p.id));
 function isPlannablePoi(p) { return p?.isPoi && PLANNABLE_POI_IDS.has(p.id); }
+
+/* ─────────────────────── POI starting-prices ───────────────────────
+   Loaded from `assets/data/poi-prices.json` (committed cache refreshed
+   on deploy via tools/fetch_poi_prices.py + the refresh-poi-prices
+   GitHub Actions workflow). The committed JSON is the persistent
+   fallback so we always have *some* price data even if the live fetch
+   fails. Each entry is keyed by the POI's raw `n` field (kept on
+   `poi.rawName` after normalisation). The fetch is best-effort: a
+   missing or unreachable cache simply leaves POIs without prices.
+
+   Schema of each entry:
+     kind            "paid" | "free" | "varies" | "donation"
+     from_adult_chf  number — only when kind === "paid"
+     as_of           year string for context (e.g. "2024")
+     source_url      official source URL
+     source_kind     "manual" | "wikidata"  (refresher only updates wikidata)
+     verified_at     YYYY-MM-DD
+     notes           optional free-text
+*/
+async function loadPoiPrices() {
+  try {
+    const res = await fetch("assets/data/poi-prices.json", { cache: "no-cache" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const cache = await res.json();
+    if (!cache || typeof cache !== "object") return;
+    const entries = cache.entries || {};
+    let matched = 0;
+    POIS.forEach(p => {
+      const e = entries[p.rawName];
+      if (!e) return;
+      p.priceKind        = e.kind || null;
+      p.priceFromAdultChf = typeof e.from_adult_chf === "number" ? e.from_adult_chf : null;
+      p.priceAsOf        = e.as_of || null;
+      p.priceSourceUrl   = e.source_url || null;
+      p.priceNotes       = e.notes || null;
+      matched++;
+    });
+    if (matched > 0 && typeof renderPoiList === "function") {
+      renderPoiList();
+    }
+  } catch (e) {
+    /* Silent fallback — POI rows simply render without price chips. */
+    console.warn("[poi-prices] cache load failed:", e);
+  }
+}
+
+function poiPriceShort(poi) {
+  switch (poi.priceKind) {
+    case "free":     return "Free";
+    case "varies":   return "Varies";
+    case "donation": return "Donation";
+    case "paid":
+      return poi.priceFromAdultChf
+        ? `CHF ${Math.round(poi.priceFromAdultChf)}+`
+        : null;
+    default: return null;
+  }
+}
+
+function poiPriceLong(poi) {
+  switch (poi.priceKind) {
+    case "free":     return "Free";
+    case "varies":   return "Varies";
+    case "donation": return "Donation";
+    case "paid":
+      return poi.priceFromAdultChf
+        ? `From CHF ${Number.isInteger(poi.priceFromAdultChf)
+            ? poi.priceFromAdultChf
+            : poi.priceFromAdultChf.toFixed(2)} · adult`
+        : null;
+    default: return null;
+  }
+}
 
 /* Static taxonomy used by the POI picker filter dropdowns. */
 const POI_CATEGORY_LABELS = {
@@ -586,14 +665,19 @@ function passStatus(p) {
 }
 
 let plannedTourIds = [];
+let plannedBadgeMap = new Map();
 let plannedStart = null;
 let plannedRouteActive = false;
 let plannedRouteCoords = null;
 let plannedRouteFallback = false;
 
+function setPlannedTourIds(ids) {
+  plannedTourIds = Array.isArray(ids) ? ids.slice() : [];
+  plannedBadgeMap = new Map(plannedTourIds.map((id, i) => [id, i + 1]));
+}
+
 function plannedBadgeNumber(p) {
-  const idx = plannedTourIds.indexOf(p.id);
-  return idx >= 0 ? idx + 1 : null;
+  return plannedBadgeMap.get(p?.id) || null;
 }
 
 function updatePassMarkerIcon(p) {
@@ -1130,6 +1214,7 @@ const map = new maplibregl.Map({
   maxZoom: 18,
   attributionControl: true,
 });
+window.alpineMap = map;
 
 map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-left");
 updateMapInfo(defaultBaseLayerName);
@@ -1233,7 +1318,8 @@ function hasRequiredMapLayers() {
     map.getSource(PASS_SOURCE_ID) &&
     map.getSource(POI_SOURCE_ID) &&
     map.getSource(ROUTE_SOURCE_ID) &&
-    map.getLayer("planned-route-core")
+    map.getLayer("planned-route-core") &&
+    map.getLayer(ALPINE_GL_LAYER_ID)
   );
 }
 
@@ -1273,20 +1359,863 @@ function addCircleLayer(layer) {
   if (!map.getLayer(layer.id)) map.addLayer(layer);
 }
 
-const alpineOverlayEl = document.createElement("div");
-alpineOverlayEl.className = "alpine-map-overlay";
-alpineOverlayEl.setAttribute("aria-label", "Alpine passes and sights overlay");
-map.getContainer().appendChild(alpineOverlayEl);
+const ALPINE_GL_LAYER_ID = "alpine-overlay";
+const ALPINE_GL_STRIDE = 20;
+const ALPINE_GL_KIND = { pass: 0, poi: 1, passCluster: 2, poiCluster: 3, label: 4, preview: 5 };
+const ALPINE_GL_LABEL_COLS = 16;
+const ALPINE_GL_LABEL_ROWS = 16;
+const ALPINE_GL_LABEL_CELL = 64;
+const ALPINE_GL_FLAG_ESTIMATED = 1;
+const ALPINE_GL_FLAG_DIM = 2;
+const ALPINE_GL_FLAG_SIMPLE_CIRCLE = 4;
+const ALPINE_GL_COLORS = {
+  markerPurple:[0.545, 0.424, 0.925, 1],
+  open:       [0.239, 0.863, 0.518, 1],
+  restricted: [1.000, 0.690, 0.125, 1],
+  closed:     [0.937, 0.267, 0.267, 1],
+  unknown:    [0.541, 0.588, 0.627, 1],
+  passCluster:[0.075, 0.590, 0.660, 1],
+  poi:        [0.655, 0.545, 0.980, 1],
+  poiDim:     [0.580, 0.639, 0.722, 0.86],
+  poiCluster: [0.075, 0.590, 0.660, 1],
+  white:      [1.000, 1.000, 1.000, 0.95],
+  dark:       [0.043, 0.055, 0.063, 0.96],
+  preview:    [0.360, 0.400, 0.420, 0.96],
+};
+const UI_ATLAS_CELLS = {
+  "status-open": [0, 0],
+  "status-restricted": [1, 0],
+  "status-closed": [2, 0],
+  "status-estimated": [3, 0],
+  "status-unknown": [4, 0],
+  "poi-generic": [0, 1],
+  "not-by-car": [1, 1],
+  "poi-mountain-summit": [2, 1],
+  "poi-alpine-lake": [3, 1],
+  "poi-waterfall-gorge": [4, 1],
+  "poi-glacier": [0, 2],
+  "poi-old-town": [1, 2],
+  "poi-castle-fortress": [2, 2],
+  "poi-monastery-church": [3, 2],
+  "poi-scenic-railway": [4, 2],
+  "poi-bridge-engineering": [0, 3],
+  "poi-village": [1, 3],
+  "poi-national-park": [2, 3],
+  "poi-spa-wellness": [3, 3],
+  "poi-viewpoint-panorama": [4, 3],
+  "poi-museum-cultural": [0, 4],
+  "poi-geology-cave": [1, 4],
+  "poi-wine-region": [2, 4],
+  "poi-special-experience": [3, 4],
+  "pass-generic": [4, 4],
+};
 
-/* Persistent DOM marker pool. Stable identity through pan and within a zoom
-   step keeps clusters from jumping/overlapping; pan/zoom frames only update
-   transforms — no DOM rebuild, no re-cluster, no icon reload. */
-const overlayPool = new Map();
+function lngLatToMercatorNorm(lng, lat) {
+  const sinLat = Math.sin(lat * Math.PI / 180);
+  return {
+    x: (lng + 180) / 360,
+    y: 0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI),
+  };
+}
+
+function atlasCellUv(cell) {
+  const col = Math.max(0, Math.min(4, Number(cell?.[0]) || 0));
+  const row = Math.max(0, Math.min(4, Number(cell?.[1]) || 0));
+  return [col * 0.2, (4 - row) * 0.2];
+}
+
+function textureRefForUiIcon(id, scale = 0.85) {
+  const [u, v] = atlasCellUv(UI_ATLAS_CELLS[id] || UI_ATLAS_CELLS["poi-generic"]);
+  return { sheet: 0, u, v, scale };
+}
+
+function textureRefForPassSymbol(asset, scale = 1.0) {
+  if (!asset) return null;
+  const sheet = String(asset.sheet || "").includes("sprite-02") ? 2 : 1;
+  const [u, v] = atlasCellUv([asset.col, asset.row]);
+  return { sheet, u, v, scale };
+}
+
+class AlpineWebGLLayer {
+  constructor() {
+    this.id = ALPINE_GL_LAYER_ID;
+    this.type = "custom";
+    this.renderingMode = "2d";
+    this._map = null;
+    this._gl = null;
+    this._program = null;
+    this._quadBuffer = null;
+    this._instanceBuffer = null;
+    this._textures = [];
+    this._locations = null;
+    this._instancingExt = null;
+    this._instanceData = new Float32Array(0);
+    this._instanceCount = 0;
+    this._pickItems = [];
+    this._dirty = true;
+    this._labelDirty = true;
+    this._warnedMissingMatrix = false;
+    this._groups = [];
+    this._transientGroups = [];
+    this._animations = new Map();
+    this._animationMs = 280;
+    this._start = null;
+    this._labelCanvas = document.createElement("canvas");
+    this._labelCanvas.width = ALPINE_GL_LABEL_COLS * ALPINE_GL_LABEL_CELL;
+    this._labelCanvas.height = ALPINE_GL_LABEL_ROWS * ALPINE_GL_LABEL_CELL;
+    this._labelEntries = [];
+    this._labelKeys = new Map();
+    this._reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches || false;
+    this._startedAt = performance.now();
+  }
+
+  setGroups(groups, start = null) {
+    const nextGroups = Array.isArray(groups) ? groups.slice() : [];
+    this._prepareGroupAnimations(this._groups, nextGroups);
+    this._groups = nextGroups;
+    this._start = start;
+    this._rebuildInstances(performance.now());
+    this._dirty = true;
+    this._labelDirty = true;
+    this._map?.triggerRepaint();
+  }
+
+  _prepareGroupAnimations(oldGroups, newGroups) {
+    if (this._reducedMotion) {
+      this._animations.clear();
+      this._transientGroups = [];
+      return;
+    }
+    const now = performance.now();
+    const oldPositions = this._itemPositionsForGroups(oldGroups, now);
+    const newPositions = this._itemPositionsForGroups(newGroups, now);
+    const animations = new Map();
+    const transients = [];
+    const distanceEpsilon = 0.000001;
+    for (const [key, dst] of newPositions) {
+      const src = oldPositions.get(key);
+      if (!src) continue;
+      const moved = Math.abs(src.lng - dst.lng) + Math.abs(src.lat - dst.lat);
+      if (moved <= distanceEpsilon) continue;
+      animations.set(key, { srcLngLat: [src.lng, src.lat], dstLngLat: [dst.lng, dst.lat], startMs: now });
+    }
+    for (const group of newGroups) {
+      if (group.type !== "cluster") continue;
+      for (const item of group.items || []) {
+        const key = this._itemAnimationKey(group.kind, item);
+        if (!animations.has(key)) continue;
+        transients.push({
+          id: `${group.kind}:transient:${item.id}`,
+          kind: group.kind,
+          type: "marker",
+          item,
+          lng: item.lon,
+          lat: item.lat,
+          _animKey: key,
+        });
+      }
+    }
+    this._animations = animations;
+    this._transientGroups = transients;
+  }
+
+  _itemPositionsForGroups(groups, now) {
+    const positions = new Map();
+    for (const group of groups || []) {
+      if (group.type === "cluster") {
+        for (const item of group.items || []) {
+          const key = this._itemAnimationKey(group.kind, item);
+          positions.set(key, this._animatedLngLat(key, group.lng, group.lat, now, false));
+        }
+      } else if (group.item) {
+        const key = this._itemAnimationKey(group.kind, group.item);
+        positions.set(key, this._animatedLngLat(key, group.lng, group.lat, now, false));
+      }
+    }
+    return positions;
+  }
+
+  _itemAnimationKey(kind, item) {
+    return `${kind}:${item?.id}`;
+  }
+
+  _animationEase(t) {
+    return 1 - Math.pow(1 - t, 3);
+  }
+
+  _animatedLngLat(key, lng, lat, now = performance.now(), prune = true) {
+    const anim = this._animations.get(key);
+    if (!anim) return { lng, lat };
+    const t = Math.min(1, Math.max(0, (now - anim.startMs) / this._animationMs));
+    if (t >= 1) {
+      if (prune) this._animations.delete(key);
+      return { lng: anim.dstLngLat[0], lat: anim.dstLngLat[1] };
+    }
+    const eased = this._animationEase(t);
+    return {
+      lng: anim.srcLngLat[0] + (anim.dstLngLat[0] - anim.srcLngLat[0]) * eased,
+      lat: anim.srcLngLat[1] + (anim.dstLngLat[1] - anim.srcLngLat[1]) * eased,
+    };
+  }
+
+  pickAt(point) {
+    if (!this._map || !point) return null;
+    for (let i = this._pickItems.length - 1; i >= 0; i--) {
+      const pick = this._pickItems[i];
+      const screen = this._map.project([pick.lng, pick.lat]);
+      const dx = point.x - screen.x;
+      const dy = point.y - screen.y;
+      if ((dx * dx + dy * dy) <= pick.radius * pick.radius) return pick;
+    }
+    return null;
+  }
+
+  onAdd(mapInstance, gl) {
+    this._map = mapInstance;
+    this._gl = gl;
+    this._instancingExt = this._supportsWebGL2(gl) ? null : gl.getExtension("ANGLE_instanced_arrays");
+    if (!this._supportsWebGL2(gl) && !this._instancingExt) {
+      throw new Error("ANGLE_instanced_arrays is unavailable");
+    }
+    this._program = this._createProgram(gl);
+    this._locations = this._lookupLocations(gl, this._program);
+    this._quadBuffer = this._createQuadBuffer(gl);
+    this._instanceBuffer = gl.createBuffer();
+    this._textures = [
+      this._loadTexture(gl, "assets/ui-icons/alpine-ui-icons.png"),
+      this._loadTexture(gl, "assets/pass-icon-sheets/top-50-icon-sprite-01.png"),
+      this._loadTexture(gl, "assets/pass-icon-sheets/top-50-icon-sprite-02.png"),
+      this._createLabelTexture(gl),
+    ];
+    this._dirty = true;
+    this._labelDirty = true;
+    mapInstance.triggerRepaint();
+  }
+
+  onRemove(_mapInstance, gl) {
+    if (this._quadBuffer) gl.deleteBuffer(this._quadBuffer);
+    if (this._instanceBuffer) gl.deleteBuffer(this._instanceBuffer);
+    if (this._program) gl.deleteProgram(this._program);
+    this._textures.forEach(tex => { if (tex) gl.deleteTexture(tex); });
+    this._quadBuffer = null;
+    this._instanceBuffer = null;
+    this._program = null;
+    this._textures = [];
+    this._locations = null;
+    this._gl = null;
+  }
+
+  render(arg0, arg1) {
+    if (!this._program || !this._locations) return;
+    const gl = arg0?.gl || arg0;
+    const matrix = this._matrixFromRenderArgs(arg0, arg1);
+    if (!gl || !matrix) {
+      if (!this._warnedMissingMatrix) {
+        this._warnedMissingMatrix = true;
+        console.error("Alpine WebGL overlay render missing a 4x4 projection matrix");
+      }
+      return;
+    }
+    if (this._animations.size) {
+      this._rebuildInstances(performance.now());
+      this._dirty = true;
+      this._map?.triggerRepaint();
+    } else if (this._transientGroups.length) {
+      this._transientGroups = [];
+      this._rebuildInstances(performance.now());
+      this._dirty = true;
+    }
+    if (this._dirty) this._uploadInstances(gl);
+    if (this._labelDirty) this._uploadLabelTexture(gl);
+    if (!this._instanceCount) return;
+    const loc = this._locations;
+    gl.useProgram(this._program);
+    gl.enable(gl.BLEND);
+    gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.disable(gl.DEPTH_TEST);
+    gl.depthMask(false);
+    gl.uniformMatrix4fv(loc.uMatrix, false, matrix);
+    gl.uniform2f(loc.uViewport, gl.drawingBufferWidth, gl.drawingBufferHeight);
+    gl.uniform1f(loc.uDpr, window.devicePixelRatio || 1);
+    gl.uniform1f(loc.uTime, this._reducedMotion ? 0 : (performance.now() - this._startedAt) / 1000);
+    this._bindTextures(gl, loc);
+    this._bindAttributes(gl, loc);
+    this._drawInstanced(gl);
+  }
+
+  _matrixFromRenderArgs(arg0, arg1) {
+    /* MapLibre 5 ships these in the second arg of render():
+       - defaultProjectionData.mainMatrix: works with raw MercatorCoordinate
+         (x,y in [0,1]) — what we want.
+       - modelViewProjectionMatrix: works with mercator * worldSize.
+       Older MapLibre versions pass the matrix as the second argument.
+       Prefer mainMatrix so our [0,1] mercator vertex positions project
+       directly to clip space at every zoom. */
+    const candidates = [
+      arg0?.defaultProjectionData?.mainMatrix,
+      arg1?.defaultProjectionData?.mainMatrix,
+      arg0?.modelViewProjectionMatrix,
+      arg1?.modelViewProjectionMatrix,
+      arg0?.projectionMatrix,
+      arg1?.projectionMatrix,
+      arg1,
+    ];
+    for (const candidate of candidates) {
+      const matrix = this._matrixCandidate(candidate);
+      if (matrix) return matrix;
+    }
+    return null;
+  }
+
+  _matrixCandidate(candidate) {
+    if (!candidate) return null;
+    if (candidate instanceof Float32Array && candidate.length >= 16) return candidate;
+    if (ArrayBuffer.isView(candidate) && candidate.length >= 16) {
+      /* Element-wise conversion (e.g. MapLibre 5 ships a Float64Array).
+         Do NOT use the (buffer, byteOffset, length) form — that reinterprets
+         8-byte doubles as 4-byte floats and produces a garbage matrix. */
+      return new Float32Array(candidate);
+    }
+    if (typeof candidate.length === "number" && candidate.length >= 16) {
+      return new Float32Array(Array.prototype.slice.call(candidate, 0, 16));
+    }
+    return null;
+  }
+
+  _supportsWebGL2(gl) {
+    return typeof WebGL2RenderingContext !== "undefined" && gl instanceof WebGL2RenderingContext;
+  }
+
+  _createProgram(gl) {
+    const vertexSource = `
+      precision mediump float;
+      attribute vec2 a_quad;
+      attribute vec2 a_pos;
+      attribute vec4 a_meta;
+      attribute vec4 a_fill;
+      attribute vec4 a_stroke;
+      attribute vec4 a_icon;
+      attribute vec2 a_offset;
+      uniform mat4 u_matrix;
+      uniform vec2 u_viewport;
+      uniform float u_dpr;
+      uniform float u_time;
+      varying vec2 v_uv;
+      varying vec2 v_local;
+      varying vec4 v_meta;
+      varying vec4 v_fill;
+      varying vec4 v_stroke;
+      varying vec4 v_icon;
+      varying float v_time;
+      void main() {
+        vec4 clip = u_matrix * vec4(a_pos, 0.0, 1.0);
+        vec2 ndc = clip.xy / clip.w;
+        vec2 pxOffset = a_quad * vec2(a_meta.x, a_meta.y) + a_offset;
+        vec2 ndcOffset = (pxOffset * u_dpr) / (u_viewport * 0.5);
+        gl_Position = vec4((ndc + ndcOffset) * clip.w, clip.z, clip.w);
+        v_uv = a_quad + 0.5;
+        v_local = a_quad;
+        v_meta = a_meta;
+        v_fill = a_fill;
+        v_stroke = a_stroke;
+        v_icon = a_icon;
+        v_time = u_time;
+      }`;
+    const fragmentSource = `
+      precision mediump float;
+      uniform sampler2D u_uiTex;
+      uniform sampler2D u_passTex1;
+      uniform sampler2D u_passTex2;
+      uniform sampler2D u_labelTex;
+      varying vec2 v_uv;
+      varying vec2 v_local;
+      varying vec4 v_meta;
+      varying vec4 v_fill;
+      varying vec4 v_stroke;
+      varying vec4 v_icon;
+      varying float v_time;
+      const float PI = 3.14159265359;
+      bool flagSet(float flags, float bit) {
+        return mod(floor(flags / bit), 2.0) >= 1.0;
+      }
+      vec4 sampleIcon(vec2 iconUv) {
+        if (v_icon.x < -0.5) return vec4(0.0);
+        if (v_icon.x < 0.5) return texture2D(u_uiTex, iconUv);
+        if (v_icon.x < 1.5) return texture2D(u_passTex1, iconUv);
+        if (v_icon.x < 2.5) return texture2D(u_passTex2, iconUv);
+        return texture2D(u_labelTex, iconUv);
+      }
+      vec4 fetchIconAt(vec2 uv, float scale) {
+        if (v_icon.x < -0.5 || v_icon.w <= 0.0) return vec4(0.0);
+        vec2 iconLocal = (uv - vec2(0.5)) / max(0.001, scale) + vec2(0.5);
+        if (iconLocal.x < 0.0 || iconLocal.x > 1.0 || iconLocal.y < 0.0 || iconLocal.y > 1.0) return vec4(0.0);
+        vec2 iconUv = vec2(v_icon.y + iconLocal.x * 0.2, v_icon.z + iconLocal.y * 0.2);
+        return sampleIcon(iconUv);
+      }
+      vec4 fetchIcon() {
+        return fetchIconAt(v_uv, v_icon.w);
+      }
+      float roundedBox(vec2 p, vec2 b, float r) {
+        vec2 q = abs(p) - b + vec2(r);
+        return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
+      }
+      vec4 simpleCircleMarker() {
+        float d = length(v_local);
+        float aa = 0.012;
+        float alpha = 1.0 - smoothstep(0.50 - aa, 0.50 + aa, d);
+        if (alpha <= 0.0) discard;
+        float edge = smoothstep(0.43, 0.50, d);
+        vec3 color = mix(v_fill.rgb, min(v_fill.rgb * 1.10, vec3(1.0)), 1.0 - v_uv.y);
+        color = mix(color, vec3(1.0), edge * 0.10);
+        vec4 icon = fetchIconAt(v_uv, v_icon.w);
+        float iconMask = icon.a;
+        if (v_icon.x >= 0.5) iconMask *= 1.0 - smoothstep(0.50, 0.86, length(icon.rgb));
+        color = mix(color, vec3(1.0), iconMask * (1.0 - edge * 0.6));
+        return vec4(color, alpha);
+      }
+      vec4 pinMarker() {
+        if (flagSet(v_meta.w, 4.0)) return simpleCircleMarker();
+        float aa = 0.014;
+        float headOuter = roundedBox(v_local - vec2(0.0, 0.08), vec2(0.39, 0.31), 0.12);
+        float headInner = roundedBox(v_local - vec2(0.0, 0.08), vec2(0.35, 0.27), 0.10);
+        float tailT = clamp((v_local.y + 0.48) / 0.34, 0.0, 1.0);
+        float tailOuter = step(-0.48, v_local.y) * step(v_local.y, -0.12) * step(abs(v_local.x), mix(0.035, 0.22, tailT));
+        float tailInner = step(-0.43, v_local.y) * step(v_local.y, -0.11) * step(abs(v_local.x), mix(0.020, 0.17, tailT));
+        float outer = max(1.0 - smoothstep(0.0, aa, headOuter), tailOuter);
+        float inner = max(1.0 - smoothstep(0.0, aa, headInner), tailInner);
+        if (outer <= 0.0) discard;
+        vec3 color = mix(v_stroke.rgb, v_fill.rgb, inner);
+        color = mix(color, v_fill.rgb, tailInner * 0.45);
+        vec4 icon = fetchIconAt(v_uv - vec2(0.0, 0.12), v_icon.w);
+        bool glyphIcon = v_icon.x < 0.5;
+        vec3 iconColor = (glyphIcon || v_meta.z < 0.5 || v_meta.z > 4.5) ? vec3(1.0) : mix(icon.rgb, vec3(1.0), 0.18);
+        color = mix(color, iconColor, icon.a * inner);
+        if (flagSet(v_meta.w, 1.0)) {
+          float a = atan(v_local.y, v_local.x) + PI;
+          float dash = step(0.45, fract(a / (2.0 * PI) * 14.0));
+          float rim = (1.0 - inner) * outer;
+          color = mix(color, vec3(1.0, 0.82, 0.30), rim * dash);
+        }
+        return vec4(color, outer);
+      }
+      vec4 clusterMarker() {
+        float aa = 0.012;
+        float body = roundedBox(v_local, vec2(0.47, 0.34), 0.17);
+        float alpha = 1.0 - smoothstep(0.0, aa, body);
+        if (alpha <= 0.0) discard;
+        float rim = smoothstep(-0.035, 0.018, body);
+        vec3 color = mix(v_fill.rgb * 0.94, min(v_fill.rgb * 1.08, vec3(1.0)), 1.0 - v_uv.y);
+        color = mix(color, vec3(0.76, 0.97, 0.91), rim * 0.16);
+        return vec4(color, alpha);
+      }
+      vec4 previewChip() {
+        float d = length(v_local);
+        float aa = 0.014;
+        float alpha = 1.0 - smoothstep(0.50 - aa, 0.50 + aa, d);
+        if (alpha <= 0.0) discard;
+        float ring = smoothstep(0.39, 0.50, d);
+        vec3 color = mix(v_fill.rgb, vec3(0.92, 1.0, 0.98), ring * 0.25);
+        vec4 icon = fetchIcon();
+        vec3 mutedIcon = v_icon.x < 0.5 ? icon.rgb : vec3(1.0);
+        color = mix(color, mutedIcon, icon.a * (1.0 - ring * 0.35));
+        return vec4(color, alpha);
+      }
+      vec4 labelMarker() {
+        vec2 iconUv = vec2(
+          v_icon.y + v_uv.x / ${ALPINE_GL_LABEL_COLS}.0,
+          v_icon.z + v_uv.y / ${ALPINE_GL_LABEL_ROWS}.0
+        );
+        vec4 label = texture2D(u_labelTex, iconUv);
+        if (label.a <= 0.01) discard;
+        return label;
+      }
+      void main() {
+        float kind = v_meta.z;
+        if (kind < 1.5) gl_FragColor = pinMarker();
+        else if (kind < 3.5) gl_FragColor = clusterMarker();
+        else if (kind < 4.5) gl_FragColor = labelMarker();
+        else gl_FragColor = previewChip();
+      }`;
+    const vertex = this._compileShader(gl, gl.VERTEX_SHADER, vertexSource);
+    const fragment = this._compileShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
+    const program = gl.createProgram();
+    gl.attachShader(program, vertex);
+    gl.attachShader(program, fragment);
+    gl.linkProgram(program);
+    gl.deleteShader(vertex);
+    gl.deleteShader(fragment);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      const msg = gl.getProgramInfoLog(program) || "unknown link error";
+      gl.deleteProgram(program);
+      throw new Error(msg);
+    }
+    return program;
+  }
+
+  _compileShader(gl, type, source) {
+    const shader = gl.createShader(type);
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      const msg = gl.getShaderInfoLog(shader) || "unknown shader error";
+      gl.deleteShader(shader);
+      throw new Error(msg);
+    }
+    return shader;
+  }
+
+  _lookupLocations(gl, program) {
+    return {
+      aQuad: gl.getAttribLocation(program, "a_quad"),
+      aPos: gl.getAttribLocation(program, "a_pos"),
+      aMeta: gl.getAttribLocation(program, "a_meta"),
+      aFill: gl.getAttribLocation(program, "a_fill"),
+      aStroke: gl.getAttribLocation(program, "a_stroke"),
+      aIcon: gl.getAttribLocation(program, "a_icon"),
+      aOffset: gl.getAttribLocation(program, "a_offset"),
+      uMatrix: gl.getUniformLocation(program, "u_matrix"),
+      uViewport: gl.getUniformLocation(program, "u_viewport"),
+      uDpr: gl.getUniformLocation(program, "u_dpr"),
+      uTime: gl.getUniformLocation(program, "u_time"),
+      uUiTex: gl.getUniformLocation(program, "u_uiTex"),
+      uPassTex1: gl.getUniformLocation(program, "u_passTex1"),
+      uPassTex2: gl.getUniformLocation(program, "u_passTex2"),
+      uLabelTex: gl.getUniformLocation(program, "u_labelTex"),
+    };
+  }
+
+  _createQuadBuffer(gl) {
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+      -0.5, -0.5,  0.5, -0.5, -0.5,  0.5,
+      -0.5,  0.5,  0.5, -0.5,  0.5,  0.5,
+    ]), gl.STATIC_DRAW);
+    return buffer;
+  }
+
+  _loadTexture(gl, url) {
+    const tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 0]));
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.onload = () => {
+      if (!this._gl || !tex) return;
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+      this._map?.triggerRepaint();
+    };
+    image.onerror = () => console.warn("Alpine WebGL overlay texture failed to load", url);
+    image.src = url;
+    return tex;
+  }
+
+  _createLabelTexture(gl) {
+    const tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this._labelCanvas);
+    return tex;
+  }
+
+  _bindTextures(gl, loc) {
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this._textures[0]);
+    gl.uniform1i(loc.uUiTex, 0);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, this._textures[1]);
+    gl.uniform1i(loc.uPassTex1, 1);
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_2D, this._textures[2]);
+    gl.uniform1i(loc.uPassTex2, 2);
+    gl.activeTexture(gl.TEXTURE3);
+    gl.bindTexture(gl.TEXTURE_2D, this._textures[3]);
+    gl.uniform1i(loc.uLabelTex, 3);
+  }
+
+  _bindAttributes(gl, loc) {
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._quadBuffer);
+    gl.enableVertexAttribArray(loc.aQuad);
+    gl.vertexAttribPointer(loc.aQuad, 2, gl.FLOAT, false, 0, 0);
+    this._vertexAttribDivisor(gl, loc.aQuad, 0);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._instanceBuffer);
+    const stride = ALPINE_GL_STRIDE * 4;
+    this._instanceAttrib(gl, loc.aPos, 2, stride, 0);
+    this._instanceAttrib(gl, loc.aMeta, 4, stride, 2);
+    this._instanceAttrib(gl, loc.aFill, 4, stride, 6);
+    this._instanceAttrib(gl, loc.aStroke, 4, stride, 10);
+    this._instanceAttrib(gl, loc.aIcon, 4, stride, 14);
+    this._instanceAttrib(gl, loc.aOffset, 2, stride, 18);
+  }
+
+  _instanceAttrib(gl, location, size, strideBytes, floatOffset) {
+    if (location < 0) return;
+    gl.enableVertexAttribArray(location);
+    gl.vertexAttribPointer(location, size, gl.FLOAT, false, strideBytes, floatOffset * 4);
+    this._vertexAttribDivisor(gl, location, 1);
+  }
+
+  _vertexAttribDivisor(gl, location, divisor) {
+    if (location < 0) return;
+    if (this._supportsWebGL2(gl)) gl.vertexAttribDivisor(location, divisor);
+    else this._instancingExt.vertexAttribDivisorANGLE(location, divisor);
+  }
+
+  _drawInstanced(gl) {
+    if (this._supportsWebGL2(gl)) gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, this._instanceCount);
+    else this._instancingExt.drawArraysInstancedANGLE(gl.TRIANGLES, 0, 6, this._instanceCount);
+  }
+
+  _uploadInstances(gl) {
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._instanceBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, this._instanceData, gl.DYNAMIC_DRAW);
+    this._dirty = false;
+  }
+
+  _uploadLabelTexture(gl) {
+    gl.bindTexture(gl.TEXTURE_2D, this._textures[3]);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this._labelCanvas);
+    this._labelDirty = false;
+  }
+
+  _rebuildInstances(now = performance.now()) {
+    const out = [];
+    this._pickItems = [];
+    this._labelEntries = [];
+    this._labelKeys = new Map();
+    for (const group of this._groups) this._pushGroupInstances(out, group, now);
+    for (const group of this._transientGroups) this._pushGroupInstances(out, group, now);
+    if (this._start) this._pushStartInstance(out, this._start);
+    this._drawLabelAtlas();
+    this._instanceCount = out.length / ALPINE_GL_STRIDE;
+    this._instanceData = new Float32Array(out);
+  }
+
+  _pushGroupInstances(out, group, now = performance.now()) {
+    const isCluster = group.type === "cluster";
+    const isPoi = group.kind === "poi";
+    let kind, width, height, flags = 0, fill, stroke = ALPINE_GL_COLORS.white, icon = { sheet: -1, u: 0, v: 0, scale: 0 };
+    let lng = group.lng;
+    let lat = group.lat;
+    if (!isCluster && group.item) {
+      const key = group._animKey || this._itemAnimationKey(group.kind, group.item);
+      const pos = this._animatedLngLat(key, group.lng, group.lat, now);
+      lng = pos.lng;
+      lat = pos.lat;
+    }
+    if (isCluster) {
+      kind = isPoi ? ALPINE_GL_KIND.poiCluster : ALPINE_GL_KIND.passCluster;
+      width = group.items.length >= 80 ? 54 : group.items.length >= 25 ? 50 : 46;
+      height = group.items.length >= 80 ? 38 : 34;
+      fill = ALPINE_GL_COLORS.passCluster;
+      this._pushInstance(out, lng, lat, width, height, kind, flags, fill, fill, icon);
+      this._pushClusterPreviews(out, group, width, height, lng, lat);
+      const countLabel = this._labelRef(String(group.items.length), isPoi ? "cluster-poi" : "cluster-pass");
+      if (countLabel) {
+        const labelWidth = group.items.length >= 100 ? 34 : group.items.length >= 10 ? 30 : 24;
+        this._pushInstance(out, lng, lat, labelWidth, 16, ALPINE_GL_KIND.label, 0,
+          ALPINE_GL_COLORS.dark, ALPINE_GL_COLORS.dark, countLabel, 0, -height * 0.36);
+      }
+      this._pickItems.push({ type: "cluster", kind: group.kind, id: group.id, group, lng, lat, radius: width * 0.58 });
+      return;
+    } else if (isPoi) {
+      const plannable = isPlannablePoi(group.item);
+      kind = ALPINE_GL_KIND.poi;
+      width = 28;
+      height = 34;
+      flags = plannable ? 0 : ALPINE_GL_FLAG_DIM;
+      fill = plannable ? ALPINE_GL_COLORS.markerPurple : ALPINE_GL_COLORS.poiDim;
+      icon = textureRefForUiIcon(poiCategoryIconId(group.item.poiCategory), 0.44);
+      this._pushInstance(out, lng, lat, width, height, kind, flags, fill, ALPINE_GL_COLORS.dark, icon, 0, height * 0.42);
+      if (!plannable) {
+        this._pushInstance(out, lng, lat, 18, 18, ALPINE_GL_KIND.preview, 0,
+          [0.055, 0.078, 0.118, 0.92], stroke, textureRefForUiIcon("not-by-car", 0.78), 12, height * 0.42 + 10);
+      }
+    } else {
+      kind = ALPINE_GL_KIND.pass;
+      const view = statusDisplay(passStatus(group.item));
+      width = 34;
+      height = 34;
+      flags = ALPINE_GL_FLAG_SIMPLE_CIRCLE | (view.estimated ? ALPINE_GL_FLAG_ESTIMATED : 0);
+      fill = ALPINE_GL_COLORS.markerPurple;
+      icon = textureRefForPassSymbol(group.item.symbolIconAsset, 0.62) ||
+             textureRefForUiIcon("pass-generic", 0.48);
+      this._pushInstance(out, lng, lat, width, height, kind, flags,
+        fill, ALPINE_GL_COLORS.dark, icon, 0, 0);
+    }
+    const badge = plannedBadgeNumber(group.item);
+    if (badge) {
+      const badgeIcon = this._labelRef(String(badge), isPoi ? "badge-poi" : "badge-pass");
+      if (badgeIcon) this._pushInstance(out, lng, lat, 22, 22, ALPINE_GL_KIND.label, 0,
+        fill, stroke, badgeIcon, 13, height * 0.42 + 9);
+    }
+    this._pickItems.push({
+      type: "marker",
+      kind: group.kind,
+      id: group.item.id,
+      item: group.item,
+      lng,
+      lat,
+      radius: Math.max(width, height) * 0.65,
+    });
+  }
+
+  _pushClusterPreviews(out, group, clusterSize, clusterHeight, lng, lat) {
+    const previewSize = clusterSize >= 54 ? 17 : 16;
+    const count = Math.min(3, group.items.length);
+    const startX = -((count - 1) * previewSize * 0.58) / 2;
+    const previewFill = [0.090, 0.170, 0.170, 0.96];
+    const previewY = -clusterHeight * 0.03;
+    group.items.slice(0, 3).forEach((item, index) => {
+      const isPoi = group.kind === "poi";
+      let icon;
+      if (isPoi) {
+        icon = textureRefForUiIcon(poiCategoryIconId(item.poiCategory), 0.72);
+      } else {
+        const view = statusDisplay(passStatus(item));
+        icon = textureRefForPassSymbol(item.symbolIconAsset, 0.82) ||
+          textureRefForUiIcon(stateIconId(view.state, view.estimated), 0.72);
+      }
+      this._pushInstance(out, lng, lat, previewSize, previewSize, ALPINE_GL_KIND.preview, 0,
+        previewFill, ALPINE_GL_COLORS.dark, icon, startX + index * (previewSize * 0.58), previewY);
+    });
+  }
+
+  _pushStartInstance(out, start) {
+    const label = this._labelRef((start.name?.[0] || "S").toUpperCase(), "start");
+    if (label) this._pushInstance(out, start.lon, start.lat, 38, 38, ALPINE_GL_KIND.label, 0, ALPINE_GL_COLORS.white, ALPINE_GL_COLORS.white, label, 0, -15);
+  }
+
+  _pushInstance(out, lng, lat, width, height, kind, flags, fill, stroke, icon, offsetX = 0, offsetY = 0) {
+    const merc = lngLatToMercatorNorm(lng, lat);
+    out.push(
+      merc.x, merc.y, width, height, kind, flags,
+      fill[0], fill[1], fill[2], fill[3],
+      stroke[0], stroke[1], stroke[2], stroke[3],
+      icon.sheet, icon.u, icon.v, icon.scale,
+      offsetX, offsetY
+    );
+  }
+
+  _labelRef(text, type) {
+    const safeText = String(text || "").slice(0, 4);
+    const key = `${type}:${safeText}`;
+    const existing = this._labelKeys.get(key);
+    if (existing) return existing;
+    const slot = this._labelEntries.length;
+    if (slot >= ALPINE_GL_LABEL_COLS * ALPINE_GL_LABEL_ROWS) return null;
+    const col = slot % ALPINE_GL_LABEL_COLS;
+    const row = Math.floor(slot / ALPINE_GL_LABEL_COLS);
+    const ref = {
+      sheet: 3,
+      u: col / ALPINE_GL_LABEL_COLS,
+      v: row / ALPINE_GL_LABEL_ROWS,
+      scale: 1,
+    };
+    this._labelEntries.push({ text: safeText, type, col, row });
+    this._labelKeys.set(key, ref);
+    return ref;
+  }
+
+  _drawLabelAtlas() {
+    const ctx = this._labelCanvas.getContext("2d");
+    ctx.clearRect(0, 0, this._labelCanvas.width, this._labelCanvas.height);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    for (const entry of this._labelEntries) this._drawLabelCell(ctx, entry);
+  }
+
+  _drawLabelCell(ctx, entry) {
+    const x = entry.col * ALPINE_GL_LABEL_CELL;
+    const y = entry.row * ALPINE_GL_LABEL_CELL;
+    const cx = x + ALPINE_GL_LABEL_CELL / 2;
+    const cy = y + ALPINE_GL_LABEL_CELL / 2;
+    ctx.save();
+    if (entry.type === "start") {
+      ctx.translate(cx, cy);
+      ctx.rotate(Math.PI / 4);
+      this._roundedRect(ctx, -20, -20, 40, 40, 9);
+      ctx.fillStyle = "#ffd166";
+      ctx.fill();
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "rgba(255,255,255,0.95)";
+      ctx.stroke();
+      ctx.rotate(-Math.PI / 4);
+      ctx.font = "700 24px system-ui, -apple-system, Segoe UI, sans-serif";
+      ctx.fillStyle = "#111827";
+      ctx.fillText(entry.text, 0, 1);
+      ctx.restore();
+      return;
+    }
+    const isCluster = entry.type.startsWith("cluster");
+    const isPoi = entry.type.endsWith("poi");
+    const fill = isCluster
+      ? "#111827"
+      : (isPoi ? "#a78bfa" : "#ffd166");
+    const textColor = isCluster ? "#ffffff" : "#111827";
+    if (isCluster) {
+      this._roundedRect(ctx, x + 5, y + 14, 54, 36, 18);
+      ctx.fillStyle = fill;
+      ctx.fill();
+      ctx.font = entry.text.length >= 3
+        ? "800 27px system-ui, -apple-system, Segoe UI, sans-serif"
+        : "800 31px system-ui, -apple-system, Segoe UI, sans-serif";
+      ctx.fillStyle = textColor;
+      ctx.fillText(entry.text, cx, cy + 1);
+    } else {
+      ctx.beginPath();
+      ctx.arc(cx, cy, 20, 0, Math.PI * 2);
+      ctx.fillStyle = fill;
+      ctx.fill();
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "rgba(255,255,255,0.95)";
+      ctx.stroke();
+      ctx.font = "800 23px system-ui, -apple-system, Segoe UI, sans-serif";
+      ctx.fillStyle = textColor;
+      ctx.fillText(entry.text, cx, cy + 1);
+    }
+    ctx.restore();
+  }
+
+  _roundedRect(ctx, x, y, width, height, radius) {
+    const r = Math.min(radius, width / 2, height / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + width - r, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+    ctx.lineTo(x + width, y + height - r);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+    ctx.lineTo(x + r, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+}
+
+const alpineOverlayLayer = new AlpineWebGLLayer();
+window.alpineOverlayLayer = alpineOverlayLayer;
 const alpineOverlayClusters = new Map();
-let alpineStartMarkerEl = null;
 let overlayLayoutScheduled = false;
-let overlayPositionsScheduled = false;
-let overlayLastClusterZoom = null;
 
 const OVERLAY_TILE_SIZE = 256;
 
@@ -1325,75 +2254,6 @@ function shouldClusterOverlay(kind, zoom) {
 /* Snap to half-zoom steps so small wheel deltas don't reflow clusters. */
 function clusterZoomFor(zoom) {
   return Math.round(zoom * 2) / 2;
-}
-
-function setOverlayTransform(el, point, extra = "") {
-  el.style.transform = `translate3d(${Math.round(point.x)}px, ${Math.round(point.y)}px, 0) translate(-50%, -50%)${extra}`;
-}
-
-function buildPassMarkerEl(p) {
-  const status = passStatus(p);
-  const view = statusDisplay(status);
-  const badge = plannedBadgeNumber(p);
-  const art = p.symbolIconAsset
-    ? passIconHtml(p, "pass-art-icon map symbol", "symbol")
-    : uiIconHtml(stateIconId(view.state, view.estimated), "marker-icon-art", view.label);
-  const el = document.createElement("button");
-  el.className = `alpine-marker alpine-pass-marker ${view.className}`;
-  el.dataset.overlayKind = "pass";
-  el.dataset.overlayId = p.id;
-  el.title = `${p.name} · ${p.elev} m`;
-  el.innerHTML = `<span class="alpine-pass-pin">${art}</span>${badge ? `<span class="alpine-tour-badge">${badge}</span>` : ""}`;
-  return el;
-}
-
-function buildPoiMarkerEl(p) {
-  const badge = plannedBadgeNumber(p);
-  const notByCar = isPlannablePoi(p) ? "" : uiIconHtml("not-by-car", "poi-marker-not-car", "Not by car");
-  const el = document.createElement("button");
-  el.className = `alpine-marker alpine-poi-marker${isPlannablePoi(p) ? "" : " dim"}`;
-  el.dataset.overlayKind = "poi";
-  el.dataset.overlayId = p.id;
-  el.title = `${p.name} · ${poiCategoryLabel(p.poiCategory)}`;
-  el.innerHTML = `<span class="alpine-poi-pin" data-cat="${escapeHtml(p.poiCategory)}">${poiCategoryIcon(p.poiCategory, "poi-marker-art")}${notByCar}</span>${badge ? `<span class="alpine-tour-badge poi">${badge}</span>` : ""}`;
-  return el;
-}
-
-function clusterContentHtml(group) {
-  const count = group.items.length;
-  const previewItems = group.items.slice(0, 3);
-  const preview = previewItems.map(item => {
-    if (group.kind === "pass" && item.symbolIconAsset) {
-      return passIconHtml(item, "pass-art-icon cluster-preview symbol", "symbol");
-    }
-    if (group.kind === "pass") {
-      const view = statusDisplay(passStatus(item));
-      return uiIconHtml(stateIconId(view.state, view.estimated), `cluster-status-dot ${view.className}`, view.label);
-    }
-    return poiCategoryIcon(item.poiCategory, "poi-cluster-preview");
-  }).join("");
-  return `<span class="cluster-previews">${preview}</span><span class="cluster-count">${count}</span>`;
-}
-
-function clusterSizeClass(count) {
-  return count >= 80 ? "xl" : count >= 25 ? "lg" : "md";
-}
-
-function buildClusterEl(group) {
-  const el = document.createElement("button");
-  el.className = `alpine-cluster alpine-${group.kind}-cluster ${clusterSizeClass(group.items.length)}`;
-  el.dataset.clusterId = group.id;
-  el.title = `${group.items.length} ${group.kind === "pass" ? "passes" : "sights"}`;
-  el.innerHTML = clusterContentHtml(group);
-  return el;
-}
-
-function buildStartMarkerEl(start) {
-  const el = document.createElement("div");
-  el.className = "alpine-start-marker";
-  el.title = start.name || "Start";
-  el.innerHTML = `<span>${escapeHtml(start.name?.[0] || "S")}</span>`;
-  return el;
 }
 
 function buildOverlayGroups(items, kind) {
@@ -1466,98 +2326,18 @@ function buildOverlayGroups(items, kind) {
   return groups.concat(forced);
 }
 
-/* Cheap path: project existing nodes only. No DOM rebuild, no re-cluster. */
-function updateOverlayPositions() {
-  overlayPositionsScheduled = false;
-  if (!overlayPool.size && !alpineStartMarkerEl) return;
-  for (const entry of overlayPool.values()) {
-    const point = map.project([entry.lng, entry.lat]);
-    setOverlayTransform(entry.el, point);
-  }
-  if (alpineStartMarkerEl && plannedStart) {
-    const point = map.project([plannedStart.lon, plannedStart.lat]);
-    setOverlayTransform(alpineStartMarkerEl, point, " rotate(45deg)");
-  }
-}
-
-function scheduleOverlayPositions() {
-  if (overlayPositionsScheduled || overlayLayoutScheduled) return;
-  overlayPositionsScheduled = true;
-  requestAnimationFrame(updateOverlayPositions);
-}
-
-/* Heavy path: re-cluster, diff DOM pool. Called only on settle / data change. */
+/* Re-cluster on settled map state and push the complete overlay model to WebGL. */
 function layoutAlpineOverlay() {
   overlayLayoutScheduled = false;
-  overlayPositionsScheduled = false;
-  overlayLastClusterZoom = clusterZoomFor(map.getZoom());
   alpineOverlayClusters.clear();
   const groups = [
     ...buildOverlayGroups(overlayPassItems(), "pass"),
     ...buildOverlayGroups(overlayPoiItems(), "poi"),
   ];
-  const seen = new Set();
-  const fragment = document.createDocumentFragment();
-  let appended = false;
   for (const group of groups) {
-    seen.add(group.id);
-    let entry = overlayPool.get(group.id);
-    if (!entry) {
-      const el = group.type === "cluster"
-        ? buildClusterEl(group)
-        : group.kind === "pass"
-          ? buildPassMarkerEl(group.item)
-          : buildPoiMarkerEl(group.item);
-      entry = {
-        el,
-        kind: group.kind,
-        type: group.type,
-        lng: group.lng,
-        lat: group.lat,
-        count: group.type === "cluster" ? group.items.length : 1,
-      };
-      overlayPool.set(group.id, entry);
-      fragment.appendChild(el);
-      appended = true;
-    } else {
-      entry.lng = group.lng;
-      entry.lat = group.lat;
-      if (group.type === "cluster") {
-        const newCount = group.items.length;
-        if (newCount !== entry.count) {
-          entry.el.className = `alpine-cluster alpine-${group.kind}-cluster ${clusterSizeClass(newCount)}`;
-          entry.el.title = `${newCount} ${group.kind === "pass" ? "passes" : "sights"}`;
-          entry.el.innerHTML = clusterContentHtml(group);
-          lazyLoadPassIcons(entry.el, true);
-          entry.count = newCount;
-        }
-      }
-    }
     if (group.type === "cluster") alpineOverlayClusters.set(group.id, group);
   }
-  for (const [id, entry] of overlayPool) {
-    if (!seen.has(id)) {
-      entry.el.remove();
-      overlayPool.delete(id);
-    }
-  }
-  if (appended) {
-    alpineOverlayEl.appendChild(fragment);
-    lazyLoadPassIcons(fragment, true);
-  }
-  if (plannedStart) {
-    if (!alpineStartMarkerEl) {
-      alpineStartMarkerEl = buildStartMarkerEl(plannedStart);
-      alpineOverlayEl.appendChild(alpineStartMarkerEl);
-    } else {
-      alpineStartMarkerEl.title = plannedStart.name || "Start";
-      alpineStartMarkerEl.firstChild.textContent = plannedStart.name?.[0] || "S";
-    }
-  } else if (alpineStartMarkerEl) {
-    alpineStartMarkerEl.remove();
-    alpineStartMarkerEl = null;
-  }
-  updateOverlayPositions();
+  alpineOverlayLayer.setGroups(groups, plannedStart);
 }
 
 function scheduleAlpineOverlayLayout() {
@@ -1585,34 +2365,28 @@ function zoomToOverlayCluster(group) {
   map.fitBounds(bounds, { padding: 90, duration: 450, maxZoom: Math.min(map.getZoom() + 3, 13) });
 }
 
-alpineOverlayEl.addEventListener("click", event => {
-  const target = event.target.closest("[data-overlay-id], [data-cluster-id]");
-  if (!target || pickingStart) return;
-  event.preventDefault();
-  event.stopPropagation();
-  const clusterId = target.dataset.clusterId;
-  if (clusterId) {
-    zoomToOverlayCluster(alpineOverlayClusters.get(clusterId));
+map.on("click", event => {
+  if (pickingStart || document.body.classList.contains("picking")) return;
+  const pick = alpineOverlayLayer.pickAt(event.point);
+  if (!pick) return;
+  event.originalEvent?.preventDefault?.();
+  if (pick.type === "cluster") {
+    zoomToOverlayCluster(pick.group || alpineOverlayClusters.get(pick.id));
     return;
   }
-  if (target.dataset.overlayKind === "pass") {
-    const pass = PASS_BY_ID.get(target.dataset.overlayId);
-    if (pass) openPassPopup(pass);
-  } else if (target.dataset.overlayKind === "poi") {
-    const poi = POI_BY_ID.get(target.dataset.overlayId);
-    if (poi) openPoiPopup(poi);
-  }
+  if (pick.kind === "pass") openPassPopup(pick.item || PASS_BY_ID.get(pick.id));
+  else if (pick.kind === "poi") openPoiPopup(pick.item || POI_BY_ID.get(pick.id));
 });
 
-/* Position-only handlers — fire many times per second during interaction. */
-["move", "zoom", "rotate", "pitch"].forEach(eventName => {
-  map.on(eventName, scheduleOverlayPositions);
+map.on("mousemove", event => {
+  const canvas = map.getCanvas();
+  if (pickingStart || document.body.classList.contains("picking")) {
+    canvas.style.cursor = "crosshair";
+    return;
+  }
+  canvas.style.cursor = alpineOverlayLayer.pickAt(event.point) ? "pointer" : "";
 });
-map.on("movestart", () => map.getContainer().classList.add("map-moving"));
-map.on("moveend", () => {
-  map.getContainer().classList.remove("map-moving");
-  scheduleAlpineOverlayLayout();
-});
+map.on("moveend", scheduleAlpineOverlayLayout);
 /* Re-cluster only when the user has settled — cluster radius depends on the
    final zoom step, not on transient values during a wheel/easeTo flight. */
 map.on("zoomend", scheduleAlpineOverlayLayout);
@@ -1663,6 +2437,10 @@ function setupMapLayers() {
     },
     layout: { "line-cap": "round", "line-join": "round" },
   });
+
+  if (!map.getLayer(ALPINE_GL_LAYER_ID)) {
+    map.addLayer(alpineOverlayLayer);
+  }
 
   mapLayersReady = true;
   bindMapInteractions();
@@ -1715,7 +2493,7 @@ function openMapPopup(lngLat, html, maxWidth = "360px") {
 }
 
 async function openPassPopup(p, lngLat = [p.lon, p.lat]) {
-  const popup = openMapPopup(lngLat, buildPopupHtml(p, passStatus(p), null), "400px");
+  const popup = openMapPopup(lngLat, buildPopupHtml(p, passStatus(p), null), "480px");
   lazyLoadPassIcons(popup.getElement(), true);
   const wiki = await fetchWiki(p.wikiTitle, p.wikiLang);
   if (activePopup === popup) {
@@ -1725,12 +2503,13 @@ async function openPassPopup(p, lngLat = [p.lon, p.lat]) {
 }
 
 function openPoiPopup(poi, lngLat = [poi.lon, poi.lat]) {
-  openMapPopup(lngLat, buildPoiPopupHtml(poi), "400px");
+  openMapPopup(lngLat, buildPoiPopupHtml(poi), "480px");
 }
 
 function setPoiLayerVisible(visible) {
   poiLayerVisible = visible;
   updateMapSources();
+  layoutAlpineOverlay();
   renderPoiList();
 }
 
@@ -1746,6 +2525,8 @@ class AlpineLayerControl {
       <label class="check"><input type="checkbox" checked><span>Sights / POIs</span></label>`;
     const select = el.querySelector("select");
     const poiToggle = el.querySelector('input[type="checkbox"]');
+    poiToggle.id = "mapPoiToggle";
+    window.mapPoiToggle = poiToggle;
     select.addEventListener("change", () => {
       const next = VECTOR_BASEMAPS.find(b => b.name === select.value);
       if (!next) return;
@@ -1952,6 +2733,21 @@ function buildPoiPopupHtml(poi) {
   const dwellLine = poi.visitDwellSec
     ? `${(poi.visitDwellSec / 3600).toFixed(poi.visitDwellSec >= 3600 ? 1 : 1)} h typical visit`
     : "";
+  const priceLong = poiPriceLong(poi);
+  let priceHtml = "";
+  if (priceLong) {
+    const sourceLink = poi.priceSourceUrl
+      ? ` <a class="poi-price-source" href="${escapeHtml(poi.priceSourceUrl)}" target="_blank" rel="noopener">source ↗</a>`
+      : "";
+    const asOf = poi.priceAsOf ? ` <span class="poi-price-asof">(${escapeHtml(poi.priceAsOf)})</span>` : "";
+    const note = poi.priceNotes
+      ? `<div class="poi-price-note">${escapeHtml(poi.priceNotes)}</div>`
+      : "";
+    priceHtml = `<div class="popup-meta tight poi-price-line">
+        <strong>Price:</strong> ${escapeHtml(priceLong)}${asOf}${sourceLink}
+        ${note}
+      </div>`;
+  }
   const planBtn = isPlannablePoi(poi)
     ? `<button class="popup-add-btn" type="button" data-poi-add="${escapeHtml(poi.id)}" aria-label="Add ${escapeHtml(poi.name)} to tour">＋ Add to selected route</button>`
     : `<div class="popup-meta tight" title="POI is not directly reachable by car (${escapeHtml(accessLine)})">${uiIconHtml("not-by-car", "inline-ui-icon", "Not car-accessible")} Not car-accessible — view-only on the map</div>`;
@@ -1970,6 +2766,7 @@ function buildPoiPopupHtml(poi) {
         ${themeBadges ? `<div class="poi-theme-chips">${themeBadges}</div>` : ""}
         <div class="popup-meta tight"><strong>Access:</strong> ${accessLine || "—"}</div>
         <div class="popup-meta tight"><strong>Season:</strong> ${seasonLine || "—"}</div>
+        ${priceHtml}
       </div>
       <footer class="popup-foot">
         <a class="popup-link" href="${wikiHref}" target="_blank" rel="noopener">Wikipedia ↗</a>
@@ -2551,7 +3348,7 @@ map.on("click", (e) => {
 });
 
 function clearPlannedTour() {
-  plannedTourIds = [];
+  setPlannedTourIds([]);
   plannedStart = null;
   plannedRouteActive = false;
   plannedRouteCoords = null;
@@ -2560,6 +3357,14 @@ function clearPlannedTour() {
   updatePlannedTourLayers();
   updateMapSources();
 }
+
+window.setPlannedStart = function(start) {
+  plannedStart = start && Number.isFinite(start.lat) && Number.isFinite(start.lon)
+    ? { name: start.name || "Start", lat: start.lat, lon: start.lon }
+    : null;
+  updatePlannedTourLayers();
+  layoutAlpineOverlay();
+};
 
 async function fetchTable(points) {
   const coords = points.map(p => `${p.lon},${p.lat}`).join(";");
@@ -3974,7 +4779,7 @@ function updatePlannedTourLayers(routeCoords = plannedRouteCoords, fallback = pl
 }
 
 function drawPlannedTour(start, tourStops, latlngs) {
-  plannedTourIds = tourStops.map(p => p.id);
+  setPlannedTourIds(tourStops.map(p => p.id));
   plannedStart = start;
   plannedRouteActive = true;
 
@@ -4260,6 +5065,12 @@ function renderPoiList() {
       const advanced = advancedModeEl.checked && isPlannablePoi(p);
       const selected = advanced && selectedPoiIds.has(p.id);
       const notDrivable = !isPlannablePoi(p);
+      const priceShort = poiPriceShort(p);
+      const priceTitle = p.priceNotes ? p.priceNotes
+        : (p.priceAsOf ? `As of ${p.priceAsOf}` : "");
+      const priceChip = priceShort
+        ? `<span class="poi-row-price ${escapeHtml(p.priceKind)}"${priceTitle ? ` title="${escapeHtml(priceTitle)}"` : ""}>${escapeHtml(priceShort)}</span>`
+        : "";
       const titleAttr = advanced
         ? "Add this sight to the route"
         : notDrivable
@@ -4271,6 +5082,7 @@ function renderPoiList() {
           <div class="name">${escapeHtml(p.name)} ${qualityStarsCompact(p.quality)}</div>
           <div class="meta">${escapeHtml(elev)}${escapeHtml(poiCategoryLabel(p.poiCategory))} · ${escapeHtml(p.poiRegion)} ${escapeHtml(dwell)} ${escapeHtml(dist)}</div>
         </span>
+        ${priceChip}
         ${notDrivable ? `<span class="poi-row-badge" title="Not car-accessible">${uiIconHtml("not-by-car", "poi-row-badge-icon", "Not car-accessible")}</span>` : ""}
       </li>`;
     }).join("");
@@ -4408,6 +5220,9 @@ renderList();
 renderPoiList();
 syncAdvancedMode();
 updateMapSources();
+/* Best-effort cache load — does not block initial render; re-renders the
+   POI list once price data arrives. */
+loadPoiPrices();
 
 /* ─────── kick off live status load ─────── */
 const banner   = document.getElementById("banner");

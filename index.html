@@ -28,22 +28,33 @@
 <noscript class="noscript-warning">This map and tour planner needs JavaScript enabled.</noscript>
 
 <aside class="app-sidebar" aria-label="Planner and pass list">
-  <section class="side-head" aria-labelledby="site-title">
-    <p class="eyebrow">Alpine Pass Planner</p>
-    <h1 id="site-title">Find beautiful open passes</h1>
-    <p><strong><span id="passCount">…</span> passes</strong> &amp; <strong><span id="poiCount">…</span> sights</strong> across the Alps · live status from
-      <a href="https://www.alpen-paesse.ch/en/" target="_blank" rel="noopener">alpen-paesse.ch</a> (CH),
-      OSM road rules and seasonal estimates elsewhere</p>
-  </section>
+  <input class="sidebar-tab-radio" type="radio" name="sidebarTab" id="sidebarTabPlan" checked>
+  <input class="sidebar-tab-radio" type="radio" name="sidebarTab" id="sidebarTabBrowse">
+
+  <nav class="sidebar-tabs" aria-label="Sidebar sections">
+    <div class="sidebar-tab-strip" role="tablist" aria-label="Planner sections">
+      <label class="sidebar-tab" for="sidebarTabPlan" role="tab" aria-controls="sidebarPanelPlan">
+        <span class="sidebar-tab-main"><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-compass"></use></svg> Plan</span>
+        <span class="sidebar-tab-sub">Build a tour</span>
+      </label>
+      <label class="sidebar-tab" for="sidebarTabBrowse" role="tab" aria-controls="sidebarPanelBrowse">
+        <span class="sidebar-tab-main"><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-explore"></use></svg> Browse</span>
+        <span class="sidebar-tab-sub"><strong><span id="passCount">…</span></strong> passes · <strong><span id="poiCount">…</span></strong> sights</span>
+      </label>
+    </div>
+    <p class="sidebar-source-note">Live Swiss status · OSM rules and seasonal estimates elsewhere</p>
+  </nav>
 
   <div class="banner hidden" id="banner" role="status" aria-live="polite"></div>
 
   <div class="sidebar-scroll">
-    <details class="planner" id="planner" open>
-      <summary>
-        <span class="summary-title"><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-compass"></use></svg> Plan a sightseeing tour</span>
-        <span class="summary-subtitle">Essentials first · optional sights · exact-stop builder when needed</span>
-      </summary>
+    <div class="sidebar-tab-panes">
+      <section class="sidebar-tab-panel sidebar-tab-panel-plan" id="sidebarPanelPlan" role="tabpanel" aria-labelledby="sidebarTabPlan">
+        <section class="planner" id="planner" aria-labelledby="planner-title">
+          <div class="planner-intro">
+            <span class="summary-title" id="planner-title"><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-compass"></use></svg> Plan a sightseeing tour</span>
+            <span class="summary-subtitle">Essentials first · optional sights · exact-stop builder when needed</span>
+          </div>
       <div class="planner-body planner-redesign">
         <div class="planner-card planner-primary-card">
           <div class="planner-card-head">
@@ -203,23 +214,11 @@
         </div>
         <div class="plan-result empty" id="planResult" aria-live="polite"></div>
       </div>
-    </details>
-
-    <details class="legend-panel">
-      <summary><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-legend"></use></svg> Map legend</summary>
-      <section class="legend" aria-label="Map marker legend">
-        <span><span class="ui-art-icon legend-art status-art open ui-icon-status-open" aria-hidden="true"></span>Open</span>
-        <span><span class="ui-art-icon legend-art status-art restricted ui-icon-status-restricted" aria-hidden="true"></span>Restrictions</span>
-        <span><span class="ui-art-icon legend-art status-art closed ui-icon-status-closed" aria-hidden="true"></span>Closed</span>
-        <span><span class="ui-art-icon legend-art status-art estimated ui-icon-status-estimated" aria-hidden="true"></span>Estimated</span>
-        <span><span class="ui-art-icon legend-art status-art unknown ui-icon-status-unknown" aria-hidden="true"></span>Unknown</span>
-        <span class="legend-divider" aria-hidden="true"></span>
-        <span><span class="ui-art-icon legend-art poi-art ui-icon-poi-generic" aria-hidden="true"></span>Sight / POI</span>
-        <span><span class="ui-art-icon legend-art poi-art ui-icon-not-by-car" aria-hidden="true"></span>Not by car</span>
+        </section>
       </section>
-    </details>
 
-    <section class="explorer" aria-label="Browse passes and sights">
+      <section class="sidebar-tab-panel sidebar-tab-panel-browse" id="sidebarPanelBrowse" role="tabpanel" aria-labelledby="sidebarTabBrowse">
+        <section class="explorer" aria-label="Browse passes and sights">
       <div class="explorer-head">
         <div class="explorer-head-titles">
           <p class="eyebrow">Explore</p>
@@ -288,7 +287,23 @@
         </section>
         <ul class="pass-list poi-list" id="poiList"></ul>
       </div>
-    </section>
+        </section>
+
+        <details class="legend-panel">
+          <summary><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-legend"></use></svg> Map legend</summary>
+          <section class="legend" aria-label="Map marker legend">
+            <span><span class="ui-art-icon legend-art status-art open ui-icon-status-open" aria-hidden="true"></span>Open</span>
+            <span><span class="ui-art-icon legend-art status-art restricted ui-icon-status-restricted" aria-hidden="true"></span>Restrictions</span>
+            <span><span class="ui-art-icon legend-art status-art closed ui-icon-status-closed" aria-hidden="true"></span>Closed</span>
+            <span><span class="ui-art-icon legend-art status-art estimated ui-icon-status-estimated" aria-hidden="true"></span>Estimated</span>
+            <span><span class="ui-art-icon legend-art status-art unknown ui-icon-status-unknown" aria-hidden="true"></span>Unknown</span>
+            <span class="legend-divider" aria-hidden="true"></span>
+            <span><span class="ui-art-icon legend-art poi-art ui-icon-poi-generic" aria-hidden="true"></span>Sight / POI</span>
+            <span><span class="ui-art-icon legend-art poi-art ui-icon-not-by-car" aria-hidden="true"></span>Not by car</span>
+          </section>
+        </details>
+      </section>
+    </div>
   </div>
 </aside>
 

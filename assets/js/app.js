@@ -1768,19 +1768,22 @@ class AlpineWebGLLayer {
         vec3 color = mix(v_fill.rgb, min(v_fill.rgb * 1.10, vec3(1.0)), 1.0 - v_uv.y);
         color = mix(color, vec3(1.0), edge * 0.10);
         vec4 icon = fetchIconAt(v_uv, v_icon.w);
-        float iconMask = icon.a;
-        if (v_icon.x >= 0.5) iconMask *= 1.0 - smoothstep(0.50, 0.86, length(icon.rgb));
-        color = mix(color, vec3(1.0), iconMask * (1.0 - edge * 0.6));
+        float iconMask = icon.a * (1.0 - edge * 0.25);
+        if (v_icon.x < 0.5) {
+          color = mix(color, vec3(1.0), iconMask * 0.92);
+        } else {
+          color = mix(color, mix(icon.rgb, vec3(1.0), 0.22), iconMask * 0.96);
+        }
         return vec4(color, alpha);
       }
       vec4 pinMarker() {
         if (flagSet(v_meta.w, 4.0)) return simpleCircleMarker();
         float aa = 0.014;
-        float headOuter = roundedBox(v_local - vec2(0.0, 0.08), vec2(0.39, 0.31), 0.12);
-        float headInner = roundedBox(v_local - vec2(0.0, 0.08), vec2(0.35, 0.27), 0.10);
-        float tailT = clamp((v_local.y + 0.48) / 0.34, 0.0, 1.0);
-        float tailOuter = step(-0.48, v_local.y) * step(v_local.y, -0.12) * step(abs(v_local.x), mix(0.035, 0.22, tailT));
-        float tailInner = step(-0.43, v_local.y) * step(v_local.y, -0.11) * step(abs(v_local.x), mix(0.020, 0.17, tailT));
+        float headOuter = roundedBox(v_local - vec2(0.0, 0.08), vec2(0.40, 0.34), 0.13);
+        float headInner = roundedBox(v_local - vec2(0.0, 0.08), vec2(0.355, 0.295), 0.11);
+        float tailT = smoothstep(-0.50, -0.12, v_local.y);
+        float tailOuter = step(-0.50, v_local.y) * step(v_local.y, -0.10) * step(abs(v_local.x), mix(0.045, 0.235, tailT));
+        float tailInner = step(-0.45, v_local.y) * step(v_local.y, -0.11) * step(abs(v_local.x), mix(0.025, 0.175, tailT));
         float outer = max(1.0 - smoothstep(0.0, aa, headOuter), tailOuter);
         float inner = max(1.0 - smoothstep(0.0, aa, headInner), tailInner);
         if (outer <= 0.0) discard;
@@ -1804,8 +1807,8 @@ class AlpineWebGLLayer {
         float alpha = 1.0 - smoothstep(0.0, aa, body);
         if (alpha <= 0.0) discard;
         float rim = smoothstep(-0.035, 0.018, body);
-        vec3 color = mix(v_fill.rgb * 0.94, min(v_fill.rgb * 1.08, vec3(1.0)), 1.0 - v_uv.y);
-        color = mix(color, vec3(0.76, 0.97, 0.91), rim * 0.16);
+        vec3 color = min(v_fill.rgb * 1.05, vec3(1.0));
+        color = mix(color, vec3(0.76, 0.98, 0.95), rim * 0.08);
         return vec4(color, alpha);
       }
       vec4 previewChip() {
@@ -1926,6 +1929,8 @@ class AlpineWebGLLayer {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    /* Upload with Y flipped so canvas top-left == texture top-left, matching
+       the same convention used by atlasCellUv() / _labelRef(). */
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this._labelCanvas);
@@ -2004,6 +2009,7 @@ class AlpineWebGLLayer {
     for (const group of this._transientGroups) this._pushGroupInstances(out, group, now);
     if (this._start) this._pushStartInstance(out, this._start);
     this._drawLabelAtlas();
+    this._labelDirty = true;
     this._instanceCount = out.length / ALPINE_GL_STRIDE;
     this._instanceData = new Float32Array(out);
   }
@@ -2022,24 +2028,24 @@ class AlpineWebGLLayer {
     }
     if (isCluster) {
       kind = isPoi ? ALPINE_GL_KIND.poiCluster : ALPINE_GL_KIND.passCluster;
-      width = group.items.length >= 80 ? 54 : group.items.length >= 25 ? 50 : 46;
-      height = group.items.length >= 80 ? 38 : 34;
+      width = group.items.length >= 80 ? 60 : group.items.length >= 25 ? 56 : 52;
+      height = group.items.length >= 80 ? 42 : group.items.length >= 25 ? 40 : 38;
       fill = ALPINE_GL_COLORS.passCluster;
       this._pushInstance(out, lng, lat, width, height, kind, flags, fill, fill, icon);
       this._pushClusterPreviews(out, group, width, height, lng, lat);
       const countLabel = this._labelRef(String(group.items.length), isPoi ? "cluster-poi" : "cluster-pass");
       if (countLabel) {
-        const labelWidth = group.items.length >= 100 ? 34 : group.items.length >= 10 ? 30 : 24;
+        const labelWidth = group.items.length >= 100 ? 32 : 26;
         this._pushInstance(out, lng, lat, labelWidth, 16, ALPINE_GL_KIND.label, 0,
-          ALPINE_GL_COLORS.dark, ALPINE_GL_COLORS.dark, countLabel, 0, -height * 0.36);
+          ALPINE_GL_COLORS.dark, ALPINE_GL_COLORS.dark, countLabel, 0, height * 0.05);
       }
       this._pickItems.push({ type: "cluster", kind: group.kind, id: group.id, group, lng, lat, radius: width * 0.58 });
       return;
     } else if (isPoi) {
       const plannable = isPlannablePoi(group.item);
       kind = ALPINE_GL_KIND.poi;
-      width = 28;
-      height = 34;
+      width = 34;
+      height = 40;
       flags = plannable ? 0 : ALPINE_GL_FLAG_DIM;
       fill = plannable ? ALPINE_GL_COLORS.markerPurple : ALPINE_GL_COLORS.poiDim;
       icon = textureRefForUiIcon(poiCategoryIconId(group.item.poiCategory), 0.44);
@@ -2078,11 +2084,11 @@ class AlpineWebGLLayer {
   }
 
   _pushClusterPreviews(out, group, clusterSize, clusterHeight, lng, lat) {
-    const previewSize = clusterSize >= 54 ? 17 : 16;
+    const previewSize = clusterSize >= 58 ? 24 : 22;
     const count = Math.min(3, group.items.length);
-    const startX = -((count - 1) * previewSize * 0.58) / 2;
-    const previewFill = [0.090, 0.170, 0.170, 0.96];
-    const previewY = -clusterHeight * 0.03;
+    const startX = -((count - 1) * previewSize * 0.82) / 2;
+    const previewFill = [0.080, 0.690, 0.620, 0.98];
+    const previewY = clusterHeight * 0.55;
     group.items.slice(0, 3).forEach((item, index) => {
       const isPoi = group.kind === "poi";
       let icon;
@@ -2094,7 +2100,7 @@ class AlpineWebGLLayer {
           textureRefForUiIcon(stateIconId(view.state, view.estimated), 0.72);
       }
       this._pushInstance(out, lng, lat, previewSize, previewSize, ALPINE_GL_KIND.preview, 0,
-        previewFill, ALPINE_GL_COLORS.dark, icon, startX + index * (previewSize * 0.58), previewY);
+        previewFill, ALPINE_GL_COLORS.dark, icon, startX + index * (previewSize * 0.82), previewY);
     });
   }
 
@@ -2126,7 +2132,9 @@ class AlpineWebGLLayer {
     const ref = {
       sheet: 3,
       u: col / ALPINE_GL_LABEL_COLS,
-      v: row / ALPINE_GL_LABEL_ROWS,
+      /* Match the same flip applied to UI atlas in atlasCellUv() so labels
+         render upright after UNPACK_FLIP_Y_WEBGL=true. */
+      v: (ALPINE_GL_LABEL_ROWS - row - 1) / ALPINE_GL_LABEL_ROWS,
       scale: 1,
     };
     this._labelEntries.push({ text: safeText, type, col, row });
@@ -2173,14 +2181,14 @@ class AlpineWebGLLayer {
       : (isPoi ? "#a78bfa" : "#ffd166");
     const textColor = isCluster ? "#ffffff" : "#111827";
     if (isCluster) {
-      this._roundedRect(ctx, x + 5, y + 14, 54, 36, 18);
+      this._roundedRect(ctx, x + 2, y + 7, 60, 50, 25);
       ctx.fillStyle = fill;
       ctx.fill();
       ctx.font = entry.text.length >= 3
-        ? "800 27px system-ui, -apple-system, Segoe UI, sans-serif"
-        : "800 31px system-ui, -apple-system, Segoe UI, sans-serif";
+        ? "900 38px system-ui, -apple-system, Segoe UI, sans-serif"
+        : "900 43px system-ui, -apple-system, Segoe UI, sans-serif";
       ctx.fillStyle = textColor;
-      ctx.fillText(entry.text, cx, cy + 1);
+      ctx.fillText(entry.text, cx, cy + 2);
     } else {
       ctx.beginPath();
       ctx.arc(cx, cy, 20, 0, Math.PI * 2);

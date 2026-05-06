@@ -19,12 +19,12 @@
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.css">
 <script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js" defer></script>
 
-<link rel="stylesheet" href="assets/css/site.css?v=alpine-engine-14">
+<link rel="stylesheet" href="assets/css/site.css?v=alpine-engine-16">
 <script src="assets/js/passes-data.js" defer></script>
 <script src="assets/js/swiss-pois.js" defer></script>
 <script src="assets/js/passes-cams.js" defer></script>
 <script src="assets/js/pass-icons.js" defer></script>
-<script src="assets/js/app.js?v=alpine-engine-14" defer></script>
+<script src="assets/js/app.js?v=alpine-engine-16" defer></script>
 </head>
 <body>
 
@@ -210,6 +210,47 @@
               <p class="planner-help" id="advancedPlannerNote">Advanced mode optimizes the shortest loop through every selected pass and POI, then returns to the start.</p>
             </div>
           </div>
+
+          <details class="poi-prefs planner-stops" id="plannerStops">
+            <summary>
+              <span class="summary-title"><span aria-hidden="true">???</span> Stops &amp; breaks</span>
+              <span class="summary-subtitle" id="plannerStopsSubtitle">Auto-pads time for pass photo stops, lunch, and driving rests</span>
+            </summary>
+            <div class="poi-prefs-body">
+              <div class="poi-range-grid">
+                <label class="poi-prefs-row">
+                  <span class="poi-prefs-label">Photo / view stop per pass: <strong id="passStopLabel">5 min</strong></span>
+                  <input id="passStopMin" type="range" min="0" max="20" step="1" value="5" aria-label="Minutes per pass for photo or view stop">
+                </label>
+                <label class="poi-prefs-row">
+                  <span class="poi-prefs-label">Lunch break</span>
+                  <select id="lunchBreak" aria-label="Lunch break duration">
+                    <option value="auto" selected>Auto ?? 45 min on tours ??? 4 h driving</option>
+                    <option value="0">None</option>
+                    <option value="30">30 min</option>
+                    <option value="45">45 min</option>
+                    <option value="60">1 h</option>
+                    <option value="90">1.5 h</option>
+                  </select>
+                </label>
+              </div>
+              <label class="check planner-toggle-card planner-rest-toggle">
+                <input id="restBreakOn" type="checkbox" checked>
+                <span>Driving rest break <em>Short stops to stretch your legs every couple of hours</em></span>
+              </label>
+              <div class="poi-range-grid" id="restBreakDetail">
+                <label class="poi-prefs-row">
+                  <span class="poi-prefs-label">Every <strong id="restIntervalLabel">2.5 h</strong></span>
+                  <input id="restInterval" type="range" min="1.5" max="4" step="0.25" value="2.5" aria-label="Hours between driving rest breaks">
+                </label>
+                <label class="poi-prefs-row">
+                  <span class="poi-prefs-label">For <strong id="restDurationLabel">15 min</strong></span>
+                  <input id="restDuration" type="range" min="5" max="30" step="5" value="15" aria-label="Minutes per driving rest break">
+                </label>
+              </div>
+              <p class="planner-help">In time mode the planner reserves this slack so the day-length budget includes breaks. Set photo stop to <em>0 min</em> and lunch to <em>None</em> to disable.</p>
+            </div>
+          </details>
         </div>
 
         <div class="planner-action-row">

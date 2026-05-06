@@ -2913,6 +2913,164 @@ function planTargetTolerance() {
 }
 function poiMinScoreVal() { return +poiMinScoreEl.value; }
 function poiMaxCountVal() { return +poiMaxCountEl.value; }
+
+/* Stops & breaks — pass photo stops, lunch break, driving rest break.
+   Persisted in localStorage so users don't keep re-tweaking. Defaults
+   are sensible for a typical alpine day so users don't have to touch
+   the panel at all. */
+const STOPS_LS_KEY = "alpine.planner.stops.v1";
+const STOPS_DEFAULTS = Object.freeze({
+  passStopMin: 5,         /* minutes per pass for photo/view stop */
+  lunchBreak: "auto",     /* "auto"|"0"|"30"|"45"|"60"|"90" minutes */
+  restBreakOn: true,      /* enable driving rest break */
+  restInterval: 2.5,      /* hours between driving rest breaks */
+  restDuration: 15,       /* minutes per driving rest break */
+});
+const passStopMinEl   = document.getElementById("passStopMin");
+const passStopLabelEl = document.getElementById("passStopLabel");
+const lunchBreakEl    = document.getElementById("lunchBreak");
+const restBreakOnEl   = document.getElementById("restBreakOn");
+const restBreakDetailEl = document.getElementById("restBreakDetail");
+const restIntervalEl  = document.getElementById("restInterval");
+const restIntervalLabelEl = document.getElementById("restIntervalLabel");
+const restDurationEl  = document.getElementById("restDuration");
+const restDurationLabelEl = document.getElementById("restDurationLabel");
+const plannerStopsEl  = document.getElementById("plannerStops");
+const plannerStopsSubtitleEl = document.getElementById("plannerStopsSubtitle");
+
+function loadStopsConfig() {
+  try {
+    const raw = localStorage.getItem(STOPS_LS_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch { return null; }
+}
+
+function saveStopsConfig(cfg) {
+  try { localStorage.setItem(STOPS_LS_KEY, JSON.stringify(cfg)); } catch { /* private mode */ }
+}
+
+function applyStopsConfig(cfg) {
+  if (passStopMinEl) passStopMinEl.value = String(cfg.passStopMin ?? STOPS_DEFAULTS.passStopMin);
+  if (lunchBreakEl)  lunchBreakEl.value  = String(cfg.lunchBreak  ?? STOPS_DEFAULTS.lunchBreak);
+  if (restBreakOnEl) restBreakOnEl.checked = cfg.restBreakOn ?? STOPS_DEFAULTS.restBreakOn;
+  if (restIntervalEl) restIntervalEl.value = String(cfg.restInterval ?? STOPS_DEFAULTS.restInterval);
+  if (restDurationEl) restDurationEl.value = String(cfg.restDuration ?? STOPS_DEFAULTS.restDuration);
+}
+
+function currentStopsConfig() {
+  return {
+    passStopMin: passStopMinEl ? +passStopMinEl.value : STOPS_DEFAULTS.passStopMin,
+    lunchBreak:  lunchBreakEl ? lunchBreakEl.value : STOPS_DEFAULTS.lunchBreak,
+    restBreakOn: restBreakOnEl ? !!restBreakOnEl.checked : STOPS_DEFAULTS.restBreakOn,
+    restInterval: restIntervalEl ? +restIntervalEl.value : STOPS_DEFAULTS.restInterval,
+    restDuration: restDurationEl ? +restDurationEl.value : STOPS_DEFAULTS.restDuration,
+  };
+}
+
+/* Compute total break/stop time for a tour. Returns hours and a list of
+   the parts so the UI can show a friendly breakdown. The "auto" lunch
+   policy adds 45 min on tours that drive ≥ 4 h — the most common case
+   where a midday meal is realistic.
+
+   `policyTotalH` lets the caller pin the auto-lunch decision to the user's
+   intended day length rather than the (possibly-shrunken) drive time, so
+   pre-plan reservation and post-plan accounting agree on whether to add
+   lunch. Falls back to `driveH` when not provided (advanced/distance modes). */
+function computeExtras({ passN, driveH, config, policyTotalH }) {
+  const cfg = config || currentStopsConfig();
+  const passStopH = (passN * (cfg.passStopMin || 0)) / 60;
+
+  let lunchH = 0;
+  let lunchAuto = false;
+  if (cfg.lunchBreak === "auto") {
+    const anchor = policyTotalH != null ? policyTotalH : driveH;
+    if (anchor >= 4) { lunchH = 0.75; lunchAuto = true; }
+  } else {
+    lunchH = (Number(cfg.lunchBreak) || 0) / 60;
+  }
+
+  let restH = 0;
+  let restCount = 0;
+  if (cfg.restBreakOn && cfg.restInterval > 0 && driveH > cfg.restInterval) {
+    /* A break "at the end of the drive" is wasted — you stop driving anyway.
+       So count breaks BETWEEN drive segments only. ceil(N)-1 gives the count
+       of interior boundaries; floor(N - epsilon) is equivalent and simpler. */
+    restCount = Math.max(0, Math.ceil(driveH / cfg.restInterval) - 1);
+    restH = (restCount * (cfg.restDuration || 0)) / 60;
+  }
+
+  const extrasH = passStopH + lunchH + restH;
+  return {
+    extrasH,
+    parts: { passStopH, lunchH, restH, lunchAuto, restCount, passN },
+    config: cfg,
+  };
+}
+
+function fmtExtrasSummary(parts) {
+  if (!parts) return "";
+  const bits = [];
+  if (parts.passStopH > 0 && parts.passN > 0) {
+    const min = Math.round(parts.passStopH * 60);
+    bits.push(`${parts.passN} pass ${parts.passN === 1 ? "stop" : "stops"} (${min} min)`);
+  }
+  if (parts.lunchH > 0) {
+    const min = Math.round(parts.lunchH * 60);
+    bits.push(`${min} min lunch${parts.lunchAuto ? " (auto)" : ""}`);
+  }
+  if (parts.restH > 0 && parts.restCount > 0) {
+    const min = Math.round(parts.restH * 60);
+    bits.push(`${parts.restCount} rest break${parts.restCount === 1 ? "" : "s"} (${min} min)`);
+  }
+  return bits.join(" · ");
+}
+
+/* Estimated extras for a not-yet-planned tour. Used to reserve time in
+   the optimizer's drive+dwell budget when the user is in time mode so
+   the final total drive+dwell+extras fits the day-length they chose.
+   Heuristic pass-count: ~1 pass per 1.5 h of drive budget, capped at 7. */
+function estimateTourPassN(targetValue, targetMode) {
+  if (targetMode === "time") return Math.max(2, Math.min(7, Math.round(targetValue / 1.5)));
+  return Math.max(2, Math.min(7, Math.round(targetValue / 70)));
+}
+
+function plannerStopsSubtitleText(cfg = currentStopsConfig()) {
+  const bits = [];
+  bits.push(cfg.passStopMin > 0 ? `${cfg.passStopMin} min/pass` : "no pass stops");
+  bits.push(
+    cfg.lunchBreak === "auto" ? "lunch auto"
+      : cfg.lunchBreak === "0" || +cfg.lunchBreak === 0 ? "no lunch"
+      : `lunch ${cfg.lunchBreak} min`
+  );
+  bits.push(cfg.restBreakOn ? `rest ${cfg.restDuration}min/${cfg.restInterval}h` : "no rest");
+  return bits.join(" · ");
+}
+
+function refreshStopsUi() {
+  if (passStopLabelEl && passStopMinEl) passStopLabelEl.textContent = `${passStopMinEl.value} min`;
+  if (restIntervalLabelEl && restIntervalEl) restIntervalLabelEl.textContent = `${(+restIntervalEl.value).toFixed(restIntervalEl.value % 1 === 0 ? 0 : 1)} h`;
+  if (restDurationLabelEl && restDurationEl) restDurationLabelEl.textContent = `${restDurationEl.value} min`;
+  if (restBreakDetailEl && restBreakOnEl) {
+    restBreakDetailEl.style.opacity = restBreakOnEl.checked ? "1" : ".42";
+    restIntervalEl.disabled = !restBreakOnEl.checked;
+    restDurationEl.disabled = !restBreakOnEl.checked;
+  }
+  if (plannerStopsSubtitleEl) plannerStopsSubtitleEl.textContent = plannerStopsSubtitleText();
+}
+
+if (passStopMinEl) {
+  applyStopsConfig({ ...STOPS_DEFAULTS, ...(loadStopsConfig() || {}) });
+  refreshStopsUi();
+  const onStopsChange = () => {
+    refreshStopsUi();
+    saveStopsConfig(currentStopsConfig());
+  };
+  [passStopMinEl, lunchBreakEl, restBreakOnEl, restIntervalEl, restDurationEl]
+    .filter(Boolean)
+    .forEach(el => el.addEventListener("input", onStopsChange));
+}
 /* Curated theme set surfaced as chips — full list is 19 but most users
    only need these. The candidate filter still accepts any theme via the
    advanced-mode multi-region picker. */
@@ -4239,14 +4397,24 @@ async function planSelectedTour() {
   } catch (e) {
     routeWarning = "Could not fetch detailed route geometry; map line is approximate.";
   }
-  const totalH = driveH + dwellH;
+  /* Stops & breaks accounting ??? same policy as auto-mode. */
+  const advPassN = (tourStops || []).filter(s => !s.isPoi).length;
+  const advExtras = computeExtras({
+    passN: advPassN,
+    driveH,
+    config: currentStopsConfig(),
+  });
+  const totalH = driveH + dwellH + advExtras.extrasH;
 
   resetPlanButton();
   showPlanResult({
     start,
     tourStops,
     km: driveKm,
-    driveH, dwellH, totalH,
+    driveH, dwellH,
+    extrasH: advExtras.extrasH,
+    extrasParts: advExtras.parts,
+    totalH,
     matched: selected.length,
     poolSize: selected.length,
     inRange: true,
@@ -4279,7 +4447,28 @@ async function planTour() {
   const budgetKmEquiv = targetMode === "time"
     ? targetValue * AVG_SPEED_KMH
     : targetValue;
-  const targetSpec = { mode: targetMode, value: targetValue, tolerance: targetTol, avgSpeedKmH: AVG_SPEED_KMH };
+  /* Stops & breaks budget ??? in time mode reserve a slack for pass photo
+     stops, lunch and rest breaks so the optimizer's drive+dwell budget
+     leaves room for the extras the user expects in the day. */
+  const stopsConfig = currentStopsConfig();
+  const reservedExtrasH = targetMode === "time"
+    ? computeExtras({
+        passN: estimateTourPassN(targetValue, targetMode),
+        driveH: targetValue,
+        config: stopsConfig,
+        policyTotalH: targetValue,
+      }).extrasH
+    : 0;
+  const optimizerValue = targetMode === "time"
+    ? Math.max(targetValue - reservedExtrasH, targetValue * 0.5)
+    : targetValue;
+  /* Tolerance is a percentage of the optimizer's smaller budget; widen
+     it a touch when we shaved time off so the user-facing tolerance band
+     (computed from the original day length) still applies. */
+  const optimizerTol = targetMode === "time"
+    ? Math.min(0.6, targetTol * targetValue / Math.max(optimizerValue, 0.5))
+    : targetTol;
+  const targetSpec = { mode: targetMode, value: optimizerValue, tolerance: optimizerTol, avgSpeedKmH: AVG_SPEED_KMH };
 
   const openOnly = openOnlyEl.checked;
   const includePois = includePoisEl?.checked || false;
@@ -4529,17 +4718,33 @@ async function planTour() {
 
   /* Reject fallbacks that overshoot the budget catastrophically — much
      better UX to say "couldn't fit" than to dump a 1300 km tour on a user
-     who asked for 200 km. Threshold scales with the active target unit. */
+     who asked for 200 km. Threshold scales with the active target unit.
+     In time mode we evaluate against drive+dwell+extras since that is
+     what the user signed up for as their "day length". */
+  const passNForCheck = (chosenTourStops || []).filter(s => !s.isPoi).length;
+  const extras = computeExtras({
+    passN: passNForCheck,
+    driveH: chosen.driveH,
+    config: stopsConfig,
+    policyTotalH: targetMode === "time" ? targetValue : null,
+  });
+  const totalWithExtras = (chosen.driveH || 0) + (chosen.dwellH || 0) + extras.extrasH;
+  /* Recompute "in range" against the actual final total (drive + dwell +
+     breaks). The optimizer's `chosen.inRange` is computed before OSRM and
+     before the breaks pad-out, so it can be stale. */
+  const finalInRange = targetMode === "time"
+    ? Math.abs(totalWithExtras - targetValue) <= targetValue * Math.max(targetTol, 0.05)
+    : chosen.inRange;
   const overshoot = targetMode === "time"
-    ? (chosen.totalH || chosen.driveH) > targetValue * 1.5
+    ? totalWithExtras > targetValue * 1.5
     : chosen.km > targetValue * 1.5;
-  if (!chosen.inRange && overshoot) {
+  if (!finalInRange && overshoot) {
     const tolPct = Math.round(targetTol * 100);
     const targetCopy = targetMode === "time"
       ? `${targetValue} h day from ${start.name}`
       : `${targetValue} km loop from ${start.name}`;
     const closestCopy = targetMode === "time"
-      ? `${(chosen.totalH || chosen.driveH).toFixed(1)} h`
+      ? `${totalWithExtras.toFixed(1)} h`
       : `${Math.round(chosen.km)} km`;
     showPlanResult({ error:
       `No tour fits within ±${tolPct}% of a ${targetCopy}. ` +
@@ -4554,11 +4759,13 @@ async function planTour() {
     km: chosen.km,
     driveH: chosen.driveH,
     dwellH: chosen.dwellH || 0,
-    totalH: chosen.totalH || chosen.driveH,
+    extrasH: extras.extrasH,
+    extrasParts: extras.parts,
+    totalH: totalWithExtras,
     matched: chosen.k,
     poolSize: candidates.length,
     totalOpen: allCands.length,
-    inRange: chosen.inRange,
+    inRange: finalInRange,
     targetMode, targetValue, targetTol, openOnly,
     poiPrefs: poiPrefsSnapshot,
     tripDate: currentTripDate(),
@@ -4726,15 +4933,19 @@ function showPlanResult(r) {
   const avoided = r.avoided
     ? `<div class="popup-meta tight success">↻ Re-planned to avoid closed pass${r.avoided.length > 1 ? "es" : ""}: ${r.avoided.join(", ")}</div>` : "";
   const title = r.advanced ? "Optimized selected route" : "Best tour";
-  /* Time accounting — drive vs dwell vs total. Auto-discovery mode has no
-     POIs and so dwellH = 0 / totalH = driveH; only show the breakdown when
-     dwell time is nonzero to keep the line concise. In time-mode we always
-     surface total time prominently because that's what the user asked for. */
+  /* Time accounting — drive vs dwell vs extras vs total. We always render
+     a single "total" up front, and a parenthetical breakdown when there's
+     anything beyond drive. */
   const driveH = r.driveH ?? r.h ?? 0;
   const dwellH = r.dwellH ?? 0;
-  const totalH = r.totalH ?? driveH;
-  const timeBlock = (r.targetMode === "time" || dwellH > 0)
-    ? `~<strong>${fmtDuration(totalH)}</strong> total <span class="time-breakdown">(${fmtDuration(driveH)} driving${dwellH > 0 ? ` + ${fmtDuration(dwellH)} on site` : ""})</span>`
+  const extrasH = r.extrasH ?? 0;
+  const totalH = r.totalH ?? (driveH + dwellH + extrasH);
+  const breakdownBits = [`${fmtDuration(driveH)} driving`];
+  if (dwellH > 0) breakdownBits.push(`${fmtDuration(dwellH)} on site`);
+  if (extrasH > 0) breakdownBits.push(`${fmtDuration(extrasH)} breaks`);
+  const showBreakdown = r.targetMode === "time" || dwellH > 0 || extrasH > 0;
+  const timeBlock = showBreakdown
+    ? `~<strong>${fmtDuration(totalH)}</strong> total <span class="time-breakdown">(${breakdownBits.join(" + ")})</span>`
     : `~<strong>${fmtDuration(driveH)}</strong> driving`;
   const passN = passOnly.length;
   const poiN  = stops.length - passN;
@@ -4774,6 +4985,9 @@ function showPlanResult(r) {
   const candidatePoolBlock = r.candidatePoolNote
     ? `<div class="popup-meta tight">${escapeHtml(r.candidatePoolNote)}</div>`
     : "";
+  const breaksBlock = (extrasH > 0 && r.extrasParts)
+    ? `<div class="popup-meta tight">Breaks: ${escapeHtml(fmtExtrasSummary(r.extrasParts))}</div>`
+    : "";
   const tripDateLine = r.tripDate
     ? `<div class="popup-meta tight projection${daysBetweenDates(todayLocalDate(), r.tripDate) > 0 ? " guess" : ""}">Trip date: ${escapeHtml(formatTripDate(r.tripDate))} · projected pass states; guesses are marked “Likely” / “guess”.</div>`
     : "";
@@ -4782,6 +4996,7 @@ function showPlanResult(r) {
     <div class="tour-passes">${stopList}</div>
     <div class="stats">${statsLine}</div>
     ${candidatePoolBlock}
+    ${breaksBlock}
     ${prefsBlock}
     ${tripDateLine}
     ${qualityLine}

@@ -206,6 +206,25 @@ select option:checked {
   box-shadow: 0 0 0 2px rgba(0,0,0,.25);
 }
 .dot.poi.dim { background: linear-gradient(135deg, #94a3b8 0%, #475569 100%); }
+.legend-marker {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid #fff;
+  margin-right: 6px;
+  flex: 0 0 auto;
+  vertical-align: middle;
+  box-shadow: 0 1px 3px rgba(0,0,0,.5);
+  --icon-cut: #10161a;
+}
+.legend-marker svg {
+  width: 22px; height: 22px;
+  transform: scale(1.18);
+}
+.legend-marker.open       { background: var(--open); }
+.legend-marker.restricted { background: var(--restricted); }
+.legend-marker.closed     { background: var(--closed); }
+.legend-marker.unknown    { background: var(--unknown); }
+.legend-marker.estimated  { border-style: dashed; border-width: 2.5px; }
 .legend-divider {
   display: inline-block; width: 1px; height: 14px;
   background: var(--border-strong); padding: 0; margin: 0 1px;
@@ -385,11 +404,17 @@ select option:checked {
 }
 .selected-pass-chip {
   display: inline-flex; align-items: center; gap: 5px;
-  padding: 4px 5px 4px 9px; border-radius: 999px;
+  padding: 4px 5px 4px 5px; border-radius: 999px;
   background: rgba(84,209,255,.10); border: 1px solid rgba(84,209,255,.22);
   font-size: 12px; max-width: 100%;
 }
 .selected-pass-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.selected-pass-chip .pass-art-icon.chip {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  box-shadow: 0 3px 8px rgba(0,0,0,.28);
+}
 .pass-picker {
   max-height: 220px; overflow-y: auto;
   border: 1px solid var(--border); border-radius: 12px;
@@ -399,6 +424,18 @@ select option:checked {
   display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: center;
   padding: 9px 10px; border-bottom: 1px solid var(--border);
   cursor: pointer;
+}
+.pass-picker-pass-row {
+  grid-template-columns: auto 32px minmax(0, 1fr);
+}
+.pass-picker-row > span:last-child {
+  min-width: 0;
+}
+.pass-picker-row .pass-art-icon.picker {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  box-shadow: 0 5px 12px rgba(0,0,0,.28);
 }
 .pass-picker-row:last-child { border-bottom: 0; }
 .pass-picker-row:hover,
@@ -648,16 +685,24 @@ select option:checked {
   display: inline-block;
   width: 38px;
   height: 38px;
+  aspect-ratio: 1;
   flex: 0 0 auto;
   border-radius: 9px;
+  background-color: rgba(255,255,255,.06);
+  background-position: center;
   background-size: 500% 500%;
   background-repeat: no-repeat;
+  overflow: hidden;
   box-shadow: 0 8px 18px rgba(0,0,0,.32), inset 0 0 0 1px rgba(255,255,255,.18);
   vertical-align: middle;
 }
 .pass-art-icon.list {
   width: 40px;
   height: 40px;
+}
+.pass-art-icon.symbol {
+  border-radius: 10px;
+  box-shadow: 0 6px 14px rgba(0,0,0,.3);
 }
 .pass-list-icon-wrap {
   position: relative;
@@ -1257,13 +1302,15 @@ body.picking #map { cursor: crosshair; }
   .side-head { padding: 16px 16px 12px; }
   .planner, .legend-panel { margin-inline: 10px; }
   .planner-body { padding: 10px; }
-  .pass-explorer { min-height: 0; }
+  .pass-explorer, .explorer { min-height: 0; }
   .controls input[type="search"] { min-width: 100%; }
   .explorer-head { align-items: stretch; flex-direction: column; gap: 8px; }
   .list-footnote { align-self: flex-start; text-align: left; }
   .site-footer { align-items: flex-start; }
   .footer-credits { text-align: left; }
   #mapInfo { white-space: normal; }
+  .explorer-tabs { width: 100%; justify-content: stretch; }
+  .explorer-tab { flex: 1 1 50%; justify-content: center; }
 }
 
 @media (max-width: 520px) {
@@ -1273,6 +1320,9 @@ body.picking #map { cursor: crosshair; }
   .pass-list .alt { display: none; }
   .pass-list li { grid-template-columns: auto 1fr; }
   .footer-status { border-radius: 12px; align-items: flex-start; }
+  .explorer-tab { padding: 7px 8px; font-size: 12px; gap: 3px; }
+  .explorer-tab .tab-count { font-size: 10.5px; }
+  .poi-filters { grid-template-columns: 1fr 1fr; }
 }
 
 /* ─── Responsive polish ─── overrides applied after the cascading

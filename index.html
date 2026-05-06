@@ -6,7 +6,9 @@
 <meta name="description" content="Interactive Alpine pass map with live Swiss road status, seasonal estimates, pass search, and a sightseeing tour planner.">
 <meta name="theme-color" content="#161a1d">
 <title>Alpine Passes — live map &amp; tour planner</title>
-<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="assets/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="assets/favicon-512.png" sizes="512x512" type="image/png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <link rel="alternate icon" href="favicon.ico">
 
 <link rel="preconnect" href="https://unpkg.com">
@@ -99,6 +101,10 @@
             <span>Projected open/restricted only <em>(guesses are marked)</em></span>
           </label>
           <label class="check">
+            <input id="planIncludePois" type="checkbox">
+            <span>Include sights <em>(blend curated POIs into the tour)</em></span>
+          </label>
+          <label class="check">
             <input id="planAdvanced" type="checkbox">
             <span>Advanced mode <em>(select exact passes)</em></span>
           </label>
@@ -131,11 +137,11 @@
     <details class="legend-panel">
       <summary><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-legend"></use></svg> Map legend</summary>
       <section class="legend" aria-label="Map marker legend">
-        <span><span class="dot open" aria-hidden="true"></span>Open</span>
-        <span><span class="dot restricted" aria-hidden="true"></span>Restrictions</span>
-        <span><span class="dot closed" aria-hidden="true"></span>Closed</span>
-        <span><span class="dot open estimated" aria-hidden="true"></span>Estimated</span>
-        <span><span class="dot unknown" aria-hidden="true"></span>Unknown</span>
+        <span><span class="legend-marker open" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="assets/icons.svg#alpine-state-open"></use></svg></span>Open</span>
+        <span><span class="legend-marker restricted" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="assets/icons.svg#alpine-state-restricted"></use></svg></span>Restrictions</span>
+        <span><span class="legend-marker closed" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="assets/icons.svg#alpine-state-closed"></use></svg></span>Closed</span>
+        <span><span class="legend-marker open estimated" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="assets/icons.svg#alpine-state-estimated"></use></svg></span>Estimated</span>
+        <span><span class="legend-marker unknown" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="assets/icons.svg#alpine-state-unknown"></use></svg></span>Unknown</span>
         <span class="legend-divider" aria-hidden="true"></span>
         <span><span class="dot poi" aria-hidden="true"></span>Sight / POI</span>
         <span><span class="dot poi dim" aria-hidden="true"></span>Not by car</span>
@@ -230,4 +236,3 @@
 </footer>
 </body>
 </html>
-

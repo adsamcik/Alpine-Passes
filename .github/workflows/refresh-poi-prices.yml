@@ -1,0 +1,58 @@
+name: Refresh POI prices
+
+# Refreshes assets/data/poi-prices.json by running tools/fetch_poi_prices.py.
+# The script is idempotent and never overwrites manually curated entries
+# (source_kind: "manual"). It only attempts to refresh entries tagged
+# source_kind: "wikidata" via Wikidata's P2284 (price) property.
+#
+# The committed JSON cache acts as the persistent fallback — if the live
+# fetch fails entirely, the previous values stay intact, which is exactly
+# the "cache them on deploy so we still have past data" guarantee.
+
+on:
+  schedule:
+    # Mondays 04:17 UTC — off-peak for both Wikidata and our deploy windows.
+    - cron: "17 4 * * 1"
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - "assets/js/swiss-pois.js"
+      - "tools/fetch_poi_prices.py"
+      - ".github/workflows/refresh-poi-prices.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-poi-prices
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Refresh price cache
+        run: python tools/fetch_poi_prices.py
+
+      - name: Commit cache changes
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- assets/data/poi-prices.json; then
+            echo "No price changes; nothing to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/data/poi-prices.json
+          git commit -m "chore(poi-prices): refresh cache from Wikidata"
+          git push

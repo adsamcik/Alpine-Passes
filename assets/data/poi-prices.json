@@ -1,0 +1,961 @@
+{
+  "schema_version": 1,
+  "currency": "CHF",
+  "last_refreshed_at": "2026-05-06T00:00:00Z",
+  "_doc": "Cached starting-prices for POIs in assets/js/swiss-pois.js. Keyed by POI name (n field). Refreshed on deploy by tools/fetch_poi_prices.py + .github/workflows/refresh-poi-prices.yml. Manually-curated entries (source_kind=manual) are NEVER overwritten by the auto-refresher; only source_kind=wikidata entries are updated. The committed JSON is the persistent fallback when live fetching fails.",
+  "entries": {
+    "Abbey of Saint Gall": {
+      "kind": "paid",
+      "from_adult_chf": 18,
+      "as_of": "2024",
+      "source_url": "https://www.stiftsbezirk.ch/en/visit/admission-prices",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Library + cathedral combined ticket; cathedral alone is free."
+    },
+    "Aigle Castle & Wine Museum": {
+      "kind": "paid",
+      "from_adult_chf": 14,
+      "as_of": "2024",
+      "source_url": "https://www.chateauaigle.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Albula Railway": {
+      "kind": "paid",
+      "from_adult_chf": 38,
+      "as_of": "2024",
+      "source_url": "https://www.rhb.ch/en/timetable-tickets",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Chur–St. Moritz one-way; covered by Swiss Travel Pass."
+    },
+    "Andermatt": {
+      "kind": "free",
+      "source_url": "https://www.andermatt.ch/en",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Village access is free."
+    },
+    "Appenzell": {
+      "kind": "free",
+      "source_url": "https://appenzell.ch/en",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Village is free; museum CHF 7."
+    },
+    "Aareschlucht (Aare Gorge)": {
+      "kind": "paid",
+      "from_adult_chf": 11,
+      "as_of": "2024",
+      "source_url": "https://www.aareschlucht.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Ascona": {
+      "kind": "free",
+      "source_url": "https://www.ascona-locarno.com/en",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Augusta Raurica": {
+      "kind": "varies",
+      "source_url": "https://www.augustaraurica.ch/en",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Open-air Roman site is free; museum CHF 8."
+    },
+    "Avenches — Roman Amphitheatre (Aventicum)": {
+      "kind": "free",
+      "source_url": "https://www.aventicum.org/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Amphitheatre is free; Roman Museum CHF 6."
+    },
+    "Basel Minster & Altstadt": {
+      "kind": "free",
+      "source_url": "https://www.baslermuenster.ch/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Cathedral and old town free; Pfalz tower CHF 6."
+    },
+    "Bernina Express": {
+      "kind": "paid",
+      "from_adult_chf": 84,
+      "as_of": "2024",
+      "source_url": "https://www.rhb.ch/en/panoramic-trains/bernina-express",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Chur–Tirano one-way base fare; mandatory seat reservation extra (~CHF 26 in summer)."
+    },
+    "Bettmeralp": {
+      "kind": "paid",
+      "from_adult_chf": 32,
+      "as_of": "2024",
+      "source_url": "https://www.aletscharena.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Cable car return from Betten Talstation to Bettmeralp."
+    },
+    "Bogn Engiadina Scuol": {
+      "kind": "paid",
+      "from_adult_chf": 32,
+      "as_of": "2024",
+      "source_url": "https://www.bognengiadina.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Three-hour adult thermal ticket."
+    },
+    "Brienzer Rothorn": {
+      "kind": "paid",
+      "from_adult_chf": 96,
+      "as_of": "2024",
+      "source_url": "https://brienz-rothorn-bahn.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Steam cogwheel return; summer-only."
+    },
+    "Brissago Islands": {
+      "kind": "paid",
+      "from_adult_chf": 11,
+      "as_of": "2024",
+      "source_url": "https://www.isolebrissago.ti.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Garden entry only; boat to islands is extra (~CHF 25 return from Locarno)."
+    },
+    "Cardada / Cimetta": {
+      "kind": "paid",
+      "from_adult_chf": 47,
+      "as_of": "2024",
+      "source_url": "https://www.cardada.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Locarno–Orselina–Cardada–Cimetta combined return."
+    },
+    "Castles of Bellinzona": {
+      "kind": "paid",
+      "from_adult_chf": 18,
+      "as_of": "2024",
+      "source_url": "https://www.bellinzonaevalli.ch/en/discover/the-castles-of-bellinzona",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Combined ticket for all three castles (Castelgrande, Montebello, Sasso Corbaro)."
+    },
+    "Caumasee (Lake Cauma)": {
+      "kind": "paid",
+      "from_adult_chf": 8,
+      "as_of": "2024",
+      "source_url": "https://flimslaax.com/en/summer/highlights/caumasee",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Funicular + bathing area in summer; free outside the lido season."
+    },
+    "Centovalli Railway": {
+      "kind": "paid",
+      "from_adult_chf": 35,
+      "as_of": "2024",
+      "source_url": "https://www.centovalli.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Locarno–Domodossola one-way; covered by Swiss Travel Pass."
+    },
+    "Charles Kuonen Suspension Bridge": {
+      "kind": "free",
+      "source_url": "https://www.randa.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Free hike from Randa or Europaweg."
+    },
+    "Chillon Castle (Château de Chillon)": {
+      "kind": "paid",
+      "from_adult_chf": 14,
+      "as_of": "2024",
+      "source_url": "https://www.chillon.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Crans-Montana": {
+      "kind": "free",
+      "source_url": "https://www.crans-montana.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Resort is free to walk; lifts and ski passes are extra."
+    },
+    "Creux du Van — Jura Rocky Cirque": {
+      "kind": "free",
+      "source_url": "https://www.j3l.ch/en/Z11091/creux-du-van",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Diavolezza": {
+      "kind": "paid",
+      "from_adult_chf": 41,
+      "as_of": "2024",
+      "source_url": "https://www.diavolezza.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Cable car return from Bernina Diavolezza station."
+    },
+    "Ebenalp & Berggasthaus Äscher": {
+      "kind": "paid",
+      "from_adult_chf": 33,
+      "as_of": "2024",
+      "source_url": "https://www.ebenalp.ch/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Wasserauen–Ebenalp cable car return; gasthaus payment separate."
+    },
+    "Eggishorn": {
+      "kind": "paid",
+      "from_adult_chf": 49,
+      "as_of": "2024",
+      "source_url": "https://www.aletscharena.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Fiesch–Fiescheralp–Eggishorn combined return."
+    },
+    "Emmentaler Schaukäserei (Affoltern)": {
+      "kind": "free",
+      "source_url": "https://www.emmentaler-schaukaeserei.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Show dairy entry is free; restaurant and shop separate."
+    },
+    "Engelberg Abbey": {
+      "kind": "varies",
+      "source_url": "https://www.kloster-engelberg.ch/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Church free; guided tours of the abbey CHF 12."
+    },
+    "Evolène": {
+      "kind": "free",
+      "source_url": "https://www.evolene-region.ch/en",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "First Cliff Walk, Grindelwald": {
+      "kind": "paid",
+      "from_adult_chf": 64,
+      "as_of": "2024",
+      "source_url": "https://www.jungfrau.ch/en-gb/grindelwald-first/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Grindelwald–First gondola return; cliff walk and Bachalpsee included free."
+    },
+    "Foroglio Waterfall": {
+      "kind": "free",
+      "source_url": "https://www.bavona.ch/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Fronalpstock / Stoos": {
+      "kind": "paid",
+      "from_adult_chf": 52,
+      "as_of": "2024",
+      "source_url": "https://www.stoos.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Stoosbahn funicular + Fronalpstock chairlift combined return."
+    },
+    "Gandria": {
+      "kind": "free",
+      "source_url": "https://www.luganoregion.com/en/the-region/discover/gandria",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Geneva — Jet d'Eau & Old Town": {
+      "kind": "free",
+      "source_url": "https://www.geneve.com/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Glacier 3000 / Diablerets Peak Walk": {
+      "kind": "paid",
+      "from_adult_chf": 92,
+      "as_of": "2024",
+      "source_url": "https://www.glacier3000.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Col du Pillon return; Peak Walk and Ice Express included."
+    },
+    "Glacier Garden (Gletschergarten), Lucerne": {
+      "kind": "paid",
+      "from_adult_chf": 22,
+      "as_of": "2024",
+      "source_url": "https://gletschergarten.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Gornergrat": {
+      "kind": "paid",
+      "from_adult_chf": 132,
+      "as_of": "2024",
+      "source_url": "https://www.gornergrat.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Zermatt–Gornergrat cogwheel return."
+    },
+    "Grimentz": {
+      "kind": "free",
+      "source_url": "https://www.valdanniviers.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Village free; cable car to Bendolla CHF 27 return."
+    },
+    "Gruyères Village & Castle": {
+      "kind": "paid",
+      "from_adult_chf": 12,
+      "as_of": "2024",
+      "source_url": "https://www.chateau-gruyeres.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Castle entry; village walking is free."
+    },
+    "Guarda": {
+      "kind": "free",
+      "source_url": "https://www.engadin.com/en/destinations/guarda",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Gurten": {
+      "kind": "paid",
+      "from_adult_chf": 18,
+      "as_of": "2024",
+      "source_url": "https://www.gurtenpark.ch/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Gurtenbahn funicular return from Bern."
+    },
+    "Habsburg Castle": {
+      "kind": "free",
+      "source_url": "https://www.schloss-habsburg.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Outdoor castle area free; restaurant separate."
+    },
+    "Hallwyl Castle (Wasserschloss)": {
+      "kind": "paid",
+      "from_adult_chf": 15,
+      "as_of": "2024",
+      "source_url": "https://www.schloss-hallwyl.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Hammetschwand Elevator / Bürgenstock": {
+      "kind": "paid",
+      "from_adult_chf": 12,
+      "as_of": "2024",
+      "source_url": "https://www.buergenstock.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Hammetschwand elevator return; Bürgenstock funicular extra."
+    },
+    "Harder Kulm": {
+      "kind": "paid",
+      "from_adult_chf": 38,
+      "as_of": "2024",
+      "source_url": "https://www.jungfrau.ch/en-gb/harder-kulm/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Interlaken–Harder Kulm funicular return."
+    },
+    "Iseltwald": {
+      "kind": "free",
+      "source_url": "https://www.iseltwald.ch/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Village free; the famous private pier charges CHF 5 for photos."
+    },
+    "Jungfraujoch – Top of Europe": {
+      "kind": "paid",
+      "from_adult_chf": 250,
+      "as_of": "2024",
+      "source_url": "https://www.jungfrau.ch/en-gb/jungfraujoch-top-of-europe/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Interlaken Ost return; cheaper Good Morning ticket and seasonal discounts available."
+    },
+    "Klein Matterhorn – Matterhorn Glacier Paradise": {
+      "kind": "paid",
+      "from_adult_chf": 120,
+      "as_of": "2024",
+      "source_url": "https://www.matterhornparadise.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Zermatt–Matterhorn Glacier Paradise return."
+    },
+    "Klöntalersee": {
+      "kind": "free",
+      "source_url": "https://www.glarnerland.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "La Chaux-de-Fonds — UNESCO Watchmaking City": {
+      "kind": "free",
+      "source_url": "https://www.neuchateltourisme.ch/en/places/la-chaux-de-fonds",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Old town walking is free; International Watchmaking Museum CHF 15."
+    },
+    "Lac de Moiry": {
+      "kind": "free",
+      "source_url": "https://www.valdanniviers.ch/en/lac-de-moiry",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Lake Lucerne Paddle Steamers": {
+      "kind": "paid",
+      "from_adult_chf": 36,
+      "as_of": "2024",
+      "source_url": "https://www.lakelucerne.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Single-leg adult fares vary by route; covered by Swiss Travel Pass."
+    },
+    "Lake Sils": {
+      "kind": "free",
+      "source_url": "https://www.engadin.com/en/destinations/sils",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Landwasser Viaduct": {
+      "kind": "free",
+      "source_url": "https://www.graubuenden.ch/en/landwasser-viaduct",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Free viewing platform; train passage is paid (Albula line)."
+    },
+    "Lauterbrunnen Valley": {
+      "kind": "free",
+      "source_url": "https://www.lauterbrunnen.swiss/en",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Lausanne Cathedral (Notre-Dame)": {
+      "kind": "free",
+      "source_url": "https://www.cathedrale-lausanne.ch/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Cathedral free; tower CHF 5."
+    },
+    "Lavaux Vineyard Terraces": {
+      "kind": "free",
+      "source_url": "https://www.lavaux-unesco.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Public terraced paths are free; wine tastings extra."
+    },
+    "Lenzburg Castle": {
+      "kind": "paid",
+      "from_adult_chf": 16,
+      "as_of": "2024",
+      "source_url": "https://www.schloss-lenzburg.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Leukerbad": {
+      "kind": "paid",
+      "from_adult_chf": 35,
+      "as_of": "2024",
+      "source_url": "https://www.leukerbad.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Walliser Alpentherme three-hour adult thermal ticket; village itself is free to walk."
+    },
+    "Lindt Home of Chocolate": {
+      "kind": "paid",
+      "from_adult_chf": 17,
+      "as_of": "2024",
+      "source_url": "https://www.lindt-home-of-chocolate.com/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Lion Monument (Löwendenkmal)": {
+      "kind": "free",
+      "source_url": "https://www.luzern.com/en/lion-monument",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Lucerne Old Town & Kapellbrücke": {
+      "kind": "free",
+      "source_url": "https://www.luzern.com/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Madonna del Sasso": {
+      "kind": "free",
+      "source_url": "https://www.madonnadelsasso.org/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Sanctuary entry free; funicular from Locarno CHF 8 return."
+    },
+    "Matterhorn": {
+      "kind": "free",
+      "source_url": "https://www.zermatt.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Mountain itself; viewing from Zermatt is free, lifts to high viewpoints are not."
+    },
+    "Märjelensee": {
+      "kind": "free",
+      "source_url": "https://www.aletscharena.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Hiking access free; Eggishorn cable car required to reach trail head."
+    },
+    "Monte Generoso": {
+      "kind": "paid",
+      "from_adult_chf": 60,
+      "as_of": "2024",
+      "source_url": "https://www.montegeneroso.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Capolago–Monte Generoso cogwheel return."
+    },
+    "Monte San Giorgio": {
+      "kind": "free",
+      "source_url": "https://www.montesangiorgio.org/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "UNESCO area free; fossil museum in Meride CHF 12."
+    },
+    "Monte San Salvatore": {
+      "kind": "paid",
+      "from_adult_chf": 36,
+      "as_of": "2024",
+      "source_url": "https://www.montesansalvatore.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Lugano–Paradiso–San Salvatore funicular return."
+    },
+    "Mont Fort": {
+      "kind": "paid",
+      "from_adult_chf": 88,
+      "as_of": "2024",
+      "source_url": "https://www.verbier4vallees.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Verbier–Mont Fort summer return."
+    },
+    "Montreux Riviera": {
+      "kind": "free",
+      "source_url": "https://www.montreuxriviera.com/en",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Morcote": {
+      "kind": "free",
+      "source_url": "https://www.morcoteturismo.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Morteratsch Glacier": {
+      "kind": "free",
+      "source_url": "https://www.engadin.com/en/destinations/pontresina/morteratsch",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Glacier trail is free; Bernina railway station nearby."
+    },
+    "Mount Pilatus": {
+      "kind": "paid",
+      "from_adult_chf": 78,
+      "as_of": "2024",
+      "source_url": "https://www.pilatus.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Cogwheel-only return from Alpnachstad; Golden Round Trip from Lucerne ~CHF 109."
+    },
+    "Mount Rigi (Rigi Kulm)": {
+      "kind": "paid",
+      "from_adult_chf": 78,
+      "as_of": "2024",
+      "source_url": "https://www.rigi.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Day pass covering all Rigi mountain railways and cable cars."
+    },
+    "Mount Titlis (Engelberg)": {
+      "kind": "paid",
+      "from_adult_chf": 96,
+      "as_of": "2024",
+      "source_url": "https://www.titlis.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Engelberg–Titlis cable car return."
+    },
+    "Muottas Muragl": {
+      "kind": "paid",
+      "from_adult_chf": 41,
+      "as_of": "2024",
+      "source_url": "https://www.muottasmuragl.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Punt Muragl–Muottas Muragl funicular return."
+    },
+    "Murten / Morat — Medieval Walled Town": {
+      "kind": "free",
+      "source_url": "https://www.regionmurtensee.ch/en",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Mürren": {
+      "kind": "free",
+      "source_url": "https://www.muerren.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Village free; cable cars from Lauterbrunnen are paid (~CHF 16 return)."
+    },
+    "Neuchâtel — Old Town & Lake": {
+      "kind": "free",
+      "source_url": "https://www.neuchateltourisme.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Oeschinensee (Oeschinen Lake)": {
+      "kind": "paid",
+      "from_adult_chf": 36,
+      "as_of": "2024",
+      "source_url": "https://www.oeschinensee.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Kandersteg–Oeschinen gondola return; lake itself is free if hiked up."
+    },
+    "Old City of Bern": {
+      "kind": "free",
+      "source_url": "https://www.bern.com/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Olympic Museum, Lausanne": {
+      "kind": "paid",
+      "from_adult_chf": 20,
+      "as_of": "2024",
+      "source_url": "https://olympics.com/museum/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Piz Nair": {
+      "kind": "paid",
+      "from_adult_chf": 39,
+      "as_of": "2024",
+      "source_url": "https://www.mountains.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "St. Moritz–Corviglia–Piz Nair summer return."
+    },
+    "Ponte dei Salti, Lavertezzo": {
+      "kind": "free",
+      "source_url": "https://www.ascona-locarno.com/en/Z11055/ponte-dei-salti",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Pyramides d'Euseigne": {
+      "kind": "free",
+      "source_url": "https://www.valdherens.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Free roadside viewpoint."
+    },
+    "Rapperswil Castle & Old Town": {
+      "kind": "free",
+      "source_url": "https://www.rapperswil-zuerichsee.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Castle grounds and old town free; Polish Museum CHF 8."
+    },
+    "Reichenbach Falls": {
+      "kind": "paid",
+      "from_adult_chf": 12,
+      "as_of": "2024",
+      "source_url": "https://www.grimselwelt.ch/en/reichenbachfall/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Reichenbachfall-Bahn funicular return; falls themselves are free to view from the valley."
+    },
+    "Rhine Falls (Rheinfall)": {
+      "kind": "paid",
+      "from_adult_chf": 5,
+      "as_of": "2024",
+      "source_url": "https://rheinfall.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Schloss Laufen viewing platform; boat trips ~CHF 8–25 extra."
+    },
+    "Riffelsee": {
+      "kind": "free",
+      "source_url": "https://www.zermatt.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Lake free; reached via Gornergrat cogwheel (paid)."
+    },
+    "Rochers de Naye": {
+      "kind": "paid",
+      "from_adult_chf": 67,
+      "as_of": "2024",
+      "source_url": "https://www.mob.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Montreux–Rochers de Naye cogwheel return."
+    },
+    "Ruinaulta (Rhine Gorge)": {
+      "kind": "free",
+      "source_url": "https://www.ruinaulta.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Hiking and viewing free; train via Rhaetian Railway is paid."
+    },
+    "Rütli Meadow": {
+      "kind": "free",
+      "source_url": "https://www.ruetli.ch/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Meadow free; reached by paid lake boat."
+    },
+    "Saas-Fee": {
+      "kind": "free",
+      "source_url": "https://www.saas-fee.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Village is car-free and free to enter; lifts and Allalin extra."
+    },
+    "Saint John Abbey, Müstair": {
+      "kind": "paid",
+      "from_adult_chf": 12,
+      "as_of": "2024",
+      "source_url": "https://www.muestair.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Museum and Carolingian frescoes ticket."
+    },
+    "Salginatobel Bridge": {
+      "kind": "free",
+      "source_url": "https://www.graubuenden.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Schaffhausen & Munot Fortress": {
+      "kind": "free",
+      "source_url": "https://www.munot.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Schilthorn / Piz Gloria": {
+      "kind": "paid",
+      "from_adult_chf": 108,
+      "as_of": "2024",
+      "source_url": "https://schilthorn.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Stechelberg–Schilthorn cable car return."
+    },
+    "Schloss Spiez (Spiez Castle)": {
+      "kind": "paid",
+      "from_adult_chf": 12,
+      "as_of": "2024",
+      "source_url": "https://www.schloss-spiez.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Schloss Thun (Thun Castle)": {
+      "kind": "paid",
+      "from_adult_chf": 10,
+      "as_of": "2024",
+      "source_url": "https://www.schlossthun.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Schynige Platte Railway": {
+      "kind": "paid",
+      "from_adult_chf": 72,
+      "as_of": "2024",
+      "source_url": "https://www.jungfrau.ch/en-gb/schynige-platte/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Wilderswil–Schynige Platte cogwheel return; summer-only."
+    },
+    "Schöllenen Gorge & Devil's Bridge": {
+      "kind": "free",
+      "source_url": "https://www.andermatt.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Seerenbach Falls & Walensee": {
+      "kind": "free",
+      "source_url": "https://www.heidiland.com/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Soglio": {
+      "kind": "free",
+      "source_url": "https://www.bregaglia.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Solothurn Old Town": {
+      "kind": "free",
+      "source_url": "https://www.solothurn-city.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "St. Moritz": {
+      "kind": "free",
+      "source_url": "https://www.stmoritz.com/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Village free; lifts, spa and Engadine museum extra."
+    },
+    "St. Peter's Island (Petersinsel)": {
+      "kind": "varies",
+      "source_url": "https://www.bielersee.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Island walking is free; reached only by boat (~CHF 30 return from Erlach)."
+    },
+    "Stanserhorn": {
+      "kind": "paid",
+      "from_adult_chf": 82,
+      "as_of": "2024",
+      "source_url": "https://stanserhorn.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Stans–Stanserhorn funicular + open-top CabriO cable car return."
+    },
+    "Staubbach Falls": {
+      "kind": "free",
+      "source_url": "https://www.lauterbrunnen.swiss/en",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Stein am Rhein": {
+      "kind": "free",
+      "source_url": "https://www.tourismus.steinamrhein.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Swiss Museum of Transport (Verkehrshaus)": {
+      "kind": "paid",
+      "from_adult_chf": 35,
+      "as_of": "2024",
+      "source_url": "https://www.verkehrshaus.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Swiss National Park": {
+      "kind": "free",
+      "source_url": "https://www.nationalpark.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Park entry and trails free; visitor centre in Zernez free."
+    },
+    "Swiss Tectonic Arena Sardona": {
+      "kind": "free",
+      "source_url": "https://www.unesco-sardona.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Säntis": {
+      "kind": "paid",
+      "from_adult_chf": 64,
+      "as_of": "2024",
+      "source_url": "https://www.saentisbahn.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Schwägalp–Säntis cable car return."
+    },
+    "Tamina Gorge (Taminaschlucht)": {
+      "kind": "paid",
+      "from_adult_chf": 12,
+      "as_of": "2024",
+      "source_url": "https://www.taminaschlucht.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Tarasp Castle": {
+      "kind": "paid",
+      "from_adult_chf": 22,
+      "as_of": "2024",
+      "source_url": "https://www.schloss-tarasp.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Guided-tour-only entry."
+    },
+    "Tellskapelle (Tell's Chapel)": {
+      "kind": "free",
+      "source_url": "https://www.luzern.com/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Tourbillon Castle": {
+      "kind": "free",
+      "source_url": "https://www.siontourisme.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Hilltop ruins free to walk; closed Nov–Mar."
+    },
+    "Trift Bridge (Triftbrücke)": {
+      "kind": "paid",
+      "from_adult_chf": 32,
+      "as_of": "2024",
+      "source_url": "https://www.grimselwelt.ch/en/triftgebiet/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Triftbahn cable car return; bridge itself is free after a 1.5-hr hike."
+    },
+    "Trümmelbach Falls": {
+      "kind": "paid",
+      "from_adult_chf": 14,
+      "as_of": "2024",
+      "source_url": "https://truemmelbachfaelle.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Uetliberg": {
+      "kind": "paid",
+      "from_adult_chf": 16,
+      "as_of": "2024",
+      "source_url": "https://www.uetliberg.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Zürich HB–Uetliberg train return; covered by ZVV day pass."
+    },
+    "Valère Basilica": {
+      "kind": "paid",
+      "from_adult_chf": 5,
+      "as_of": "2024",
+      "source_url": "https://www.musees-valais.ch/en/musee-de-valere/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Basilica + History Museum combined; hilltop walk is free."
+    },
+    "Vallée de Joux — Watchmaking Valley": {
+      "kind": "free",
+      "source_url": "https://www.myvalleedejoux.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Valley access free; Espace Horloger CHF 12."
+    },
+    "Verzasca Dam (Contra Dam)": {
+      "kind": "free",
+      "source_url": "https://www.tenero-contra.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Free public viewing; bungee jump from operator separate."
+    },
+    "Zermatt": {
+      "kind": "free",
+      "source_url": "https://www.zermatt.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Car-free village free to enter; cable cars and Gornergrat extra."
+    },
+    "Zürich Old Town & Grossmünster": {
+      "kind": "free",
+      "source_url": "https://www.zuerich.com/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Old town and Grossmünster church free; Karlsturm tower CHF 5."
+    }
+  }
+}

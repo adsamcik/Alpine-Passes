@@ -1139,6 +1139,12 @@ const map = L.map("map", {
   zoomSnap: 0,
   zoomDelta: 0.5,
   scrollWheelZoom: false,
+  /* Canvas renderer for vector layers (polylines, polygons). The planned
+     tour can easily be 3000+ polyline points; SVG's per-element layout
+     cost on every pan/zoom event creates visible jank during smooth-wheel
+     zoom and inertia drag. A shared canvas batches all vector layers into
+     one draw per frame. Markers (HTML divIcons) are unaffected. */
+  preferCanvas: true,
 }).setView([46.7, 10.0], 7);
 
 /* ───────────────────── Smooth wheel zoom (Google-Maps style) ─────────────────────
@@ -3273,11 +3279,14 @@ function drawPlannedTour(start, tourStops, latlngs) {
     p._marker.setZIndexOffset(400);
   });
 
-  /* Geometry was already fetched by the planner.  Just draw it. */
+  /* Geometry was already fetched by the planner.  Just draw it. The
+     three-layer stack (dark casing + white halo + colored core) is
+     decimated with smoothFactor so canvas redraws stay cheap during
+     smooth wheel zoom + inertia. */
   if (latlngs && latlngs.length > 1) {
-    plannedLayer.addLayer(L.polyline(latlngs, { color:"#000",    weight:11, opacity:0.45, lineCap:"round", lineJoin:"round" }));
-    plannedLayer.addLayer(L.polyline(latlngs, { color:"#fff",    weight:7,  opacity:0.90, lineCap:"round", lineJoin:"round" }));
-    plannedLayer.addLayer(L.polyline(latlngs, { color:"#ffd166", weight:5,  opacity:1,    lineCap:"round", lineJoin:"round" }));
+    plannedLayer.addLayer(L.polyline(latlngs, { color:"#000",    weight:11, opacity:0.45, lineCap:"round", lineJoin:"round", smoothFactor:1.5 }));
+    plannedLayer.addLayer(L.polyline(latlngs, { color:"#fff",    weight:7,  opacity:0.90, lineCap:"round", lineJoin:"round", smoothFactor:1.5 }));
+    plannedLayer.addLayer(L.polyline(latlngs, { color:"#ffd166", weight:5,  opacity:1,    lineCap:"round", lineJoin:"round", smoothFactor:1.5 }));
     map.fitBounds(L.latLngBounds(latlngs).pad(0.10));
   } else {
     /* Fallback to straight lines if router was unavailable. */

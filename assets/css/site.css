@@ -506,7 +506,8 @@ select option:checked {
   background: linear-gradient(180deg, rgba(255,255,255,.025), transparent 110px);
 }
 .explorer-head {
-  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  display: flex; flex-direction: column; align-items: stretch;
+  gap: 8px;
   padding: 14px 16px 8px;
 }
 .explorer-head-titles { min-width: 0; flex: 1; }
@@ -738,7 +739,7 @@ select option:checked {
   padding: 1px;
 }
 .list-footnote {
-  align-self: flex-start;
+  align-self: flex-end;
   padding: 5px 8px;
   font-size: 11px;
   color: var(--fg-dim);
@@ -1302,7 +1303,7 @@ body.picking #map { cursor: crosshair; }
   .planner-body { padding: 10px; }
   .pass-explorer, .explorer { min-height: 0; }
   .controls input[type="search"] { min-width: 100%; }
-  .explorer-head { align-items: stretch; flex-direction: column; gap: 8px; }
+  .explorer-head { gap: 8px; }
   .list-footnote { align-self: flex-start; text-align: left; }
   .site-footer { align-items: flex-start; }
   .footer-credits { text-align: left; }

@@ -3326,8 +3326,9 @@ const showNotableOnlyEl = document.getElementById("showNotableOnly");
 const VIEW_LIMIT = 80;
 
 /* "Notable" gates out low-confidence entries plus everything below this
-   quality cutoff. Tune here to widen or tighten the highlights filter. */
-const NOTABLE_MIN_QUALITY = 0.5;
+   quality cutoff. Keep this aligned with the generated pass icon set so
+   every notable pass has both scenic and compact sprite artwork. */
+const NOTABLE_MIN_QUALITY = 0.7;
 
 function inViewport(p) {
   return map.getBounds().contains([p.lat, p.lon]);

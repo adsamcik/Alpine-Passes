@@ -2493,11 +2493,46 @@ function fitLngLatPairs(points, pad = 0.10) {
 
 function openMapPopup(lngLat, html, maxWidth = "360px") {
   if (activePopup) activePopup.remove();
-  activePopup = new maplibregl.Popup({ maxWidth, closeButton: true, closeOnClick: true })
+  const popup = new maplibregl.Popup({ maxWidth, closeButton: true, closeOnClick: true })
     .setLngLat(lngLat)
     .setHTML(html)
     .addTo(map);
-  return activePopup;
+  activePopup = popup;
+  /* After the popup mounts, ease the map so the popup fully fits in view.
+     MapLibre auto-anchors the popup top/bottom of the marker but a tall
+     popup can still spill off-screen near viewport edges; nudging the
+     marker toward the upper-third gives the popup room to grow downward. */
+  requestAnimationFrame(() => {
+    if (activePopup !== popup) return;
+    panMapForPopup(lngLat, popup);
+  });
+  return popup;
+}
+
+function panMapForPopup(lngLat, popup) {
+  const container = map.getContainer();
+  if (!container) return;
+  const popupEl = popup?.getElement();
+  if (!popupEl) return;
+  const popupContent = popupEl.querySelector(".maplibregl-popup-content");
+  if (!popupContent) return;
+  const ch = container.offsetHeight;
+  const popupHeight = Math.min(popupContent.offsetHeight, ch - 80);
+  /* Place the marker in the upper portion so the popup grows downward
+     with comfortable margins. Cap so we never push it off-screen. */
+  const desiredMarkerY = Math.max(64, Math.min(ch - popupHeight - 32, ch * 0.28));
+  const markerScreen = map.project(lngLat);
+  const dy = markerScreen.y - desiredMarkerY;
+  const popupWidth = popupContent.offsetWidth;
+  const dxLeft = Math.max(0, popupWidth / 2 + 24 - markerScreen.x);
+  const dxRight = Math.max(0, markerScreen.x + popupWidth / 2 + 24 - container.offsetWidth);
+  const dx = dxLeft - dxRight;
+  if (Math.abs(dy) > 24 || Math.abs(dx) > 12) {
+    map.easeTo({
+      center: map.unproject([markerScreen.x - dx, markerScreen.y - dy]),
+      duration: 320,
+    });
+  }
 }
 
 async function openPassPopup(p, lngLat = [p.lon, p.lat]) {

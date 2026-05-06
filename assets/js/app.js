@@ -1278,9 +1278,27 @@ alpineOverlayEl.className = "alpine-map-overlay";
 alpineOverlayEl.setAttribute("aria-label", "Alpine passes and sights overlay");
 map.getContainer().appendChild(alpineOverlayEl);
 
+/* Persistent DOM marker pool. Stable identity through pan and within a zoom
+   step keeps clusters from jumping/overlapping; pan/zoom frames only update
+   transforms — no DOM rebuild, no re-cluster, no icon reload. */
+const overlayPool = new Map();
 const alpineOverlayClusters = new Map();
-let alpineOverlayRenderQueued = false;
-let alpineOverlayRenderToken = 0;
+let alpineStartMarkerEl = null;
+let overlayLayoutScheduled = false;
+let overlayPositionsScheduled = false;
+let overlayLastClusterZoom = null;
+
+const OVERLAY_TILE_SIZE = 256;
+
+/* Web Mercator world-pixel coords at the given zoom — pan-independent so
+   cluster cells stay anchored to geography, not to the current screen offset. */
+function lngLatToWorldPx(lng, lat, zoom) {
+  const sinLat = Math.sin(lat * Math.PI / 180);
+  const scale = OVERLAY_TILE_SIZE * Math.pow(2, zoom);
+  const x = scale * (lng + 180) / 360;
+  const y = scale * (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI));
+  return { x, y };
+}
 
 function overlayPassItems() {
   return passUiReady ? PASSES.filter(passesAllFilters) : PASSES;
@@ -1295,21 +1313,6 @@ function overlayPoiItems() {
     .filter(p => !q || poiSearchMatches(p, q));
 }
 
-function scheduleAlpineOverlayRender() {
-  if (alpineOverlayRenderQueued) return;
-  alpineOverlayRenderQueued = true;
-  requestAnimationFrame(() => {
-    alpineOverlayRenderQueued = false;
-    renderAlpineOverlay();
-  });
-}
-
-function overlayInViewport(point, padding = 32) {
-  const canvas = map.getCanvas();
-  return point.x >= padding && point.y >= padding &&
-    point.x <= canvas.clientWidth - padding && point.y <= canvas.clientHeight - padding;
-}
-
 function clusterRadiusFor(kind, zoom) {
   if (kind === "pass") return zoom < 7 ? 82 : zoom < 9 ? 70 : 58;
   return zoom < 7 ? 90 : zoom < 9 ? 74 : 62;
@@ -1319,74 +1322,44 @@ function shouldClusterOverlay(kind, zoom) {
   return zoom < (kind === "pass" ? 11.7 : 11.4);
 }
 
-function overlayClusterGroups(items, kind) {
-  const zoom = map.getZoom();
-  const radius = clusterRadiusFor(kind, zoom);
-  const projected = [];
-  for (const item of items) {
-    const point = map.project([item.lon, item.lat]);
-    if (!overlayInViewport(point)) continue;
-    projected.push({ item, point });
-  }
-  const forcedMarkers = projected
-    .filter(({ item }) => plannedBadgeNumber(item))
-    .map(({ item, point }) => ({ kind, type: "marker", item, point }));
-  const clusterable = projected.filter(({ item }) => !plannedBadgeNumber(item));
-  if (!shouldClusterOverlay(kind, zoom)) {
-    return projected.map(({ item, point }) => ({ kind, type: "marker", item, point }));
-  }
-
-  const cells = new Map();
-  const groups = [];
-  for (const entry of clusterable) {
-    const key = `${Math.floor(entry.point.x / radius)},${Math.floor(entry.point.y / radius)}`;
-    let group = cells.get(key);
-    if (!group) {
-      group = { kind, type: "cluster", point: { x: entry.point.x, y: entry.point.y }, items: [] };
-      cells.set(key, group);
-      groups.push(group);
-    }
-    group.items.push(entry.item);
-    const n = group.items.length;
-    group.point.x += (entry.point.x - group.point.x) / n;
-    group.point.y += (entry.point.y - group.point.y) / n;
-  }
-  return groups.flatMap(group =>
-    group.items.length === 1
-      ? [{ kind, type: "marker", item: group.items[0], point: group.point }]
-      : [group]
-  ).concat(forcedMarkers);
+/* Snap to half-zoom steps so small wheel deltas don't reflow clusters. */
+function clusterZoomFor(zoom) {
+  return Math.round(zoom * 2) / 2;
 }
 
-function overlayPointStyle(point, extraTransform = "") {
-  return `transform: translate3d(${Math.round(point.x)}px, ${Math.round(point.y)}px, 0) translate(-50%, -50%)${extraTransform};`;
+function setOverlayTransform(el, point, extra = "") {
+  el.style.transform = `translate3d(${Math.round(point.x)}px, ${Math.round(point.y)}px, 0) translate(-50%, -50%)${extra}`;
 }
 
-function overlayPassMarkerHtml(p, point) {
+function buildPassMarkerEl(p) {
   const status = passStatus(p);
   const view = statusDisplay(status);
   const badge = plannedBadgeNumber(p);
   const art = p.symbolIconAsset
     ? passIconHtml(p, "pass-art-icon map symbol", "symbol")
     : uiIconHtml(stateIconId(view.state, view.estimated), "marker-icon-art", view.label);
-  return `<button class="alpine-marker alpine-pass-marker ${view.className}" data-overlay-kind="pass" data-overlay-id="${escapeHtml(p.id)}" style="${overlayPointStyle(point)}" title="${escapeHtml(p.name)} · ${p.elev} m">
-    <span class="alpine-pass-pin">${art}</span>
-    ${badge ? `<span class="alpine-tour-badge">${badge}</span>` : ""}
-  </button>`;
+  const el = document.createElement("button");
+  el.className = `alpine-marker alpine-pass-marker ${view.className}`;
+  el.dataset.overlayKind = "pass";
+  el.dataset.overlayId = p.id;
+  el.title = `${p.name} · ${p.elev} m`;
+  el.innerHTML = `<span class="alpine-pass-pin">${art}</span>${badge ? `<span class="alpine-tour-badge">${badge}</span>` : ""}`;
+  return el;
 }
 
-function overlayPoiMarkerHtml(p, point) {
+function buildPoiMarkerEl(p) {
   const badge = plannedBadgeNumber(p);
   const notByCar = isPlannablePoi(p) ? "" : uiIconHtml("not-by-car", "poi-marker-not-car", "Not by car");
-  return `<button class="alpine-marker alpine-poi-marker${isPlannablePoi(p) ? "" : " dim"}" data-overlay-kind="poi" data-overlay-id="${escapeHtml(p.id)}" style="${overlayPointStyle(point)}" title="${escapeHtml(p.name)} · ${escapeHtml(poiCategoryLabel(p.poiCategory))}">
-    <span class="alpine-poi-pin" data-cat="${escapeHtml(p.poiCategory)}">${poiCategoryIcon(p.poiCategory, "poi-marker-art")}${notByCar}</span>
-    ${badge ? `<span class="alpine-tour-badge poi">${badge}</span>` : ""}
-  </button>`;
+  const el = document.createElement("button");
+  el.className = `alpine-marker alpine-poi-marker${isPlannablePoi(p) ? "" : " dim"}`;
+  el.dataset.overlayKind = "poi";
+  el.dataset.overlayId = p.id;
+  el.title = `${p.name} · ${poiCategoryLabel(p.poiCategory)}`;
+  el.innerHTML = `<span class="alpine-poi-pin" data-cat="${escapeHtml(p.poiCategory)}">${poiCategoryIcon(p.poiCategory, "poi-marker-art")}${notByCar}</span>${badge ? `<span class="alpine-tour-badge poi">${badge}</span>` : ""}`;
+  return el;
 }
 
-function overlayClusterHtml(group, point) {
-  const id = `c${++alpineOverlayRenderToken}`;
-  alpineOverlayClusters.set(id, group);
+function clusterContentHtml(group) {
   const count = group.items.length;
   const previewItems = group.items.slice(0, 3);
   const preview = previewItems.map(item => {
@@ -1399,36 +1372,203 @@ function overlayClusterHtml(group, point) {
     }
     return poiCategoryIcon(item.poiCategory, "poi-cluster-preview");
   }).join("");
-  const size = count >= 80 ? "xl" : count >= 25 ? "lg" : "md";
-  const label = `${count} ${group.kind === "pass" ? "passes" : "sights"}`;
-  return `<button class="alpine-cluster alpine-${group.kind}-cluster ${size}" data-cluster-id="${id}" style="${overlayPointStyle(point)}" title="${escapeHtml(label)}">
-    <span class="cluster-previews">${preview}</span>
-    <span class="cluster-count">${count}</span>
-  </button>`;
+  return `<span class="cluster-previews">${preview}</span><span class="cluster-count">${count}</span>`;
 }
 
-function overlayStartMarkerHtml(start) {
-  const point = map.project([start.lon, start.lat]);
-  if (!overlayInViewport(point)) return "";
-  const label = start.name?.[0] || "S";
-  return `<div class="alpine-start-marker" style="${overlayPointStyle(point, " rotate(45deg)")}" title="${escapeHtml(start.name)}"><span>${escapeHtml(label)}</span></div>`;
+function clusterSizeClass(count) {
+  return count >= 80 ? "xl" : count >= 25 ? "lg" : "md";
 }
 
-function renderAlpineOverlay() {
+function buildClusterEl(group) {
+  const el = document.createElement("button");
+  el.className = `alpine-cluster alpine-${group.kind}-cluster ${clusterSizeClass(group.items.length)}`;
+  el.dataset.clusterId = group.id;
+  el.title = `${group.items.length} ${group.kind === "pass" ? "passes" : "sights"}`;
+  el.innerHTML = clusterContentHtml(group);
+  return el;
+}
+
+function buildStartMarkerEl(start) {
+  const el = document.createElement("div");
+  el.className = "alpine-start-marker";
+  el.title = start.name || "Start";
+  el.innerHTML = `<span>${escapeHtml(start.name?.[0] || "S")}</span>`;
+  return el;
+}
+
+function buildOverlayGroups(items, kind) {
+  const zoom = map.getZoom();
+  const cZoom = clusterZoomFor(zoom);
+  if (!shouldClusterOverlay(kind, zoom)) {
+    return items.map(item => ({
+      id: `${kind}:${item.id}`,
+      kind,
+      type: "marker",
+      item,
+      lng: item.lon,
+      lat: item.lat,
+    }));
+  }
+  const radius = clusterRadiusFor(kind, cZoom);
+  const cells = new Map();
+  const forced = [];
+  for (const item of items) {
+    if (plannedBadgeNumber(item)) {
+      /* Planned-tour stops always render as their own marker so the user
+         can see the route order without expanding a cluster. */
+      forced.push({
+        id: `${kind}:${item.id}`,
+        kind,
+        type: "marker",
+        item,
+        lng: item.lon,
+        lat: item.lat,
+      });
+      continue;
+    }
+    const wp = lngLatToWorldPx(item.lon, item.lat, cZoom);
+    const cellKey = `${Math.floor(wp.x / radius)},${Math.floor(wp.y / radius)}`;
+    let cell = cells.get(cellKey);
+    if (!cell) {
+      cell = { cellKey, items: [], sumLng: 0, sumLat: 0 };
+      cells.set(cellKey, cell);
+    }
+    cell.items.push(item);
+    cell.sumLng += item.lon;
+    cell.sumLat += item.lat;
+  }
+  const groups = [];
+  for (const cell of cells.values()) {
+    if (cell.items.length === 1) {
+      const item = cell.items[0];
+      groups.push({
+        id: `${kind}:${item.id}`,
+        kind,
+        type: "marker",
+        item,
+        lng: item.lon,
+        lat: item.lat,
+      });
+    } else {
+      /* Cluster ID is anchored to (kind, zoom step, world cell). It does NOT
+         depend on item ordering or count, so the same cluster element
+         persists through pans and small zoom drifts. */
+      groups.push({
+        id: `${kind}:cluster:${cZoom}:${cell.cellKey}`,
+        kind,
+        type: "cluster",
+        items: cell.items,
+        lng: cell.sumLng / cell.items.length,
+        lat: cell.sumLat / cell.items.length,
+      });
+    }
+  }
+  return groups.concat(forced);
+}
+
+/* Cheap path: project existing nodes only. No DOM rebuild, no re-cluster. */
+function updateOverlayPositions() {
+  overlayPositionsScheduled = false;
+  if (!overlayPool.size && !alpineStartMarkerEl) return;
+  for (const entry of overlayPool.values()) {
+    const point = map.project([entry.lng, entry.lat]);
+    setOverlayTransform(entry.el, point);
+  }
+  if (alpineStartMarkerEl && plannedStart) {
+    const point = map.project([plannedStart.lon, plannedStart.lat]);
+    setOverlayTransform(alpineStartMarkerEl, point, " rotate(45deg)");
+  }
+}
+
+function scheduleOverlayPositions() {
+  if (overlayPositionsScheduled || overlayLayoutScheduled) return;
+  overlayPositionsScheduled = true;
+  requestAnimationFrame(updateOverlayPositions);
+}
+
+/* Heavy path: re-cluster, diff DOM pool. Called only on settle / data change. */
+function layoutAlpineOverlay() {
+  overlayLayoutScheduled = false;
+  overlayPositionsScheduled = false;
+  overlayLastClusterZoom = clusterZoomFor(map.getZoom());
   alpineOverlayClusters.clear();
-  alpineOverlayRenderToken = 0;
   const groups = [
-    ...overlayClusterGroups(overlayPassItems(), "pass"),
-    ...overlayClusterGroups(overlayPoiItems(), "poi"),
+    ...buildOverlayGroups(overlayPassItems(), "pass"),
+    ...buildOverlayGroups(overlayPoiItems(), "poi"),
   ];
-  alpineOverlayEl.innerHTML = groups.map(group =>
-    group.type === "marker"
-      ? group.kind === "pass"
-        ? overlayPassMarkerHtml(group.item, group.point)
-        : overlayPoiMarkerHtml(group.item, group.point)
-      : overlayClusterHtml(group, group.point)
-  ).join("") + (plannedStart ? overlayStartMarkerHtml(plannedStart) : "");
-  lazyLoadPassIcons(alpineOverlayEl, true);
+  const seen = new Set();
+  const fragment = document.createDocumentFragment();
+  let appended = false;
+  for (const group of groups) {
+    seen.add(group.id);
+    let entry = overlayPool.get(group.id);
+    if (!entry) {
+      const el = group.type === "cluster"
+        ? buildClusterEl(group)
+        : group.kind === "pass"
+          ? buildPassMarkerEl(group.item)
+          : buildPoiMarkerEl(group.item);
+      entry = {
+        el,
+        kind: group.kind,
+        type: group.type,
+        lng: group.lng,
+        lat: group.lat,
+        count: group.type === "cluster" ? group.items.length : 1,
+      };
+      overlayPool.set(group.id, entry);
+      fragment.appendChild(el);
+      appended = true;
+    } else {
+      entry.lng = group.lng;
+      entry.lat = group.lat;
+      if (group.type === "cluster") {
+        const newCount = group.items.length;
+        if (newCount !== entry.count) {
+          entry.el.className = `alpine-cluster alpine-${group.kind}-cluster ${clusterSizeClass(newCount)}`;
+          entry.el.title = `${newCount} ${group.kind === "pass" ? "passes" : "sights"}`;
+          entry.el.innerHTML = clusterContentHtml(group);
+          lazyLoadPassIcons(entry.el, true);
+          entry.count = newCount;
+        }
+      }
+    }
+    if (group.type === "cluster") alpineOverlayClusters.set(group.id, group);
+  }
+  for (const [id, entry] of overlayPool) {
+    if (!seen.has(id)) {
+      entry.el.remove();
+      overlayPool.delete(id);
+    }
+  }
+  if (appended) {
+    alpineOverlayEl.appendChild(fragment);
+    lazyLoadPassIcons(fragment, true);
+  }
+  if (plannedStart) {
+    if (!alpineStartMarkerEl) {
+      alpineStartMarkerEl = buildStartMarkerEl(plannedStart);
+      alpineOverlayEl.appendChild(alpineStartMarkerEl);
+    } else {
+      alpineStartMarkerEl.title = plannedStart.name || "Start";
+      alpineStartMarkerEl.firstChild.textContent = plannedStart.name?.[0] || "S";
+    }
+  } else if (alpineStartMarkerEl) {
+    alpineStartMarkerEl.remove();
+    alpineStartMarkerEl = null;
+  }
+  updateOverlayPositions();
+}
+
+function scheduleAlpineOverlayLayout() {
+  if (overlayLayoutScheduled) return;
+  overlayLayoutScheduled = true;
+  requestAnimationFrame(layoutAlpineOverlay);
+}
+
+/* Back-compat alias for callers like updateMapSources(). */
+function scheduleAlpineOverlayRender() {
+  scheduleAlpineOverlayLayout();
 }
 
 function zoomToOverlayCluster(group) {
@@ -1464,15 +1604,19 @@ alpineOverlayEl.addEventListener("click", event => {
   }
 });
 
-["move", "zoom", "resize", "rotate", "pitch"].forEach(eventName => {
-  map.on(eventName, scheduleAlpineOverlayRender);
+/* Position-only handlers — fire many times per second during interaction. */
+["move", "zoom", "rotate", "pitch"].forEach(eventName => {
+  map.on(eventName, scheduleOverlayPositions);
 });
 map.on("movestart", () => map.getContainer().classList.add("map-moving"));
 map.on("moveend", () => {
   map.getContainer().classList.remove("map-moving");
-  scheduleAlpineOverlayRender();
+  scheduleAlpineOverlayLayout();
 });
-map.on("zoomend", scheduleAlpineOverlayRender);
+/* Re-cluster only when the user has settled — cluster radius depends on the
+   final zoom step, not on transient values during a wheel/easeTo flight. */
+map.on("zoomend", scheduleAlpineOverlayLayout);
+map.on("resize", scheduleAlpineOverlayLayout);
 
 function setupMapLayers() {
   if (!map.getSource(PASS_SOURCE_ID)) {

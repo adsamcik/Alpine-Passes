@@ -1186,8 +1186,11 @@ body.picking .alpine-map-overlay * {
   background-color: #7c3aed;
 }
 .map-moving .alpine-marker,
-.map-moving .alpine-cluster {
-  filter: none;
+.map-moving .alpine-cluster,
+.map-moving .alpine-marker *,
+.map-moving .alpine-cluster * {
+  filter: none !important;
+  transition: none !important;
 }
 /* ─────────────────────── POI popup styling ─────────────────────── */
 .poi-popup .popup-head {

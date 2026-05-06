@@ -1377,14 +1377,13 @@ input[type="range"]:disabled {
 }
 
 /* ─── Map render performance hints ────────────────────────────────────
-   Tell the compositor that map panes & marker icons will animate via
-   transform, so the browser promotes them to GPU layers ahead of time
-   instead of paying the layer-creation cost on the first move/zoom
-   event. translateZ(0) is the cross-browser way to force GPU layer
-   promotion; will-change is the modern hint. */
+   Tell the compositor that map panes will animate via transform, so the
+   browser promotes them to GPU layers ahead of time instead of paying
+   the layer-creation cost on the first move/zoom event. We deliberately
+   DO NOT promote individual marker icons — with 500+ markers each in
+   their own GPU layer the compositor memory cost is very high; the
+   parent pane's layer covers them all. */
 .leaflet-pane,
-.leaflet-marker-icon,
-.leaflet-marker-shadow,
 .leaflet-tile-container,
 .leaflet-zoom-animated {
   will-change: transform;
@@ -1403,4 +1402,19 @@ input[type="range"]:disabled {
    to be re-composited along with it. */
 .leaflet-overlay-pane canvas {
   transform: translateZ(0);
+}
+
+/* While the map is panning or zooming, suppress expensive marker
+   visuals. box-shadow on pass markers + drop-shadow filters on POI
+   glyphs are GPU-composited on every frame they're visible. Toggling
+   them off via a body-level `map-moving` class (set on movestart/
+   zoomstart, cleared on moveend/zoomend) restores them at rest. */
+.map-moving .pass-marker,
+.map-moving .start-marker,
+.map-moving .tour-badge,
+.map-moving .poi-marker {
+  box-shadow: none;
+}
+.map-moving .poi-marker-glyph {
+  filter: none;
 }

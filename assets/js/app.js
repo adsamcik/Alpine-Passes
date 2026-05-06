@@ -1277,10 +1277,24 @@ const passCluster = L.markerClusterGroup({
   showCoverageOnHover: false,
   spiderfyOnMaxZoom: true,
   maxClusterRadius: 50,
-  disableClusteringAtZoom: 11,
+  /* Keep clustering one zoom level longer so dense Alpine areas don't
+     dump 100+ individual divIcons on screen the moment a user zooms in. */
+  disableClusteringAtZoom: 12,
   chunkedLoading: true,
 });
 map.addLayer(passCluster);
+
+/* Drop expensive marker visuals (box-shadow / drop-shadow filters) and
+   per-frame composited effects while the map is moving. Pure CSS toggle
+   via a `map-moving` class on the map container; very cheap to apply
+   on movestart/zoomstart and remove on moveend/zoomend. */
+{
+  const mc = map.getContainer();
+  const setMoving = () => mc.classList.add("map-moving");
+  const clearMoving = () => mc.classList.remove("map-moving");
+  map.on("movestart zoomstart", setMoving);
+  map.on("moveend zoomend", clearMoving);
+}
 
 function buildPopupHtml(p, status, wiki) {
   const statusView = statusDisplay(status);
@@ -1539,7 +1553,7 @@ const poiCluster = L.markerClusterGroup({
   showCoverageOnHover: false,
   spiderfyOnMaxZoom: true,
   maxClusterRadius: 60,
-  disableClusteringAtZoom: 11,
+  disableClusteringAtZoom: 12,
   chunkedLoading: true,
   iconCreateFunction(cluster) {
     const n = cluster.getChildCount();
@@ -1637,6 +1651,59 @@ const distLabel  = document.getElementById("distLabel");
 const startSel   = document.getElementById("planStart");
 const openOnlyEl = document.getElementById("planOpenOnly");
 const includePoisEl = document.getElementById("planIncludePois");
+/* V3 — distance-vs-time mode + sight preferences. */
+const distanceControlEl = document.getElementById("distanceControl");
+const timeControlEl     = document.getElementById("timeControl");
+const timeSlider        = document.getElementById("planTime");
+const timeLabel         = document.getElementById("timeLabel");
+const timeTolHint       = document.getElementById("timeTolHint");
+const targetModeRadios  = document.querySelectorAll('input[name="planTargetMode"]');
+const poiPrefsEl        = document.getElementById("poiPrefs");
+const poiPrefsSubtitleEl = document.getElementById("poiPrefsSubtitle");
+const poiPresetsEl      = document.getElementById("poiPresets");
+const poiCatChipsEl     = document.getElementById("poiCatChips");
+const poiThemeChipsEl   = document.getElementById("poiThemeChips");
+const poiMinScoreEl     = document.getElementById("poiMinScore");
+const poiMinScoreLabelEl = document.getElementById("poiMinScoreLabel");
+const poiMaxCountEl     = document.getElementById("poiMaxCount");
+const poiMaxCountLabelEl = document.getElementById("poiMaxCountLabel");
+
+/* V3 prefs state. Sets are empty by default = "any" (no gating). */
+const allowedPoiCategories = new Set();
+const allowedPoiThemes     = new Set();
+function planTargetMode() {
+  for (const r of targetModeRadios) if (r.checked) return r.value;
+  return "distance";
+}
+function planTargetValue() {
+  return planTargetMode() === "time" ? +timeSlider.value : +distSlider.value;
+}
+/* Tolerance: 20% of distance, or clamp(0.5h, 15% × hours, 2h) for time mode. */
+function planTargetTolerance() {
+  if (planTargetMode() === "distance") return 0.20;
+  const hours = +timeSlider.value;
+  const half = Math.max(0.5, Math.min(2.0, hours * 0.15));
+  return half / hours;
+}
+function poiMinScoreVal() { return +poiMinScoreEl.value; }
+function poiMaxCountVal() { return +poiMaxCountEl.value; }
+/* Curated theme set surfaced as chips — full list is 19 but most users
+   only need these. The candidate filter still accepts any theme via the
+   advanced-mode multi-region picker. */
+const CURATED_PREF_THEMES = [
+  "unesco", "family-friendly", "photogenic", "iconic",
+  "panoramic-view", "historic", "food-drink",
+  "hidden-gem", "swimmable", "winter-sport",
+];
+const POI_PRESETS = {
+  family:   { cats: ["viewpoint-panorama","alpine-lake","scenic-railway","special-experience","museum-cultural"], themes: ["family-friendly"], minScore: 7, maxCount: 4, label: "Family day · ★7+ · max 4" },
+  cultural: { cats: ["castle-fortress","monastery-church","old-town","museum-cultural"], themes: ["unesco","historic"], minScore: 7, maxCount: 4, label: "Cultural tour · ★7+ · max 4" },
+  photo:    { cats: ["viewpoint-panorama","alpine-lake","mountain-summit","glacier","waterfall-gorge"], themes: ["photogenic","iconic"], minScore: 8, maxCount: 3, label: "Photo tour · ★8+ · max 3" },
+  hidden:   { cats: [], themes: ["hidden-gem"], minScore: 6, maxCount: 3, label: "Hidden gems · ★6+ · max 3" },
+  wine:     { cats: ["wine-region","village","old-town"], themes: ["food-drink"], minScore: 6, maxCount: 4, label: "Wine & food · ★6+ · max 4" },
+  reset:    { cats: [], themes: [], minScore: 6, maxCount: 3, label: "Default · any category · any theme · ★6+ · max 3" },
+};
+let activePresetId = null;
 const planRunBtn = document.getElementById("planRun");
 const planResult = document.getElementById("planResult");
 const planPickBtn= document.getElementById("planPick");
@@ -1894,9 +1961,18 @@ function syncAdvancedMode() {
   const advanced = advancedModeEl.checked;
   advancedPlannerEl.hidden = !advanced;
   distSlider.disabled = advanced;
+  timeSlider.disabled = advanced;
   openOnlyEl.disabled = advanced;
   if (includePoisEl) includePoisEl.disabled = advanced;
+  /* The whole sights-prefs sub-card is hidden in advanced mode (advanced
+     has its own POI picker). */
+  if (poiPrefsEl) {
+    poiPrefsEl.hidden = advanced || !includePoisEl?.checked;
+    if (advanced) poiPrefsEl.open = false;
+  }
+  for (const r of targetModeRadios) r.disabled = advanced;
   distSlider.closest("label")?.classList.toggle("disabled", advanced);
+  timeSlider.closest("label")?.classList.toggle("disabled", advanced);
   openOnlyEl.closest("label")?.classList.toggle("disabled", advanced);
   includePoisEl?.closest("label")?.classList.toggle("disabled", advanced);
   resetPlanButton();
@@ -1908,7 +1984,120 @@ function syncAdvancedMode() {
   if (typeof renderPoiList === "function") renderPoiList();
 }
 
+/* ─────── V3: target-mode toggle, POI prefs UI, presets ─────── */
+function syncTargetMode() {
+  const mode = planTargetMode();
+  if (distanceControlEl) distanceControlEl.hidden = mode !== "distance";
+  if (timeControlEl)     timeControlEl.hidden     = mode !== "time";
+  updateTimeTolHint();
+}
+function updateTimeTolHint() {
+  if (!timeTolHint) return;
+  const hours = +timeSlider.value;
+  const half = Math.max(0.5, Math.min(2.0, hours * 0.15));
+  timeTolHint.textContent = `(±${half.toFixed(half >= 1 ? 1 : 1)} h)`;
+}
+function fmtMinScoreLabel(v) { return `★ ${v}+`; }
+function poiPrefsCurrentSubtitle() {
+  if (activePresetId && POI_PRESETS[activePresetId]) {
+    return POI_PRESETS[activePresetId].label;
+  }
+  const catCount = allowedPoiCategories.size;
+  const themeCount = allowedPoiThemes.size;
+  const cats = catCount === 0 ? "any category" : catCount === 1 ? "1 category" : `${catCount} categories`;
+  const themes = themeCount === 0 ? "any theme" : themeCount === 1 ? "1 theme" : `${themeCount} themes`;
+  return `Custom · ${cats} · ${themes} · ★ ${poiMinScoreVal()}+ · up to ${poiMaxCountVal()} sights`;
+}
+function refreshPoiPrefsSubtitle() {
+  if (poiPrefsSubtitleEl) poiPrefsSubtitleEl.textContent = poiPrefsCurrentSubtitle();
+}
+function setActivePreset(id) {
+  activePresetId = id;
+  poiPresetsEl?.querySelectorAll("[data-preset]").forEach(b => {
+    b.classList.toggle("active", b.dataset.preset === id);
+  });
+  refreshPoiPrefsSubtitle();
+}
+function clearActivePreset() {
+  activePresetId = null;
+  poiPresetsEl?.querySelectorAll("[data-preset]").forEach(b => b.classList.remove("active"));
+  refreshPoiPrefsSubtitle();
+}
+function applyPoiPreset(id) {
+  const p = POI_PRESETS[id];
+  if (!p) return;
+  allowedPoiCategories.clear();
+  for (const c of p.cats) allowedPoiCategories.add(c);
+  allowedPoiThemes.clear();
+  for (const t of p.themes) allowedPoiThemes.add(t);
+  poiMinScoreEl.value = String(p.minScore);
+  poiMaxCountEl.value = String(p.maxCount);
+  poiMinScoreLabelEl.textContent = fmtMinScoreLabel(p.minScore);
+  poiMaxCountLabelEl.textContent = String(p.maxCount);
+  renderPoiPrefsChips();
+  setActivePreset(id);
+}
+function renderPoiPrefsChips() {
+  if (!poiCatChipsEl) return;
+  /* Categories — all 17, ordered by the dataset's natural frequency. */
+  const catCounts = {};
+  POIS.forEach(p => { catCounts[p.poiCategory] = (catCounts[p.poiCategory] || 0) + 1; });
+  const cats = Object.keys(catCounts).sort((a, b) => catCounts[b] - catCounts[a]);
+  poiCatChipsEl.innerHTML = cats.map(c => {
+    const active = allowedPoiCategories.has(c);
+    return `<button type="button" class="pref-chip${active ? " active" : ""}" data-cat="${escapeHtml(c)}" aria-pressed="${active}" title="${escapeHtml(poiCategoryLabel(c))}">${poiCategoryGlyph(c)} ${escapeHtml(poiCategoryLabel(c))}</button>`;
+  }).join("");
+  /* Themes — curated subset only. */
+  poiThemeChipsEl.innerHTML = CURATED_PREF_THEMES.map(t => {
+    const active = allowedPoiThemes.has(t);
+    return `<button type="button" class="pref-chip${active ? " active" : ""}" data-theme="${escapeHtml(t)}" aria-pressed="${active}">${escapeHtml(t)}</button>`;
+  }).join("");
+}
+renderPoiPrefsChips();
+poiCatChipsEl?.addEventListener("click", e => {
+  const btn = e.target.closest("[data-cat]");
+  if (!btn) return;
+  const cat = btn.dataset.cat;
+  if (allowedPoiCategories.has(cat)) allowedPoiCategories.delete(cat);
+  else allowedPoiCategories.add(cat);
+  clearActivePreset();
+  renderPoiPrefsChips();
+});
+poiThemeChipsEl?.addEventListener("click", e => {
+  const btn = e.target.closest("[data-theme]");
+  if (!btn) return;
+  const t = btn.dataset.theme;
+  if (allowedPoiThemes.has(t)) allowedPoiThemes.delete(t);
+  else allowedPoiThemes.add(t);
+  clearActivePreset();
+  renderPoiPrefsChips();
+});
+poiPresetsEl?.addEventListener("click", e => {
+  const btn = e.target.closest("[data-preset]");
+  if (!btn) return;
+  applyPoiPreset(btn.dataset.preset);
+});
+poiMinScoreEl?.addEventListener("input", () => {
+  poiMinScoreLabelEl.textContent = fmtMinScoreLabel(poiMinScoreVal());
+  clearActivePreset();
+});
+poiMaxCountEl?.addEventListener("input", () => {
+  poiMaxCountLabelEl.textContent = String(poiMaxCountVal());
+  clearActivePreset();
+});
+
 distSlider.addEventListener("input", () => { distLabel.textContent = `${distSlider.value} km`; });
+timeSlider?.addEventListener("input", () => {
+  const v = +timeSlider.value;
+  if (timeLabel) timeLabel.textContent = v % 1 === 0 ? `${v} h` : `${v.toFixed(1)} h`;
+  updateTimeTolHint();
+});
+for (const r of targetModeRadios) r.addEventListener("change", syncTargetMode);
+includePoisEl?.addEventListener("change", () => {
+  if (poiPrefsEl) poiPrefsEl.hidden = !includePoisEl.checked || advancedModeEl.checked;
+});
+syncTargetMode();
+updateTimeTolHint();
 planDateEl?.addEventListener("change", () => {
   updateTripDateHint();
   refreshProjectedStatuses({ updateMarkers: true });
@@ -2802,7 +2991,20 @@ async function planTour() {
   clearPlannedTour();
   const start = currentStart();
   if (!start) { showPlanResult({ error: "Pick a start point." }); return; }
-  const targetKm = +distSlider.value;
+  /* V3 — read target mode + value. Distance mode = km, time mode = hours.
+     The DP runs on `matrix.dur` (seconds) in time mode so it picks the
+     time-optimal tour, not just shortest-distance with a time budget. */
+  const targetMode  = planTargetMode();
+  const targetValue = planTargetValue();
+  const targetTol   = planTargetTolerance();
+  const AVG_SPEED_KMH = 55; /* Alpine driving average — used only for
+                               candidate haversine pre-filter and km-equiv
+                               composite ranking in time mode. */
+  const budgetKmEquiv = targetMode === "time"
+    ? targetValue * AVG_SPEED_KMH
+    : targetValue;
+  const targetSpec = { mode: targetMode, value: targetValue, tolerance: targetTol, avgSpeedKmH: AVG_SPEED_KMH };
+
   const openOnly = openOnlyEl.checked;
   const includePois = includePoisEl?.checked || false;
   const allCands = PASSES.filter(p => {
@@ -2814,29 +3016,43 @@ async function planTour() {
   });
 
   /* Pre-filter candidates by haversine distance.  Cap firmly at
-     targetKm × 0.55 so the planner can't reach for famous-but-distant
+     budgetKmEquiv × 0.55 so the planner can't reach for famous-but-distant
      passes and produce a wildly out-of-budget tour.  No silent fallback
      that broadens to all-of-Alps. */
-  const upperHaversine = targetKm * 0.55;
+  const upperHaversine = budgetKmEquiv * 0.55;
   let passCands = allCands
     .map(p => ({ p, d: haversine(start, p) }))
     .filter(x => x.d <= upperHaversine);
 
   /* Sort by composite (distance, quality) — closer & higher-quality first. */
   passCands.sort((a, b) => {
-    return (a.d - 0.4 * a.p.quality * targetKm) -
-           (b.d - 0.4 * b.p.quality * targetKm);
+    return (a.d - 0.4 * a.p.quality * budgetKmEquiv) -
+           (b.d - 0.4 * b.p.quality * budgetKmEquiv);
   });
 
-  /* When "Include sights" is on, add a small soft-quota of POI candidates
-     (rubber-duck recommendation: candidate diversity, not final-tour quota).
-     Reserve up to POI_QUOTA slots so the DP can actually consider them; if
-     the optimizer prefers passes anyway, those slots are wasted but cheap. */
+  /* When "Include sights" is on, build a POI candidate pool with V3
+     prefs applied: season match + min-score gate + category/theme filters
+     (empty = any). The dwell penalty in the composite still ranks short
+     visits ahead of equivalent-quality long ones. */
   let poiCands = [];
+  let poiPrefsSnapshot = null;
   if (includePois) {
     const tripSeason = currentTripSeason();
+    const minScore = poiMinScoreVal() / 10;  /* score is sc/10 in [0.5, 1.0] */
+    const cats = allowedPoiCategories;
+    const themes = allowedPoiThemes;
+    poiPrefsSnapshot = {
+      minScore: poiMinScoreVal(),
+      maxCount: poiMaxCountVal(),
+      cats: [...cats],
+      themes: [...themes],
+      preset: activePresetId,
+    };
     poiCands = PLANNABLE_POIS
       .filter(p => !tripSeason || (p.poiSeason || []).includes(tripSeason))
+      .filter(p => (p.quality || 0) >= minScore)
+      .filter(p => cats.size === 0 || cats.has(p.poiCategory))
+      .filter(p => themes.size === 0 || (p.poiThemes || []).some(t => themes.has(t)))
       .map(p => ({ p, d: haversine(start, p) }))
       .filter(x => x.d <= upperHaversine);
     /* Composite for POIs: closer + higher quality - dwell-aware soft cost
@@ -2844,33 +3060,40 @@ async function planTour() {
     poiCands.sort((a, b) => {
       const dwellPenA = (a.p.visitDwellSec || 0) / 3600 * 5; /* km-equivalent */
       const dwellPenB = (b.p.visitDwellSec || 0) / 3600 * 5;
-      return (a.d + dwellPenA - 0.4 * a.p.quality * targetKm) -
-             (b.d + dwellPenB - 0.4 * b.p.quality * targetKm);
+      return (a.d + dwellPenA - 0.4 * a.p.quality * budgetKmEquiv) -
+             (b.d + dwellPenB - 0.4 * b.p.quality * budgetKmEquiv);
     });
   }
 
-  const POI_QUOTA = 3;
-  const passSlots = Math.max(PLANNER_MAX_CANDIDATES - Math.min(POI_QUOTA, poiCands.length), PLANNER_MAX_CANDIDATES - POI_QUOTA);
+  /* maxSights from the slider replaces the V2 hardcoded POI_QUOTA = 3.
+     We oversample by 1 so the DP has a fallback if the top-ranked POI
+     happens to be much further than rank-2 (rubber-duck recommendation
+     against pure top-N pre-filter). */
+  const POI_QUOTA = poiPrefsSnapshot ? poiPrefsSnapshot.maxCount : 3;
+  const POI_OVERSAMPLE = Math.min(POI_QUOTA + 1, poiCands.length);
+  const passSlots = Math.max(PLANNER_MAX_CANDIDATES - POI_OVERSAMPLE, PLANNER_MAX_CANDIDATES - POI_QUOTA - 1);
   const passShare = passCands.slice(0, passSlots).map(x => x.p);
-  const poiShare  = poiCands.slice(0, POI_QUOTA).map(x => x.p);
+  const poiShare  = poiCands.slice(0, POI_OVERSAMPLE).map(x => x.p);
   /* Keep PLANNER_MAX_CANDIDATES-bounded total. Passes go first so the
      bitmask in Held-Karp keeps lower indices for "important" stops. */
   let candidates = passShare.concat(poiShare).slice(0, PLANNER_MAX_CANDIDATES);
 
   if (candidates.length === 0) {
+    const targetCopy = targetMode === "time"
+      ? `${targetValue} h day from ${start.name}`
+      : `${targetValue} km loop from ${start.name}`;
     showPlanResult({ error: openOnly
-      ? `No projected open/restricted passes within reach of ${start.name} for a ${targetKm} km loop on ${formatTripDate(currentTripDate())}. ` +
-        `Try a longer distance, change start point, or uncheck open-only.`
-      : `No passes within reach of ${start.name} for a ${targetKm} km loop. ` +
-        `Try a longer distance.` });
+      ? `No projected open/restricted passes within reach for a ${targetCopy} on ${formatTripDate(currentTripDate())}. ` +
+        `Try a longer ${targetMode === "time" ? "day" : "distance"}, change start point, or uncheck open-only.`
+      : `No passes within reach for a ${targetCopy}. Try a longer ${targetMode === "time" ? "day" : "distance"}.` });
     return;
   }
-  /* Friendly warning if user asked for sights but none are in season/range. */
+  /* Friendly warning if user asked for sights but none survived filters/range. */
   let candidatePoolNote = "";
-  if (includePois && poiShare.length === 0) {
-    candidatePoolNote = poiCands.length === 0
-      ? `No sights within reach of ${start.name} for a ${targetKm} km loop in ${currentTripSeason() || "the selected season"}. Tour shows passes only.`
-      : `No sights survived candidate ranking; tour shows passes only.`;
+  if (includePois && poiCands.length === 0) {
+    candidatePoolNote = `No sights match your preferences in season ${currentTripSeason() || "(unset)"}. Tour shows passes only — relax filters or pick a different preset.`;
+  } else if (includePois && poiShare.length === 0) {
+    candidatePoolNote = `Sights matched filters but were displaced from the candidate pool by stronger passes. Tour shows passes only.`;
   }
 
   setPlannerBusy("Planning…");
@@ -2912,7 +3135,7 @@ async function planTour() {
       qApproach: p.qApproach || 0,
     }));
     const sharedFlags = computeSharedGatewayFlags(candidates);
-    const result = bestTourGated(matrix, candidates.length, targetKm, 0.20, PLANNER_MAX_PASSES, passQ, sharedFlags, candidates);
+    const result = bestTourGated(matrix, candidates.length, targetSpec, PLANNER_MAX_PASSES, passQ, sharedFlags, candidates);
     plannerMs += performance.now() - t0;
     if (!result) break;
 
@@ -3030,11 +3253,21 @@ async function planTour() {
 
   /* Reject fallbacks that overshoot the budget catastrophically — much
      better UX to say "couldn't fit" than to dump a 1300 km tour on a user
-     who asked for 200 km. */
-  if (!chosen.inRange && chosen.km > targetKm * 1.5) {
+     who asked for 200 km. Threshold scales with the active target unit. */
+  const overshoot = targetMode === "time"
+    ? (chosen.totalH || chosen.driveH) > targetValue * 1.5
+    : chosen.km > targetValue * 1.5;
+  if (!chosen.inRange && overshoot) {
+    const tolPct = Math.round(targetTol * 100);
+    const targetCopy = targetMode === "time"
+      ? `${targetValue} h day from ${start.name}`
+      : `${targetValue} km loop from ${start.name}`;
+    const closestCopy = targetMode === "time"
+      ? `${(chosen.totalH || chosen.driveH).toFixed(1)} h`
+      : `${Math.round(chosen.km)} km`;
     showPlanResult({ error:
-      `No tour fits within ±20% of ${targetKm} km from ${start.name}. ` +
-      `Closest possible is ${Math.round(chosen.km)} km. Try a longer distance ` +
+      `No tour fits within ±${tolPct}% of a ${targetCopy}. ` +
+      `Closest possible is ${closestCopy}. Try a longer ${targetMode === "time" ? "day length" : "distance"} ` +
       `or a different start point.` });
     clearPlannedTour();
     return;
@@ -3050,7 +3283,9 @@ async function planTour() {
     poolSize: candidates.length,
     totalOpen: allCands.length,
     inRange: chosen.inRange,
-    targetKm, openOnly, tripDate: currentTripDate(),
+    targetMode, targetValue, targetTol, openOnly,
+    poiPrefs: poiPrefsSnapshot,
+    tripDate: currentTripDate(),
     avoided: blockedNames.size > 0 ? [...blockedNames] : null,
     candidatePoolNote: candidatePoolNote || null,
     modes: chosen.perm,   // [{passIdx, enterSide, exitSide, mode}, ...]
@@ -3288,17 +3523,19 @@ function drawPlannedTour(start, tourStops, latlngs) {
   /* Geometry was already fetched by the planner.  Just draw it. The
      three-layer stack (dark casing + white halo + colored core) is
      decimated with smoothFactor so canvas redraws stay cheap during
-     smooth wheel zoom + inertia. */
+     smooth wheel zoom + inertia. interactive:false + bubblingMouseEvents
+     :false take the casing/halo out of Leaflet's hit-testing chain;
+     they're decorative, only the core layer needs interaction. */
   if (latlngs && latlngs.length > 1) {
-    plannedLayer.addLayer(L.polyline(latlngs, { color:"#000",    weight:11, opacity:0.45, lineCap:"round", lineJoin:"round", smoothFactor:1.5 }));
-    plannedLayer.addLayer(L.polyline(latlngs, { color:"#fff",    weight:7,  opacity:0.90, lineCap:"round", lineJoin:"round", smoothFactor:1.5 }));
-    plannedLayer.addLayer(L.polyline(latlngs, { color:"#ffd166", weight:5,  opacity:1,    lineCap:"round", lineJoin:"round", smoothFactor:1.5 }));
+    plannedLayer.addLayer(L.polyline(latlngs, { color:"#000",    weight:11, opacity:0.45, lineCap:"round", lineJoin:"round", smoothFactor:1.5, interactive:false, bubblingMouseEvents:false }));
+    plannedLayer.addLayer(L.polyline(latlngs, { color:"#fff",    weight:7,  opacity:0.90, lineCap:"round", lineJoin:"round", smoothFactor:1.5, interactive:false, bubblingMouseEvents:false }));
+    plannedLayer.addLayer(L.polyline(latlngs, { color:"#ffd166", weight:5,  opacity:1,    lineCap:"round", lineJoin:"round", smoothFactor:1.5, interactive:false, bubblingMouseEvents:false }));
     map.fitBounds(L.latLngBounds(latlngs).pad(0.10));
   } else {
     /* Fallback to straight lines if router was unavailable. */
     const wp = [[start.lat, start.lon], ...tourStops.map(p => [p.lat, p.lon]), [start.lat, start.lon]];
-    plannedLayer.addLayer(L.polyline(wp, { color:"#000",    weight:6,   opacity:0.40, lineCap:"round", lineJoin:"round" }));
-    plannedLayer.addLayer(L.polyline(wp, { color:"#ffd166", weight:3.5, opacity:0.85, dashArray:"4 6", lineCap:"round", lineJoin:"round" }));
+    plannedLayer.addLayer(L.polyline(wp, { color:"#000",    weight:6,   opacity:0.40, lineCap:"round", lineJoin:"round", interactive:false, bubblingMouseEvents:false }));
+    plannedLayer.addLayer(L.polyline(wp, { color:"#ffd166", weight:3.5, opacity:0.85, dashArray:"4 6", lineCap:"round", lineJoin:"round", interactive:false, bubblingMouseEvents:false }));
     map.fitBounds(L.latLngBounds(wp).pad(0.15));
   }
 }
@@ -3367,8 +3604,18 @@ function syncMarkerVisibility() {
     .filter(passesAllFilters)
     .map(p => p._marker)
     .filter(Boolean);
-  passCluster.clearLayers();
-  passCluster.addLayers(visibleMarkers);
+  /* Diff the cluster's contents against the new visible set instead of
+     clearLayers + addLayers — full reclusters can take 30-100 ms on
+     445 markers; a diffed update touches only the markers that changed
+     filter state. */
+  const visibleSet = new Set(visibleMarkers);
+  const current = passCluster.__visibleMarkers || new Set();
+  const toAdd = visibleMarkers.filter(m => !current.has(m));
+  const toRemove = [];
+  current.forEach(m => { if (!visibleSet.has(m)) toRemove.push(m); });
+  if (toRemove.length) passCluster.removeLayers(toRemove);
+  if (toAdd.length) passCluster.addLayers(toAdd);
+  passCluster.__visibleMarkers = visibleSet;
 }
 /* Mirror for POIs: when sidebar filters change (category, region, drivable,
    top-notable, search), hide non-matching markers from the on-map cluster

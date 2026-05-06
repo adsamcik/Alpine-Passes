@@ -434,6 +434,19 @@ function currentTripDate() {
   return parseDateInputValue(planDateEl?.value);
 }
 
+/* Map the trip date to one of the four seasons used by the POI dataset.
+   Northern-hemisphere meteorological seasons: Mar-May = spring, Jun-Aug =
+   summer, Sep-Nov = autumn, Dec-Feb = winter. Used by the auto-discovery
+   planner to drop POIs that aren't accessible during the trip. */
+function currentTripSeason() {
+  const d = currentTripDate();
+  const m = (d?.getMonth?.() ?? new Date().getMonth()) + 1;
+  if (m >= 3 && m <= 5)  return "spring";
+  if (m >= 6 && m <= 8)  return "summer";
+  if (m >= 9 && m <= 11) return "autumn";
+  return "winter";
+}
+
 function formatTripDate(date) {
   const d = startOfLocalDay(date);
   return `${String(d.getDate()).padStart(2, "0")} ${MONTHS_SHORT[d.getMonth() + 1]} ${d.getFullYear()}`;
@@ -1229,14 +1242,21 @@ updateMapInfo(defaultBaseLayerName);
 map.on("baselayerchange", e => updateMapInfo(e.name));
 
 const markersBySlug = {};
+const STATE_ICON_NAMES = new Set(["open", "restricted", "closed", "estimated", "unknown"]);
+function stateIconId(state, estimated = false) {
+  if (estimated) return "alpine-state-estimated";
+  return STATE_ICON_NAMES.has(state) ? `alpine-state-${state}` : "alpine-state-unknown";
+}
 function makeMarkerIcon(statusOrState, badgeNumber = null, estimated = false) {
-  const cls = typeof statusOrState === "string"
-    ? `${statusOrState}${estimated ? " estimated" : ""}`
-    : statusDisplay(statusOrState).className;
+  const view = typeof statusOrState === "string"
+    ? { state: statusOrState, className: `${statusOrState}${estimated ? " estimated" : ""}`, estimated }
+    : statusDisplay(statusOrState);
+  const cls = view.className;
+  const iconId = stateIconId(view.state, view.estimated);
   const badge = badgeNumber != null ? `<div class="tour-badge">${badgeNumber}</div>` : "";
   return L.divIcon({
     className: "",
-    html: `<div class="pass-marker-wrap"><div class="pass-marker ${cls}">${iconSvg("alpine-status", "marker-icon")}</div>${badge}</div>`,
+    html: `<div class="pass-marker-wrap"><div class="pass-marker ${cls}">${iconSvg(iconId, "marker-icon")}</div>${badge}</div>`,
     iconSize: [24, 24], iconAnchor: [12, 12],
   });
 }
@@ -1604,6 +1624,7 @@ const distSlider = document.getElementById("planDist");
 const distLabel  = document.getElementById("distLabel");
 const startSel   = document.getElementById("planStart");
 const openOnlyEl = document.getElementById("planOpenOnly");
+const includePoisEl = document.getElementById("planIncludePois");
 const planRunBtn = document.getElementById("planRun");
 const planResult = document.getElementById("planResult");
 const planPickBtn= document.getElementById("planPick");
@@ -1862,8 +1883,10 @@ function syncAdvancedMode() {
   advancedPlannerEl.hidden = !advanced;
   distSlider.disabled = advanced;
   openOnlyEl.disabled = advanced;
+  if (includePoisEl) includePoisEl.disabled = advanced;
   distSlider.closest("label")?.classList.toggle("disabled", advanced);
   openOnlyEl.closest("label")?.classList.toggle("disabled", advanced);
+  includePoisEl?.closest("label")?.classList.toggle("disabled", advanced);
   resetPlanButton();
   renderAdvancedSelection();
   renderAdvancedPicker();
@@ -2077,7 +2100,7 @@ async function osrmRoute(coordsStr) {
                                 actual route-segment matching. */
 const PASS_QUALITY_POWER = 4;
 const PASS_PER_VISIT_COST = 1.5;
-const OUT_AND_BACK_RETRACE_PENALTY = 1.5;
+const OUT_AND_BACK_RETRACE_PENALTY = 2.5;
 const SHARED_GATEWAY_KM = 5;
 const SHARED_GATEWAY_PENALTY = 2.0;
 
@@ -2092,9 +2115,13 @@ function computeSharedGatewayFlags(candidates) {
   const flags = Array.from({ length: N }, () => new Uint8Array(N));
   for (let i = 0; i < N; i++) {
     const A = candidates[i];
+    /* POIs are single-point stops — no baseA/baseB pair, no shared-valley
+       concept. Treat them as "no shared gateway" with anything. */
+    if (A.isPoi) continue;
     if (!A.baseA || !A.baseB) continue;
     for (let j = i + 1; j < N; j++) {
       const B = candidates[j];
+      if (B.isPoi) continue;
       if (!B.baseA || !B.baseB) continue;
       const dMin = Math.min(
         haversine(A.baseA, B.baseA),
@@ -2110,7 +2137,7 @@ function computeSharedGatewayFlags(candidates) {
   return flags;
 }
 
-function bestTourGated(matrix, N, targetKm, tolerance, maxPasses, passQ, sharedFlags) {
+function bestTourGated(matrix, N, targetKm, tolerance, maxPasses, passQ, sharedFlags, stops) {
   const cap = Math.min(maxPasses, N);
   if (N === 0) return null;
   const lo = targetKm * (1 - tolerance) * 1000;
@@ -2121,6 +2148,10 @@ function bestTourGated(matrix, N, targetKm, tolerance, maxPasses, passQ, sharedF
   /* Matrix index helper: pass i, point p ∈ {0=A, 1=summit, 2=B}. */
   const mi = (i, p) => 1 + 3 * i + p;
   const baseA = (i) => mi(i, 0), summit = (i) => mi(i, 1), baseB = (i) => mi(i, 2);
+  /* Per-stop POI flag — used to branch the quality formula and skip the
+     out-and-back retrace penalty for POIs (a POI is one point; there's no
+     "back" to trace). */
+  const isPoi = (i) => !!stops?.[i]?.isPoi;
 
   /* Per-visit cost: enterSide∈{0,1}=A/B, exitSide∈{0,1}=A/B.
      Internal traversal: enterBase → summit → exitBase. */
@@ -2136,6 +2167,24 @@ function bestTourGated(matrix, N, targetKm, tolerance, maxPasses, passQ, sharedF
   }
   function visitQuality(i, enterSide, exitSide) {
     const q = Q[i];
+    if (isPoi(i)) {
+      /* POI quality: sc/10 ∈ [0.5, 1.0]; q.qApproach is always 0.
+         Add a 0.5 baseline so a sc=10 POI clears the per-visit cost (the
+         offset represents the journey-to-the-POI being worth ~0.5 quality
+         units even before the "summit" itself). Subtract a per-hour dwell
+         penalty so 5-hour POIs are pricier than 1-hour ones — without
+         this, the optimizer would always pick the highest-score POI
+         regardless of how long it takes to visit. Calibrated against the
+         current pass formula (POWER=4, COST=1.5):
+           sc=10, dwell 1.5h → (1.5)^4 - 1.5 - 0.9 = 2.66
+           sc=10, dwell 4h   → (1.5)^4 - 1.5 - 2.4 = 1.16
+           sc=8,  dwell 1.5h → (1.3)^4 - 1.5 - 0.9 = 0.46
+           sc=5,  dwell 1h   → (1.0)^4 - 1.5 - 0.6 = -1.10  (skipped)
+         Median pass (qSm=qAp=0.7 traversed) gives ~17.95, so passes still
+         dominate ~5–10× per slot — POIs only win on cost, never quality. */
+      const dwellHours = (stops[i].visitDwellSec || 0) / 3600;
+      return Math.pow(q.qSummit + 0.5, PASS_QUALITY_POWER) - PASS_PER_VISIT_COST - dwellHours * 0.6;
+    }
     const outAndBack = enterSide === exitSide;
     const raw = outAndBack
       ? q.qApproach + q.qSummit       // out-and-back: one approach + summit
@@ -2322,22 +2371,45 @@ function bestTourGated(matrix, N, targetKm, tolerance, maxPasses, passQ, sharedF
     curMask = subMask; curI = pred.j; curS = pred.sp;
   }
 
-  /* Total duration along the chosen tour. */
+  /* Canonicalise POI mode: enterSide/exitSide are arbitrary tie-breaks for
+     a single-point stop, and `mode="out-and-back"|"traverse"` is meaningless
+     for a POI. Force a single canonical form so renderers and validators
+     don't see nonsense. (Same fix as bestExactSelectedTour for advanced
+     mode — rubber-duck blocking #1.) */
+  if (stops) {
+    for (const t of tour) {
+      if (stops[t.passIdx]?.isPoi) {
+        t.enterSide = 0;
+        t.exitSide = 0;
+        t.mode = "poi";
+      }
+    }
+  }
+
+  /* Total duration along the chosen tour, split into driving (matrix) vs.
+     dwell (POI visit time). Never collapse them — auto-discovery's UI
+     surfaces the breakdown when dwellH > 0 (rubber-duck blocking #2). */
   const dur = matrix.dur;
-  let totalS = 0, prevIdx = 0;
+  let totalDriveS = 0, totalDwellS = 0, prevIdx = 0;
   for (const t of tour) {
     const enterIdx = t.enterSide === 0 ? baseA(t.passIdx) : baseB(t.passIdx);
     const exitIdx  = t.exitSide  === 0 ? baseA(t.passIdx) : baseB(t.passIdx);
-    totalS += dur[prevIdx][enterIdx];
-    totalS += visitDur(t.passIdx, t.enterSide, t.exitSide);
+    totalDriveS += dur[prevIdx][enterIdx];
+    totalDriveS += visitDur(t.passIdx, t.enterSide, t.exitSide);
+    if (stops?.[t.passIdx]?.isPoi) {
+      totalDwellS += stops[t.passIdx].visitDwellSec || 0;
+    }
     prevIdx = exitIdx;
   }
-  totalS += dur[prevIdx][0];
+  totalDriveS += dur[prevIdx][0];
 
   return {
     perm: tour,
     km: sol.total / 1000,
-    h: totalS / 3600,
+    h: totalDriveS / 3600,
+    driveH: totalDriveS / 3600,
+    dwellH: totalDwellS / 3600,
+    totalH: (totalDriveS + totalDwellS) / 3600,
     k: sol.k,
     totalQuality: sol.quality,
     score: sol.score,
@@ -2576,22 +2648,43 @@ function plannerPointsForPasses(start, stops) {
 function waypointsForTour(start, stops, perm) {
   /* For OSRM route geometry we send one point per POI (not three duplicates)
      so the rendered polyline doesn't wiggle. Passes still send all three
-     points so OSRM is forced to climb the actual pass road. */
+     points so OSRM is forced to climb the actual pass road.
+
+     Use `tourWaypointPlan` instead if you also need the matching matrix
+     indices — keeping these in lock-step is critical for the close-pass
+     validate-repair loop. */
+  return tourWaypointPlan(start, stops, perm).waypoints;
+}
+
+/* Build the canonical (waypoints, wpMatrixIdx) pair for a planned tour.
+   `wpMatrixIdx[i]` is the matrix-row that corresponds to `waypoints[i]`,
+   so callers can map a polyline leg back to a matrix edge without
+   duplicating expansion logic (rubber-duck blocking #1). */
+function tourWaypointPlan(start, stops, perm) {
   const waypoints = [[start.lat, start.lon]];
+  const wpMatrixIdx = [0];
   perm.forEach(t => {
     const p = stops[t.passIdx];
     if (p.isPoi) {
+      /* POI: one point. Matrix row 1 + 3*i + 1 (the "summit" slot — all
+         three slots have identical coordinates so any works, but the
+         summit slot is the canonical one. */
       waypoints.push([p.lat, p.lon]);
+      wpMatrixIdx.push(1 + 3 * t.passIdx + 1);
       return;
     }
     const enter = t.enterSide === 0 ? p.baseA : p.baseB;
     const exit  = t.exitSide  === 0 ? p.baseA : p.baseB;
     waypoints.push([enter.lat, enter.lon]);
+    wpMatrixIdx.push(1 + 3 * t.passIdx + t.enterSide * 2);
     waypoints.push([p.lat, p.lon]);
+    wpMatrixIdx.push(1 + 3 * t.passIdx + 1);
     waypoints.push([exit.lat, exit.lon]);
+    wpMatrixIdx.push(1 + 3 * t.passIdx + t.exitSide  * 2);
   });
   waypoints.push([start.lat, start.lon]);
-  return waypoints;
+  wpMatrixIdx.push(0);
+  return { waypoints, wpMatrixIdx };
 }
 
 function coordsFromWaypoints(waypoints) {
@@ -2699,6 +2792,7 @@ async function planTour() {
   if (!start) { showPlanResult({ error: "Pick a start point." }); return; }
   const targetKm = +distSlider.value;
   const openOnly = openOnlyEl.checked;
+  const includePois = includePoisEl?.checked || false;
   const allCands = PASSES.filter(p => {
     if (!p.baseA || !p.baseB) return false;            /* need traversal data */
     if (!openOnly) return true;
@@ -2712,16 +2806,44 @@ async function planTour() {
      passes and produce a wildly out-of-budget tour.  No silent fallback
      that broadens to all-of-Alps. */
   const upperHaversine = targetKm * 0.55;
-  let candidates = allCands
+  let passCands = allCands
     .map(p => ({ p, d: haversine(start, p) }))
     .filter(x => x.d <= upperHaversine);
 
   /* Sort by composite (distance, quality) — closer & higher-quality first. */
-  candidates.sort((a, b) => {
+  passCands.sort((a, b) => {
     return (a.d - 0.4 * a.p.quality * targetKm) -
            (b.d - 0.4 * b.p.quality * targetKm);
   });
-  candidates = candidates.slice(0, PLANNER_MAX_CANDIDATES).map(x => x.p);
+
+  /* When "Include sights" is on, add a small soft-quota of POI candidates
+     (rubber-duck recommendation: candidate diversity, not final-tour quota).
+     Reserve up to POI_QUOTA slots so the DP can actually consider them; if
+     the optimizer prefers passes anyway, those slots are wasted but cheap. */
+  let poiCands = [];
+  if (includePois) {
+    const tripSeason = currentTripSeason();
+    poiCands = PLANNABLE_POIS
+      .filter(p => !tripSeason || (p.poiSeason || []).includes(tripSeason))
+      .map(p => ({ p, d: haversine(start, p) }))
+      .filter(x => x.d <= upperHaversine);
+    /* Composite for POIs: closer + higher quality - dwell-aware soft cost
+       (so a 5-hour POI is ranked behind an equally-quality 1-hour POI). */
+    poiCands.sort((a, b) => {
+      const dwellPenA = (a.p.visitDwellSec || 0) / 3600 * 5; /* km-equivalent */
+      const dwellPenB = (b.p.visitDwellSec || 0) / 3600 * 5;
+      return (a.d + dwellPenA - 0.4 * a.p.quality * targetKm) -
+             (b.d + dwellPenB - 0.4 * b.p.quality * targetKm);
+    });
+  }
+
+  const POI_QUOTA = 3;
+  const passSlots = Math.max(PLANNER_MAX_CANDIDATES - Math.min(POI_QUOTA, poiCands.length), PLANNER_MAX_CANDIDATES - POI_QUOTA);
+  const passShare = passCands.slice(0, passSlots).map(x => x.p);
+  const poiShare  = poiCands.slice(0, POI_QUOTA).map(x => x.p);
+  /* Keep PLANNER_MAX_CANDIDATES-bounded total. Passes go first so the
+     bitmask in Held-Karp keeps lower indices for "important" stops. */
+  let candidates = passShare.concat(poiShare).slice(0, PLANNER_MAX_CANDIDATES);
 
   if (candidates.length === 0) {
     showPlanResult({ error: openOnly
@@ -2730,6 +2852,13 @@ async function planTour() {
       : `No passes within reach of ${start.name} for a ${targetKm} km loop. ` +
         `Try a longer distance.` });
     return;
+  }
+  /* Friendly warning if user asked for sights but none are in season/range. */
+  let candidatePoolNote = "";
+  if (includePois && poiShare.length === 0) {
+    candidatePoolNote = poiCands.length === 0
+      ? `No sights within reach of ${start.name} for a ${targetKm} km loop in ${currentTripSeason() || "the selected season"}. Tour shows passes only.`
+      : `No sights survived candidate ranking; tour shows passes only.`;
   }
 
   setPlannerBusy("Planning…");
@@ -2759,7 +2888,7 @@ async function planTour() {
   let chosen = null;
   let chosenLatLngs = null;
   let chosenWaypoints = null;
-  let chosenTourPasses = null;
+  let chosenTourStops = null;
   const blockedNames = new Set();
   const retraceLog = [];
   let plannerMs = 0;
@@ -2771,12 +2900,14 @@ async function planTour() {
       qApproach: p.qApproach || 0,
     }));
     const sharedFlags = computeSharedGatewayFlags(candidates);
-    const result = bestTourGated(matrix, candidates.length, targetKm, 0.20, PLANNER_MAX_PASSES, passQ, sharedFlags);
+    const result = bestTourGated(matrix, candidates.length, targetKm, 0.20, PLANNER_MAX_PASSES, passQ, sharedFlags, candidates);
     plannerMs += performance.now() - t0;
     if (!result) break;
 
-    const tourPasses = result.perm.map(t => candidates[t.passIdx]);
-    const waypoints = waypointsForTour(start, candidates, result.perm);
+    const tourStops = result.perm.map(t => candidates[t.passIdx]);
+    const plan = tourWaypointPlan(start, candidates, result.perm);
+    const waypoints = plan.waypoints;
+    const wpMatrixIdx = plan.wpMatrixIdx;
 
     const coordsStr = coordsFromWaypoints(waypoints);
     let routeOut;
@@ -2787,17 +2918,11 @@ async function planTour() {
     /* Slice polyline per leg by snapping waypoints to nearest polyline pt.
        Each pass contributes 3 legs: connect-in (prev→enter), climb (enter→summit),
        descent (summit→exit). The climb+descent legs are intentional; we only
-       check connect-in (and the final exit→next or exit→start) for closures. */
+       check connect-in (and the final exit→next or exit→start) for closures.
+       POIs contribute one waypoint each so they participate in connect-in
+       checks just like a pass-summit-without-climb. */
     const wpIdx = waypoints.map(wp => closestPolylineIdx(wp, latlngs));
-    const tourIds = new Set(tourPasses.map(p => p.id));
-    /* Map matrix-index for each waypoint (1 + 3*i + p where p∈{0,1,2}). */
-    const wpMatrixIdx = [0];
-    result.perm.forEach(t => {
-      wpMatrixIdx.push(1 + 3 * t.passIdx + t.enterSide * 2);   // 0→A_idx 0, 1→B_idx 2
-      wpMatrixIdx.push(1 + 3 * t.passIdx + 1);                  // summit
-      wpMatrixIdx.push(1 + 3 * t.passIdx + t.exitSide  * 2);
-    });
-    wpMatrixIdx.push(0);
+    const tourIds = new Set(tourStops.map(p => p.id));
 
     const blockedThisIter = [];
     if (closedKnown.length) {
@@ -2805,7 +2930,8 @@ async function planTour() {
         const a = wpIdx[leg], b = wpIdx[leg + 1];
         const slice = latlngs.slice(Math.min(a, b), Math.max(a, b) + 1);
         const fromM = wpMatrixIdx[leg], toM = wpMatrixIdx[leg + 1];
-        /* Skip legs internal to the same pass (enter→summit→exit). */
+        /* Skip legs internal to the same stop (pass enter→summit→exit, or a
+           degenerate POI's three-equal-points slots). */
         const sameP = (fromM > 0 && toM > 0)
                        && Math.floor((fromM - 1) / 3) === Math.floor((toM - 1) / 3);
         if (sameP) continue;
@@ -2828,16 +2954,19 @@ async function planTour() {
     /* Always record this iteration's tour as our current best — closed-
        pass blocking will overwrite on the next loop, retrace blocking
        might too. If we exhaust MAX_ITER, the most-recently-recorded
-       tour is what the user sees. We override `km`/`h` with the actual
-       route's distance/duration so penalised matrix sums don't leak
-       into the displayed numbers. */
+       tour is what the user sees. We override `km` with the actual route
+       distance so penalised matrix sums don't leak into the displayed
+       numbers; drive/dwell time stays separate (V2 fix: never collapse
+       OSRM driving time into total time). */
     if (blockedThisIter.length === 0) {
       chosen = result;
       chosen.km = routeOut.distanceKm;
-      chosen.h  = routeOut.durationH;
+      chosen.driveH = routeOut.durationH;
+      chosen.totalH = chosen.driveH + (chosen.dwellH || 0);
+      chosen.h = chosen.driveH;  /* legacy field, used by older readers */
       chosenLatLngs = latlngs;
       chosenWaypoints = waypoints;
-      chosenTourPasses = tourPasses;
+      chosenTourStops = tourStops;
     }
 
     if (blockedThisIter.length === 0 && retraceLegs.length === 0) break;
@@ -2856,6 +2985,10 @@ async function planTour() {
        away from ANY tour reusing either of those two valleys; if the
        only valid tour still uses them, the penalty stacks but never
        infinitises, so we never lose feasibility. */
+    if (retraceLegs.length) {
+      console.log(`planner iter ${iter}: retrace pairs detected:`,
+        retraceLegs.map(r => `legs ${r.legA}↔${r.legB} share ${r.overlapM}m`).join("; "));
+    }
     for (const r of retraceLegs) {
       const fromMA = wpMatrixIdx[r.legA];
       const toMA   = wpMatrixIdx[r.legA + 1];
@@ -2869,7 +3002,7 @@ async function planTour() {
     }
   }
 
-  console.log(`planner: ${candidates.length} candidates · ${Math.round(plannerMs)} ms total · avoided=[${[...blockedNames].join(",")}] · retraceFixes=${retraceLog.length}`);
+  console.log(`planner: ${candidates.length} candidates (${passShare.length} passes + ${poiShare.length} POIs) · ${Math.round(plannerMs)} ms total · avoided=[${[...blockedNames].join(",")}] · retraceFixes=${retraceLog.length}`);
   resetPlanButton();
 
   if (!chosen) {
@@ -2896,13 +3029,21 @@ async function planTour() {
   }
 
   showPlanResult({
-    start, tourPasses: chosenTourPasses, km: chosen.km, h: chosen.h, matched: chosen.k,
-    poolSize: candidates.length, totalOpen: allCands.length, inRange: chosen.inRange,
+    start, tourStops: chosenTourStops,
+    km: chosen.km,
+    driveH: chosen.driveH,
+    dwellH: chosen.dwellH || 0,
+    totalH: chosen.totalH || chosen.driveH,
+    matched: chosen.k,
+    poolSize: candidates.length,
+    totalOpen: allCands.length,
+    inRange: chosen.inRange,
     targetKm, openOnly, tripDate: currentTripDate(),
     avoided: blockedNames.size > 0 ? [...blockedNames] : null,
+    candidatePoolNote: candidatePoolNote || null,
     modes: chosen.perm,   // [{passIdx, enterSide, exitSide, mode}, ...]
   });
-  drawPlannedTour(start, chosenTourPasses, chosenLatLngs);
+  drawPlannedTour(start, chosenTourStops, chosenLatLngs);
 }
 
 /* Index in `polyline` of the point closest to lat/lng `wp` (planar approx). */
@@ -2930,10 +3071,10 @@ function closestPolylineIdx(wp, polyline) {
 
    Returns [{ legA, legB, overlapM }] for connector pairs whose shared
    road length exceeds RETRACE_MIN_OVERLAP_M. */
-const RETRACE_THRESH_M = 60;       // points within this distance count as "same road"
+const RETRACE_THRESH_M = 100;      // points within this distance count as "same valley road"
 const RETRACE_MIN_OVERLAP_M = 800; // must share at least this many metres to count
 const RETRACE_SAMPLE_M = 200;      // densification spacing
-const RETRACE_PENALTY_MULT = 1.6;  // multiply both shared edges' cost per iter
+const RETRACE_PENALTY_MULT = 2.0;  // multiply both shared edges' cost per iter
 function detectRetracedConnectorLegs(latlngs, wpIdx) {
   if (!latlngs.length || wpIdx.length < 2) return [];
   const numLegs = wpIdx.length - 1;
@@ -3072,9 +3213,16 @@ function showPlanResult(r) {
   const statsLine = r.advanced
     ? `${stopSummary} ·
        <strong>${Math.round(r.km)} km</strong> · ${timeBlock}`
-    : `<strong>${r.matched}</strong> of ${r.poolSize} candidates
-       ${r.openOnly ? `(out of ${r.totalOpen} projected open/restricted passes)` : ""} ·
-       <strong>${Math.round(r.km)} km</strong> · ${timeBlock}`;
+    : poiN > 0
+      ? `${stopSummary} of ${r.poolSize} candidates
+         ${r.openOnly ? `(${r.totalOpen} passes shortlisted)` : ""} ·
+         <strong>${Math.round(r.km)} km</strong> · ${timeBlock}`
+      : `<strong>${r.matched}</strong> of ${r.poolSize} candidates
+         ${r.openOnly ? `(out of ${r.totalOpen} projected open/restricted passes)` : ""} ·
+         <strong>${Math.round(r.km)} km</strong> · ${timeBlock}`;
+  const candidatePoolBlock = r.candidatePoolNote
+    ? `<div class="popup-meta tight">${escapeHtml(r.candidatePoolNote)}</div>`
+    : "";
   const tripDateLine = r.tripDate
     ? `<div class="popup-meta tight projection${daysBetweenDates(todayLocalDate(), r.tripDate) > 0 ? " guess" : ""}">Trip date: ${escapeHtml(formatTripDate(r.tripDate))} · projected pass states; guesses are marked “Likely” / “guess”.</div>`
     : "";
@@ -3082,6 +3230,7 @@ function showPlanResult(r) {
     <h3>${title} from ${r.start.name}</h3>
     <div class="tour-passes">${stopList}</div>
     <div class="stats">${statsLine}</div>
+    ${candidatePoolBlock}
     ${tripDateLine}
     ${qualityLine}
     ${modeNote}
@@ -3265,9 +3414,10 @@ function renderList() {
       const sourceLabel = statusView.sourceMeta.label;
       const dist  = start ? `· ${Math.round(haversine(start, p))} km from ${start.name}` : "";
       const selected = advancedModeEl.checked && selectedPassIds.has(p.id);
+      const listIconId = stateIconId(statusView.state, statusView.estimated);
       const listIcon = p.symbolIconAsset
-        ? `<span class="pass-list-icon-wrap">${passIconHtml(p, "pass-art-icon list symbol", "symbol")} ${iconSvg("alpine-status", `status-icon ${statusView.className}`)}</span>`
-        : iconSvg("alpine-status", `status-icon ${statusView.className}`);
+        ? `<span class="pass-list-icon-wrap">${passIconHtml(p, "pass-art-icon list symbol", "symbol")} ${iconSvg(listIconId, `status-icon ${statusView.className}`)}</span>`
+        : iconSvg(listIconId, `status-icon ${statusView.className}`);
       return `<li data-id="${p.id}" class="${selected ? "selected" : ""}" title="${advancedModeEl.checked ? "Select this pass for the route" : "Zoom to this pass"}">
         ${listIcon}
         <span>

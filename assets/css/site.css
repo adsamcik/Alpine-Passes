@@ -959,6 +959,236 @@ select option:checked {
 .maplibregl-ctrl-attrib a {
   color: #075985;
 }
+
+/* ─────────────────────── Alpine custom map overlay ───────────────────────
+   MapLibre owns the basemap and route lines; this retained DOM overlay owns
+   Alpine-Passes' rich marker identity and grouping. */
+.alpine-map-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+  overflow: hidden;
+  contain: layout style;
+}
+body.picking .alpine-map-overlay {
+  pointer-events: none;
+}
+body.picking .alpine-map-overlay * {
+  pointer-events: none;
+}
+.alpine-marker,
+.alpine-cluster {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border: 0;
+  padding: 0;
+  pointer-events: auto;
+  cursor: pointer;
+  user-select: none;
+  background: transparent;
+  will-change: transform;
+}
+.alpine-marker:focus-visible,
+.alpine-cluster:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 5px;
+}
+.alpine-pass-marker {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  filter: drop-shadow(0 9px 18px rgba(0,0,0,.42));
+}
+.alpine-pass-pin {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 3px solid rgba(255,255,255,.95);
+  background: var(--unknown);
+  color: var(--unknown);
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.28);
+}
+.alpine-pass-marker.open .alpine-pass-pin { background: var(--open); color: var(--open); }
+.alpine-pass-marker.restricted .alpine-pass-pin { background: var(--restricted); color: var(--restricted); }
+.alpine-pass-marker.closed .alpine-pass-pin { background: var(--closed); color: var(--closed); }
+.alpine-pass-marker.unknown .alpine-pass-pin { background: var(--unknown); color: var(--unknown); }
+.alpine-pass-marker.estimated .alpine-pass-pin {
+  outline: 2px dashed rgba(255,255,255,.88);
+  outline-offset: 2px;
+}
+.alpine-pass-pin .pass-art-icon.map {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  box-shadow: none;
+  transform: scale(1.08);
+}
+.alpine-pass-pin .marker-icon-art {
+  width: 24px;
+  height: 24px;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,.32));
+}
+.alpine-poi-marker {
+  width: 30px;
+  height: 30px;
+  filter: drop-shadow(0 8px 16px rgba(76,29,149,.42));
+}
+.alpine-poi-pin {
+  position: absolute;
+  inset: 3px;
+  display: grid;
+  place-items: center;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%);
+  border: 2px solid rgba(255,255,255,.92);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.25);
+}
+.alpine-poi-marker.dim .alpine-poi-pin {
+  background: linear-gradient(135deg, #94a3b8 0%, #475569 100%);
+  opacity: .72;
+}
+.poi-marker-art {
+  width: 18px;
+  height: 18px;
+  transform: rotate(45deg);
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,.55));
+}
+.poi-marker-not-car {
+  position: absolute;
+  right: -7px;
+  bottom: -6px;
+  width: 14px;
+  height: 14px;
+  transform: rotate(45deg);
+  border-radius: 50%;
+  background-color: #1f2937;
+  box-shadow: 0 0 0 2px rgba(255,255,255,.92), 0 2px 6px rgba(0,0,0,.45);
+}
+.alpine-tour-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #ffd166;
+  color: #1a1300;
+  font: 800 11px/18px system-ui,sans-serif;
+  text-align: center;
+  border: 2px solid #1a1300;
+  box-shadow: 0 2px 4px rgba(0,0,0,.5);
+}
+.alpine-tour-badge.poi {
+  background: #c084fc;
+  color: #20063e;
+  border-color: #20063e;
+}
+.alpine-start-marker {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 4;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  background: #ffd166;
+  color: #1a1300;
+  border: 3px solid #1a1300;
+  border-radius: 6px;
+  box-shadow: var(--shadow);
+  font: 900 12px/1 system-ui,sans-serif;
+  transform-origin: center;
+}
+.alpine-start-marker span {
+  transform: rotate(-45deg);
+}
+.alpine-cluster {
+  --cluster-size: 42px;
+  width: var(--cluster-size);
+  height: var(--cluster-size);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #071015;
+  filter: drop-shadow(0 12px 24px rgba(0,0,0,.38));
+}
+.alpine-cluster.lg { --cluster-size: 48px; }
+.alpine-cluster.xl { --cluster-size: 56px; }
+.alpine-cluster::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(76,201,240,.26);
+  border: 2px solid rgba(255,255,255,.78);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.22);
+}
+.alpine-cluster::after {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(84,209,255,.94), rgba(140,235,214,.88));
+}
+.alpine-poi-cluster::before {
+  background: rgba(124,58,237,.28);
+}
+.alpine-poi-cluster::after {
+  background: linear-gradient(135deg, rgba(167,139,250,.96), rgba(124,58,237,.9));
+}
+.cluster-count {
+  position: relative;
+  z-index: 2;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(6,16,20,.88);
+  color: #fff;
+  font: 800 12px/22px system-ui,sans-serif;
+  box-shadow: 0 2px 7px rgba(0,0,0,.36);
+}
+.cluster-previews {
+  position: absolute;
+  z-index: 3;
+  left: -9px;
+  top: -9px;
+  display: flex;
+}
+.cluster-previews > * {
+  width: 18px;
+  height: 18px;
+  margin-right: -6px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px rgba(9,15,18,.95), 0 2px 7px rgba(0,0,0,.42);
+}
+.cluster-previews .pass-art-icon {
+  background-size: 500% 500%;
+}
+.cluster-status-dot {
+  background-color: currentColor;
+}
+.cluster-status-dot.open { color: var(--open); }
+.cluster-status-dot.restricted { color: var(--restricted); }
+.cluster-status-dot.closed { color: var(--closed); }
+.cluster-status-dot.unknown,
+.cluster-status-dot.estimated { color: var(--unknown); }
+.poi-cluster-preview {
+  background-color: #7c3aed;
+}
+.map-moving .alpine-marker,
+.map-moving .alpine-cluster {
+  filter: none;
+}
 /* ─────────────────────── POI popup styling ─────────────────────── */
 .poi-popup .popup-head {
   padding: 10px 14px 4px;

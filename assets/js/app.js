@@ -1103,9 +1103,9 @@ async function fetchWiki(title, primaryLang) {
 }
 
 /* ───────────────────── native vector map (MapLibre GL) ─────────────────────
-   MapLibre now owns both the basemap and application overlays. Passes, POIs,
-   clusters, start markers and planned routes are GeoJSON sources/layers instead
-   of DOM marker overlays, keeping all map rendering in one WebGL stack. */
+   MapLibre owns the vector basemap and route line layers. A custom Alpine DOM
+   overlay owns the rich pass/POI markers, clusters, tour badges and start pin,
+   so we keep the fast basemap without giving up the app's visual identity. */
 const VECTOR_BASEMAPS = [
   { name: "Liberty vector",  style: "https://tiles.openfreemap.org/styles/liberty" },
   { name: "Bright vector",   style: "https://tiles.openfreemap.org/styles/bright" },
@@ -1144,14 +1144,13 @@ const PASS_SOURCE_ID = "alpine-passes";
 const POI_SOURCE_ID = "swiss-pois";
 const ROUTE_SOURCE_ID = "planned-route";
 const START_SOURCE_ID = "planned-start";
-const PASS_INTERACTIVE_LAYERS = ["pass-unclustered", "pass-tour-badge"];
-const POI_INTERACTIVE_LAYERS = ["poi-unclustered", "poi-tour-badge"];
 const EMPTY_FEATURE_COLLECTION = { type: "FeatureCollection", features: [] };
 let mapLayersReady = false;
 let poiLayerVisible = true;
 let activePopup = null;
 let passUiReady = false;
 let poiUiReady = false;
+let mapLayerRestoreQueued = false;
 
 function statusColorExpression() {
   return [
@@ -1229,34 +1228,263 @@ function setSourceData(sourceId, data) {
   if (source) source.setData(data);
 }
 
+function hasRequiredMapLayers() {
+  return !!(
+    map.getSource(PASS_SOURCE_ID) &&
+    map.getSource(POI_SOURCE_ID) &&
+    map.getSource(ROUTE_SOURCE_ID) &&
+    map.getLayer("planned-route-core")
+  );
+}
+
+function requestMapLayerRestore(attempt = 0) {
+  if (mapLayerRestoreQueued) return;
+  mapLayerRestoreQueued = true;
+  const run = () => {
+    mapLayerRestoreQueued = false;
+    try {
+      mapLayersReady = false;
+      setupMapLayers();
+      updateMapInfo(currentBaseLayerName);
+    } catch (error) {
+      if (attempt < 20) {
+        setTimeout(() => requestMapLayerRestore(attempt + 1), 100);
+        return;
+      }
+      console.error("Unable to restore Alpine map layers after style change", error);
+    }
+  };
+  requestAnimationFrame(run);
+}
+
 function updateMapSources() {
-  if (!mapLayersReady) return;
+  scheduleAlpineOverlayRender();
+  if (!mapLayersReady || !hasRequiredMapLayers()) {
+    requestMapLayerRestore();
+    return;
+  }
   setSourceData(PASS_SOURCE_ID, currentPassMapFeatures());
   setSourceData(POI_SOURCE_ID, currentPoiMapFeatures());
   updatePlannedTourLayers();
+  scheduleAlpineOverlayRender();
 }
 
 function addCircleLayer(layer) {
   if (!map.getLayer(layer.id)) map.addLayer(layer);
 }
 
+const alpineOverlayEl = document.createElement("div");
+alpineOverlayEl.className = "alpine-map-overlay";
+alpineOverlayEl.setAttribute("aria-label", "Alpine passes and sights overlay");
+map.getContainer().appendChild(alpineOverlayEl);
+
+const alpineOverlayClusters = new Map();
+let alpineOverlayRenderQueued = false;
+let alpineOverlayRenderToken = 0;
+
+function overlayPassItems() {
+  return passUiReady ? PASSES.filter(passesAllFilters) : PASSES;
+}
+
+function overlayPoiItems() {
+  if (!poiLayerVisible) return [];
+  if (!poiUiReady) return POIS;
+  const q = (poiSearchEl?.value || "").trim().toLowerCase();
+  return POIS
+    .filter(p => poiPassesAllFilters(p))
+    .filter(p => !q || poiSearchMatches(p, q));
+}
+
+function scheduleAlpineOverlayRender() {
+  if (alpineOverlayRenderQueued) return;
+  alpineOverlayRenderQueued = true;
+  requestAnimationFrame(() => {
+    alpineOverlayRenderQueued = false;
+    renderAlpineOverlay();
+  });
+}
+
+function overlayInViewport(point, padding = 32) {
+  const canvas = map.getCanvas();
+  return point.x >= padding && point.y >= padding &&
+    point.x <= canvas.clientWidth - padding && point.y <= canvas.clientHeight - padding;
+}
+
+function clusterRadiusFor(kind, zoom) {
+  if (kind === "pass") return zoom < 7 ? 82 : zoom < 9 ? 70 : 58;
+  return zoom < 7 ? 90 : zoom < 9 ? 74 : 62;
+}
+
+function shouldClusterOverlay(kind, zoom) {
+  return zoom < (kind === "pass" ? 11.7 : 11.4);
+}
+
+function overlayClusterGroups(items, kind) {
+  const zoom = map.getZoom();
+  const radius = clusterRadiusFor(kind, zoom);
+  const projected = [];
+  for (const item of items) {
+    const point = map.project([item.lon, item.lat]);
+    if (!overlayInViewport(point)) continue;
+    projected.push({ item, point });
+  }
+  const forcedMarkers = projected
+    .filter(({ item }) => plannedBadgeNumber(item))
+    .map(({ item, point }) => ({ kind, type: "marker", item, point }));
+  const clusterable = projected.filter(({ item }) => !plannedBadgeNumber(item));
+  if (!shouldClusterOverlay(kind, zoom)) {
+    return projected.map(({ item, point }) => ({ kind, type: "marker", item, point }));
+  }
+
+  const cells = new Map();
+  const groups = [];
+  for (const entry of clusterable) {
+    const key = `${Math.floor(entry.point.x / radius)},${Math.floor(entry.point.y / radius)}`;
+    let group = cells.get(key);
+    if (!group) {
+      group = { kind, type: "cluster", point: { x: entry.point.x, y: entry.point.y }, items: [] };
+      cells.set(key, group);
+      groups.push(group);
+    }
+    group.items.push(entry.item);
+    const n = group.items.length;
+    group.point.x += (entry.point.x - group.point.x) / n;
+    group.point.y += (entry.point.y - group.point.y) / n;
+  }
+  return groups.flatMap(group =>
+    group.items.length === 1
+      ? [{ kind, type: "marker", item: group.items[0], point: group.point }]
+      : [group]
+  ).concat(forcedMarkers);
+}
+
+function overlayPointStyle(point, extraTransform = "") {
+  return `transform: translate3d(${Math.round(point.x)}px, ${Math.round(point.y)}px, 0) translate(-50%, -50%)${extraTransform};`;
+}
+
+function overlayPassMarkerHtml(p, point) {
+  const status = passStatus(p);
+  const view = statusDisplay(status);
+  const badge = plannedBadgeNumber(p);
+  const art = p.symbolIconAsset
+    ? passIconHtml(p, "pass-art-icon map symbol", "symbol")
+    : uiIconHtml(stateIconId(view.state, view.estimated), "marker-icon-art", view.label);
+  return `<button class="alpine-marker alpine-pass-marker ${view.className}" data-overlay-kind="pass" data-overlay-id="${escapeHtml(p.id)}" style="${overlayPointStyle(point)}" title="${escapeHtml(p.name)} · ${p.elev} m">
+    <span class="alpine-pass-pin">${art}</span>
+    ${badge ? `<span class="alpine-tour-badge">${badge}</span>` : ""}
+  </button>`;
+}
+
+function overlayPoiMarkerHtml(p, point) {
+  const badge = plannedBadgeNumber(p);
+  const notByCar = isPlannablePoi(p) ? "" : uiIconHtml("not-by-car", "poi-marker-not-car", "Not by car");
+  return `<button class="alpine-marker alpine-poi-marker${isPlannablePoi(p) ? "" : " dim"}" data-overlay-kind="poi" data-overlay-id="${escapeHtml(p.id)}" style="${overlayPointStyle(point)}" title="${escapeHtml(p.name)} · ${escapeHtml(poiCategoryLabel(p.poiCategory))}">
+    <span class="alpine-poi-pin" data-cat="${escapeHtml(p.poiCategory)}">${poiCategoryIcon(p.poiCategory, "poi-marker-art")}${notByCar}</span>
+    ${badge ? `<span class="alpine-tour-badge poi">${badge}</span>` : ""}
+  </button>`;
+}
+
+function overlayClusterHtml(group, point) {
+  const id = `c${++alpineOverlayRenderToken}`;
+  alpineOverlayClusters.set(id, group);
+  const count = group.items.length;
+  const previewItems = group.items.slice(0, 3);
+  const preview = previewItems.map(item => {
+    if (group.kind === "pass" && item.symbolIconAsset) {
+      return passIconHtml(item, "pass-art-icon cluster-preview symbol", "symbol");
+    }
+    if (group.kind === "pass") {
+      const view = statusDisplay(passStatus(item));
+      return uiIconHtml(stateIconId(view.state, view.estimated), `cluster-status-dot ${view.className}`, view.label);
+    }
+    return poiCategoryIcon(item.poiCategory, "poi-cluster-preview");
+  }).join("");
+  const size = count >= 80 ? "xl" : count >= 25 ? "lg" : "md";
+  const label = `${count} ${group.kind === "pass" ? "passes" : "sights"}`;
+  return `<button class="alpine-cluster alpine-${group.kind}-cluster ${size}" data-cluster-id="${id}" style="${overlayPointStyle(point)}" title="${escapeHtml(label)}">
+    <span class="cluster-previews">${preview}</span>
+    <span class="cluster-count">${count}</span>
+  </button>`;
+}
+
+function overlayStartMarkerHtml(start) {
+  const point = map.project([start.lon, start.lat]);
+  if (!overlayInViewport(point)) return "";
+  const label = start.name?.[0] || "S";
+  return `<div class="alpine-start-marker" style="${overlayPointStyle(point, " rotate(45deg)")}" title="${escapeHtml(start.name)}"><span>${escapeHtml(label)}</span></div>`;
+}
+
+function renderAlpineOverlay() {
+  alpineOverlayClusters.clear();
+  alpineOverlayRenderToken = 0;
+  const groups = [
+    ...overlayClusterGroups(overlayPassItems(), "pass"),
+    ...overlayClusterGroups(overlayPoiItems(), "poi"),
+  ];
+  alpineOverlayEl.innerHTML = groups.map(group =>
+    group.type === "marker"
+      ? group.kind === "pass"
+        ? overlayPassMarkerHtml(group.item, group.point)
+        : overlayPoiMarkerHtml(group.item, group.point)
+      : overlayClusterHtml(group, group.point)
+  ).join("") + (plannedStart ? overlayStartMarkerHtml(plannedStart) : "");
+  lazyLoadPassIcons(alpineOverlayEl, true);
+}
+
+function zoomToOverlayCluster(group) {
+  if (!group?.items?.length) return;
+  if (group.items.length === 1) {
+    map.easeTo({ center: [group.items[0].lon, group.items[0].lat], zoom: Math.min(map.getZoom() + 2, 13), duration: 350 });
+    return;
+  }
+  const bounds = new maplibregl.LngLatBounds(
+    [group.items[0].lon, group.items[0].lat],
+    [group.items[0].lon, group.items[0].lat]
+  );
+  group.items.slice(1).forEach(item => bounds.extend([item.lon, item.lat]));
+  map.fitBounds(bounds, { padding: 90, duration: 450, maxZoom: Math.min(map.getZoom() + 3, 13) });
+}
+
+alpineOverlayEl.addEventListener("click", event => {
+  const target = event.target.closest("[data-overlay-id], [data-cluster-id]");
+  if (!target || pickingStart) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const clusterId = target.dataset.clusterId;
+  if (clusterId) {
+    zoomToOverlayCluster(alpineOverlayClusters.get(clusterId));
+    return;
+  }
+  if (target.dataset.overlayKind === "pass") {
+    const pass = PASS_BY_ID.get(target.dataset.overlayId);
+    if (pass) openPassPopup(pass);
+  } else if (target.dataset.overlayKind === "poi") {
+    const poi = POI_BY_ID.get(target.dataset.overlayId);
+    if (poi) openPoiPopup(poi);
+  }
+});
+
+["move", "zoom", "resize", "rotate", "pitch"].forEach(eventName => {
+  map.on(eventName, scheduleAlpineOverlayRender);
+});
+map.on("movestart", () => map.getContainer().classList.add("map-moving"));
+map.on("moveend", () => {
+  map.getContainer().classList.remove("map-moving");
+  scheduleAlpineOverlayRender();
+});
+map.on("zoomend", scheduleAlpineOverlayRender);
+
 function setupMapLayers() {
   if (!map.getSource(PASS_SOURCE_ID)) {
     map.addSource(PASS_SOURCE_ID, {
       type: "geojson",
       data: currentPassMapFeatures(),
-      cluster: true,
-      clusterRadius: 50,
-      clusterMaxZoom: 10,
     });
   }
   if (!map.getSource(POI_SOURCE_ID)) {
     map.addSource(POI_SOURCE_ID, {
       type: "geojson",
       data: currentPoiMapFeatures(),
-      cluster: true,
-      clusterRadius: 60,
-      clusterMaxZoom: 10,
     });
   }
   if (!map.getSource(ROUTE_SOURCE_ID)) {
@@ -1292,152 +1520,6 @@ function setupMapLayers() {
     layout: { "line-cap": "round", "line-join": "round" },
   });
 
-  addCircleLayer({
-    id: "pass-clusters",
-    type: "circle",
-    source: PASS_SOURCE_ID,
-    filter: ["has", "point_count"],
-    paint: {
-      "circle-color": "rgba(76,201,240,.85)",
-      "circle-radius": ["step", ["get", "point_count"], 18, 25, 22, 80, 27],
-      "circle-stroke-color": "rgba(255,255,255,.85)",
-      "circle-stroke-width": 2,
-    },
-  });
-  addCircleLayer({
-    id: "pass-cluster-count",
-    type: "symbol",
-    source: PASS_SOURCE_ID,
-    filter: ["has", "point_count"],
-    layout: { "text-field": ["get", "point_count_abbreviated"], "text-size": 12 },
-    paint: { "text-color": "#0b0e10" },
-  });
-  addCircleLayer({
-    id: "pass-unclustered",
-    type: "circle",
-    source: PASS_SOURCE_ID,
-    filter: ["!", ["has", "point_count"]],
-    paint: {
-      "circle-color": statusColorExpression(),
-      "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 5, 8, 8, 12, 11],
-      "circle-stroke-color": ["case", ["get", "estimated"], "#fff", "rgba(255,255,255,.95)"],
-      "circle-stroke-width": ["case", ["get", "estimated"], 3.5, 2.5],
-      "circle-opacity": 0.98,
-    },
-  });
-  addCircleLayer({
-    id: "pass-tour-ring",
-    type: "circle",
-    source: PASS_SOURCE_ID,
-    filter: ["all", ["!", ["has", "point_count"]], [">", ["get", "tourIndex"], 0]],
-    paint: {
-      "circle-color": "rgba(255,209,102,.18)",
-      "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 13, 12, 18],
-      "circle-stroke-color": "#ffd166",
-      "circle-stroke-width": 3,
-    },
-  });
-  addCircleLayer({
-    id: "pass-tour-badge",
-    type: "symbol",
-    source: PASS_SOURCE_ID,
-    filter: ["all", ["!", ["has", "point_count"]], [">", ["get", "tourIndex"], 0]],
-    layout: {
-      "text-field": ["get", "tourLabel"],
-      "text-size": 11,
-      "text-offset": [1.0, -1.0],
-      "text-allow-overlap": true,
-      "text-ignore-placement": true,
-    },
-    paint: {
-      "text-color": "#1a1300",
-      "text-halo-color": "#ffd166",
-      "text-halo-width": 5,
-    },
-  });
-
-  addCircleLayer({
-    id: "poi-clusters",
-    type: "circle",
-    source: POI_SOURCE_ID,
-    filter: ["has", "point_count"],
-    paint: {
-      "circle-color": "rgba(124,58,237,.85)",
-      "circle-radius": ["step", ["get", "point_count"], 17, 25, 21, 80, 26],
-      "circle-stroke-color": "rgba(255,255,255,.86)",
-      "circle-stroke-width": 2,
-    },
-  });
-  addCircleLayer({
-    id: "poi-cluster-count",
-    type: "symbol",
-    source: POI_SOURCE_ID,
-    filter: ["has", "point_count"],
-    layout: { "text-field": ["get", "point_count_abbreviated"], "text-size": 12 },
-    paint: { "text-color": "#fff" },
-  });
-  addCircleLayer({
-    id: "poi-unclustered",
-    type: "circle",
-    source: POI_SOURCE_ID,
-    filter: ["!", ["has", "point_count"]],
-    paint: {
-      "circle-color": ["case", ["get", "plannable"], "#7c3aed", "#64748b"],
-      "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 4, 8, 7, 12, 10],
-      "circle-stroke-color": "rgba(255,255,255,.92)",
-      "circle-stroke-width": 2,
-      "circle-opacity": ["case", ["get", "plannable"], 0.95, 0.62],
-    },
-  });
-  addCircleLayer({
-    id: "poi-tour-ring",
-    type: "circle",
-    source: POI_SOURCE_ID,
-    filter: ["all", ["!", ["has", "point_count"]], [">", ["get", "tourIndex"], 0]],
-    paint: {
-      "circle-color": "rgba(192,132,252,.18)",
-      "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 12, 12, 17],
-      "circle-stroke-color": "#c084fc",
-      "circle-stroke-width": 3,
-    },
-  });
-  addCircleLayer({
-    id: "poi-tour-badge",
-    type: "symbol",
-    source: POI_SOURCE_ID,
-    filter: ["all", ["!", ["has", "point_count"]], [">", ["get", "tourIndex"], 0]],
-    layout: {
-      "text-field": ["get", "tourLabel"],
-      "text-size": 11,
-      "text-offset": [1.0, -1.0],
-      "text-allow-overlap": true,
-      "text-ignore-placement": true,
-    },
-    paint: {
-      "text-color": "#20063e",
-      "text-halo-color": "#c084fc",
-      "text-halo-width": 5,
-    },
-  });
-  addCircleLayer({
-    id: "planned-start-circle",
-    type: "circle",
-    source: START_SOURCE_ID,
-    paint: {
-      "circle-color": "#ffd166",
-      "circle-radius": 11,
-      "circle-stroke-color": "#1a1300",
-      "circle-stroke-width": 3,
-    },
-  });
-  addCircleLayer({
-    id: "planned-start-label",
-    type: "symbol",
-    source: START_SOURCE_ID,
-    layout: { "text-field": ["get", "label"], "text-size": 12, "text-allow-overlap": true },
-    paint: { "text-color": "#1a1300" },
-  });
-
   mapLayersReady = true;
   bindMapInteractions();
   updateMapSources();
@@ -1460,24 +1542,6 @@ function expandCluster(sourceId, feature) {
 function bindMapInteractions() {
   if (map._alpineInteractionsBound) return;
   map._alpineInteractionsBound = true;
-  ["pass-clusters", "poi-clusters", ...PASS_INTERACTIVE_LAYERS, ...POI_INTERACTIVE_LAYERS].forEach(bindMapLayerCursor);
-
-  map.on("click", "pass-clusters", e => expandCluster(PASS_SOURCE_ID, e.features[0]));
-  map.on("click", "poi-clusters", e => expandCluster(POI_SOURCE_ID, e.features[0]));
-  PASS_INTERACTIVE_LAYERS.forEach(layerId => {
-    map.on("click", layerId, e => {
-      if (pickingStart) return;
-      const pass = PASS_BY_ID.get(e.features[0]?.properties?.id);
-      if (pass) openPassPopup(pass, e.lngLat);
-    });
-  });
-  POI_INTERACTIVE_LAYERS.forEach(layerId => {
-    map.on("click", layerId, e => {
-      if (pickingStart) return;
-      const poi = POI_BY_ID.get(e.features[0]?.properties?.id);
-      if (poi) openPoiPopup(poi, e.lngLat);
-    });
-  });
 }
 
 function mapBoundsContainsPoint(p) {
@@ -1544,6 +1608,7 @@ class AlpineLayerControl {
       currentBaseLayerName = next.name;
       updateMapInfo(currentBaseLayerName);
       map.setStyle(next.style);
+      map.once("idle", restoreMapLayers);
     });
     poiToggle.addEventListener("change", () => setPoiLayerVisible(poiToggle.checked));
     return el;
@@ -1552,10 +1617,12 @@ class AlpineLayerControl {
 }
 
 map.addControl(new AlpineLayerControl(), "top-right");
-map.on("style.load", () => {
-  mapLayersReady = false;
-  setupMapLayers();
-  updateMapInfo(currentBaseLayerName);
+function restoreMapLayers() {
+  requestMapLayerRestore();
+}
+map.on("style.load", restoreMapLayers);
+map.on("idle", () => {
+  if (!map.getSource(ROUTE_SOURCE_ID)) restoreMapLayers();
 });
 
 function buildPopupHtml(p, status, wiki) {
@@ -2324,6 +2391,7 @@ function syncPickButtonState() {
 
 planPickBtn.addEventListener("click", () => {
   pickingStart = !pickingStart;
+  if (pickingStart && activePopup) { activePopup.remove(); activePopup = null; }
   syncPickButtonState();
 });
 map.on("click", (e) => {

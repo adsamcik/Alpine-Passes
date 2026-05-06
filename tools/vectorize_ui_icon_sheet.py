@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import shutil
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -317,6 +318,36 @@ def _add_viewbox(svg_path: Path, canvas_size: int) -> None:
     svg_path.write_text(text.replace(needle, replacement, 1), encoding="utf-8")
 
 
+def optimize_svgs_with_svgo(svg_dir: Path) -> bool:
+    """Run svgo on the directory, halving file sizes without visible quality loss.
+
+    Uses ``npx --yes svgo`` so the script works on any machine with Node.js
+    installed without requiring a global svgo install. Returns True if svgo
+    was found and ran successfully, False otherwise (callers should treat the
+    optimization step as best-effort).
+    """
+    npx = shutil.which("npx") or shutil.which("npx.cmd")
+    if npx is None:
+        print("svgo skipped: npx not available on PATH")
+        return False
+    try:
+        result = subprocess.run(
+            [npx, "--yes", "svgo", "--multipass", "--precision=2", "-q", "-f", str(svg_dir)],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError as exc:
+        print(f"svgo skipped: {exc}")
+        return False
+    if result.returncode != 0:
+        stderr = result.stderr.strip() or result.stdout.strip()
+        print(f"svgo failed (code {result.returncode}): {stderr[:200]}")
+        return False
+    print(f"svgo optimized {svg_dir}")
+    return True
+
+
 def vectorize_sheet(
     source: Path,
     source_copy: Path,
@@ -363,6 +394,7 @@ def vectorize_sheet(
     print(f"wrote {sprite_path} ({sprite.width}x{sprite.height})")
     print(f"wrote {len(ICON_NAMES)} normalized PNGs to {png_dir}")
     print(f"wrote {len(ICON_NAMES)} SVGs to {svg_dir}")
+    optimize_svgs_with_svgo(svg_dir)
 
 
 def parse_args() -> argparse.Namespace:

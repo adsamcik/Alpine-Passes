@@ -50,91 +50,113 @@
     <details class="planner" id="planner" open>
       <summary>
         <span class="summary-title"><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-compass"></use></svg> Plan a sightseeing tour</span>
-        <span class="summary-subtitle">Start, date, route size and pass confidence</span>
+        <span class="summary-subtitle">Essentials first · optional sights · exact-stop builder when needed</span>
       </summary>
-      <div class="planner-body">
-        <div class="planner-card">
-          <div class="section-label"><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-route"></use></svg> Route basics</div>
-          <label>
-            <span>Start point</span>
-            <div class="start-row">
-              <select id="planStart" aria-label="Start point">
-                <option value="" selected>Nothing</option>
-                <option value="lucerne">Lucerne</option>
-                <option value="andermatt">Andermatt (CH)</option>
-                <option value="engelberg">Engelberg (CH)</option>
-                <option value="interlaken">Interlaken (CH)</option>
-                <option value="stmoritz">St. Moritz (CH)</option>
-                <option value="chur">Chur (CH)</option>
-                <option value="bellinzona">Bellinzona (CH)</option>
-                <option value="aosta">Aosta (IT)</option>
-                <option value="bolzano">Bolzano (IT)</option>
-                <option value="trento">Trento (IT)</option>
-                <option value="cortina">Cortina d'Ampezzo (IT)</option>
-                <option value="innsbruck">Innsbruck (AT)</option>
-                <option value="salzburg">Salzburg (AT)</option>
-                <option value="klagenfurt">Klagenfurt (AT)</option>
-                <option value="ljubljana">Ljubljana (SI)</option>
-                <option value="chamonix">Chamonix (FR)</option>
-                <option value="grenoble">Grenoble (FR)</option>
-                <option value="munich">Munich (DE)</option>
-                <option value="custom" disabled>(custom — click map)</option>
-              </select>
-              <button id="planPick" type="button" title="Click on map to set start" aria-label="Pick a custom start point on the map" aria-pressed="false"><svg class="button-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-pin"></use></svg></button>
+      <div class="planner-body planner-redesign">
+        <div class="planner-card planner-primary-card">
+          <div class="planner-card-head">
+            <div>
+              <div class="section-label"><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-route"></use></svg> 1 · Trip essentials</div>
+              <p class="planner-card-copy">Choose where to start, when you travel, and whether your day is sized by kilometres or total time.</p>
             </div>
-          </label>
-          <label>
-            <span>Trip date</span>
-            <input id="planDate" type="date" aria-label="Trip date">
-            <em class="planner-help" id="planDateHint">Pass expectations update from live dates, OSM rules, history, and clearly marked guesses.</em>
-          </label>
-          <div class="target-mode-row" role="radiogroup" aria-label="Target mode">
-            <label class="seg" title="Plan around a driving distance">
-              <input type="radio" name="planTargetMode" value="distance" checked>
-              <span>By distance</span>
+          </div>
+
+          <div class="planner-field-grid">
+            <label>
+              <span>Start point</span>
+              <div class="start-row">
+                <select id="planStart" aria-label="Start point">
+                  <option value="" selected>Nothing</option>
+                  <option value="lucerne">Lucerne</option>
+                  <option value="andermatt">Andermatt (CH)</option>
+                  <option value="engelberg">Engelberg (CH)</option>
+                  <option value="interlaken">Interlaken (CH)</option>
+                  <option value="stmoritz">St. Moritz (CH)</option>
+                  <option value="chur">Chur (CH)</option>
+                  <option value="bellinzona">Bellinzona (CH)</option>
+                  <option value="aosta">Aosta (IT)</option>
+                  <option value="bolzano">Bolzano (IT)</option>
+                  <option value="trento">Trento (IT)</option>
+                  <option value="cortina">Cortina d'Ampezzo (IT)</option>
+                  <option value="innsbruck">Innsbruck (AT)</option>
+                  <option value="salzburg">Salzburg (AT)</option>
+                  <option value="klagenfurt">Klagenfurt (AT)</option>
+                  <option value="ljubljana">Ljubljana (SI)</option>
+                  <option value="chamonix">Chamonix (FR)</option>
+                  <option value="grenoble">Grenoble (FR)</option>
+                  <option value="munich">Munich (DE)</option>
+                  <option value="custom" disabled>(custom — click map)</option>
+                </select>
+                <button id="planPick" type="button" title="Click on map to set start" aria-label="Pick a custom start point on the map" aria-pressed="false"><svg class="button-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-pin"></use></svg></button>
+              </div>
             </label>
-            <label class="seg" title="Plan around a total time budget (driving + sights)">
-              <input type="radio" name="planTargetMode" value="time">
-              <span>By time</span>
+            <label>
+              <span>Trip date</span>
+              <input id="planDate" type="date" aria-label="Trip date">
+              <em class="planner-help" id="planDateHint">Pass expectations update from live dates, OSM rules, history, and clearly marked guesses.</em>
             </label>
           </div>
-          <label class="distance-control" id="distanceControl">
+
+          <div class="planner-target-panel" aria-label="Tour target">
+            <div class="target-copy">
+              <strong>Tour size</strong>
+              <span>Distance is fastest for casual planning. Time includes driving plus sight dwell.</span>
+            </div>
+            <div class="target-mode-row" role="radiogroup" aria-label="Target mode">
+              <label class="seg" title="Plan around a driving distance">
+                <input type="radio" name="planTargetMode" value="distance" checked>
+                <span>By distance</span>
+              </label>
+              <label class="seg" title="Plan around a total time budget (driving + sights)">
+                <input type="radio" name="planTargetMode" value="time">
+                <span>By time</span>
+              </label>
+            </div>
+          </div>
+          <label class="distance-control planner-slider-card" id="distanceControl">
             <span>Distance: <strong id="distLabel">200 km</strong> <em>(±20%)</em></span>
             <input id="planDist" type="range" min="60" max="500" step="10" value="200" aria-label="Distance in kilometers">
           </label>
-          <label class="distance-control" id="timeControl" hidden>
+          <label class="distance-control planner-slider-card" id="timeControl" hidden>
             <span>Day length: <strong id="timeLabel">6 h</strong> <em id="timeTolHint">(±0.9 h)</em></span>
             <input id="planTime" type="range" min="2" max="16" step="0.5" value="6" aria-label="Day length in hours (driving + sights)">
           </label>
         </div>
 
-        <div class="planner-card compact">
-          <div class="section-label"><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-tune"></use></svg> Planning mode</div>
-          <label class="check">
-            <input id="planOpenOnly" type="checkbox" checked>
-            <span>Projected open/restricted only <em>(guesses are marked)</em></span>
-          </label>
-          <label class="check">
-            <input id="planIncludePois" type="checkbox">
-            <span>Include sights <em>(blend curated POIs into the tour)</em></span>
-          </label>
+        <div class="planner-card planner-options-card compact">
+          <div class="planner-card-head">
+            <div>
+              <div class="section-label"><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-tune"></use></svg> 2 · Make it yours</div>
+              <p class="planner-card-copy">Keep the default open-pass filter, add curated sights with one preset, or switch to exact stop picking.</p>
+            </div>
+          </div>
+
+          <div class="planner-option-grid">
+            <label class="check planner-toggle-card planner-filter-toggle">
+              <input id="planOpenOnly" type="checkbox" checked>
+              <span>Open / restricted passes only <em>Default on · seasonal guesses stay marked</em></span>
+            </label>
+            <label class="check planner-toggle-card planner-poi-toggle">
+              <input id="planIncludePois" type="checkbox">
+              <span>Include sights <em>Use presets below to blend curated POIs into the route</em></span>
+            </label>
+          </div>
+
           <details class="poi-prefs" id="poiPrefs" hidden>
             <summary>
-              <span class="summary-title"><span aria-hidden="true">🎛</span> Sight preferences</span>
+              <span class="summary-title"><span aria-hidden="true">🎛</span> Sight presets &amp; preferences</span>
               <span class="summary-subtitle" id="poiPrefsSubtitle">Default · any category · any theme · ★ 6+ · up to 3 sights</span>
+              <span class="poi-prefs-label poi-prefs-presets-label">One-click presets</span>
+              <span class="poi-prefs-presets" id="poiPresets" role="group" aria-label="Sight preset bundles">
+                <button type="button" data-preset="family"   class="preset-chip"><span class="ui-art-icon preset-chip-icon ui-icon-poi-generic" aria-hidden="true"></span>Family day</button>
+                <button type="button" data-preset="cultural" class="preset-chip"><span class="ui-art-icon preset-chip-icon ui-icon-poi-museum-cultural" aria-hidden="true"></span>Cultural tour</button>
+                <button type="button" data-preset="photo"    class="preset-chip"><span class="ui-art-icon preset-chip-icon ui-icon-poi-viewpoint-panorama" aria-hidden="true"></span>Photo tour</button>
+                <button type="button" data-preset="hidden"   class="preset-chip"><span class="ui-art-icon preset-chip-icon ui-icon-poi-special-experience" aria-hidden="true"></span>Hidden gems</button>
+                <button type="button" data-preset="wine"     class="preset-chip"><span class="ui-art-icon preset-chip-icon ui-icon-poi-wine-region" aria-hidden="true"></span>Wine &amp; food</button>
+                <button type="button" data-preset="reset"    class="preset-chip preset-reset">↺ Reset</button>
+              </span>
             </summary>
             <div class="poi-prefs-body">
-              <div class="poi-prefs-row">
-                <span class="poi-prefs-label">Quick presets</span>
-                <div class="poi-prefs-presets" id="poiPresets" role="group" aria-label="Sight preset bundles">
-                  <button type="button" data-preset="family"   class="preset-chip">👨‍👩‍👧 Family day</button>
-                  <button type="button" data-preset="cultural" class="preset-chip">🏛 Cultural tour</button>
-                  <button type="button" data-preset="photo"    class="preset-chip">📸 Photo tour</button>
-                  <button type="button" data-preset="hidden"   class="preset-chip">💎 Hidden gems</button>
-                  <button type="button" data-preset="wine"     class="preset-chip">🍇 Wine &amp; food</button>
-                  <button type="button" data-preset="reset"    class="preset-chip preset-reset">↺ Reset</button>
-                </div>
-              </div>
               <div class="poi-prefs-row">
                 <span class="poi-prefs-label">Categories <em class="planner-help inline">(empty = any)</em></span>
                 <div class="poi-prefs-chips" id="poiCatChips" role="group" aria-label="Allowed POI categories"></div>
@@ -143,42 +165,50 @@
                 <span class="poi-prefs-label">Themes <em class="planner-help inline">(empty = any)</em></span>
                 <div class="poi-prefs-chips" id="poiThemeChips" role="group" aria-label="Required POI themes"></div>
               </div>
-              <label class="poi-prefs-row">
-                <span class="poi-prefs-label">Min notability: <strong id="poiMinScoreLabel">★ 6+</strong></span>
-                <input id="poiMinScore" type="range" min="5" max="10" step="1" value="6" aria-label="Minimum POI notability score">
-              </label>
-              <label class="poi-prefs-row">
-                <span class="poi-prefs-label">Max sights in tour: <strong id="poiMaxCountLabel">3</strong></span>
-                <input id="poiMaxCount" type="range" min="1" max="6" step="1" value="3" aria-label="Maximum number of POIs the planner can pick">
-              </label>
+              <div class="poi-range-grid">
+                <label class="poi-prefs-row">
+                  <span class="poi-prefs-label">Min notability: <strong id="poiMinScoreLabel">★ 6+</strong></span>
+                  <input id="poiMinScore" type="range" min="5" max="10" step="1" value="6" aria-label="Minimum POI notability score">
+                </label>
+                <label class="poi-prefs-row">
+                  <span class="poi-prefs-label">Max sights in tour: <strong id="poiMaxCountLabel">3</strong></span>
+                  <input id="poiMaxCount" type="range" min="1" max="6" step="1" value="3" aria-label="Maximum number of POIs the planner can pick">
+                </label>
+              </div>
             </div>
           </details>
-          <label class="check">
-            <input id="planAdvanced" type="checkbox">
-            <span>Advanced mode <em>(select exact passes)</em></span>
-          </label>
-          <div class="advanced-planner" id="advancedPlanner" hidden>
-            <div class="advanced-planner-head">
-              <span><strong id="selectedStopCount">0</strong> selected <em>(<span id="selectedPassMini">0</span> passes + <span id="selectedPoiMini">0</span> POIs · max 10)</em></span>
-              <button id="clearSelectedPasses" type="button">Clear all</button>
+
+          <div class="advanced-entry-card">
+            <label class="check planner-toggle-card planner-advanced-toggle">
+              <input id="planAdvanced" type="checkbox">
+              <span>Advanced builder <em>Select exact passes and sights / POIs · up to 10 stops</em></span>
+            </label>
+            <div class="advanced-planner" id="advancedPlanner" hidden>
+              <div class="advanced-planner-head">
+                <span><strong id="selectedStopCount">0</strong> selected <em>(<span id="selectedPassMini">0</span> passes + <span id="selectedPoiMini">0</span> POIs · max 10)</em></span>
+                <button id="clearSelectedPasses" type="button">Clear all</button>
+              </div>
+              <div class="advanced-section-label"><span class="ui-art-icon inline-ui-icon ui-icon-pass-generic" aria-hidden="true"></span> Passes</div>
+              <input id="planPassSearch" type="search" placeholder="Search passes to add…" autocomplete="off" aria-label="Search selectable passes">
+              <div class="selected-passes" id="selectedPasses" aria-live="polite"></div>
+              <div class="pass-picker" id="planPassPicker" aria-label="Selectable passes"></div>
+              <div class="advanced-section-label"><span class="ui-art-icon inline-ui-icon ui-icon-poi-generic" aria-hidden="true"></span> Sights / POIs <em class="planner-help inline">(car-accessible only)</em></div>
+              <div class="poi-filters">
+                <select id="planPoiRegion" aria-label="Filter POIs by region"><option value="">All regions</option></select>
+                <select id="planPoiCategory" aria-label="Filter POIs by category"><option value="">All categories</option></select>
+                <select id="planPoiTheme" aria-label="Filter POIs by theme"><option value="">All themes</option></select>
+              </div>
+              <input id="planPoiSearch" type="search" placeholder="Search sights to add…" autocomplete="off" aria-label="Search selectable POIs">
+              <div class="selected-passes" id="selectedPois" aria-live="polite"></div>
+              <div class="pass-picker" id="planPoiPicker" aria-label="Selectable POIs"></div>
+              <p class="planner-help" id="advancedPlannerNote">Advanced mode optimizes the shortest loop through every selected pass and POI, then returns to the start.</p>
             </div>
-            <div class="advanced-section-label"><span aria-hidden="true">⛰</span> Passes</div>
-            <input id="planPassSearch" type="search" placeholder="Search passes to add…" autocomplete="off" aria-label="Search selectable passes">
-            <div class="selected-passes" id="selectedPasses" aria-live="polite"></div>
-            <div class="pass-picker" id="planPassPicker" aria-label="Selectable passes"></div>
-            <div class="advanced-section-label"><span aria-hidden="true">📍</span> Sights / POIs <em class="planner-help inline">(car-accessible only)</em></div>
-            <div class="poi-filters">
-              <select id="planPoiRegion" aria-label="Filter POIs by region"><option value="">All regions</option></select>
-              <select id="planPoiCategory" aria-label="Filter POIs by category"><option value="">All categories</option></select>
-              <select id="planPoiTheme" aria-label="Filter POIs by theme"><option value="">All themes</option></select>
-            </div>
-            <input id="planPoiSearch" type="search" placeholder="Search sights to add…" autocomplete="off" aria-label="Search selectable POIs">
-            <div class="selected-passes" id="selectedPois" aria-live="polite"></div>
-            <div class="pass-picker" id="planPoiPicker" aria-label="Selectable POIs"></div>
-            <p class="planner-help" id="advancedPlannerNote">Advanced mode optimizes the shortest loop through every selected pass and POI, then returns to the start.</p>
           </div>
         </div>
-        <button id="planRun" type="button">Plan optimal tour</button>
+
+        <div class="planner-action-row">
+          <button id="planRun" type="button">Plan optimal tour</button>
+        </div>
         <div class="plan-result empty" id="planResult" aria-live="polite"></div>
       </div>
     </details>
@@ -186,14 +216,14 @@
     <details class="legend-panel">
       <summary><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-legend"></use></svg> Map legend</summary>
       <section class="legend" aria-label="Map marker legend">
-        <span><span class="legend-marker open" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="assets/icons.svg#alpine-state-open"></use></svg></span>Open</span>
-        <span><span class="legend-marker restricted" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="assets/icons.svg#alpine-state-restricted"></use></svg></span>Restrictions</span>
-        <span><span class="legend-marker closed" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="assets/icons.svg#alpine-state-closed"></use></svg></span>Closed</span>
-        <span><span class="legend-marker open estimated" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="assets/icons.svg#alpine-state-estimated"></use></svg></span>Estimated</span>
-        <span><span class="legend-marker unknown" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="assets/icons.svg#alpine-state-unknown"></use></svg></span>Unknown</span>
+        <span><span class="ui-art-icon legend-art status-art open ui-icon-status-open" aria-hidden="true"></span>Open</span>
+        <span><span class="ui-art-icon legend-art status-art restricted ui-icon-status-restricted" aria-hidden="true"></span>Restrictions</span>
+        <span><span class="ui-art-icon legend-art status-art closed ui-icon-status-closed" aria-hidden="true"></span>Closed</span>
+        <span><span class="ui-art-icon legend-art status-art estimated ui-icon-status-estimated" aria-hidden="true"></span>Estimated</span>
+        <span><span class="ui-art-icon legend-art status-art unknown ui-icon-status-unknown" aria-hidden="true"></span>Unknown</span>
         <span class="legend-divider" aria-hidden="true"></span>
-        <span><span class="dot poi" aria-hidden="true"></span>Sight / POI</span>
-        <span><span class="dot poi dim" aria-hidden="true"></span>Not by car</span>
+        <span><span class="ui-art-icon legend-art poi-art ui-icon-poi-generic" aria-hidden="true"></span>Sight / POI</span>
+        <span><span class="ui-art-icon legend-art poi-art ui-icon-not-by-car" aria-hidden="true"></span>Not by car</span>
       </section>
     </details>
 
@@ -203,10 +233,10 @@
           <p class="eyebrow">Explore</p>
           <div class="explorer-tabs" role="tablist" aria-label="Choose what to browse">
             <button type="button" class="explorer-tab active" role="tab" data-tab="passes" aria-selected="true" aria-controls="tabPanePasses" id="tabPasses">
-              <span aria-hidden="true">⛰</span> Passes <em class="tab-count" id="tabCountPasses">…</em>
+              <span class="ui-art-icon inline-ui-icon ui-icon-pass-generic" aria-hidden="true"></span> Passes <em class="tab-count" id="tabCountPasses">…</em>
             </button>
             <button type="button" class="explorer-tab" role="tab" data-tab="pois" aria-selected="false" aria-controls="tabPanePois" id="tabPois">
-              <span aria-hidden="true">📍</span> Sights <em class="tab-count" id="tabCountPois">…</em>
+              <span class="ui-art-icon inline-ui-icon ui-icon-poi-generic" aria-hidden="true"></span> Sights <em class="tab-count" id="tabCountPois">…</em>
             </button>
           </div>
         </div>

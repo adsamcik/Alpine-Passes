@@ -1,9 +1,17 @@
 {
   "schema_version": 1,
   "currency": "CHF",
-  "last_refreshed_at": "2026-05-06T00:00:00Z",
+  "last_refreshed_at": "2026-05-06T20:41:07Z",
   "_doc": "Cached starting-prices for POIs in assets/js/swiss-pois.js. Keyed by POI name (n field). Refreshed on deploy by tools/fetch_poi_prices.py + .github/workflows/refresh-poi-prices.yml. Manually-curated entries (source_kind=manual) are NEVER overwritten by the auto-refresher; only source_kind=wikidata entries are updated. The committed JSON is the persistent fallback when live fetching fails.",
   "entries": {
+    "Aareschlucht (Aare Gorge)": {
+      "kind": "paid",
+      "from_adult_chf": 11,
+      "as_of": "2024",
+      "source_url": "https://www.aareschlucht.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
     "Abbey of Saint Gall": {
       "kind": "paid",
       "from_adult_chf": 18,
@@ -43,14 +51,6 @@
       "source_kind": "manual",
       "verified_at": "2025-12-01",
       "notes": "Village is free; museum CHF 7."
-    },
-    "Aareschlucht (Aare Gorge)": {
-      "kind": "paid",
-      "from_adult_chf": 11,
-      "as_of": "2024",
-      "source_url": "https://www.aareschlucht.ch/en/",
-      "source_kind": "manual",
-      "verified_at": "2025-12-01"
     },
     "Ascona": {
       "kind": "free",
@@ -427,18 +427,18 @@
       "verified_at": "2025-12-01",
       "notes": "Free viewing platform; train passage is paid (Albula line)."
     },
-    "Lauterbrunnen Valley": {
-      "kind": "free",
-      "source_url": "https://www.lauterbrunnen.swiss/en",
-      "source_kind": "manual",
-      "verified_at": "2025-12-01"
-    },
     "Lausanne Cathedral (Notre-Dame)": {
       "kind": "free",
       "source_url": "https://www.cathedrale-lausanne.ch/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
       "notes": "Cathedral free; tower CHF 5."
+    },
+    "Lauterbrunnen Valley": {
+      "kind": "free",
+      "source_url": "https://www.lauterbrunnen.swiss/en",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
     },
     "Lavaux Vineyard Terraces": {
       "kind": "free",
@@ -498,12 +498,14 @@
       "verified_at": "2025-12-01",
       "notes": "Mountain itself; viewing from Zermatt is free, lifts to high viewpoints are not."
     },
-    "Märjelensee": {
-      "kind": "free",
-      "source_url": "https://www.aletscharena.ch/en/",
+    "Mont Fort": {
+      "kind": "paid",
+      "from_adult_chf": 88,
+      "as_of": "2024",
+      "source_url": "https://www.verbier4vallees.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Hiking access free; Eggishorn cable car required to reach trail head."
+      "notes": "Verbier–Mont Fort summer return."
     },
     "Monte Generoso": {
       "kind": "paid",
@@ -529,15 +531,6 @@
       "source_kind": "manual",
       "verified_at": "2025-12-01",
       "notes": "Lugano–Paradiso–San Salvatore funicular return."
-    },
-    "Mont Fort": {
-      "kind": "paid",
-      "from_adult_chf": 88,
-      "as_of": "2024",
-      "source_url": "https://www.verbier4vallees.ch/en/",
-      "source_kind": "manual",
-      "verified_at": "2025-12-01",
-      "notes": "Verbier–Mont Fort summer return."
     },
     "Montreux Riviera": {
       "kind": "free",
@@ -599,6 +592,13 @@
       "source_url": "https://www.regionmurtensee.ch/en",
       "source_kind": "manual",
       "verified_at": "2025-12-01"
+    },
+    "Märjelensee": {
+      "kind": "free",
+      "source_url": "https://www.aletscharena.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Hiking access free; Eggishorn cable car required to reach trail head."
     },
     "Mürren": {
       "kind": "free",
@@ -920,6 +920,13 @@
       "verified_at": "2025-12-01",
       "notes": "Zürich HB–Uetliberg train return; covered by ZVV day pass."
     },
+    "Vallée de Joux — Watchmaking Valley": {
+      "kind": "free",
+      "source_url": "https://www.myvalleedejoux.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Valley access free; Espace Horloger CHF 12."
+    },
     "Valère Basilica": {
       "kind": "paid",
       "from_adult_chf": 5,
@@ -928,13 +935,6 @@
       "source_kind": "manual",
       "verified_at": "2025-12-01",
       "notes": "Basilica + History Museum combined; hilltop walk is free."
-    },
-    "Vallée de Joux — Watchmaking Valley": {
-      "kind": "free",
-      "source_url": "https://www.myvalleedejoux.ch/en/",
-      "source_kind": "manual",
-      "verified_at": "2025-12-01",
-      "notes": "Valley access free; Espace Horloger CHF 12."
     },
     "Verzasca Dam (Contra Dam)": {
       "kind": "free",

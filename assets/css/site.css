@@ -942,6 +942,112 @@ select option:checked {
   letter-spacing: 0;
 }
 
+/* ─────────────────────── V3: target mode + sight prefs ─────────────────────── */
+.target-mode-row {
+  display: inline-flex; align-self: flex-start; gap: 0;
+  background: rgba(255,255,255,.04);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 3px;
+}
+.target-mode-row .seg {
+  position: relative; cursor: pointer;
+  padding: 5px 12px; border-radius: 9px;
+  font: 600 12px/1 system-ui,sans-serif; color: var(--fg-dim);
+  user-select: none;
+  transition: background-color .12s ease, color .12s ease;
+}
+.target-mode-row .seg input { position: absolute; opacity: 0; pointer-events: none; }
+.target-mode-row .seg:has(input:checked) {
+  background: var(--bg-3); color: var(--fg);
+  box-shadow: 0 1px 2px rgba(0,0,0,.35);
+}
+.target-mode-row .seg:hover { color: var(--fg); }
+
+/* Sight prefs collapsible card. */
+.poi-prefs {
+  margin-top: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: rgba(124,58,237,.06);
+  overflow: hidden;
+}
+.poi-prefs[hidden] { display: none; }
+.poi-prefs > summary {
+  display: grid; grid-template-columns: 1fr; row-gap: 2px;
+  padding: 10px 12px; cursor: pointer; user-select: none;
+  list-style: none; font-size: 13px;
+}
+.poi-prefs > summary::-webkit-details-marker { display: none; }
+.poi-prefs > summary::after {
+  content: "▾"; position: absolute; right: 14px; color: var(--fg-dim);
+  transition: transform .15s ease;
+}
+.poi-prefs[open] > summary::after { transform: rotate(180deg); }
+.poi-prefs > summary { position: relative; }
+.poi-prefs .summary-title { font-weight: 700; color: var(--fg); display: flex; align-items: center; gap: 6px; }
+.poi-prefs .summary-subtitle { font-size: 11.5px; color: var(--fg-dim); }
+.poi-prefs-body {
+  padding: 6px 12px 12px;
+  display: grid; gap: 12px;
+}
+.poi-prefs-row {
+  display: grid; gap: 6px;
+}
+.poi-prefs-label {
+  font-size: 11.5px; color: var(--fg-dim); font-weight: 600;
+  text-transform: uppercase; letter-spacing: .03em;
+}
+.poi-prefs-label strong { color: var(--accent); font-weight: 700; }
+.poi-prefs-presets {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.preset-chip {
+  appearance: none; cursor: pointer;
+  padding: 6px 11px; border-radius: 999px;
+  background: rgba(255,255,255,.05); color: var(--fg);
+  border: 1px solid var(--border);
+  font: 500 12px/1.1 system-ui,sans-serif;
+  transition: background-color .12s ease, border-color .12s ease, transform .08s ease;
+}
+.preset-chip:hover { background: rgba(255,255,255,.10); border-color: var(--border-strong); }
+.preset-chip:active { transform: translateY(1px); }
+.preset-chip.active {
+  background: linear-gradient(135deg, rgba(167,139,250,.35), rgba(124,58,237,.35));
+  border-color: rgba(167,139,250,.7);
+  color: #f5edff;
+  box-shadow: 0 0 0 1px rgba(167,139,250,.4) inset;
+}
+.preset-chip.preset-reset {
+  background: transparent; color: var(--fg-dim);
+  border-style: dashed;
+}
+.preset-chip.preset-reset:hover { color: var(--fg); }
+.poi-prefs-chips {
+  display: flex; flex-wrap: wrap; gap: 4px;
+}
+.pref-chip {
+  appearance: none; cursor: pointer;
+  padding: 4px 9px; border-radius: 999px;
+  background: rgba(255,255,255,.04); color: var(--fg-dim);
+  border: 1px solid var(--border);
+  font: 500 11.5px/1.1 system-ui,sans-serif;
+  transition: background-color .1s ease, color .1s ease, border-color .1s ease;
+}
+.pref-chip:hover { color: var(--fg); }
+.pref-chip.active {
+  background: rgba(124,58,237,.30);
+  border-color: rgba(167,139,250,.7);
+  color: #f5edff;
+}
+.poi-prefs input[type="range"] { width: 100%; accent-color: var(--accent); }
+.target-badge {
+  display: inline-block; padding: 1px 7px; border-radius: 999px;
+  background: rgba(84,209,255,.15); color: var(--accent);
+  border: 1px solid rgba(84,209,255,.35);
+  font-size: 10.5px; font-weight: 600; vertical-align: 1px; margin-left: 4px;
+}
+
 /* ─────────────────────── Tour result rows (mixed) ─────────────────────── */
 .tour-stop {
   display: inline-flex; align-items: center; gap: 4px;

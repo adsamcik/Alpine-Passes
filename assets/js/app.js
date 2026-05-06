@@ -2338,13 +2338,48 @@ function computeSharedGatewayFlags(candidates) {
   return flags;
 }
 
-function bestTourGated(matrix, N, targetKm, tolerance, maxPasses, passQ, sharedFlags, stops) {
+/* Backwards-compatible signature wrapper: callers passing the old
+   (matrix, N, targetKm, tolerance, …) still work. New callers pass
+   targetSpec = { mode, value, tolerance, avgSpeedKmH? } as the third
+   argument and `tolerance` is omitted. */
+function bestTourGated(matrix, N, targetSpecOrKm, toleranceOrMaxPasses, maxPassesOrPassQ, passQOrSharedFlags, sharedFlagsOrStops, stopsOrUndef) {
+  let targetSpec, tolerance, maxPasses, passQ, sharedFlags, stops;
+  if (typeof targetSpecOrKm === "object" && targetSpecOrKm !== null) {
+    /* New signature: bestTourGated(matrix, N, targetSpec, maxPasses, passQ, sharedFlags, stops) */
+    targetSpec = targetSpecOrKm;
+    tolerance  = targetSpec.tolerance ?? 0.20;
+    maxPasses  = toleranceOrMaxPasses;
+    passQ      = maxPassesOrPassQ;
+    sharedFlags = passQOrSharedFlags;
+    stops      = sharedFlagsOrStops;
+  } else {
+    /* Legacy signature: bestTourGated(matrix, N, targetKm, tolerance, maxPasses, passQ, sharedFlags, stops) */
+    targetSpec = { mode: "distance", value: targetSpecOrKm, tolerance: toleranceOrMaxPasses };
+    tolerance  = toleranceOrMaxPasses;
+    maxPasses  = maxPassesOrPassQ;
+    passQ      = passQOrSharedFlags;
+    sharedFlags = sharedFlagsOrStops;
+    stops      = stopsOrUndef;
+  }
+  return _bestTourGatedImpl(matrix, N, targetSpec, tolerance, maxPasses, passQ, sharedFlags, stops);
+}
+
+function _bestTourGatedImpl(matrix, N, targetSpec, tolerance, maxPasses, passQ, sharedFlags, stops) {
   const cap = Math.min(maxPasses, N);
   if (N === 0) return null;
-  const lo = targetKm * (1 - tolerance) * 1000;
-  const hi = targetKm * (1 + tolerance) * 1000;
+  /* Cost matrix selection. In time mode the DP optimises directly on
+     `matrix.dur` (seconds) so we get the time-optimal tour, not just the
+     time-optimal-given-a-distance-shortest-permutation. POI dwell time is
+     added inside visitCost so the DP correctly trades long-dwell sights
+     against extra driving (rubber-duck V3 blocking #1). */
+  const isTimeMode = targetSpec.mode === "time";
+  const costMatrix = isTimeMode ? matrix.dur : matrix.dist;
+  /* Targets are kept in cost units (m for distance, s for time) so that
+     `g[mask][i][s]` and `lo`/`hi` use consistent magnitudes. */
+  const target = isTimeMode ? targetSpec.value * 3600 : targetSpec.value * 1000;
+  const lo = target * (1 - tolerance);
+  const hi = target * (1 + tolerance);
   const SIZE = 1 << N;
-  const dist = matrix.dist;
   const Q = passQ || new Array(N).fill({ qSummit: 0.5, qApproach: 0.5 });
   /* Matrix index helper: pass i, point p ∈ {0=A, 1=summit, 2=B}. */
   const mi = (i, p) => 1 + 3 * i + p;
@@ -2355,11 +2390,15 @@ function bestTourGated(matrix, N, targetKm, tolerance, maxPasses, passQ, sharedF
   const isPoi = (i) => !!stops?.[i]?.isPoi;
 
   /* Per-visit cost: enterSide∈{0,1}=A/B, exitSide∈{0,1}=A/B.
-     Internal traversal: enterBase → summit → exitBase. */
+     Internal traversal: enterBase → summit → exitBase. In time mode and
+     for a POI, the per-stop dwell is added so the DP "spends" wall-clock
+     time on each sight. */
   function visitCost(i, enterSide, exitSide) {
     const enterIdx = enterSide === 0 ? baseA(i) : baseB(i);
     const exitIdx  = exitSide  === 0 ? baseA(i) : baseB(i);
-    return dist[enterIdx][summit(i)] + dist[summit(i)][exitIdx];
+    let c = costMatrix[enterIdx][summit(i)] + costMatrix[summit(i)][exitIdx];
+    if (isTimeMode && isPoi(i)) c += stops[i].visitDwellSec || 0;
+    return c;
   }
   function visitDur(i, enterSide, exitSide) {
     const enterIdx = enterSide === 0 ? baseA(i) : baseB(i);
@@ -2419,7 +2458,7 @@ function bestTourGated(matrix, N, targetKm, tolerance, maxPasses, passQ, sharedF
       let best = Infinity, bestEnter = -1;
       for (let e = 0; e < 2; e++) {
         const enterIdx = e === 0 ? baseA(i) : baseB(i);
-        const cost = dist[0][enterIdx] + visitCost(i, e, s);
+        const cost = costMatrix[0][enterIdx] + visitCost(i, e, s);
         if (cost < best) { best = cost; bestEnter = e; }
       }
       const k = (1 << i) * N * 2 + i * 2 + s;
@@ -2445,7 +2484,7 @@ function bestTourGated(matrix, N, targetKm, tolerance, maxPasses, passQ, sharedF
             let best = Infinity, bestEnter = -1;
             for (let e = 0; e < 2; e++) {
               const enterIdx = e === 0 ? baseA(j) : baseB(j);
-              const cost = cur + dist[fromIdx][enterIdx] + visitCost(j, e, s2);
+              const cost = cur + costMatrix[fromIdx][enterIdx] + visitCost(j, e, s2);
               if (cost < best) { best = cost; bestEnter = e; }
             }
             const idx = newMask * N * 2 + j * 2 + s2;
@@ -2493,22 +2532,28 @@ function bestTourGated(matrix, N, targetKm, tolerance, maxPasses, passQ, sharedF
         const v = g[mask * N * 2 + i * 2 + s];
         if (!isFinite(v)) continue;
         const exitIdx = s === 0 ? baseA(i) : baseB(i);
-        const total = v + dist[exitIdx][0];
+        const total = v + costMatrix[exitIdx][0];
         if (!isFinite(total)) continue;
 
         const inRange = total >= lo && total <= hi;
         if (inRange) {
           const traceQ = traceQuality(mask, i, s);
           const sharedPenalty = maskSharedPenalty(mask);
-          const closeness = -Math.abs(total - targetKm * 1000) / 1000;
+          /* Closeness in cost units: 1/1000 m for distance mode (so it's
+             ~km offset), 1/3600 s for time mode (~h offset). Either way
+             traceQuality (5–30 units per pass) dominates the score so
+             closeness is purely a tiebreaker. */
+          const closenessDivisor = isTimeMode ? 3600 : 1000;
+          const closeness = -Math.abs(total - target) / closenessDivisor;
           const score = (traceQ - sharedPenalty) * 1e6 + closeness;
           if (!bestSol || score > bestSol.score) {
             bestSol = { mask, total, lastI: i, lastS: s, k, quality: traceQ, score, inRange: true };
           }
         } else {
-          /* Fallback: pick by distance closeness only.  Skip computing
+          /* Fallback: pick by closeness only.  Skip computing
              quality (slow walk-back) unless this becomes the chosen one. */
-          const closeness = -Math.abs(total - targetKm * 1000) / 1000;
+          const closenessDivisor = isTimeMode ? 3600 : 1000;
+          const closeness = -Math.abs(total - target) / closenessDivisor;
           if (!fallback || closeness > fallback.score) {
             fallback = { mask, total, lastI: i, lastS: s, k, quality: 0, score: closeness, inRange: false };
           }
@@ -2551,7 +2596,7 @@ function bestTourGated(matrix, N, targetKm, tolerance, maxPasses, passQ, sharedF
         const v = g[subMask * N * 2 + j * 2 + sp];
         if (!isFinite(v)) continue;
         const fromIdx = sp === 0 ? baseA(j) : baseB(j);
-        const recon = v + dist[fromIdx][enterIdx] + internal;
+        const recon = v + costMatrix[fromIdx][enterIdx] + internal;
         if (Math.abs(recon - targetVal) < 1e-3) return { j, sp };
       }
     }
@@ -2587,26 +2632,31 @@ function bestTourGated(matrix, N, targetKm, tolerance, maxPasses, passQ, sharedF
     }
   }
 
-  /* Total duration along the chosen tour, split into driving (matrix) vs.
-     dwell (POI visit time). Never collapse them — auto-discovery's UI
-     surfaces the breakdown when dwellH > 0 (rubber-duck blocking #2). */
+  /* Total duration AND distance along the chosen tour, split into driving
+     vs. dwell. Recomputed from BOTH matrices regardless of which one the
+     DP optimised on so the result line shows correct km even in time mode
+     and correct h even in distance mode. */
   const dur = matrix.dur;
-  let totalDriveS = 0, totalDwellS = 0, prevIdx = 0;
+  const dist = matrix.dist;
+  let totalDriveS = 0, totalDriveM = 0, totalDwellS = 0, prevIdx = 0;
   for (const t of tour) {
     const enterIdx = t.enterSide === 0 ? baseA(t.passIdx) : baseB(t.passIdx);
     const exitIdx  = t.exitSide  === 0 ? baseA(t.passIdx) : baseB(t.passIdx);
     totalDriveS += dur[prevIdx][enterIdx];
+    totalDriveM += dist[prevIdx][enterIdx];
     totalDriveS += visitDur(t.passIdx, t.enterSide, t.exitSide);
+    totalDriveM += dist[enterIdx][summit(t.passIdx)] + dist[summit(t.passIdx)][exitIdx];
     if (stops?.[t.passIdx]?.isPoi) {
       totalDwellS += stops[t.passIdx].visitDwellSec || 0;
     }
     prevIdx = exitIdx;
   }
   totalDriveS += dur[prevIdx][0];
+  totalDriveM += dist[prevIdx][0];
 
   return {
     perm: tour,
-    km: sol.total / 1000,
+    km: totalDriveM / 1000,
     h: totalDriveS / 3600,
     driveH: totalDriveS / 3600,
     dwellH: totalDwellS / 3600,
@@ -2615,6 +2665,7 @@ function bestTourGated(matrix, N, targetKm, tolerance, maxPasses, passQ, sharedF
     totalQuality: sol.quality,
     score: sol.score,
     inRange: sol.inRange,
+    targetMode: targetSpec.mode,
   };
 }
 
@@ -3435,7 +3486,14 @@ function showPlanResult(r) {
     ? `<div class="popup-meta tight">Pass quality: <strong class="tour-quality">${"★".repeat(Math.round(avgQ * 5))}</strong> <span>(avg ${avgQ.toFixed(2)})</span></div>`
     : "";
   const warn = !r.inRange
-    ? `<div class="warn">No tour within ±20% of ${r.targetKm} km. Showing closest fit.</div>` : "";
+    ? (() => {
+        const tolPct = Math.round((r.targetTol ?? 0.20) * 100);
+        if (r.targetMode === "time") {
+          return `<div class="warn">No tour within ±${tolPct}% of ${r.targetValue} h. Showing closest fit.</div>`;
+        }
+        return `<div class="warn">No tour within ±${tolPct}% of ${r.targetValue ?? r.targetKm} km. Showing closest fit.</div>`;
+      })()
+    : "";
   const routeWarning = r.routeWarning
     ? `<div class="warn">${escapeHtml(r.routeWarning)}</div>` : "";
   const statusWarning = r.statusWarning
@@ -3445,28 +3503,49 @@ function showPlanResult(r) {
   const title = r.advanced ? "Optimized selected route" : "Best tour";
   /* Time accounting — drive vs dwell vs total. Auto-discovery mode has no
      POIs and so dwellH = 0 / totalH = driveH; only show the breakdown when
-     dwell time is nonzero to keep the line concise. */
+     dwell time is nonzero to keep the line concise. In time-mode we always
+     surface total time prominently because that's what the user asked for. */
   const driveH = r.driveH ?? r.h ?? 0;
   const dwellH = r.dwellH ?? 0;
   const totalH = r.totalH ?? driveH;
-  const timeBlock = dwellH > 0
-    ? `~<strong>${fmtDuration(totalH)}</strong> total <span class="time-breakdown">(${fmtDuration(driveH)} driving + ${fmtDuration(dwellH)} on site)</span>`
+  const timeBlock = (r.targetMode === "time" || dwellH > 0)
+    ? `~<strong>${fmtDuration(totalH)}</strong> total <span class="time-breakdown">(${fmtDuration(driveH)} driving${dwellH > 0 ? ` + ${fmtDuration(dwellH)} on site` : ""})</span>`
     : `~<strong>${fmtDuration(driveH)}</strong> driving`;
   const passN = passOnly.length;
   const poiN  = stops.length - passN;
   const stopSummary = poiN > 0
     ? `<strong>${passN}</strong> pass${passN === 1 ? "" : "es"} + <strong>${poiN}</strong> POI${poiN === 1 ? "" : "s"}`
     : `<strong>${r.matched}</strong> selected pass${r.matched === 1 ? "" : "es"}`;
+  const distanceBlock = r.targetMode === "time"
+    ? `<strong>${Math.round(r.km)} km</strong>`
+    : `<strong>${Math.round(r.km)} km</strong>`;
+  const targetBadge = r.targetMode === "time"
+    ? ` <span class="target-badge">target ${r.targetValue} h</span>`
+    : ``;
   const statsLine = r.advanced
-    ? `${stopSummary} ·
-       <strong>${Math.round(r.km)} km</strong> · ${timeBlock}`
+    ? `${stopSummary} · ${distanceBlock} · ${timeBlock}`
     : poiN > 0
       ? `${stopSummary} of ${r.poolSize} candidates
          ${r.openOnly ? `(${r.totalOpen} passes shortlisted)` : ""} ·
-         <strong>${Math.round(r.km)} km</strong> · ${timeBlock}`
+         ${distanceBlock} · ${timeBlock}${targetBadge}`
       : `<strong>${r.matched}</strong> of ${r.poolSize} candidates
          ${r.openOnly ? `(out of ${r.totalOpen} projected open/restricted passes)` : ""} ·
-         <strong>${Math.round(r.km)} km</strong> · ${timeBlock}`;
+         ${distanceBlock} · ${timeBlock}${targetBadge}`;
+  /* Active POI prefs hint, when any deviates from defaults. */
+  const prefsBlock = (r.poiPrefs && (r.poiPrefs.preset || r.poiPrefs.cats.length || r.poiPrefs.themes.length || r.poiPrefs.minScore !== 6 || r.poiPrefs.maxCount !== 3))
+    ? (() => {
+        if (r.poiPrefs.preset) {
+          const lab = POI_PRESETS[r.poiPrefs.preset]?.label || r.poiPrefs.preset;
+          return `<div class="popup-meta tight">Sights: ${escapeHtml(lab)}</div>`;
+        }
+        const bits = [];
+        if (r.poiPrefs.cats.length) bits.push(`${r.poiPrefs.cats.length} cat${r.poiPrefs.cats.length === 1 ? "" : "s"}`);
+        if (r.poiPrefs.themes.length) bits.push(`themes: ${r.poiPrefs.themes.join(", ")}`);
+        bits.push(`★${r.poiPrefs.minScore}+`);
+        bits.push(`max ${r.poiPrefs.maxCount}`);
+        return `<div class="popup-meta tight">Sights filter: ${escapeHtml(bits.join(" · "))}</div>`;
+      })()
+    : "";
   const candidatePoolBlock = r.candidatePoolNote
     ? `<div class="popup-meta tight">${escapeHtml(r.candidatePoolNote)}</div>`
     : "";
@@ -3478,6 +3557,7 @@ function showPlanResult(r) {
     <div class="tour-passes">${stopList}</div>
     <div class="stats">${statsLine}</div>
     ${candidatePoolBlock}
+    ${prefsBlock}
     ${tripDateLine}
     ${qualityLine}
     ${modeNote}

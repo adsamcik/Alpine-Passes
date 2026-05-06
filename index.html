@@ -88,9 +88,23 @@
             <input id="planDate" type="date" aria-label="Trip date">
             <em class="planner-help" id="planDateHint">Pass expectations update from live dates, OSM rules, history, and clearly marked guesses.</em>
           </label>
-          <label class="distance-control">
+          <div class="target-mode-row" role="radiogroup" aria-label="Target mode">
+            <label class="seg" title="Plan around a driving distance">
+              <input type="radio" name="planTargetMode" value="distance" checked>
+              <span>By distance</span>
+            </label>
+            <label class="seg" title="Plan around a total time budget (driving + sights)">
+              <input type="radio" name="planTargetMode" value="time">
+              <span>By time</span>
+            </label>
+          </div>
+          <label class="distance-control" id="distanceControl">
             <span>Distance: <strong id="distLabel">200 km</strong> <em>(±20%)</em></span>
             <input id="planDist" type="range" min="60" max="500" step="10" value="200" aria-label="Distance in kilometers">
+          </label>
+          <label class="distance-control" id="timeControl" hidden>
+            <span>Day length: <strong id="timeLabel">6 h</strong> <em id="timeTolHint">(±0.9 h)</em></span>
+            <input id="planTime" type="range" min="2" max="16" step="0.5" value="6" aria-label="Day length in hours (driving + sights)">
           </label>
         </div>
 
@@ -104,6 +118,41 @@
             <input id="planIncludePois" type="checkbox">
             <span>Include sights <em>(blend curated POIs into the tour)</em></span>
           </label>
+          <details class="poi-prefs" id="poiPrefs" hidden>
+            <summary>
+              <span class="summary-title"><span aria-hidden="true">🎛</span> Sight preferences</span>
+              <span class="summary-subtitle" id="poiPrefsSubtitle">Default · any category · any theme · ★ 6+ · up to 3 sights</span>
+            </summary>
+            <div class="poi-prefs-body">
+              <div class="poi-prefs-row">
+                <span class="poi-prefs-label">Quick presets</span>
+                <div class="poi-prefs-presets" id="poiPresets" role="group" aria-label="Sight preset bundles">
+                  <button type="button" data-preset="family"   class="preset-chip">👨‍👩‍👧 Family day</button>
+                  <button type="button" data-preset="cultural" class="preset-chip">🏛 Cultural tour</button>
+                  <button type="button" data-preset="photo"    class="preset-chip">📸 Photo tour</button>
+                  <button type="button" data-preset="hidden"   class="preset-chip">💎 Hidden gems</button>
+                  <button type="button" data-preset="wine"     class="preset-chip">🍇 Wine &amp; food</button>
+                  <button type="button" data-preset="reset"    class="preset-chip preset-reset">↺ Reset</button>
+                </div>
+              </div>
+              <div class="poi-prefs-row">
+                <span class="poi-prefs-label">Categories <em class="planner-help inline">(empty = any)</em></span>
+                <div class="poi-prefs-chips" id="poiCatChips" role="group" aria-label="Allowed POI categories"></div>
+              </div>
+              <div class="poi-prefs-row">
+                <span class="poi-prefs-label">Themes <em class="planner-help inline">(empty = any)</em></span>
+                <div class="poi-prefs-chips" id="poiThemeChips" role="group" aria-label="Required POI themes"></div>
+              </div>
+              <label class="poi-prefs-row">
+                <span class="poi-prefs-label">Min notability: <strong id="poiMinScoreLabel">★ 6+</strong></span>
+                <input id="poiMinScore" type="range" min="5" max="10" step="1" value="6" aria-label="Minimum POI notability score">
+              </label>
+              <label class="poi-prefs-row">
+                <span class="poi-prefs-label">Max sights in tour: <strong id="poiMaxCountLabel">3</strong></span>
+                <input id="poiMaxCount" type="range" min="1" max="6" step="1" value="3" aria-label="Maximum number of POIs the planner can pick">
+              </label>
+            </div>
+          </details>
           <label class="check">
             <input id="planAdvanced" type="checkbox">
             <span>Advanced mode <em>(select exact passes)</em></span>

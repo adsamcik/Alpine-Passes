@@ -1099,11 +1099,16 @@ function makeVectorBasemap(styleUrl) {
     style: styleUrl,
     interactive: false,
     pane: "tilePane",
-    /* Keep the WebGL basemap close to Leaflet's marker-pane frame rate.
-       The bridge default is 32 ms, which makes markers visibly outrun
-       the vector canvas during drag/wheel interactions. */
-    updateInterval: 16,
-    padding: 0.25,
+    /* No throttle on the bridge's move handler — let every Leaflet
+       move event push through to the GL transform immediately. With a
+       throttle, smooth-wheel zoom firing rAF-rate move events ends up
+       at ~30 Hz GL updates (alternating frames suppressed), so the
+       basemap visibly lags markers/polylines during fast zoom. At 0,
+       GL stays in lockstep at 60 Hz. */
+    updateInterval: 0,
+    /* Smaller padding = less off-screen GL work per frame. We trade a
+       few extra renders during very fast pan for lower per-frame cost. */
+    padding: 0.15,
   });
 }
 
@@ -1145,6 +1150,7 @@ const map = L.map("map", {
      zoom and inertia drag. A shared canvas batches all vector layers into
      one draw per frame. Markers (HTML divIcons) are unaffected. */
   preferCanvas: true,
+  renderer: L.canvas({ padding: 0.5 }),
 }).setView([46.7, 10.0], 7);
 
 /* ───────────────────── Smooth wheel zoom (Google-Maps style) ─────────────────────

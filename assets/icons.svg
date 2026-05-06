@@ -43,4 +43,26 @@
     <path d="M4.5 18.5 12 5.5l7.5 13H4.5Z" fill="currentColor"/>
     <path d="M9 16.5 12 10.5l3 6H9Z" fill="var(--icon-cut, #0e1418)"/>
   </symbol>
+
+  <symbol id="alpine-state-open" viewBox="0 0 24 24">
+    <path d="M6 12.5 10.5 17 18 8.5" fill="none" stroke="var(--icon-cut, #0e1418)" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+
+  <symbol id="alpine-state-restricted" viewBox="0 0 24 24">
+    <path d="M12 6.5V13.5" fill="none" stroke="var(--icon-cut, #0e1418)" stroke-width="2.25" stroke-linecap="round"/>
+    <circle cx="12" cy="17.5" r="1.5" fill="var(--icon-cut, #0e1418)"/>
+  </symbol>
+
+  <symbol id="alpine-state-closed" viewBox="0 0 24 24">
+    <path d="M6.5 12H17.5" fill="none" stroke="var(--icon-cut, #0e1418)" stroke-width="3" stroke-linecap="round"/>
+  </symbol>
+
+  <symbol id="alpine-state-estimated" viewBox="0 0 24 24">
+    <path d="M6 12.5 10.5 17 18 8.5" fill="none" stroke="var(--icon-cut, #0e1418)" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1.5 3"/>
+  </symbol>
+
+  <symbol id="alpine-state-unknown" viewBox="0 0 24 24">
+    <path d="M9 9C9 7.5 10.25 6.5 12 6.5S15 7.5 15 9C15 11.5 12 11.5 12 14" fill="none" stroke="var(--icon-cut, #0e1418)" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="12" cy="17.5" r="1.5" fill="var(--icon-cut, #0e1418)"/>
+  </symbol>
 </svg>

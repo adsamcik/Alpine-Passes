@@ -716,18 +716,16 @@ select option:checked {
   position: absolute;
   right: -3px;
   bottom: -3px;
-  width: 18px;
-  height: 18px;
-  padding: 1px;
-  border-radius: 50%;
-  background: #10181d;
-  box-shadow: 0 2px 8px rgba(0,0,0,.45);
+  box-shadow: 0 0 0 2px #10181d, 0 2px 8px rgba(0,0,0,.45);
 }
 .status-icon {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
+  padding: 2px;
   color: var(--unknown);
   --icon-cut: #11181d;
+  border-radius: 50%;
+  background: currentColor;
   filter: drop-shadow(0 2px 7px rgba(0,0,0,.35));
 }
 .status-icon.open { color: var(--open); }
@@ -1376,4 +1374,33 @@ input[type="range"]:disabled {
   border-color: rgba(84, 209, 255, .22);
   cursor: wait;
   transform: none;
+}
+
+/* ─── Map render performance hints ────────────────────────────────────
+   Tell the compositor that map panes & marker icons will animate via
+   transform, so the browser promotes them to GPU layers ahead of time
+   instead of paying the layer-creation cost on the first move/zoom
+   event. translateZ(0) is the cross-browser way to force GPU layer
+   promotion; will-change is the modern hint. */
+.leaflet-pane,
+.leaflet-marker-icon,
+.leaflet-marker-shadow,
+.leaflet-tile-container,
+.leaflet-zoom-animated {
+  will-change: transform;
+}
+
+/* The marker pane in particular gets animated on every smooth-wheel
+   zoom frame; pinning it to its own GPU layer keeps the icon CSS
+   transforms off the main thread. */
+.leaflet-marker-pane {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* The Leaflet vector-canvas overlay redraws on canvas every frame;
+   keep it on its own GPU layer so the rest of the map doesn't have
+   to be re-composited along with it. */
+.leaflet-overlay-pane canvas {
+  transform: translateZ(0);
 }

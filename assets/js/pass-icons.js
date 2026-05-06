@@ -50,3 +50,11 @@ window.PASS_ICON_ASSETS = {
   "Passo del San Bernardino|2067": { sheet: "assets/pass-icon-sheets/top-50-sprite-02.png", col: 3, row: 4 },
   "Col de la Lombarde / Colle della Lombarda|2351": { sheet: "assets/pass-icon-sheets/top-50-sprite-02.png", col: 4, row: 4 },
 };
+
+window.PASS_SYMBOL_ASSETS = Object.fromEntries(
+  Object.entries(window.PASS_ICON_ASSETS || {}).map(([key, asset]) => [key, {
+    sheet: asset.sheet.replace("/top-50-sprite-", "/top-50-icon-sprite-"),
+    col: asset.col,
+    row: asset.row,
+  }])
+);

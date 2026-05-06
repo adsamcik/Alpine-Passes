@@ -279,27 +279,27 @@ const POI_CATEGORY_LABELS = {
   "wine-region":         "Wine region",
   "special-experience":  "Special experience",
 };
-const POI_CATEGORY_GLYPH = {
-  "mountain-summit":     "⛰",
-  "alpine-lake":         "🜄",
-  "waterfall-gorge":     "🌊",
-  "glacier":             "❄",
-  "old-town":            "🏛",
-  "castle-fortress":     "🏰",
-  "monastery-church":    "✝",
-  "scenic-railway":      "🚂",
-  "bridge-engineering":  "🌉",
-  "village":             "🏘",
-  "national-park":       "🌲",
-  "spa-wellness":        "♨",
-  "viewpoint-panorama":  "👁",
-  "museum-cultural":     "🏛",
-  "geology-cave":        "🪨",
-  "wine-region":         "🍇",
-  "special-experience":  "✨",
+const POI_CATEGORY_ICON = {
+  "mountain-summit":     "poi-mountain-summit",
+  "alpine-lake":         "poi-alpine-lake",
+  "waterfall-gorge":     "poi-waterfall-gorge",
+  "glacier":             "poi-glacier",
+  "old-town":            "poi-old-town",
+  "castle-fortress":     "poi-castle-fortress",
+  "monastery-church":    "poi-monastery-church",
+  "scenic-railway":      "poi-scenic-railway",
+  "bridge-engineering":  "poi-bridge-engineering",
+  "village":             "poi-village",
+  "national-park":       "poi-national-park",
+  "spa-wellness":        "poi-spa-wellness",
+  "viewpoint-panorama":  "poi-viewpoint-panorama",
+  "museum-cultural":     "poi-museum-cultural",
+  "geology-cave":        "poi-geology-cave",
+  "wine-region":         "poi-wine-region",
+  "special-experience":  "poi-special-experience",
 };
 function poiCategoryLabel(cat) { return POI_CATEGORY_LABELS[cat] || cat || "POI"; }
-function poiCategoryGlyph(cat) { return POI_CATEGORY_GLYPH[cat] || "📍"; }
+function poiCategoryIconId(cat) { return POI_CATEGORY_ICON[cat] || "poi-generic"; }
 
 /* Header counter for POIs (mirrors `passCount`). */
 {
@@ -323,9 +323,28 @@ const STATUS_SOURCE_META = {
   unknown:  { className: "unknown", label: "Unknown", title: "No status source" },
 };
 const ICON_SPRITE = "assets/icons.svg";
+const UI_ICON_IDS = new Set([
+  "status-open", "status-restricted", "status-closed", "status-estimated", "status-unknown",
+  "poi-generic", "not-by-car", "poi-mountain-summit", "poi-alpine-lake", "poi-waterfall-gorge",
+  "poi-glacier", "poi-old-town", "poi-castle-fortress", "poi-monastery-church", "poi-scenic-railway",
+  "poi-bridge-engineering", "poi-village", "poi-national-park", "poi-spa-wellness", "poi-viewpoint-panorama",
+  "poi-museum-cultural", "poi-geology-cave", "poi-wine-region", "poi-special-experience", "pass-generic",
+]);
 
 function iconSvg(id, className = "app-icon") {
   return `<svg class="${className}" aria-hidden="true"><use href="${ICON_SPRITE}#${id}"></use></svg>`;
+}
+
+function uiIconHtml(id, className = "app-icon", label = "") {
+  const safeId = UI_ICON_IDS.has(id) ? id : "poi-generic";
+  const aria = label
+    ? ` role="img" aria-label="${escapeHtml(label)}"`
+    : ` aria-hidden="true"`;
+  return `<span class="ui-art-icon ui-icon-${safeId} ${className}"${aria}></span>`;
+}
+
+function poiCategoryIcon(cat, className = "poi-icon") {
+  return uiIconHtml(poiCategoryIconId(cat), className, poiCategoryLabel(cat));
 }
 
 function isEstimatedStatus(status) {
@@ -1256,8 +1275,8 @@ map.on("baselayerchange", e => updateMapInfo(e.name));
 const markersBySlug = {};
 const STATE_ICON_NAMES = new Set(["open", "restricted", "closed", "estimated", "unknown"]);
 function stateIconId(state, estimated = false) {
-  if (estimated) return "alpine-state-estimated";
-  return STATE_ICON_NAMES.has(state) ? `alpine-state-${state}` : "alpine-state-unknown";
+  if (estimated) return "status-estimated";
+  return STATE_ICON_NAMES.has(state) ? `status-${state}` : "status-unknown";
 }
 function makeMarkerIcon(statusOrState, badgeNumber = null, estimated = false) {
   const view = typeof statusOrState === "string"
@@ -1268,7 +1287,7 @@ function makeMarkerIcon(statusOrState, badgeNumber = null, estimated = false) {
   const badge = badgeNumber != null ? `<div class="tour-badge">${badgeNumber}</div>` : "";
   return L.divIcon({
     className: "",
-    html: `<div class="pass-marker-wrap"><div class="pass-marker ${cls}">${iconSvg(iconId, "marker-icon")}</div>${badge}</div>`,
+    html: `<div class="pass-marker-wrap"><div class="pass-marker ${cls}">${uiIconHtml(iconId, "marker-icon-art", view.label)}</div>${badge}</div>`,
     iconSize: [24, 24], iconAnchor: [12, 12],
   });
 }
@@ -1500,12 +1519,13 @@ passCluster.addLayers(passMarkers);
    car access) are rendered with reduced opacity so users understand they
    can't be added to a tour. */
 function makePoiIcon(poi, badgeNumber = null) {
-  const glyph = poiCategoryGlyph(poi.poiCategory);
+  const categoryIcon = poiCategoryIcon(poi.poiCategory, "poi-marker-art");
+  const notByCar = isPlannablePoi(poi) ? "" : uiIconHtml("not-by-car", "poi-marker-not-car", "Not by car");
   const dim = isPlannablePoi(poi) ? "" : " dim";
   const badge = badgeNumber != null ? `<div class="tour-badge poi-tour-badge">${badgeNumber}</div>` : "";
   return L.divIcon({
     className: "",
-    html: `<div class="poi-marker-wrap"><div class="poi-marker${dim}" data-cat="${poi.poiCategory}"><span class="poi-marker-glyph">${glyph}</span></div>${badge}</div>`,
+    html: `<div class="poi-marker-wrap"><div class="poi-marker${dim}" data-cat="${poi.poiCategory}">${categoryIcon}${notByCar}</div>${badge}</div>`,
     iconSize: [22, 22], iconAnchor: [11, 11],
   });
 }
@@ -1525,14 +1545,14 @@ function buildPoiPopupHtml(poi) {
     : "";
   const planBtn = isPlannablePoi(poi)
     ? `<button class="popup-add-btn" type="button" data-poi-add="${escapeHtml(poi.id)}" aria-label="Add ${escapeHtml(poi.name)} to tour">＋ Add to selected route</button>`
-    : `<div class="popup-meta tight" title="POI is not directly reachable by car (${escapeHtml(accessLine)})">⚠ Not car-accessible — view-only on the map</div>`;
+    : `<div class="popup-meta tight" title="POI is not directly reachable by car (${escapeHtml(accessLine)})">${uiIconHtml("not-by-car", "inline-ui-icon", "Not car-accessible")} Not car-accessible — view-only on the map</div>`;
   return `
     <article class="popup poi-popup" data-poi="${escapeHtml(poi.id)}">
       ${img}
       <header class="popup-head">
         <div class="popup-head-row">
           <h3 class="popup-title">${escapeHtml(poi.name)}</h3>
-          <span class="poi-cat-badge" data-cat="${poi.poiCategory}">${poiCategoryGlyph(poi.poiCategory)} ${escapeHtml(poiCategoryLabel(poi.poiCategory))}</span>
+          <span class="poi-cat-badge" data-cat="${poi.poiCategory}">${poiCategoryIcon(poi.poiCategory, "poi-cat-icon")} ${escapeHtml(poiCategoryLabel(poi.poiCategory))}</span>
         </div>
         <div class="popup-meta">${escapeHtml(elevLine)}${escapeHtml(poi.poiRegion)}${dwellLine ? " · " + escapeHtml(dwellLine) : ""}</div>
       </header>
@@ -1618,7 +1638,7 @@ document.addEventListener("click", e => {
 /* ───────────────────────── overlays / layer control ───────────────────────── */
 const overlayLayers = {};
 overlayLayers[
-  `<span class="poi-overlay-swatch"></span>` +
+  uiIconHtml("poi-generic", "poi-overlay-swatch", "Sights / POIs") +
   `Sights / POIs <span class="overlay-meta">· ${POIS.length} curated</span>`
 ] = poiCluster;
 L.control.layers(baseLayers, overlayLayers, { position: "topright", collapsed: true }).addTo(map);
@@ -1816,7 +1836,7 @@ function renderAdvancedPoiSelection() {
   selectedPoisEl.innerHTML = selected.length
     ? selected.map(p => `
       <span class="selected-pass-chip poi-chip">
-        <span class="chip-glyph" aria-hidden="true">${poiCategoryGlyph(p.poiCategory)}</span>
+        ${poiCategoryIcon(p.poiCategory, "chip-glyph")}
         <span title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</span>
         <button type="button" data-remove-poi-id="${escapeHtml(p.id)}" aria-label="Remove ${escapeHtml(p.name)}">×</button>
       </span>`).join("")
@@ -1889,8 +1909,9 @@ function renderAdvancedPoiPicker() {
     const dwell = p.visitDwellSec ? `${(p.visitDwellSec / 3600).toFixed(1)} h visit` : "";
     return `<label class="pass-picker-row poi-picker-row${selected ? " selected" : ""}">
       <input type="checkbox" value="${escapeHtml(p.id)}"${selected ? " checked" : ""}${disabled ? " disabled" : ""}>
+      ${poiCategoryIcon(p.poiCategory, "poi-picker-art")}
       <span>
-        <span class="pass-picker-name">${poiCategoryGlyph(p.poiCategory)} ${escapeHtml(p.name)} ${qualityStarsCompact(p.quality)}</span>
+        <span class="pass-picker-name">${escapeHtml(p.name)} ${qualityStarsCompact(p.quality)}</span>
         <span class="pass-picker-meta">${escapeHtml(poiCategoryLabel(p.poiCategory))} · ${escapeHtml(p.poiRegion)}${dwell ? " · " + escapeHtml(dwell) : ""}</span>
       </span>
     </label>`;
@@ -2045,7 +2066,7 @@ function renderPoiPrefsChips() {
   const cats = Object.keys(catCounts).sort((a, b) => catCounts[b] - catCounts[a]);
   poiCatChipsEl.innerHTML = cats.map(c => {
     const active = allowedPoiCategories.has(c);
-    return `<button type="button" class="pref-chip${active ? " active" : ""}" data-cat="${escapeHtml(c)}" aria-pressed="${active}" title="${escapeHtml(poiCategoryLabel(c))}">${poiCategoryGlyph(c)} ${escapeHtml(poiCategoryLabel(c))}</button>`;
+    return `<button type="button" class="pref-chip${active ? " active" : ""}" data-cat="${escapeHtml(c)}" aria-pressed="${active}" title="${escapeHtml(poiCategoryLabel(c))}">${poiCategoryIcon(c, "pref-chip-icon")} ${escapeHtml(poiCategoryLabel(c))}</button>`;
   }).join("");
   /* Themes — curated subset only. */
   poiThemeChipsEl.innerHTML = CURATED_PREF_THEMES.map(t => {
@@ -3467,7 +3488,7 @@ function showPlanResult(r) {
     const t = r.modes[i];
     if (p.isPoi) {
       const dwell = p.visitDwellSec ? ` <span class="dwell-badge" title="Typical visit time">${(p.visitDwellSec / 3600).toFixed(1)}h</span>` : "";
-      return `<span class="tour-stop poi-stop"><span class="poi-stop-glyph" title="${escapeHtml(poiCategoryLabel(p.poiCategory))}">${poiCategoryGlyph(p.poiCategory)}</span> ${escapeHtml(p.name)}${dwell}</span>`;
+      return `<span class="tour-stop poi-stop">${poiCategoryIcon(p.poiCategory, "poi-stop-glyph")} ${escapeHtml(p.name)}${dwell}</span>`;
     }
     const modeBadge = t?.mode === "out-and-back"
       ? ` <span class="mode-badge" title="Visit summit and return same way">↻</span>`
@@ -3758,9 +3779,10 @@ function renderList() {
       const dist  = start ? `· ${Math.round(haversine(start, p))} km from ${start.name}` : "";
       const selected = advancedModeEl.checked && selectedPassIds.has(p.id);
       const listIconId = stateIconId(statusView.state, statusView.estimated);
+      const statusIcon = uiIconHtml(listIconId, `status-icon ${statusView.className}`, statusView.label);
       const listIcon = p.symbolIconAsset
-        ? `<span class="pass-list-icon-wrap">${passIconHtml(p, "pass-art-icon list symbol", "symbol")} ${iconSvg(listIconId, `status-icon ${statusView.className}`)}</span>`
-        : iconSvg(listIconId, `status-icon ${statusView.className}`);
+        ? `<span class="pass-list-icon-wrap">${passIconHtml(p, "pass-art-icon list symbol", "symbol")} ${statusIcon}</span>`
+        : statusIcon;
       return `<li data-id="${p.id}" class="${selected ? "selected" : ""}" title="${advancedModeEl.checked ? "Select this pass for the route" : "Zoom to this pass"}">
         ${listIcon}
         <span>
@@ -3820,7 +3842,7 @@ function populatePoiSidebarFilters() {
   for (const c of cats) {
     const opt = document.createElement("option");
     opt.value = c;
-    opt.textContent = `${poiCategoryGlyph(c)} ${poiCategoryLabel(c)} (${counts[c]})`;
+    opt.textContent = `${poiCategoryLabel(c)} (${counts[c]})`;
     poiCatFilterEl.appendChild(opt);
   }
   /* Regions in canonical Alpine-Passes order (matches swiss-pois.js header). */
@@ -3907,12 +3929,12 @@ function renderPoiList() {
           ? `Not directly reachable by car (${p.poiAccess.join(", ")})`
           : "Zoom to this sight";
       return `<li data-poi-id="${escapeHtml(p.id)}" class="poi-row${selected ? " selected" : ""}${notDrivable ? " not-drivable" : ""}" title="${escapeHtml(titleAttr)}">
-        <span class="poi-row-glyph" data-cat="${escapeHtml(p.poiCategory)}" aria-hidden="true">${poiCategoryGlyph(p.poiCategory)}</span>
+        <span class="poi-row-glyph" data-cat="${escapeHtml(p.poiCategory)}" aria-hidden="true">${poiCategoryIcon(p.poiCategory, "poi-row-art")}</span>
         <span>
           <div class="name">${escapeHtml(p.name)} ${qualityStarsCompact(p.quality)}</div>
           <div class="meta">${escapeHtml(elev)}${escapeHtml(poiCategoryLabel(p.poiCategory))} · ${escapeHtml(p.poiRegion)} ${escapeHtml(dwell)} ${escapeHtml(dist)}</div>
         </span>
-        ${notDrivable ? '<span class="poi-row-badge" title="Not car-accessible">⚠</span>' : ""}
+        ${notDrivable ? `<span class="poi-row-badge" title="Not car-accessible">${uiIconHtml("not-by-car", "poi-row-badge-icon", "Not car-accessible")}</span>` : ""}
       </li>`;
     }).join("");
 

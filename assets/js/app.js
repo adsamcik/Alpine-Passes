@@ -137,6 +137,9 @@ const PASSES = ALPS_INPUT.map((d, i) => {
   const fullName = d.n;
   const parts = fullName.split(/\s*\/\s*|\s*-\s*/);
   const slug = swissSlug(fullName);
+  const iconKey = `${fullName}|${d.e}`;
+  const scenicIconAsset = window.PASS_ICON_ASSETS?.[iconKey] || null;
+  const symbolIconAsset = window.PASS_SYMBOL_ASSETS?.[iconKey] || scenicIconAsset;
   return {
     id: "p" + i,
     rawName: fullName,
@@ -166,7 +169,9 @@ const PASSES = ALPS_INPUT.map((d, i) => {
     confidence: d.cf || "",
     wikiLang: d.wl || "en",
     wikiTitle: d.wt || fullName.replace(/\s+/g, "_"),
-    iconAsset: window.PASS_ICON_ASSETS?.[`${fullName}|${d.e}`] || null,
+    iconAsset: scenicIconAsset,
+    scenicIconAsset,
+    symbolIconAsset,
   };
 });
 
@@ -1325,13 +1330,16 @@ function escapeHtml(s) {
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 }
 
-function passIconHtml(p, className = "pass-art-icon") {
-  if (!p.iconAsset) return "";
-  const col = Math.max(0, Math.min(4, Number(p.iconAsset.col) || 0));
-  const row = Math.max(0, Math.min(4, Number(p.iconAsset.row) || 0));
+function passIconHtml(p, className = "pass-art-icon", variant = "scenic") {
+  const asset = variant === "symbol"
+    ? (p.symbolIconAsset || p.iconAsset)
+    : (p.scenicIconAsset || p.iconAsset || p.symbolIconAsset);
+  if (!asset) return "";
+  const col = Math.max(0, Math.min(4, Number(asset.col) || 0));
+  const row = Math.max(0, Math.min(4, Number(asset.row) || 0));
   const posX = col === 0 ? "0%" : `${col * 25}%`;
   const posY = row === 0 ? "0%" : `${row * 25}%`;
-  return `<span class="${className} lazy-pass-icon" role="img" aria-label="${escapeHtml(p.name)} icon" data-pass-icon-sheet="${escapeHtml(p.iconAsset.sheet)}" data-pass-icon-position="${posX} ${posY}"></span>`;
+  return `<span class="${className} lazy-pass-icon" role="img" aria-label="${escapeHtml(p.name)} icon" data-pass-icon-sheet="${escapeHtml(asset.sheet)}" data-pass-icon-position="${posX} ${posY}"></span>`;
 }
 
 const passIconObserver = "IntersectionObserver" in window
@@ -1672,10 +1680,12 @@ function renderAdvancedSelection() {
   selectedPassesEl.innerHTML = selected.length
     ? selected.map(p => `
       <span class="selected-pass-chip">
+        ${passIconHtml(p, "pass-art-icon chip symbol", "symbol")}
         <span title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</span>
         <button type="button" data-remove-id="${escapeHtml(p.id)}" aria-label="Remove ${escapeHtml(p.name)}">×</button>
       </span>`).join("")
     : "No passes selected.";
+  lazyLoadPassIcons(selectedPassesEl);
   refreshSelectedCounters();
   setAdvancedNote();
 }
@@ -1717,8 +1727,9 @@ function renderAdvancedPicker() {
     const status = passStatus(p);
     const label = listStatusLabel(status);
     const source = statusDisplay(status).sourceMeta.label;
-    return `<label class="pass-picker-row${selected ? " selected" : ""}">
+    return `<label class="pass-picker-row pass-picker-pass-row${selected ? " selected" : ""}">
       <input type="checkbox" value="${escapeHtml(p.id)}"${selected ? " checked" : ""}${disabled ? " disabled" : ""}>
+      ${passIconHtml(p, "pass-art-icon picker symbol", "symbol")}
       <span>
         <span class="pass-picker-name">${escapeHtml(p.name)} ${qualityStarsCompact(p.quality)}</span>
         <span class="pass-picker-meta">${p.elev} m · ${escapeHtml(label)} · ${escapeHtml(source)}</span>
@@ -1727,6 +1738,7 @@ function renderAdvancedPicker() {
   }).join("") + (items.length > shown.length
     ? `<div class="pass-picker-empty">${items.length - shown.length} more match${items.length - shown.length === 1 ? "" : "es"} — keep typing to narrow.</div>`
     : "");
+  lazyLoadPassIcons(advancedPassPickerEl);
 }
 function renderAdvancedPoiPicker() {
   if (!advancedPoiPickerEl) return;
@@ -2716,7 +2728,11 @@ async function planTour() {
      between gateways, but the *fastest road* between two open passes can
      itself run over a third pass that's currently closed.  After picking a
      tour we fetch its actual road geometry, see if it crosses any known-
-     closed pass NOT in the tour, mark those edges as Infinity, and re-plan. */
+     closed pass NOT in the tour, mark those edges as Infinity, and re-plan.
+     We additionally do segment-level retrace detection on the geometry —
+     when two distinct connector legs of the tour drive the same valley
+     road, we soft-penalise both edges and re-plan to push the optimiser
+     toward exploring new ground. */
   const closedKnown = (openOnly ? PASSES.filter(p => passStatus(p).state === "closed") : []);
   const MAX_ITER = 5;
 
@@ -2725,6 +2741,7 @@ async function planTour() {
   let chosenWaypoints = null;
   let chosenTourPasses = null;
   const blockedNames = new Set();
+  const retraceLog = [];
   let plannerMs = 0;
 
   for (let iter = 0; iter < MAX_ITER; iter++) {
@@ -2747,12 +2764,6 @@ async function planTour() {
     catch { break; }
     const latlngs = routeOut.geom.map(([lo, la]) => [la, lo]);
 
-    if (!closedKnown.length) {
-      chosen = result; chosenLatLngs = latlngs;
-      chosenWaypoints = waypoints; chosenTourPasses = tourPasses;
-      break;
-    }
-
     /* Slice polyline per leg by snapping waypoints to nearest polyline pt.
        Each pass contributes 3 legs: connect-in (prev→enter), climb (enter→summit),
        descent (summit→exit). The climb+descent legs are intentional; we only
@@ -2769,27 +2780,49 @@ async function planTour() {
     wpMatrixIdx.push(0);
 
     const blockedThisIter = [];
-    for (let leg = 0; leg < waypoints.length - 1; leg++) {
-      const a = wpIdx[leg], b = wpIdx[leg + 1];
-      const slice = latlngs.slice(Math.min(a, b), Math.max(a, b) + 1);
-      const fromM = wpMatrixIdx[leg], toM = wpMatrixIdx[leg + 1];
-      /* Skip legs internal to the same pass (enter→summit→exit). */
-      const sameP = (fromM > 0 && toM > 0)
-                     && Math.floor((fromM - 1) / 3) === Math.floor((toM - 1) / 3);
-      if (sameP) continue;
-      for (const cp of closedKnown) {
-        if (tourIds.has(cp.id)) continue;
-        if (closeToPolyline(cp, slice, 1.5)) {
-          blockedThisIter.push({ fromM, toM, name: cp.name });
+    if (closedKnown.length) {
+      for (let leg = 0; leg < waypoints.length - 1; leg++) {
+        const a = wpIdx[leg], b = wpIdx[leg + 1];
+        const slice = latlngs.slice(Math.min(a, b), Math.max(a, b) + 1);
+        const fromM = wpMatrixIdx[leg], toM = wpMatrixIdx[leg + 1];
+        /* Skip legs internal to the same pass (enter→summit→exit). */
+        const sameP = (fromM > 0 && toM > 0)
+                       && Math.floor((fromM - 1) / 3) === Math.floor((toM - 1) / 3);
+        if (sameP) continue;
+        for (const cp of closedKnown) {
+          if (tourIds.has(cp.id)) continue;
+          if (closeToPolyline(cp, slice, 1.5)) {
+            blockedThisIter.push({ fromM, toM, name: cp.name });
+          }
         }
       }
     }
 
+    /* Retrace detection: only meaningful when there's no closed-pass to
+       resolve first (closed-pass blocking changes the tour anyway), and
+       only on iterations where we still have a re-plan budget left. */
+    const retraceLegs = (blockedThisIter.length === 0 && iter < MAX_ITER - 1)
+      ? detectRetracedConnectorLegs(latlngs, wpIdx)
+      : [];
+
+    /* Always record this iteration's tour as our current best — closed-
+       pass blocking will overwrite on the next loop, retrace blocking
+       might too. If we exhaust MAX_ITER, the most-recently-recorded
+       tour is what the user sees. We override `km`/`h` with the actual
+       route's distance/duration so penalised matrix sums don't leak
+       into the displayed numbers. */
     if (blockedThisIter.length === 0) {
-      chosen = result; chosenLatLngs = latlngs;
-      chosenWaypoints = waypoints; chosenTourPasses = tourPasses;
-      break;
+      chosen = result;
+      chosen.km = routeOut.distanceKm;
+      chosen.h  = routeOut.durationH;
+      chosenLatLngs = latlngs;
+      chosenWaypoints = waypoints;
+      chosenTourPasses = tourPasses;
     }
+
+    if (blockedThisIter.length === 0 && retraceLegs.length === 0) break;
+
+    /* Apply hard infinitisation for closed-pass crossings. */
     for (const b of blockedThisIter) {
       matrix.dist[b.fromM][b.toM] = Infinity;
       matrix.dur [b.fromM][b.toM] = Infinity;
@@ -2797,9 +2830,26 @@ async function planTour() {
       matrix.dur [b.toM][b.fromM] = Infinity;
       blockedNames.add(b.name);
     }
+
+    /* Apply soft-multiplicative penalty for retraced connector legs.
+       Both edges of an overlapping pair get penalised so the DP steers
+       away from ANY tour reusing either of those two valleys; if the
+       only valid tour still uses them, the penalty stacks but never
+       infinitises, so we never lose feasibility. */
+    for (const r of retraceLegs) {
+      const fromMA = wpMatrixIdx[r.legA];
+      const toMA   = wpMatrixIdx[r.legA + 1];
+      const fromMB = wpMatrixIdx[r.legB];
+      const toMB   = wpMatrixIdx[r.legB + 1];
+      matrix.dist[fromMA][toMA] *= RETRACE_PENALTY_MULT;
+      matrix.dist[toMA][fromMA] *= RETRACE_PENALTY_MULT;
+      matrix.dist[fromMB][toMB] *= RETRACE_PENALTY_MULT;
+      matrix.dist[toMB][fromMB] *= RETRACE_PENALTY_MULT;
+      retraceLog.push(r.overlapM);
+    }
   }
 
-  console.log(`planner: ${candidates.length} candidates · ${Math.round(plannerMs)} ms total · avoided=[${[...blockedNames].join(",")}]`);
+  console.log(`planner: ${candidates.length} candidates · ${Math.round(plannerMs)} ms total · avoided=[${[...blockedNames].join(",")}] · retraceFixes=${retraceLog.length}`);
   resetPlanButton();
 
   if (!chosen) {
@@ -2847,6 +2897,96 @@ function closestPolylineIdx(wp, polyline) {
     if (d < bestD) { bestD = d; best = i; }
   }
   return best;
+}
+
+/* Segment-level retrace detection on the chosen tour's actual route
+   geometry. Densifies the polyline at fixed metre spacing, drops samples
+   into a coarse spatial grid, then for every pair of points in nearby
+   cells with index distance >1 leg checks whether they're geographically
+   on top of each other. Accumulated "shared metres" per connector-leg
+   pair tells us when two distinct connector drives use the same valley
+   road. Only connector legs (leg-index `mod 3 === 0`) are considered —
+   the climb+descent legs of a single pass are intra-pass and intentional.
+
+   Returns [{ legA, legB, overlapM }] for connector pairs whose shared
+   road length exceeds RETRACE_MIN_OVERLAP_M. */
+const RETRACE_THRESH_M = 60;       // points within this distance count as "same road"
+const RETRACE_MIN_OVERLAP_M = 800; // must share at least this many metres to count
+const RETRACE_SAMPLE_M = 200;      // densification spacing
+const RETRACE_PENALTY_MULT = 1.6;  // multiply both shared edges' cost per iter
+function detectRetracedConnectorLegs(latlngs, wpIdx) {
+  if (!latlngs.length || wpIdx.length < 2) return [];
+  const numLegs = wpIdx.length - 1;
+
+  /* Step 1: assign each polyline point to its leg. */
+  const legByIdx = new Int16Array(latlngs.length);
+  for (let leg = 0; leg < numLegs; leg++) {
+    const lo = Math.min(wpIdx[leg], wpIdx[leg+1]);
+    const hi = Math.max(wpIdx[leg], wpIdx[leg+1]);
+    for (let k = lo; k <= hi; k++) legByIdx[k] = leg;
+  }
+
+  /* Step 2: sample at ~RETRACE_SAMPLE_M spacing on connector legs only. */
+  const samples = [];
+  let acc = 0;
+  for (let i = 0; i < latlngs.length; i++) {
+    const leg = legByIdx[i];
+    const isConnector = (leg % 3) === 0;
+    if (i === 0) {
+      if (isConnector) samples.push({ idx: 0, lat: latlngs[0][0], lon: latlngs[0][1], leg });
+      continue;
+    }
+    const d = haversine(
+      { lat: latlngs[i-1][0], lon: latlngs[i-1][1] },
+      { lat: latlngs[i][0],   lon: latlngs[i][1]   }
+    ) * 1000;
+    acc += d;
+    if (acc >= RETRACE_SAMPLE_M) {
+      acc = 0;
+      if (isConnector) samples.push({ idx: i, lat: latlngs[i][0], lon: latlngs[i][1], leg });
+    }
+  }
+
+  /* Step 3: spatial grid for collision detection (~111 m at the equator,
+     ~75 m at 46° latitude — keeps neighbour cells inexpensive). */
+  const GRID = 0.001;
+  const grid = new Map();
+  for (const p of samples) {
+    const key = Math.floor(p.lat / GRID) + "," + Math.floor(p.lon / GRID);
+    let bucket = grid.get(key);
+    if (!bucket) { bucket = []; grid.set(key, bucket); }
+    bucket.push(p);
+  }
+
+  /* Step 4: accumulate overlap (metres) per leg-pair. */
+  const overlapByPair = new Map();
+  for (const p of samples) {
+    const lk = Math.floor(p.lat / GRID);
+    const ok = Math.floor(p.lon / GRID);
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        const cell = grid.get((lk + dx) + "," + (ok + dy));
+        if (!cell) continue;
+        for (const q of cell) {
+          if (q.idx <= p.idx) continue;
+          if (Math.abs(q.leg - p.leg) <= 1) continue;     // skip same / adjacent legs
+          const dM = haversine(p, q) * 1000;
+          if (dM > RETRACE_THRESH_M) continue;
+          const key = Math.min(p.leg, q.leg) + "," + Math.max(p.leg, q.leg);
+          overlapByPair.set(key, (overlapByPair.get(key) || 0) + RETRACE_SAMPLE_M);
+        }
+      }
+    }
+  }
+
+  /* Step 5: filter pairs with significant overlap. */
+  const result = [];
+  for (const [pairKey, overlap] of overlapByPair) {
+    if (overlap < RETRACE_MIN_OVERLAP_M) continue;
+    const [a, b] = pairKey.split(",").map(Number);
+    result.push({ legA: a, legB: b, overlapM: Math.round(overlap) });
+  }
+  return result;
 }
 
 function showPlanResult(r) {
@@ -3090,8 +3230,8 @@ function renderList() {
       const sourceLabel = statusView.sourceMeta.label;
       const dist  = start ? `· ${Math.round(haversine(start, p))} km from ${start.name}` : "";
       const selected = advancedModeEl.checked && selectedPassIds.has(p.id);
-      const listIcon = p.iconAsset
-        ? `<span class="pass-list-icon-wrap">${passIconHtml(p, "pass-art-icon list")} ${iconSvg("alpine-status", `status-icon ${statusView.className}`)}</span>`
+      const listIcon = p.symbolIconAsset
+        ? `<span class="pass-list-icon-wrap">${passIconHtml(p, "pass-art-icon list symbol", "symbol")} ${iconSvg("alpine-status", `status-icon ${statusView.className}`)}</span>`
         : iconSvg("alpine-status", `status-icon ${statusView.className}`);
       return `<li data-id="${p.id}" class="${selected ? "selected" : ""}" title="${advancedModeEl.checked ? "Select this pass for the route" : "Zoom to this pass"}">
         ${listIcon}

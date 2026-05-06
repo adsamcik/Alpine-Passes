@@ -833,114 +833,16 @@ select option:checked {
   box-shadow: inset 0 0 90px rgba(0,0,0,.28);
   z-index: 450;
 }
-.leaflet-container { background: #0d1418; }
-.pass-marker {
-  width: 24px; height: 24px; border-radius: 50%;
-  border: 3px solid rgba(255,255,255,.95);
-  box-shadow: 0 8px 22px rgba(0,0,0,.42), 0 0 0 1px rgba(0,0,0,.28);
-  display: flex; align-items: center; justify-content: center;
-  color: var(--unknown);
-  --icon-cut: #10161a;
-  overflow: hidden;
+.maplibregl-map { background: #0d1418; font: inherit; }
+.maplibregl-ctrl button {
+  color: #172027;
 }
-.pass-marker.open       { background: var(--open); color: var(--open); }
-.pass-marker.restricted { background: var(--restricted); color: var(--restricted); }
-.pass-marker.closed     { background: var(--closed); color: var(--closed); }
-.pass-marker.unknown    { background: var(--unknown); color: var(--unknown); }
-.pass-marker.estimated  {
-  outline: 2px dashed rgba(255,255,255,.9);
-  outline-offset: 2px;
-  box-shadow: var(--shadow);
+.maplibregl-ctrl-attrib {
+  color: #2d3a42;
 }
-.marker-icon {
-  width: 24px;
-  height: 24px;
-  transform: scale(1.18);
+.maplibregl-ctrl-attrib a {
+  color: #075985;
 }
-.marker-icon-art {
-  width: 22px;
-  height: 22px;
-  filter: drop-shadow(0 1px 1px rgba(0,0,0,.32));
-}
-.start-marker {
-  width: 22px; height: 22px; background: #ffd166; color: #1a1300;
-  border: 3px solid #1a1300; border-radius: 4px; box-shadow: var(--shadow);
-  display: flex; align-items: center; justify-content: center;
-  font: 800 12px/1 system-ui,sans-serif; transform: rotate(45deg);
-}
-.start-marker > span { transform: rotate(-45deg); }
-.pass-marker-wrap { position: relative; width: 24px; height: 24px; }
-.tour-badge {
-  position: absolute; top: -8px; right: -8px;
-  width: 18px; height: 18px; border-radius: 50%;
-  background: #ffd166; color: #1a1300;
-  font: 700 11px/18px system-ui,sans-serif; text-align: center;
-  border: 2px solid #1a1300; box-shadow: 0 2px 4px rgba(0,0,0,.5);
-}
-
-/* ─────────────────────── POI markers + cluster ─────────────────────── */
-.poi-marker-wrap { position: relative; width: 22px; height: 22px; }
-.poi-marker {
-  width: 22px; height: 22px; border-radius: 50% 50% 50% 0;
-  transform: rotate(-45deg);
-  background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%);
-  border: 2px solid rgba(255,255,255,.92);
-  box-shadow: 0 5px 14px rgba(76,29,149,.55), 0 0 0 1px rgba(0,0,0,.32);
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer;
-  position: relative;
-}
-.poi-marker.dim {
-  /* Non-car POIs: visible on the map but visually de-emphasised, since
-     they cannot be added to a route. */
-  background: linear-gradient(135deg, #94a3b8 0%, #475569 100%);
-  opacity: .6;
-}
-.poi-marker-glyph {
-  transform: rotate(45deg);
-  font-size: 12px; line-height: 1;
-  color: #fff;
-  filter: drop-shadow(0 1px 1px rgba(0,0,0,.55));
-}
-.poi-marker-art {
-  width: 17px;
-  height: 17px;
-  transform: rotate(45deg);
-  filter: drop-shadow(0 1px 1px rgba(0,0,0,.55));
-}
-.poi-marker-not-car {
-  position: absolute;
-  right: -7px;
-  bottom: -6px;
-  width: 14px;
-  height: 14px;
-  transform: rotate(45deg);
-  border-radius: 50%;
-  background-color: #1f2937;
-  box-shadow: 0 0 0 2px rgba(255,255,255,.92), 0 2px 6px rgba(0,0,0,.45);
-}
-.poi-tour-badge {
-  /* Re-anchor for the rotated POI marker. */
-  top: -10px; right: -10px;
-  background: #c084fc; color: #20063e;
-  border-color: #20063e;
-}
-.poi-cluster {
-  width: 34px; height: 34px; border-radius: 50%;
-  background: rgba(124,58,237,.85);
-  border: 2px solid rgba(255,255,255,.92);
-  display: flex; align-items: center; justify-content: center;
-  font: 700 12px/1 system-ui,sans-serif; color: #fff;
-  box-shadow: 0 4px 12px rgba(76,29,149,.55);
-}
-.poi-overlay-swatch {
-  width: 18px;
-  height: 18px;
-  margin-right: 8px;
-  vertical-align: middle;
-  filter: drop-shadow(0 1px 3px rgba(0,0,0,.45));
-}
-
 /* ─────────────────────── POI popup styling ─────────────────────── */
 .poi-popup .popup-head {
   padding: 10px 14px 4px;
@@ -1195,15 +1097,22 @@ select option:checked {
 }
 .time-breakdown { color: var(--fg-dim); font-size: 11px; font-weight: 400; }
 
-.leaflet-popup-content-wrapper {
+.maplibregl-popup-content {
+  padding: 0;
   background: rgba(20,28,34,.98); color: var(--fg);
   border: 1px solid var(--border-strong); border-radius: 16px;
   box-shadow: var(--shadow);
+  overflow: hidden;
 }
-.leaflet-popup-tip { background: var(--bg-2); }
-.leaflet-popup-content {
-  margin: 0;
-  width: min(400px, calc(100vw - 48px)) !important;
+.maplibregl-popup-tip { border-top-color: var(--bg-2); border-bottom-color: var(--bg-2); }
+.maplibregl-popup-close-button {
+  color: var(--fg);
+  font-size: 20px;
+  padding: 4px 8px;
+  z-index: 2;
+}
+.maplibregl-popup-close-button:hover {
+  background: rgba(255,255,255,.08);
 }
 .popup { overflow: hidden; border-radius: 13px; }
 .popup-img {
@@ -1450,10 +1359,51 @@ select option:checked {
   font-weight: 600;
 }
 
-/* Layer-control overlay rows (the POI swatch is defined earlier, with the
-   POI-marker visual identity, so the rows match the on-map markers). */
+/* MapLibre layer/style control. */
 .overlay-meta { color: var(--fg-dim); font-size: 11px; }
-.leaflet-control-layers-overlays label { display: flex; align-items: center; }
+.alpine-layer-control {
+  min-width: 172px;
+  padding: 8px;
+  background: rgba(20,28,34,.94);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-soft);
+}
+.alpine-layer-control label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  font-size: 12px;
+}
+.alpine-layer-control label + label { margin-top: 7px; }
+.alpine-layer-control label > span:first-child {
+  color: var(--fg-dim);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.alpine-layer-control select {
+  width: 100%;
+  min-width: 0;
+  margin-left: auto;
+  padding: 4px 6px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  color: var(--fg);
+  background: var(--bg-3);
+}
+.alpine-layer-control .check {
+  justify-content: flex-start;
+}
+.alpine-layer-control .check span {
+  color: var(--fg);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
 
 /* Compact planner — the planner is open by default and was eating most
    of the sidebar height, pushing the pass list below the fold even on
@@ -1465,10 +1415,6 @@ select option:checked {
 .planner-card.compact { gap: 6px; }
 .planner-body label.check { padding: 7px 10px; }
 .planner-body label > span { margin-bottom: 3px; }
-
-/* Cluster markers — match dark theme */
-.marker-cluster div { background-color: rgba(76,201,240,.85); color:#0b0e10; font-weight: 700; }
-.marker-cluster     { background-color: rgba(76,201,240,.30); }
 
 .site-footer {
   grid-area: foot; padding: 8px 14px; border-top: 1px solid var(--border);
@@ -1569,16 +1515,15 @@ body.picking #map { cursor: crosshair; }
   }
 
   /* Bigger zoom buttons for finger taps. */
-  .leaflet-control-zoom a {
+  .maplibregl-ctrl button {
     width: 38px;
     height: 38px;
-    line-height: 36px;
     font-size: 22px;
   }
 
   /* Popup never exceeds the viewport; scrolls internally when content
      is taller than the available space. */
-  .leaflet-popup-content {
+  .maplibregl-popup-content {
     max-height: calc(100dvh - 100px);
     overflow-y: auto;
     overscroll-behavior: contain;
@@ -1611,49 +1556,10 @@ input[type="range"]:disabled {
   transform: none;
 }
 
-/* ─── Map render performance hints ────────────────────────────────────
-   Tell the compositor that map panes will animate via transform, so the
-   browser promotes them to GPU layers ahead of time instead of paying
-   the layer-creation cost on the first move/zoom event. We deliberately
-   DO NOT promote individual marker icons — with 500+ markers each in
-   their own GPU layer the compositor memory cost is very high; the
-   parent pane's layer covers them all. */
-.leaflet-pane,
-.leaflet-tile-container,
-.leaflet-zoom-animated {
+/* MapLibre's canvas is the hot render surface; keep it compositor-friendly. */
+.maplibregl-canvas {
   will-change: transform;
 }
-
-/* The marker pane in particular gets animated on every smooth-wheel
-   zoom frame; pinning it to its own GPU layer keeps the icon CSS
-   transforms off the main thread. */
-.leaflet-marker-pane {
-  transform: translateZ(0);
-  backface-visibility: hidden;
-}
-
-/* The Leaflet vector-canvas overlay redraws on canvas every frame;
-   keep it on its own GPU layer so the rest of the map doesn't have
-   to be re-composited along with it. */
-.leaflet-overlay-pane canvas {
-  transform: translateZ(0);
-}
-
-/* While the map is panning or zooming, suppress expensive marker
-   visuals. box-shadow on pass markers + drop-shadow filters on POI
-   glyphs are GPU-composited on every frame they're visible. Toggling
-   them off via a body-level `map-moving` class (set on movestart/
-   zoomstart, cleared on moveend/zoomend) restores them at rest. */
-.map-moving .pass-marker,
-.map-moving .start-marker,
-.map-moving .tour-badge,
-.map-moving .poi-marker {
-  box-shadow: none;
-}
-.map-moving .poi-marker-glyph {
-  filter: none;
-}
-
 
 /* ─── Tour planner redesign ──────────────────────────────────────────
    Keeps all JS-targeted IDs intact while moving the planner into a

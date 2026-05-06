@@ -585,7 +585,11 @@ function passStatus(p) {
   return p._displayStatus || p._status || defaultStatus(p);
 }
 
-let plannedLayer = null, plannedStartMarker = null, plannedTourIds = [];
+let plannedTourIds = [];
+let plannedStart = null;
+let plannedRouteActive = false;
+let plannedRouteCoords = null;
+let plannedRouteFallback = false;
 
 function plannedBadgeNumber(p) {
   const idx = plannedTourIds.indexOf(p.id);
@@ -593,21 +597,15 @@ function plannedBadgeNumber(p) {
 }
 
 function updatePassMarkerIcon(p) {
-  if (!p?._marker) return;
-  const status = passStatus(p);
-  const next = `${statusSignature(status)}:${plannedBadgeNumber(p) || ""}`;
-  if (p._marker._currentState !== next) {
-    p._marker.setIcon(makeMarkerIcon(status, plannedBadgeNumber(p)));
-    p._marker._currentState = next;
-  }
-  p._marker._popupBuilt = false;
+  if (!p) return;
+  updateMapSources();
 }
 
 function refreshProjectedStatuses({ updateMarkers = false } = {}) {
   const tripDate = currentTripDate();
   PASSES.forEach(p => { p._displayStatus = projectedStatusForPass(p, tripDate); });
   if (!updateMarkers) return;
-  PASSES.forEach(updatePassMarkerIcon);
+  updateMapSources();
   if (typeof syncMarkerVisibility === "function") syncMarkerVisibility();
   if (typeof renderList === "function") renderList();
   if (typeof renderAdvancedSelection === "function") renderAdvancedSelection();
@@ -1104,40 +1102,15 @@ async function fetchWiki(title, primaryLang) {
   return out;
 }
 
-/* ───────────────────── vector basemap (MapLibre GL) ─────────────────────
-   MapLibre renders OpenFreeMap vector styles inside Leaflet so existing
-   markers, clustering, popups, routes, and controls keep working unchanged. */
+/* ───────────────────── native vector map (MapLibre GL) ─────────────────────
+   MapLibre now owns both the basemap and application overlays. Passes, POIs,
+   clusters, start markers and planned routes are GeoJSON sources/layers instead
+   of DOM marker overlays, keeping all map rendering in one WebGL stack. */
 const VECTOR_BASEMAPS = [
   { name: "Liberty vector",  style: "https://tiles.openfreemap.org/styles/liberty" },
   { name: "Bright vector",   style: "https://tiles.openfreemap.org/styles/bright" },
   { name: "Positron vector", style: "https://tiles.openfreemap.org/styles/positron" },
 ];
-
-function makeVectorBasemap(styleUrl) {
-  return L.maplibreGL({
-    style: styleUrl,
-    interactive: false,
-    pane: "tilePane",
-    /* No throttle on the bridge's move handler — let every Leaflet
-       move event push through to the GL transform immediately. With a
-       throttle, smooth-wheel zoom firing rAF-rate move events ends up
-       at ~30 Hz GL updates (alternating frames suppressed), so the
-       basemap visibly lags markers/polylines during fast zoom. At 0,
-       GL stays in lockstep at 60 Hz. */
-    updateInterval: 0,
-    /* Smaller padding = less off-screen GL work per frame. We trade a
-       few extra renders during very fast pan for lower per-frame cost. */
-    padding: 0.15,
-  });
-}
-
-function buildVectorBaseLayers() {
-  const layers = {};
-  VECTOR_BASEMAPS.forEach(({ name, style }) => {
-    layers[name] = makeVectorBasemap(style);
-  });
-  return layers;
-}
 
 function updateMapInfo(styleName) {
   const el = document.getElementById("mapInfo");
@@ -1145,175 +1118,445 @@ function updateMapInfo(styleName) {
   el.innerHTML = `Vector map: <strong>${styleName}</strong> · OpenFreeMap/OpenMapTiles · WebGL`;
 }
 
+const defaultBaseLayerName = VECTOR_BASEMAPS[0].name;
+let currentBaseLayerName = defaultBaseLayerName;
 
-const map = L.map("map", {
-  zoomControl: true,
+const map = new maplibregl.Map({
+  container: "map",
+  style: VECTOR_BASEMAPS[0].style,
+  center: [10.0, 46.7],
+  zoom: 7,
   minZoom: 4,
   maxZoom: 18,
-  /* Smooth interactions enabled now that maplibre-gl-leaflet 0.1.3 keeps
-     the WebGL basemap in sync during pan/zoom animations (the older 0.0.22
-     bridge desynced and we used to force everything synchronous). */
-  zoomAnimation: true,
-  markerZoomAnimation: true,
-  fadeAnimation: true,
-  inertia: true,
-  inertiaDeceleration: 2200,
-  /* Fractional zoom — used by double-click and keyboard zoom. Wheel zoom
-     is handled by our smooth-zoom rAF loop below. */
-  zoomSnap: 0,
-  zoomDelta: 0.5,
-  scrollWheelZoom: false,
-  /* Canvas renderer for vector layers (polylines, polygons). The planned
-     tour can easily be 3000+ polyline points; SVG's per-element layout
-     cost on every pan/zoom event creates visible jank during smooth-wheel
-     zoom and inertia drag. A shared canvas batches all vector layers into
-     one draw per frame. Markers (HTML divIcons) are unaffected. */
-  preferCanvas: true,
-  renderer: L.canvas({ padding: 0.5 }),
-}).setView([46.7, 10.0], 7);
+  attributionControl: true,
+});
 
-/* ───────────────────── Smooth wheel zoom (Google-Maps style) ─────────────────────
-   Replaces Leaflet's default stepped wheel zoom with continuous, frame-by-frame
-   interpolation toward an accumulated target zoom. Uses Leaflet's internal
-   `_move(center, zoom)` per rAF (events on) so that:
-     · The maplibre bridge's `zoom`/`move` listeners fire each frame and the
-       WebGL basemap follows along seamlessly via setCenter/setZoom.
-     · Per-marker `zoom` handlers reposition icons each frame (smooth visual).
-     · `zoomstart`/`zoomend` are NOT spammed, so MarkerClusterGroup doesn't
-       reflow 60 times/sec — only when the gesture settles.
-   At the end of the gesture, `_moveEnd(true)` fires zoomend+moveend exactly
-   once, letting the cluster, route polylines and bridge cleanly commit. */
-const SMOOTH_WHEEL_SENSITIVITY = 0.0035;  // wheel-pixels → target zoom-levels
-const SMOOTH_WHEEL_LERP = 0.30;           // 0..1 approach factor per frame
-const SMOOTH_WHEEL_END_DELAY = 200;       // ms after last wheel before settling
-const SMOOTH_WHEEL_STOP = 0.005;          // |goal-cur| below this is "done"
-
-let _smoothActive = false;
-let _smoothGoalZoom = 0;
-let _smoothCursorPoint = null;
-let _smoothCenterPoint = null;
-let _smoothAnchorLatLng = null;
-let _smoothRAF = 0;
-let _smoothEndTimer = 0;
-
-function _smoothBegin(e) {
-  _smoothActive = true;
-  map.stop();
-  _smoothCenterPoint = map.getSize().divideBy(2);
-  _smoothCursorPoint = map.mouseEventToContainerPoint(e);
-  _smoothAnchorLatLng = map.containerPointToLatLng(_smoothCursorPoint);
-  _smoothGoalZoom = map.getZoom();
-  map._moveStart(true, false);
-}
-
-function _smoothFinalise() {
-  if (!_smoothActive) return;
-  _smoothActive = false;
-  if (_smoothRAF) { cancelAnimationFrame(_smoothRAF); _smoothRAF = 0; }
-  map._moveEnd(true);
-}
-
-function _smoothTick() {
-  _smoothRAF = 0;
-  if (!_smoothActive) return;
-  const cur = map.getZoom();
-  const diff = _smoothGoalZoom - cur;
-  if (Math.abs(diff) < SMOOTH_WHEEL_STOP) return;
-
-  let next = cur + diff * SMOOTH_WHEEL_LERP;
-  next = Math.round(next * 1000) / 1000;
-
-  /* Keep _smoothAnchorLatLng under _smoothCursorPoint at the new zoom by
-     projecting the anchor at `next`, subtracting cursor offset from view
-     centre, and unprojecting to get the new map centre. */
-  const cursorOffset = _smoothCursorPoint.subtract(_smoothCenterPoint);
-  const newCenter = map.unproject(
-    map.project(_smoothAnchorLatLng, next).subtract(cursorOffset),
-    next
-  );
-  map._move(newCenter, next);
-  _smoothRAF = requestAnimationFrame(_smoothTick);
-}
-
-map.getContainer().addEventListener("wheel", e => {
-  if (!e.deltaY) return;
-  const at = map.getZoom();
-  const minZ = map.getMinZoom();
-  const maxZ = map.getMaxZoom();
-  /* At a hard zoom limit in the wheel direction → leave default scroll
-     behaviour alone so the page can scroll as expected. */
-  const goalAtLimit = (at <= minZ && e.deltaY > 0) || (at >= maxZ && e.deltaY < 0);
-  if (goalAtLimit) return;
-
-  e.preventDefault();
-  if (!_smoothActive) _smoothBegin(e);
-
-  /* Refresh the cursor anchor each event — handles cursor moving between
-     wheel ticks (e.g. trackpad gestures with built-in jitter). */
-  _smoothCursorPoint = map.mouseEventToContainerPoint(e);
-  _smoothAnchorLatLng = map.containerPointToLatLng(_smoothCursorPoint);
-
-  const lineMul = e.deltaMode === 1 ? 16 : 1;       // Firefox line-mode
-  /* Browser-pinch on trackpad arrives as wheel + ctrlKey with much larger
-     deltaY values; tone it down so a pinch isn't a 3-level jump. */
-  const ctrlMul = e.ctrlKey ? 0.5 : 1;
-  const delta = -e.deltaY * lineMul * ctrlMul * SMOOTH_WHEEL_SENSITIVITY;
-
-  _smoothGoalZoom = Math.max(minZ, Math.min(maxZ, _smoothGoalZoom + delta));
-
-  if (!_smoothRAF) _smoothRAF = requestAnimationFrame(_smoothTick);
-  clearTimeout(_smoothEndTimer);
-  _smoothEndTimer = setTimeout(_smoothFinalise, SMOOTH_WHEEL_END_DELAY);
-}, { passive: false });
-
-const baseLayers = buildVectorBaseLayers();
-const defaultBaseLayerName = VECTOR_BASEMAPS[0].name;
-baseLayers[defaultBaseLayerName].addTo(map);
+map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-left");
 updateMapInfo(defaultBaseLayerName);
-map.on("baselayerchange", e => updateMapInfo(e.name));
 
-const markersBySlug = {};
 const STATE_ICON_NAMES = new Set(["open", "restricted", "closed", "estimated", "unknown"]);
 function stateIconId(state, estimated = false) {
   if (estimated) return "status-estimated";
   return STATE_ICON_NAMES.has(state) ? `status-${state}` : "status-unknown";
 }
-function makeMarkerIcon(statusOrState, badgeNumber = null, estimated = false) {
-  const view = typeof statusOrState === "string"
-    ? { state: statusOrState, className: `${statusOrState}${estimated ? " estimated" : ""}`, estimated }
-    : statusDisplay(statusOrState);
-  const cls = view.className;
-  const iconId = stateIconId(view.state, view.estimated);
-  const badge = badgeNumber != null ? `<div class="tour-badge">${badgeNumber}</div>` : "";
-  return L.divIcon({
-    className: "",
-    html: `<div class="pass-marker-wrap"><div class="pass-marker ${cls}">${uiIconHtml(iconId, "marker-icon-art", view.label)}</div>${badge}</div>`,
-    iconSize: [24, 24], iconAnchor: [12, 12],
+
+const PASS_SOURCE_ID = "alpine-passes";
+const POI_SOURCE_ID = "swiss-pois";
+const ROUTE_SOURCE_ID = "planned-route";
+const START_SOURCE_ID = "planned-start";
+const PASS_INTERACTIVE_LAYERS = ["pass-unclustered", "pass-tour-badge"];
+const POI_INTERACTIVE_LAYERS = ["poi-unclustered", "poi-tour-badge"];
+const EMPTY_FEATURE_COLLECTION = { type: "FeatureCollection", features: [] };
+let mapLayersReady = false;
+let poiLayerVisible = true;
+let activePopup = null;
+let passUiReady = false;
+let poiUiReady = false;
+
+function statusColorExpression() {
+  return [
+    "match", ["get", "state"],
+    "open", "#3ddc84",
+    "restricted", "#ffb020",
+    "closed", "#ef4444",
+    "#8a96a0",
+  ];
+}
+
+function passFeature(p) {
+  const status = passStatus(p);
+  const view = statusDisplay(status);
+  const badge = plannedBadgeNumber(p) || 0;
+  return {
+    type: "Feature",
+    id: p.id,
+    geometry: { type: "Point", coordinates: [p.lon, p.lat] },
+    properties: {
+      id: p.id,
+      kind: "pass",
+      name: p.name,
+      alt: p.alt || "",
+      elev: p.elev,
+      state: view.state,
+      estimated: !!view.estimated,
+      quality: p.quality || 0,
+      tourIndex: badge,
+      tourLabel: badge ? String(badge) : "",
+    },
+  };
+}
+
+function poiFeature(p) {
+  const badge = plannedBadgeNumber(p) || 0;
+  return {
+    type: "Feature",
+    id: p.id,
+    geometry: { type: "Point", coordinates: [p.lon, p.lat] },
+    properties: {
+      id: p.id,
+      kind: "poi",
+      name: p.name,
+      category: p.poiCategory || "",
+      plannable: isPlannablePoi(p),
+      quality: p.quality || 0,
+      tourIndex: badge,
+      tourLabel: badge ? String(badge) : "",
+    },
+  };
+}
+
+function featureCollection(items, mapper) {
+  return { type: "FeatureCollection", features: items.map(mapper) };
+}
+
+function currentPassMapFeatures() {
+  const items = passUiReady ? PASSES.filter(passesAllFilters) : PASSES;
+  return featureCollection(items, passFeature);
+}
+
+function currentPoiMapFeatures() {
+  if (!poiLayerVisible) return EMPTY_FEATURE_COLLECTION;
+  if (!poiUiReady) return featureCollection(POIS, poiFeature);
+  const q = (poiSearchEl?.value || "").trim().toLowerCase();
+  return featureCollection(
+    POIS.filter(p => poiPassesAllFilters(p)).filter(p => !q || poiSearchMatches(p, q)),
+    poiFeature
+  );
+}
+
+function setSourceData(sourceId, data) {
+  const source = map.getSource(sourceId);
+  if (source) source.setData(data);
+}
+
+function updateMapSources() {
+  if (!mapLayersReady) return;
+  setSourceData(PASS_SOURCE_ID, currentPassMapFeatures());
+  setSourceData(POI_SOURCE_ID, currentPoiMapFeatures());
+  updatePlannedTourLayers();
+}
+
+function addCircleLayer(layer) {
+  if (!map.getLayer(layer.id)) map.addLayer(layer);
+}
+
+function setupMapLayers() {
+  if (!map.getSource(PASS_SOURCE_ID)) {
+    map.addSource(PASS_SOURCE_ID, {
+      type: "geojson",
+      data: currentPassMapFeatures(),
+      cluster: true,
+      clusterRadius: 50,
+      clusterMaxZoom: 10,
+    });
+  }
+  if (!map.getSource(POI_SOURCE_ID)) {
+    map.addSource(POI_SOURCE_ID, {
+      type: "geojson",
+      data: currentPoiMapFeatures(),
+      cluster: true,
+      clusterRadius: 60,
+      clusterMaxZoom: 10,
+    });
+  }
+  if (!map.getSource(ROUTE_SOURCE_ID)) {
+    map.addSource(ROUTE_SOURCE_ID, { type: "geojson", data: EMPTY_FEATURE_COLLECTION });
+  }
+  if (!map.getSource(START_SOURCE_ID)) {
+    map.addSource(START_SOURCE_ID, { type: "geojson", data: EMPTY_FEATURE_COLLECTION });
+  }
+
+  addCircleLayer({
+    id: "planned-route-shadow",
+    type: "line",
+    source: ROUTE_SOURCE_ID,
+    paint: { "line-color": "#000", "line-width": 11, "line-opacity": 0.45, "line-blur": 1 },
+    layout: { "line-cap": "round", "line-join": "round" },
+  });
+  addCircleLayer({
+    id: "planned-route-halo",
+    type: "line",
+    source: ROUTE_SOURCE_ID,
+    paint: { "line-color": "#fff", "line-width": 7, "line-opacity": 0.9 },
+    layout: { "line-cap": "round", "line-join": "round" },
+  });
+  addCircleLayer({
+    id: "planned-route-core",
+    type: "line",
+    source: ROUTE_SOURCE_ID,
+    paint: {
+      "line-color": "#ffd166",
+      "line-width": ["case", ["get", "fallback"], 3.5, 5],
+      "line-opacity": ["case", ["get", "fallback"], 0.85, 1],
+    },
+    layout: { "line-cap": "round", "line-join": "round" },
+  });
+
+  addCircleLayer({
+    id: "pass-clusters",
+    type: "circle",
+    source: PASS_SOURCE_ID,
+    filter: ["has", "point_count"],
+    paint: {
+      "circle-color": "rgba(76,201,240,.85)",
+      "circle-radius": ["step", ["get", "point_count"], 18, 25, 22, 80, 27],
+      "circle-stroke-color": "rgba(255,255,255,.85)",
+      "circle-stroke-width": 2,
+    },
+  });
+  addCircleLayer({
+    id: "pass-cluster-count",
+    type: "symbol",
+    source: PASS_SOURCE_ID,
+    filter: ["has", "point_count"],
+    layout: { "text-field": ["get", "point_count_abbreviated"], "text-size": 12 },
+    paint: { "text-color": "#0b0e10" },
+  });
+  addCircleLayer({
+    id: "pass-unclustered",
+    type: "circle",
+    source: PASS_SOURCE_ID,
+    filter: ["!", ["has", "point_count"]],
+    paint: {
+      "circle-color": statusColorExpression(),
+      "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 5, 8, 8, 12, 11],
+      "circle-stroke-color": ["case", ["get", "estimated"], "#fff", "rgba(255,255,255,.95)"],
+      "circle-stroke-width": ["case", ["get", "estimated"], 3.5, 2.5],
+      "circle-opacity": 0.98,
+    },
+  });
+  addCircleLayer({
+    id: "pass-tour-ring",
+    type: "circle",
+    source: PASS_SOURCE_ID,
+    filter: ["all", ["!", ["has", "point_count"]], [">", ["get", "tourIndex"], 0]],
+    paint: {
+      "circle-color": "rgba(255,209,102,.18)",
+      "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 13, 12, 18],
+      "circle-stroke-color": "#ffd166",
+      "circle-stroke-width": 3,
+    },
+  });
+  addCircleLayer({
+    id: "pass-tour-badge",
+    type: "symbol",
+    source: PASS_SOURCE_ID,
+    filter: ["all", ["!", ["has", "point_count"]], [">", ["get", "tourIndex"], 0]],
+    layout: {
+      "text-field": ["get", "tourLabel"],
+      "text-size": 11,
+      "text-offset": [1.0, -1.0],
+      "text-allow-overlap": true,
+      "text-ignore-placement": true,
+    },
+    paint: {
+      "text-color": "#1a1300",
+      "text-halo-color": "#ffd166",
+      "text-halo-width": 5,
+    },
+  });
+
+  addCircleLayer({
+    id: "poi-clusters",
+    type: "circle",
+    source: POI_SOURCE_ID,
+    filter: ["has", "point_count"],
+    paint: {
+      "circle-color": "rgba(124,58,237,.85)",
+      "circle-radius": ["step", ["get", "point_count"], 17, 25, 21, 80, 26],
+      "circle-stroke-color": "rgba(255,255,255,.86)",
+      "circle-stroke-width": 2,
+    },
+  });
+  addCircleLayer({
+    id: "poi-cluster-count",
+    type: "symbol",
+    source: POI_SOURCE_ID,
+    filter: ["has", "point_count"],
+    layout: { "text-field": ["get", "point_count_abbreviated"], "text-size": 12 },
+    paint: { "text-color": "#fff" },
+  });
+  addCircleLayer({
+    id: "poi-unclustered",
+    type: "circle",
+    source: POI_SOURCE_ID,
+    filter: ["!", ["has", "point_count"]],
+    paint: {
+      "circle-color": ["case", ["get", "plannable"], "#7c3aed", "#64748b"],
+      "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 4, 8, 7, 12, 10],
+      "circle-stroke-color": "rgba(255,255,255,.92)",
+      "circle-stroke-width": 2,
+      "circle-opacity": ["case", ["get", "plannable"], 0.95, 0.62],
+    },
+  });
+  addCircleLayer({
+    id: "poi-tour-ring",
+    type: "circle",
+    source: POI_SOURCE_ID,
+    filter: ["all", ["!", ["has", "point_count"]], [">", ["get", "tourIndex"], 0]],
+    paint: {
+      "circle-color": "rgba(192,132,252,.18)",
+      "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 12, 12, 17],
+      "circle-stroke-color": "#c084fc",
+      "circle-stroke-width": 3,
+    },
+  });
+  addCircleLayer({
+    id: "poi-tour-badge",
+    type: "symbol",
+    source: POI_SOURCE_ID,
+    filter: ["all", ["!", ["has", "point_count"]], [">", ["get", "tourIndex"], 0]],
+    layout: {
+      "text-field": ["get", "tourLabel"],
+      "text-size": 11,
+      "text-offset": [1.0, -1.0],
+      "text-allow-overlap": true,
+      "text-ignore-placement": true,
+    },
+    paint: {
+      "text-color": "#20063e",
+      "text-halo-color": "#c084fc",
+      "text-halo-width": 5,
+    },
+  });
+  addCircleLayer({
+    id: "planned-start-circle",
+    type: "circle",
+    source: START_SOURCE_ID,
+    paint: {
+      "circle-color": "#ffd166",
+      "circle-radius": 11,
+      "circle-stroke-color": "#1a1300",
+      "circle-stroke-width": 3,
+    },
+  });
+  addCircleLayer({
+    id: "planned-start-label",
+    type: "symbol",
+    source: START_SOURCE_ID,
+    layout: { "text-field": ["get", "label"], "text-size": 12, "text-allow-overlap": true },
+    paint: { "text-color": "#1a1300" },
+  });
+
+  mapLayersReady = true;
+  bindMapInteractions();
+  updateMapSources();
+}
+
+function bindMapLayerCursor(layerId) {
+  map.on("mouseenter", layerId, () => { map.getCanvas().style.cursor = "pointer"; });
+  map.on("mouseleave", layerId, () => { map.getCanvas().style.cursor = pickingStart ? "crosshair" : ""; });
+}
+
+function expandCluster(sourceId, feature) {
+  const source = map.getSource(sourceId);
+  if (!source) return;
+  source.getClusterExpansionZoom(feature.properties.cluster_id, (err, zoom) => {
+    if (err) return;
+    map.easeTo({ center: feature.geometry.coordinates, zoom, duration: 350 });
   });
 }
 
-const passCluster = L.markerClusterGroup({
-  showCoverageOnHover: false,
-  spiderfyOnMaxZoom: true,
-  maxClusterRadius: 50,
-  /* Keep clustering one zoom level longer so dense Alpine areas don't
-     dump 100+ individual divIcons on screen the moment a user zooms in. */
-  disableClusteringAtZoom: 12,
-  chunkedLoading: true,
-});
-map.addLayer(passCluster);
+function bindMapInteractions() {
+  if (map._alpineInteractionsBound) return;
+  map._alpineInteractionsBound = true;
+  ["pass-clusters", "poi-clusters", ...PASS_INTERACTIVE_LAYERS, ...POI_INTERACTIVE_LAYERS].forEach(bindMapLayerCursor);
 
-/* Drop expensive marker visuals (box-shadow / drop-shadow filters) and
-   per-frame composited effects while the map is moving. Pure CSS toggle
-   via a `map-moving` class on the map container; very cheap to apply
-   on movestart/zoomstart and remove on moveend/zoomend. */
-{
-  const mc = map.getContainer();
-  const setMoving = () => mc.classList.add("map-moving");
-  const clearMoving = () => mc.classList.remove("map-moving");
-  map.on("movestart zoomstart", setMoving);
-  map.on("moveend zoomend", clearMoving);
+  map.on("click", "pass-clusters", e => expandCluster(PASS_SOURCE_ID, e.features[0]));
+  map.on("click", "poi-clusters", e => expandCluster(POI_SOURCE_ID, e.features[0]));
+  PASS_INTERACTIVE_LAYERS.forEach(layerId => {
+    map.on("click", layerId, e => {
+      if (pickingStart) return;
+      const pass = PASS_BY_ID.get(e.features[0]?.properties?.id);
+      if (pass) openPassPopup(pass, e.lngLat);
+    });
+  });
+  POI_INTERACTIVE_LAYERS.forEach(layerId => {
+    map.on("click", layerId, e => {
+      if (pickingStart) return;
+      const poi = POI_BY_ID.get(e.features[0]?.properties?.id);
+      if (poi) openPoiPopup(poi, e.lngLat);
+    });
+  });
 }
+
+function mapBoundsContainsPoint(p) {
+  return map.getBounds().contains([p.lon, p.lat]);
+}
+
+function flyToItem(p, zoom = 11) {
+  map.flyTo({ center: [p.lon, p.lat], zoom: Math.max(map.getZoom(), zoom), duration: 450 });
+}
+
+function fitLngLatPairs(points, pad = 0.10) {
+  if (!points.length) return;
+  const bounds = new maplibregl.LngLatBounds(points[0], points[0]);
+  points.slice(1).forEach(point => bounds.extend(point));
+  const size = map.getContainer().getBoundingClientRect();
+  const padding = Math.round(Math.min(size.width, size.height) * pad);
+  map.fitBounds(bounds, { padding, duration: 500, maxZoom: 13 });
+}
+
+function openMapPopup(lngLat, html, maxWidth = "360px") {
+  if (activePopup) activePopup.remove();
+  activePopup = new maplibregl.Popup({ maxWidth, closeButton: true, closeOnClick: true })
+    .setLngLat(lngLat)
+    .setHTML(html)
+    .addTo(map);
+  return activePopup;
+}
+
+async function openPassPopup(p, lngLat = [p.lon, p.lat]) {
+  const popup = openMapPopup(lngLat, buildPopupHtml(p, passStatus(p), null), "400px");
+  lazyLoadPassIcons(popup.getElement(), true);
+  const wiki = await fetchWiki(p.wikiTitle, p.wikiLang);
+  if (activePopup === popup) {
+    popup.setHTML(buildPopupHtml(p, passStatus(p), wiki));
+    lazyLoadPassIcons(popup.getElement(), true);
+  }
+}
+
+function openPoiPopup(poi, lngLat = [poi.lon, poi.lat]) {
+  openMapPopup(lngLat, buildPoiPopupHtml(poi), "400px");
+}
+
+function setPoiLayerVisible(visible) {
+  poiLayerVisible = visible;
+  updateMapSources();
+  renderPoiList();
+}
+
+class AlpineLayerControl {
+  onAdd() {
+    const el = document.createElement("div");
+    el.className = "maplibregl-ctrl maplibregl-ctrl-group alpine-layer-control";
+    const styleOptions = VECTOR_BASEMAPS.map(({ name }) =>
+      `<option value="${escapeHtml(name)}"${name === currentBaseLayerName ? " selected" : ""}>${escapeHtml(name)}</option>`
+    ).join("");
+    el.innerHTML = `
+      <label><span>Map style</span><select aria-label="Map style">${styleOptions}</select></label>
+      <label class="check"><input type="checkbox" checked><span>Sights / POIs</span></label>`;
+    const select = el.querySelector("select");
+    const poiToggle = el.querySelector('input[type="checkbox"]');
+    select.addEventListener("change", () => {
+      const next = VECTOR_BASEMAPS.find(b => b.name === select.value);
+      if (!next) return;
+      currentBaseLayerName = next.name;
+      updateMapInfo(currentBaseLayerName);
+      map.setStyle(next.style);
+    });
+    poiToggle.addEventListener("change", () => setPoiLayerVisible(poiToggle.checked));
+    return el;
+  }
+  onRemove() {}
+}
+
+map.addControl(new AlpineLayerControl(), "top-right");
+map.on("style.load", () => {
+  mapLayersReady = false;
+  setupMapLayers();
+  updateMapInfo(currentBaseLayerName);
+});
 
 function buildPopupHtml(p, status, wiki) {
   const statusView = statusDisplay(status);
@@ -1485,51 +1728,6 @@ initTripDateControl();
 PASSES.forEach(p => { p._status = defaultStatus(p); });
 refreshProjectedStatuses();
 
-const passMarkers = [];
-PASSES.forEach(p => {
-  const m = L.marker([p.lat, p.lon], { icon: makeMarkerIcon(passStatus(p)) });
-  m.bindTooltip(`${p.name} · ${p.elev} m`, { direction: "top", offset: [0, -10] });
-  /* Lazy popup: build HTML the first time the popup opens (saves ~591×
-     buildPopupHtml on init).  Wikipedia thumbnail loaded async in parallel. */
-  m.on("popupopen", async () => {
-    if (!m._popupBuilt) {
-      m.setPopupContent(buildPopupHtml(p, passStatus(p), null));
-      lazyLoadPassIcons(m.getPopup()?.getElement(), true);
-      m._popupBuilt = true;
-    }
-    const wiki = await fetchWiki(p.wikiTitle, p.wikiLang);
-    m.setPopupContent(buildPopupHtml(p, passStatus(p), wiki));
-    lazyLoadPassIcons(m.getPopup()?.getElement(), true);
-  });
-  m.bindPopup("…", { maxWidth: 300, autoPan: true });
-  passMarkers.push(m);
-  markersBySlug[p.id] = m;
-  if (p.slug) markersBySlug[p.slug] = m;
-  p._marker = m;
-  p._marker._currentState = `${statusSignature(passStatus(p))}:`;
-});
-
-/* Single batch insert is markedly faster than 591 individual addLayer calls
-   (cluster recomputes per insert otherwise). */
-passCluster.addLayers(passMarkers);
-
-/* ───────────────────────── POI markers + popups ─────────────────────────
-   Separate cluster + divIcon so POIs and passes are visually distinct.
-   POIs use a violet accent and a category glyph; non-plannable POIs (no
-   car access) are rendered with reduced opacity so users understand they
-   can't be added to a tour. */
-function makePoiIcon(poi, badgeNumber = null) {
-  const categoryIcon = poiCategoryIcon(poi.poiCategory, "poi-marker-art");
-  const notByCar = isPlannablePoi(poi) ? "" : uiIconHtml("not-by-car", "poi-marker-not-car", "Not by car");
-  const dim = isPlannablePoi(poi) ? "" : " dim";
-  const badge = badgeNumber != null ? `<div class="tour-badge poi-tour-badge">${badgeNumber}</div>` : "";
-  return L.divIcon({
-    className: "",
-    html: `<div class="poi-marker-wrap"><div class="poi-marker${dim}" data-cat="${poi.poiCategory}">${categoryIcon}${notByCar}</div>${badge}</div>`,
-    iconSize: [22, 22], iconAnchor: [11, 11],
-  });
-}
-
 function buildPoiPopupHtml(poi) {
   const wikiHref = `https://${poi.wikiLang}.wikipedia.org/wiki/${encodeURIComponent(poi.wikiTitle)}`;
   const img = poi.bestPhoto
@@ -1569,41 +1767,6 @@ function buildPoiPopupHtml(poi) {
     </article>`;
 }
 
-const poiCluster = L.markerClusterGroup({
-  showCoverageOnHover: false,
-  spiderfyOnMaxZoom: true,
-  maxClusterRadius: 60,
-  disableClusteringAtZoom: 12,
-  chunkedLoading: true,
-  iconCreateFunction(cluster) {
-    const n = cluster.getChildCount();
-    return L.divIcon({
-      html: `<div class="poi-cluster"><span>${n}</span></div>`,
-      className: "",
-      iconSize: [34, 34],
-    });
-  },
-});
-
-const poiMarkers = [];
-POIS.forEach(poi => {
-  const m = L.marker([poi.lat, poi.lon], { icon: makePoiIcon(poi) });
-  m.bindTooltip(`${poi.name} · ${poiCategoryLabel(poi.poiCategory)}`, { direction: "top", offset: [0, -10] });
-  m.bindPopup("…", { maxWidth: 360, autoPan: true });
-  m.on("popupopen", () => {
-    if (!m._popupBuilt) {
-      m.setPopupContent(buildPoiPopupHtml(poi));
-      m._popupBuilt = true;
-    }
-  });
-  poiMarkers.push(m);
-  poi._marker = m;
-});
-poiCluster.addLayers(poiMarkers);
-/* POI layer is ON by default so users see the POI integration immediately;
-   they can hide it via the layer control on the top-right. */
-map.addLayer(poiCluster);
-
 /* Popup-delegated handler: "Add to selected route" buttons on POI and
    pass popups. Both routes go through the same UX — flip into advanced
    mode if needed, then add the stop. */
@@ -1634,14 +1797,6 @@ document.addEventListener("click", e => {
     }
   }
 });
-
-/* ───────────────────────── overlays / layer control ───────────────────────── */
-const overlayLayers = {};
-overlayLayers[
-  uiIconHtml("poi-generic", "poi-overlay-swatch", "Sights / POIs") +
-  `Sights / POIs <span class="overlay-meta">· ${POIS.length} curated</span>`
-] = poiCluster;
-L.control.layers(baseLayers, overlayLayers, { position: "topright", collapsed: true }).addTo(map);
 
 /* ─────────────────────────── tour planner ─────────────────────────── */
 const PRESET_STARTS = {
@@ -2173,8 +2328,8 @@ planPickBtn.addEventListener("click", () => {
 });
 map.on("click", (e) => {
   if (!pickingStart) return;
-  customStart = { name: `Custom (${e.latlng.lat.toFixed(3)}, ${e.latlng.lng.toFixed(3)})`,
-                  lat: e.latlng.lat, lon: e.latlng.lng };
+  customStart = { name: `Custom (${e.lngLat.lat.toFixed(3)}, ${e.lngLat.lng.toFixed(3)})`,
+                  lat: e.lngLat.lat, lon: e.lngLat.lng };
   let opt = startSel.querySelector('option[value="custom"]');
   opt.disabled = false;
   opt.textContent = "📍 " + customStart.name;
@@ -2184,25 +2339,14 @@ map.on("click", (e) => {
 });
 
 function clearPlannedTour() {
-  if (plannedLayer) { map.removeLayer(plannedLayer); plannedLayer = null; }
-  if (plannedStartMarker) { map.removeLayer(plannedStartMarker); plannedStartMarker = null; }
-  const oldTourIds = plannedTourIds;
   plannedTourIds = [];
-  oldTourIds.forEach(id => {
-    /* IDs may be either a pass ("p<i>") or a POI ("poi<i>"); reset whichever
-       this id maps to. */
-    const pass = PASS_BY_ID.get(id);
-    if (pass && pass._marker) {
-      updatePassMarkerIcon(pass);
-      pass._marker.setZIndexOffset(0);
-      return;
-    }
-    const poi = POI_BY_ID.get(id);
-    if (poi && poi._marker) {
-      poi._marker.setIcon(makePoiIcon(poi));
-      poi._marker.setZIndexOffset(0);
-    }
-  });
+  plannedStart = null;
+  plannedRouteActive = false;
+  plannedRouteCoords = null;
+  plannedRouteFallback = false;
+  if (activePopup) { activePopup.remove(); activePopup = null; }
+  updatePlannedTourLayers();
+  updateMapSources();
 }
 
 async function fetchTable(points) {
@@ -3593,52 +3737,54 @@ function showPlanResult(r) {
   };
 }
 
+function updatePlannedTourLayers(routeCoords = plannedRouteCoords, fallback = plannedRouteFallback) {
+  if (!mapLayersReady) return;
+  setSourceData(ROUTE_SOURCE_ID, routeCoords && routeCoords.length > 1
+    ? {
+        type: "FeatureCollection",
+        features: [{
+          type: "Feature",
+          geometry: { type: "LineString", coordinates: routeCoords },
+          properties: { fallback },
+        }],
+      }
+    : EMPTY_FEATURE_COLLECTION);
+  setSourceData(START_SOURCE_ID, plannedStart
+    ? {
+        type: "FeatureCollection",
+        features: [{
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [plannedStart.lon, plannedStart.lat] },
+          properties: { label: plannedStart.name[0] || "S" },
+        }],
+      }
+    : EMPTY_FEATURE_COLLECTION);
+}
+
 function drawPlannedTour(start, tourStops, latlngs) {
   plannedTourIds = tourStops.map(p => p.id);
-  plannedLayer = L.layerGroup().addTo(map);
-  plannedStartMarker = L.marker([start.lat, start.lon], {
-    icon: L.divIcon({
-      className: "",
-      html: `<div class="start-marker"><span>${start.name[0]}</span></div>`,
-      iconSize: [22, 22], iconAnchor: [11, 11],
-    }), zIndexOffset: 500,
-  }).addTo(map).bindTooltip(`Start: ${start.name}`, { direction: "top", offset: [0, -12] });
+  plannedStart = start;
+  plannedRouteActive = true;
 
-  /* Auto-add the POI cluster if any POIs are in this tour, so user sees them
-     even if they hadn't enabled the POI layer. */
-  if (tourStops.some(p => p.isPoi) && !map.hasLayer(poiCluster)) {
-    map.addLayer(poiCluster);
+  if (tourStops.some(p => p.isPoi) && !poiLayerVisible) {
+    setPoiLayerVisible(true);
   }
 
-  tourStops.forEach((p, idx) => {
-    if (!p._marker) return;
-    if (p.isPoi) {
-      p._marker.setIcon(makePoiIcon(p, idx + 1));
-    } else {
-      p._marker.setIcon(makeMarkerIcon(passStatus(p), idx + 1));
-      p._marker._currentState = `${statusSignature(passStatus(p))}:${idx + 1}`;
-    }
-    p._marker.setZIndexOffset(400);
-  });
-
-  /* Geometry was already fetched by the planner.  Just draw it. The
-     three-layer stack (dark casing + white halo + colored core) is
-     decimated with smoothFactor so canvas redraws stay cheap during
-     smooth wheel zoom + inertia. interactive:false + bubblingMouseEvents
-     :false take the casing/halo out of Leaflet's hit-testing chain;
-     they're decorative, only the core layer needs interaction. */
+  let routeCoords;
+  let fallback = false;
   if (latlngs && latlngs.length > 1) {
-    plannedLayer.addLayer(L.polyline(latlngs, { color:"#000",    weight:11, opacity:0.45, lineCap:"round", lineJoin:"round", smoothFactor:1.5, interactive:false, bubblingMouseEvents:false }));
-    plannedLayer.addLayer(L.polyline(latlngs, { color:"#fff",    weight:7,  opacity:0.90, lineCap:"round", lineJoin:"round", smoothFactor:1.5, interactive:false, bubblingMouseEvents:false }));
-    plannedLayer.addLayer(L.polyline(latlngs, { color:"#ffd166", weight:5,  opacity:1,    lineCap:"round", lineJoin:"round", smoothFactor:1.5, interactive:false, bubblingMouseEvents:false }));
-    map.fitBounds(L.latLngBounds(latlngs).pad(0.10));
+    routeCoords = latlngs.map(([lat, lon]) => [lon, lat]);
   } else {
-    /* Fallback to straight lines if router was unavailable. */
+    fallback = true;
     const wp = [[start.lat, start.lon], ...tourStops.map(p => [p.lat, p.lon]), [start.lat, start.lon]];
-    plannedLayer.addLayer(L.polyline(wp, { color:"#000",    weight:6,   opacity:0.40, lineCap:"round", lineJoin:"round", interactive:false, bubblingMouseEvents:false }));
-    plannedLayer.addLayer(L.polyline(wp, { color:"#ffd166", weight:3.5, opacity:0.85, dashArray:"4 6", lineCap:"round", lineJoin:"round", interactive:false, bubblingMouseEvents:false }));
-    map.fitBounds(L.latLngBounds(wp).pad(0.15));
+    routeCoords = wp.map(([lat, lon]) => [lon, lat]);
   }
+
+  plannedRouteCoords = routeCoords;
+  plannedRouteFallback = fallback;
+  updateMapSources();
+  updatePlannedTourLayers(routeCoords, fallback);
+  fitLngLatPairs(routeCoords, fallback ? 0.15 : 0.10);
 }
 
 function closeToPolyline(pt, latlngs, thresholdKm) {
@@ -3662,6 +3808,7 @@ const sortOpenFirstEl = document.getElementById("sortOpenFirst");
 const showOpenOnlyEl = document.getElementById("showOpenOnly");
 const showNotableOnlyEl = document.getElementById("showNotableOnly");
 const VIEW_LIMIT = 80;
+passUiReady = true;
 
 /* "Notable" gates out low-confidence entries plus everything below this
    quality cutoff. Keep this aligned with the generated pass icon set so
@@ -3669,7 +3816,7 @@ const VIEW_LIMIT = 80;
 const NOTABLE_MIN_QUALITY = 0.7;
 
 function inViewport(p) {
-  return map.getBounds().contains([p.lat, p.lon]);
+  return mapBoundsContainsPoint(p);
 }
 function isOpenForDisplay(p) {
   return statusDisplay(passStatus(p)).state === "open";
@@ -3701,37 +3848,14 @@ function compareBySelectedSort(a, b, sort, start) {
   return (b.quality || 0) - (a.quality || 0);
 }
 function syncMarkerVisibility() {
-  const visibleMarkers = PASSES
-    .filter(passesAllFilters)
-    .map(p => p._marker)
-    .filter(Boolean);
-  /* Diff the cluster's contents against the new visible set instead of
-     clearLayers + addLayers — full reclusters can take 30-100 ms on
-     445 markers; a diffed update touches only the markers that changed
-     filter state. */
-  const visibleSet = new Set(visibleMarkers);
-  const current = passCluster.__visibleMarkers || new Set();
-  const toAdd = visibleMarkers.filter(m => !current.has(m));
-  const toRemove = [];
-  current.forEach(m => { if (!visibleSet.has(m)) toRemove.push(m); });
-  if (toRemove.length) passCluster.removeLayers(toRemove);
-  if (toAdd.length) passCluster.addLayers(toAdd);
-  passCluster.__visibleMarkers = visibleSet;
+  updateMapSources();
 }
 /* Mirror for POIs: when sidebar filters change (category, region, drivable,
    top-notable, search), hide non-matching markers from the on-map cluster
    so the map and the list stay in sync. The full POI population is still
    reachable by clearing the filters or toggling the layer overlay off/on. */
 function syncPoiMarkerVisibility() {
-  if (typeof poiPassesAllFilters !== "function") return;
-  const q = (poiSearchEl?.value || "").trim().toLowerCase();
-  const visibleMarkers = POIS
-    .filter(p => poiPassesAllFilters(p))
-    .filter(p => !q || poiSearchMatches(p, q))
-    .map(p => p._marker)
-    .filter(Boolean);
-  poiCluster.clearLayers();
-  poiCluster.addLayers(visibleMarkers);
+  updateMapSources();
 }
 function syncOpenOnlyFilter() {
   syncMarkerVisibility();
@@ -3801,10 +3925,10 @@ function renderList() {
           return;
         }
         li.setAttribute("aria-busy", "true");
-        map.flyTo([p.lat, p.lon], Math.max(map.getZoom(), 11), { duration: 0.45 });
+        flyToItem(p, 11);
         setTimeout(() => {
           li.removeAttribute("aria-busy");
-          p._marker.openPopup();
+          openPassPopup(p);
         }, 480);
       });
     });
@@ -3830,6 +3954,7 @@ const tabPanePasses = document.getElementById("tabPanePasses");
 const tabPanePois   = document.getElementById("tabPanePois");
 const tabCountPasses = document.getElementById("tabCountPasses");
 const tabCountPois   = document.getElementById("tabCountPois");
+poiUiReady = true;
 
 let activeExplorerTab = "passes";
 
@@ -3860,7 +3985,7 @@ function populatePoiSidebarFilters() {
 populatePoiSidebarFilters();
 
 function poiInViewport(p) {
-  return map.getBounds().contains([p.lat, p.lon]);
+  return mapBoundsContainsPoint(p);
 }
 function poiPassesAllFilters(p) {
   if (poiPlannableOnlyEl?.checked && !isPlannablePoi(p)) return false;
@@ -3947,11 +4072,11 @@ function renderPoiList() {
           return;
         }
         li.setAttribute("aria-busy", "true");
-        if (!map.hasLayer(poiCluster)) map.addLayer(poiCluster);
-        map.flyTo([p.lat, p.lon], Math.max(map.getZoom(), 11), { duration: 0.45 });
+        if (!poiLayerVisible) setPoiLayerVisible(true);
+        flyToItem(p, 11);
         setTimeout(() => {
           li.removeAttribute("aria-busy");
-          p._marker?.openPopup?.();
+          openPoiPopup(p);
         }, 480);
       });
     });
@@ -4070,6 +4195,7 @@ map.on("moveend", () => {
 renderList();
 renderPoiList();
 syncAdvancedMode();
+updateMapSources();
 
 /* ─────── kick off live status load ─────── */
 const banner   = document.getElementById("banner");

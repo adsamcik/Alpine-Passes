@@ -1297,6 +1297,9 @@ function buildPopupHtml(p, status, wiki) {
          </ul>
        </div>`
     : "";
+  const planBtnBlock = (p.baseA && p.baseB)
+    ? `<div class="popup-actions"><button class="popup-add-btn" type="button" data-pass-add="${escapeHtml(p.id)}" aria-label="Add ${escapeHtml(p.name)} to tour">＋ Add to selected route</button></div>`
+    : "";
   const linkParts = [];
   if (passDetail) linkParts.push(`<a href="${passDetail}" target="_blank" rel="noopener">↗ alpen-paesse.ch</a>`);
   linkParts.push(`<a href="${wikiHref}" target="_blank" rel="noopener">↗ Wikipedia</a>`);
@@ -1321,6 +1324,7 @@ function buildPopupHtml(p, status, wiki) {
       ${whyBlock}
       ${info}
       ${camsBlock}
+      ${planBtnBlock}
       <div class="popup-links">${linkParts.join("")}</div>
     </div></div>`;
 }
@@ -1534,18 +1538,34 @@ poiCluster.addLayers(poiMarkers);
    they can hide it via the layer control on the top-right. */
 map.addLayer(poiCluster);
 
-/* Popup-delegated handler: "Add to selected route" button on POI popups. */
+/* Popup-delegated handler: "Add to selected route" buttons on POI and
+   pass popups. Both routes go through the same UX — flip into advanced
+   mode if needed, then add the stop. */
 document.addEventListener("click", e => {
-  const btn = e.target.closest("[data-poi-add]");
-  if (!btn) return;
-  const id = btn.dataset.poiAdd;
-  if (typeof toggleSelectedPoi === "function" && PLANNABLE_POI_IDS.has(id)) {
-    /* Make sure advanced mode is on so the user actually sees the change. */
-    if (typeof advancedModeEl !== "undefined" && !advancedModeEl.checked) {
-      advancedModeEl.checked = true;
-      if (typeof syncAdvancedMode === "function") syncAdvancedMode();
+  const poiBtn = e.target.closest("[data-poi-add]");
+  if (poiBtn) {
+    const id = poiBtn.dataset.poiAdd;
+    if (typeof toggleSelectedPoi === "function" && PLANNABLE_POI_IDS.has(id)) {
+      /* Make sure advanced mode is on so the user actually sees the change. */
+      if (typeof advancedModeEl !== "undefined" && !advancedModeEl.checked) {
+        advancedModeEl.checked = true;
+        if (typeof syncAdvancedMode === "function") syncAdvancedMode();
+      }
+      toggleSelectedPoi(id, true);
     }
-    toggleSelectedPoi(id, true);
+    return;
+  }
+  const passBtn = e.target.closest("[data-pass-add]");
+  if (passBtn) {
+    const id = passBtn.dataset.passAdd;
+    const pass = PASS_BY_ID.get(id);
+    if (pass && pass.baseA && pass.baseB && typeof toggleSelectedPass === "function") {
+      if (typeof advancedModeEl !== "undefined" && !advancedModeEl.checked) {
+        advancedModeEl.checked = true;
+        if (typeof syncAdvancedMode === "function") syncAdvancedMode();
+      }
+      toggleSelectedPass(id, true);
+    }
   }
 });
 
@@ -3185,6 +3205,21 @@ function syncMarkerVisibility() {
   passCluster.clearLayers();
   passCluster.addLayers(visibleMarkers);
 }
+/* Mirror for POIs: when sidebar filters change (category, region, drivable,
+   top-notable, search), hide non-matching markers from the on-map cluster
+   so the map and the list stay in sync. The full POI population is still
+   reachable by clearing the filters or toggling the layer overlay off/on. */
+function syncPoiMarkerVisibility() {
+  if (typeof poiPassesAllFilters !== "function") return;
+  const q = (poiSearchEl?.value || "").trim().toLowerCase();
+  const visibleMarkers = POIS
+    .filter(p => poiPassesAllFilters(p))
+    .filter(p => !q || poiSearchMatches(p, q))
+    .map(p => p._marker)
+    .filter(Boolean);
+  poiCluster.clearLayers();
+  poiCluster.addLayers(visibleMarkers);
+}
 function syncOpenOnlyFilter() {
   syncMarkerVisibility();
   renderList();
@@ -3442,6 +3477,10 @@ function showExplorerTab(tab) {
   tabPois?.classList.toggle("active", !passesActive);
   tabPasses?.setAttribute("aria-selected", String(passesActive));
   tabPois?.setAttribute("aria-selected", String(!passesActive));
+  /* Roving tabindex: only the active tab is keyboard-tabbable; the inactive
+     one is reachable via arrow keys (WCAG ARIA tab pattern). */
+  tabPasses?.setAttribute("tabindex", passesActive ? "0" : "-1");
+  tabPois?.setAttribute("tabindex", passesActive ? "-1" : "0");
   if (tabPanePasses) tabPanePasses.hidden = !passesActive;
   if (tabPanePois)   tabPanePois.hidden   = passesActive;
   /* Re-render the now-active tab so it picks up any viewport changes that
@@ -3452,12 +3491,42 @@ function showExplorerTab(tab) {
 tabPasses?.addEventListener("click", () => showExplorerTab("passes"));
 tabPois?.addEventListener("click",   () => showExplorerTab("pois"));
 
-poiSearchEl?.addEventListener("input", renderPoiList);
+/* WCAG ARIA tab pattern: Left/Right (and Home/End) move focus and activate
+   the next tab. Up/Down are intentionally not bound — vertical tabs use
+   those, but our tabs are horizontal. Listener is on the tablist parent. */
+function handleTabKeydown(e) {
+  const key = e.key;
+  if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(key)) return;
+  e.preventDefault();
+  const next = (key === "ArrowRight" || key === "End")
+    ? (activeExplorerTab === "passes" ? "pois" : "pois")  /* End → last */
+    : (key === "ArrowLeft"  || key === "Home")
+    ? "passes"  /* Home / Left → first */
+    : null;
+  if (key === "ArrowRight") {
+    showExplorerTab(activeExplorerTab === "passes" ? "pois" : "passes");
+  } else if (key === "ArrowLeft") {
+    showExplorerTab(activeExplorerTab === "pois" ? "passes" : "pois");
+  } else if (key === "Home") {
+    showExplorerTab("passes");
+  } else if (key === "End") {
+    showExplorerTab("pois");
+  }
+  /* Move focus to whichever tab is now active. */
+  (activeExplorerTab === "passes" ? tabPasses : tabPois)?.focus();
+}
+tabPasses?.addEventListener("keydown", handleTabKeydown);
+tabPois?.addEventListener("keydown", handleTabKeydown);
+/* Initialise tabindex state. */
+tabPasses?.setAttribute("tabindex", "0");
+tabPois?.setAttribute("tabindex", "-1");
+
+poiSearchEl?.addEventListener("input", () => { renderPoiList(); syncPoiMarkerVisibility(); });
 poiSortEl?.addEventListener("change", renderPoiList);
-poiCatFilterEl?.addEventListener("change", renderPoiList);
-poiRegionFilterEl?.addEventListener("change", renderPoiList);
-poiPlannableOnlyEl?.addEventListener("change", renderPoiList);
-poiTopOnlyEl?.addEventListener("change", renderPoiList);
+poiCatFilterEl?.addEventListener("change", () => { renderPoiList(); syncPoiMarkerVisibility(); });
+poiRegionFilterEl?.addEventListener("change", () => { renderPoiList(); syncPoiMarkerVisibility(); });
+poiPlannableOnlyEl?.addEventListener("change", () => { renderPoiList(); syncPoiMarkerVisibility(); });
+poiTopOnlyEl?.addEventListener("change", () => { renderPoiList(); syncPoiMarkerVisibility(); });
 
 searchEl.addEventListener("input", renderList);
 sortEl  .addEventListener("change", renderList);

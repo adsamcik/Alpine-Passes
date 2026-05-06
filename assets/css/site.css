@@ -846,6 +846,20 @@ select option:checked {
   box-shadow: 0 3px 10px rgba(124,58,237,.4);
 }
 .popup-add-btn:hover { filter: brightness(1.08); }
+.popup-add-btn:active { transform: translateY(1px); }
+/* Container for the "Add to selected route" button on pass popups —
+   gives it its own row above the bottom links, so the call-to-action
+   gets visual prominence without competing with the source links. */
+.popup-actions {
+  margin-top: 14px;
+  display: flex;
+}
+.popup-actions .popup-add-btn {
+  flex: 1 1 auto;
+  text-align: center;
+  padding: 9px 14px;
+  font-size: 13px;
+}
 .poi-theme-chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0 8px; }
 .poi-theme-chip {
   font-size: 10.5px; padding: 2px 7px; border-radius: 999px;

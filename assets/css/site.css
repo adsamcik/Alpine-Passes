@@ -1274,6 +1274,12 @@ select option:checked {
   overscroll-behavior: contain;
 }
 .maplibregl-popup-tip { border-top-color: var(--bg-2); border-bottom-color: var(--bg-2); }
+.route-popup { font-size: 13px; padding: 12px 14px; min-width: 240px; }
+.route-popup h4 { margin: 0 0 8px; font-size: 14px; font-weight: 700; }
+.route-popup-grid { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; align-items: baseline; }
+.route-popup-grid span { color: var(--fg-dim); }
+.route-popup-grid strong { text-align: right; font-variant-numeric: tabular-nums; }
+.route-popup-meta { color: var(--fg-dim); font-size: 11.5px; margin-top: 8px; }
 .maplibregl-popup-close-button {
   position: absolute;
   top: 10px;

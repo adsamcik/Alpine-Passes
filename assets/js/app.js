@@ -669,6 +669,7 @@ let plannedBadgeMap = new Map();
 let plannedStart = null;
 let plannedRouteActive = false;
 let plannedRouteCoords = null;
+let plannedRouteGeometry = null;
 let plannedRouteFallback = false;
 
 function setPlannedTourIds(ids) {
@@ -2486,6 +2487,66 @@ function expandCluster(sourceId, feature) {
 function bindMapInteractions() {
   if (map._alpineInteractionsBound) return;
   map._alpineInteractionsBound = true;
+  bindRouteInteractions();
+}
+
+function bindRouteInteractions() {
+  for (const layerId of ["planned-route-core", "planned-route-halo", "planned-route-shadow"]) {
+    map.on("click", layerId, onRouteClick);
+    map.on("mouseenter", layerId, () => {
+      if (!pickingStart && !document.body.classList.contains("picking")) map.getCanvas().style.cursor = "pointer";
+    });
+    map.on("mouseleave", layerId, () => {
+      if (!pickingStart) map.getCanvas().style.cursor = "";
+    });
+  }
+}
+
+function routeStopSummary(stops, stopsTakenMin, lunchMin, restMin) {
+  const bits = [];
+  const passCount = stops.filter(s => !s.isPoi && s.stopMin > 0).length;
+  const poiCount = stops.filter(s => s.isPoi && s.dwellMin > 0).length;
+  if (passCount) bits.push(`${passCount} pass stop${passCount === 1 ? "" : "s"}`);
+  if (poiCount) bits.push(`${poiCount} sight visit${poiCount === 1 ? "" : "s"}`);
+  if (restMin > 0.4) bits.push(`${Math.round(restMin)} min rest`);
+  if (lunchMin > 0) bits.push(`${Math.round(lunchMin)} min lunch`);
+  const names = stops.slice(0, 3).map(s => escapeHtml(s.name)).join(", ");
+  const more = stops.length > 3 ? ` +${stops.length - 3} more` : "";
+  const prefix = bits.length ? bits.join(" · ") : "No planned stops before this point";
+  return `${prefix} · ${Math.round(stopsTakenMin)} min added${names ? ` (${names}${more})` : ""}`;
+}
+
+function onRouteClick(e) {
+  if (!plannedRouteGeometry || pickingStart || document.body.classList.contains("picking")) return;
+  const geom = plannedRouteGeometry;
+  if (!geom.coords?.length || !geom.cumKm?.length) return;
+  e.preventDefault?.();
+  e.originalEvent?.preventDefault?.();
+  e.originalEvent?.stopPropagation?.();
+
+  const idx = closestPolylineIdxLngLat(e.lngLat.lng, e.lngLat.lat, geom.coords);
+  const distKm = geom.cumKm[idx] || 0;
+  const driveRatio = geom.totalKm > 0 ? clampNumber(distKm / geom.totalKm, 0, 1) : 0;
+  const driveHAtPoint = (geom.driveH || 0) * driveRatio;
+  const totalDriveH = geom.driveH || 0;
+  const passedStops = geom.stops.filter(s => s.idx <= idx);
+  const routeStopMin = passedStops.reduce((sum, s) => sum + (s.stopMin || 0) + (s.dwellMin || 0), 0);
+  const restMin = (geom.totalRestMin || 0) * (totalDriveH > 0 ? Math.min(1, driveHAtPoint / totalDriveH) : 0);
+  const lunchMin = totalDriveH > 0 && driveHAtPoint >= totalDriveH / 2 ? (geom.totalLunchMin || 0) : 0;
+  const stopsTakenMin = routeStopMin + restMin + lunchMin;
+  const totalHAtPoint = driveHAtPoint + stopsTakenMin / 60;
+
+  const html = `
+    <div class="route-popup">
+      <h4>At this point</h4>
+      <div class="route-popup-grid">
+        <span>Distance from start</span><strong>${distKm.toFixed(1)} km</strong>
+        <span>Driving time</span><strong>${fmtDuration(driveHAtPoint)}</strong>
+        <span>With stops &amp; breaks</span><strong>${fmtDuration(totalHAtPoint)}</strong>
+      </div>
+      <div class="route-popup-meta">${routeStopSummary(passedStops, stopsTakenMin, lunchMin, restMin)}</div>
+    </div>`;
+  openMapPopup(e.lngLat, html, "320px");
 }
 
 function mapBoundsContainsPoint(p) {
@@ -2992,9 +3053,48 @@ function currentStopsConfig() {
    intended day length rather than the (possibly-shrunken) drive time, so
    pre-plan reservation and post-plan accounting agree on whether to add
    lunch. Falls back to `driveH` when not provided (advanced/distance modes). */
-function computeExtras({ passN, driveH, config, policyTotalH }) {
+function clampNumber(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function intelligentPassStopMin(pass, baseMin) {
+  const base = Math.max(0, Number(baseMin) || 0);
+  if (base <= 0) return 0;
+  const qFallback = Math.max(
+    Number(pass?.qScenic) || 0,
+    Number(pass?.qApproach) || 0,
+    Number(pass?.qSummit) || 0
+  );
+  const quality = clampNumber(Number(pass?.quality ?? qFallback) || 0, 0, 1);
+  const scenic = clampNumber(Math.max(Number(pass?.qScenic) || 0, Number(pass?.qApproach) || 0), 0, 1);
+  const elev = Number(pass?.elev) || 0;
+  const cams = Array.isArray(pass?.cams) ? pass.cams.length : 0;
+
+  let min = base * (0.6 + 0.9 * quality);
+  if (elev >= 3000) min += 5;
+  else if (elev >= 2500) min += 4;
+  else if (elev >= 2000) min += 3;
+  else if (elev >= 1500) min += 2;
+  else if (elev >= 1000) min += 1;
+  min += scenic * 2;
+  if (cams) min += Math.min(3, cams) * 1.25;
+  if (pass?.bestPhoto) min += 1.5;
+  if (pass?.wikiTitle) min += 0.75;
+
+  return Math.round(clampNumber(min, 2, 25));
+}
+
+function computeExtras({ passN, driveH, config, policyTotalH, passList }) {
   const cfg = config || currentStopsConfig();
-  const passStopH = (passN * (cfg.passStopMin || 0)) / 60;
+  const passStops = Array.isArray(passList) ? passList.filter(p => !p?.isPoi) : null;
+  const effectivePassN = passStops ? passStops.length : passN;
+  const passStopMins = passStops
+    ? passStops.map(p => intelligentPassStopMin(p, cfg.passStopMin || 0))
+    : null;
+  const passStopTotalMin = passStopMins
+    ? passStopMins.reduce((sum, min) => sum + min, 0)
+    : effectivePassN * (cfg.passStopMin || 0);
+  const passStopH = passStopTotalMin / 60;
 
   let lunchH = 0;
   let lunchAuto = false;
@@ -3018,7 +3118,10 @@ function computeExtras({ passN, driveH, config, policyTotalH }) {
   const extrasH = passStopH + lunchH + restH;
   return {
     extrasH,
-    parts: { passStopH, lunchH, restH, lunchAuto, restCount, passN },
+    parts: {
+      passStopH, lunchH, restH, lunchAuto, restCount, passN: effectivePassN,
+      passStopMins, passStopUniform: !passStopMins || new Set(passStopMins).size <= 1,
+    },
     config: cfg,
   };
 }
@@ -3028,7 +3131,9 @@ function fmtExtrasSummary(parts) {
   const bits = [];
   if (parts.passStopH > 0 && parts.passN > 0) {
     const min = Math.round(parts.passStopH * 60);
-    bits.push(`${parts.passN} pass ${parts.passN === 1 ? "stop" : "stops"} (${min} min)`);
+    bits.push(parts.passStopUniform === false
+      ? `${parts.passN} pass ${parts.passN === 1 ? "stop" : "stops"} (total ${min} min)`
+      : `${parts.passN} pass ${parts.passN === 1 ? "stop" : "stops"} (${min} min)`);
   }
   if (parts.lunchH > 0) {
     const min = Math.round(parts.lunchH * 60);
@@ -3567,6 +3672,8 @@ function clearPlannedTour() {
   plannedStart = null;
   plannedRouteActive = false;
   plannedRouteCoords = null;
+  plannedRouteGeometry = null;
+  if (typeof window !== "undefined") window.plannedRouteGeometry = null;
   plannedRouteFallback = false;
   if (activePopup) { activePopup.remove(); activePopup = null; }
   updatePlannedTourLayers();
@@ -4355,6 +4462,116 @@ function advancedStatusWarning(tourStops) {
   return `Selected route includes passes that are closed, unknown, or guessed for the trip date: ${names}${extra}. Verify locally before driving.`;
 }
 
+const ROUTE_PASS_CROSSING_KM = 1.5;
+
+function plannerStatusAllowsPass(p, openOnly) {
+  if (!openOnly) return true;
+  const s = passStatus(p);
+  return !!s && (s.state === "open" || s.state === "restricted");
+}
+
+function nearestPolylineHit(pt, latlngs, startIdx, endIdx, thresholdKm = ROUTE_PASS_CROSSING_KM) {
+  if (!pt || !Array.isArray(latlngs) || latlngs.length === 0) return null;
+  const lo = Math.max(0, Math.min(startIdx, endIdx));
+  const hi = Math.min(latlngs.length - 1, Math.max(startIdx, endIdx));
+  if (!Number.isFinite(lo) || !Number.isFinite(hi) || hi < lo) return null;
+
+  const cos = Math.cos(pt.lat * Math.PI / 180);
+  let bestIdx = -1;
+  let bestD2 = Infinity;
+  for (let i = lo; i <= hi; i++) {
+    const [la, lo2] = latlngs[i];
+    const dy = (la - pt.lat) * 111;
+    const dx = (lo2 - pt.lon) * 111 * cos;
+    const d2 = dx * dx + dy * dy;
+    if (d2 < bestD2) {
+      bestD2 = d2;
+      bestIdx = i;
+    }
+  }
+
+  const threshold2 = thresholdKm * thresholdKm;
+  return bestD2 <= threshold2
+    ? { idx: bestIdx, distanceKm: Math.sqrt(bestD2) }
+    : null;
+}
+
+function routePassCrossingsForPlan({ tourStops, perm, wpMatrixIdx, wpIdx, latlngs, openOnly = false }) {
+  const blocked = [];
+  const implicitById = new Map();
+  const stopCount = (tourStops || []).length;
+  if (!Array.isArray(wpMatrixIdx) || !Array.isArray(wpIdx) || !Array.isArray(latlngs)) {
+    return { blocked, implicit: [] };
+  }
+
+  const plannedIds = new Set((tourStops || []).map(p => p.id));
+  const orderByPassIdx = new Map((perm || []).map((t, order) => [t.passIdx, order]));
+  const passIdxForMatrix = idx => idx > 0 ? Math.floor((idx - 1) / 3) : -1;
+  const blockedSeen = new Set();
+
+  for (let leg = 0; leg < Math.min(wpMatrixIdx.length, wpIdx.length) - 1; leg++) {
+    const fromM = wpMatrixIdx[leg];
+    const toM = wpMatrixIdx[leg + 1];
+    const fromPassIdx = passIdxForMatrix(fromM);
+    const toPassIdx = passIdxForMatrix(toM);
+    if (fromPassIdx >= 0 && fromPassIdx === toPassIdx) continue;
+
+    const a = wpIdx[leg];
+    const b = wpIdx[leg + 1];
+    if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+
+    const insertionIndex = toPassIdx >= 0 && orderByPassIdx.has(toPassIdx)
+      ? orderByPassIdx.get(toPassIdx)
+      : stopCount;
+
+    for (const p of PASSES) {
+      if (plannedIds.has(p.id)) continue;
+
+      const hit = nearestPolylineHit(p, latlngs, a, b);
+      if (!hit) continue;
+
+      if (!plannerStatusAllowsPass(p, openOnly)) {
+        const key = `${p.id}:${fromM}:${toM}`;
+        if (!blockedSeen.has(key)) {
+          blockedSeen.add(key);
+          blocked.push({ fromM, toM, name: p.name });
+        }
+        continue;
+      }
+
+      const prev = implicitById.get(p.id);
+      const entry = { pass: p, leg, insertionIndex, routeIdx: hit.idx, distanceKm: hit.distanceKm };
+      if (!prev || hit.idx < prev.routeIdx) implicitById.set(p.id, entry);
+    }
+  }
+
+  const implicit = [...implicitById.values()].sort((a, b) =>
+    (a.insertionIndex - b.insertionIndex) ||
+    (a.routeIdx - b.routeIdx) ||
+    a.pass.name.localeCompare(b.pass.name)
+  );
+  return { blocked, implicit };
+}
+
+function mergeImplicitRoutePasses(tourStops, modes, implicitPasses) {
+  const mergedStops = (tourStops || []).slice();
+  const mergedModes = (modes || []).slice();
+  let inserted = 0;
+  for (const crossing of implicitPasses || []) {
+    const idx = Math.max(0, Math.min(mergedStops.length, crossing.insertionIndex + inserted));
+    mergedStops.splice(idx, 0, crossing.pass);
+    mergedModes.splice(idx, 0, {
+      passIdx: null,
+      enterSide: 0,
+      exitSide: 1,
+      mode: "traverse",
+      implicit: true,
+    });
+    inserted++;
+  }
+  return { tourStops: mergedStops, modes: mergedModes };
+}
+
 async function planSelectedTour() {
   clearPlannedTour();
   const start = currentStart();
@@ -4393,8 +4610,11 @@ async function planSelectedTour() {
     return;
   }
 
-  const tourStops = result.perm.map(t => selected[t.passIdx]);
-  const waypoints = waypointsForTour(start, selected, result.perm);
+  let tourStops = result.perm.map(t => selected[t.passIdx]);
+  const plan = tourWaypointPlan(start, selected, result.perm);
+  const waypoints = plan.waypoints;
+  let displayModes = result.perm;
+  let implicitPasses = [];
   /* Driving time/distance from the planner matrix as a baseline; OSRM full
      route below replaces them with road-accurate values. Dwell time stays
      separate so it's never lost or mis-labelled (rubber-duck blocking #2). */
@@ -4408,15 +4628,31 @@ async function planSelectedTour() {
     latlngs = routeOut.geom.map(([lo, la]) => [la, lo]);
     driveKm = routeOut.distanceKm;
     driveH  = routeOut.durationH;
+    const wpIdx = waypoints.map(wp => closestPolylineIdx(wp, latlngs));
+    const crossings = routePassCrossingsForPlan({
+      tourStops,
+      perm: result.perm,
+      wpMatrixIdx: plan.wpMatrixIdx,
+      wpIdx,
+      latlngs,
+      openOnly: false,
+    });
+    implicitPasses = crossings.implicit;
+    if (implicitPasses.length) {
+      const merged = mergeImplicitRoutePasses(tourStops, result.perm, implicitPasses);
+      tourStops = merged.tourStops;
+      displayModes = merged.modes;
+    }
   } catch (e) {
     routeWarning = "Could not fetch detailed route geometry; map line is approximate.";
   }
   /* Stops & breaks accounting ??? same policy as auto-mode. */
-  const advPassN = (tourStops || []).filter(s => !s.isPoi).length;
+  const advPassList = (tourStops || []).filter(s => !s.isPoi);
   const advExtras = computeExtras({
-    passN: advPassN,
+    passN: advPassList.length,
     driveH,
     config: currentStopsConfig(),
+    passList: advPassList,
   });
   const totalH = driveH + dwellH + advExtras.extrasH;
 
@@ -4436,9 +4672,10 @@ async function planSelectedTour() {
     routeWarning,
     statusWarning: advancedStatusWarning(tourStops),
     tripDate: currentTripDate(),
-    modes: result.perm,
+    modes: displayModes,
+    implicitPasses: implicitPasses.map(x => x.pass),
   });
-  drawPlannedTour(start, tourStops, latlngs);
+  drawPlannedTour(start, tourStops, latlngs, { driveH, dwellH, extras: advExtras, stopsConfig: currentStopsConfig() });
 }
 
 async function planTour() {
@@ -4588,21 +4825,22 @@ async function planTour() {
   }
 
   /* Plan-validate-repair: brute-force tour search uses driving distances
-     between gateways, but the *fastest road* between two open passes can
-     itself run over a third pass that's currently closed.  After picking a
-     tour we fetch its actual road geometry, see if it crosses any known-
-     closed pass NOT in the tour, mark those edges as Infinity, and re-plan.
+     between gateways, but the *fastest road* between two selected stops can
+     itself run over a third pass.  If that hidden pass violates open-only,
+     block the connector edge and re-plan.  If it is allowed, merge it into
+     the displayed tour so the route line, list and numbered badges agree.
      We additionally do segment-level retrace detection on the geometry —
      when two distinct connector legs of the tour drive the same valley
      road, we soft-penalise both edges and re-plan to push the optimiser
      toward exploring new ground. */
-  const closedKnown = (openOnly ? PASSES.filter(p => passStatus(p).state === "closed") : []);
   const MAX_ITER = 5;
 
   let chosen = null;
   let chosenLatLngs = null;
   let chosenWaypoints = null;
   let chosenTourStops = null;
+  let chosenModes = null;
+  let chosenImplicitPasses = [];
   const blockedNames = new Set();
   const retraceLog = [];
   let plannerMs = 0;
@@ -4636,30 +4874,19 @@ async function planTour() {
        POIs contribute one waypoint each so they participate in connect-in
        checks just like a pass-summit-without-climb. */
     const wpIdx = waypoints.map(wp => closestPolylineIdx(wp, latlngs));
-    const tourIds = new Set(tourStops.map(p => p.id));
+    const crossings = routePassCrossingsForPlan({
+      tourStops,
+      perm: result.perm,
+      wpMatrixIdx,
+      wpIdx,
+      latlngs,
+      openOnly,
+    });
+    const blockedThisIter = crossings.blocked;
+    const implicitPassesThisIter = crossings.implicit;
 
-    const blockedThisIter = [];
-    if (closedKnown.length) {
-      for (let leg = 0; leg < waypoints.length - 1; leg++) {
-        const a = wpIdx[leg], b = wpIdx[leg + 1];
-        const slice = latlngs.slice(Math.min(a, b), Math.max(a, b) + 1);
-        const fromM = wpMatrixIdx[leg], toM = wpMatrixIdx[leg + 1];
-        /* Skip legs internal to the same stop (pass enter→summit→exit, or a
-           degenerate POI's three-equal-points slots). */
-        const sameP = (fromM > 0 && toM > 0)
-                       && Math.floor((fromM - 1) / 3) === Math.floor((toM - 1) / 3);
-        if (sameP) continue;
-        for (const cp of closedKnown) {
-          if (tourIds.has(cp.id)) continue;
-          if (closeToPolyline(cp, slice, 1.5)) {
-            blockedThisIter.push({ fromM, toM, name: cp.name });
-          }
-        }
-      }
-    }
-
-    /* Retrace detection: only meaningful when there's no closed-pass to
-       resolve first (closed-pass blocking changes the tour anyway), and
+    /* Retrace detection: only meaningful when there's no status-blocked pass
+       to resolve first (blocking changes the tour anyway), and
        only on iterations where we still have a re-plan budget left. */
     const retraceLegs = (blockedThisIter.length === 0 && iter < MAX_ITER - 1)
       ? detectRetracedConnectorLegs(latlngs, wpIdx)
@@ -4680,12 +4907,15 @@ async function planTour() {
       chosen.h = chosen.driveH;  /* legacy field, used by older readers */
       chosenLatLngs = latlngs;
       chosenWaypoints = waypoints;
-      chosenTourStops = tourStops;
+      const merged = mergeImplicitRoutePasses(tourStops, result.perm, implicitPassesThisIter);
+      chosenTourStops = merged.tourStops;
+      chosenModes = merged.modes;
+      chosenImplicitPasses = implicitPassesThisIter.map(x => x.pass);
     }
 
     if (blockedThisIter.length === 0 && retraceLegs.length === 0) break;
 
-    /* Apply hard infinitisation for closed-pass crossings. */
+    /* Apply hard infinitisation for pass crossings outside the active status filter. */
     for (const b of blockedThisIter) {
       matrix.dist[b.fromM][b.toM] = Infinity;
       matrix.dur [b.fromM][b.toM] = Infinity;
@@ -4722,7 +4952,7 @@ async function planTour() {
   if (!chosen) {
     if (blockedNames.size > 0) {
       showPlanResult({ error:
-        `Couldn't find a tour avoiding closed pass${blockedNames.size > 1 ? "es" : ""} ` +
+        `Couldn't find a tour avoiding pass${blockedNames.size > 1 ? "es" : ""} outside the open/restricted filter ` +
         `(${[...blockedNames].join(", ")}). Try a longer distance or a different start.` });
     } else {
       showPlanResult({ error: "No tour found." });
@@ -4736,11 +4966,13 @@ async function planTour() {
      In time mode we evaluate against drive+dwell+extras since that is
      what the user signed up for as their "day length". */
   const passNForCheck = (chosenTourStops || []).filter(s => !s.isPoi).length;
+  const actualPassList = (chosenTourStops || []).filter(s => !s.isPoi);
   const extras = computeExtras({
     passN: passNForCheck,
     driveH: chosen.driveH,
     config: stopsConfig,
     policyTotalH: targetMode === "time" ? targetValue : null,
+    passList: actualPassList,
   });
   const totalWithExtras = (chosen.driveH || 0) + (chosen.dwellH || 0) + extras.extrasH;
   /* Recompute "in range" against the actual final total (drive + dwell +
@@ -4785,9 +5017,10 @@ async function planTour() {
     tripDate: currentTripDate(),
     avoided: blockedNames.size > 0 ? [...blockedNames] : null,
     candidatePoolNote: candidatePoolNote || null,
-    modes: chosen.perm,   // [{passIdx, enterSide, exitSide, mode}, ...]
+    modes: chosenModes || chosen.perm,   // [{passIdx, enterSide, exitSide, mode}, ...]
+    implicitPasses: chosenImplicitPasses,
   });
-  drawPlannedTour(start, chosenTourStops, chosenLatLngs);
+  drawPlannedTour(start, chosenTourStops, chosenLatLngs, { driveH: chosen.driveH, dwellH: chosen.dwellH || 0, extras, stopsConfig });
 }
 
 /* Index in `polyline` of the point closest to lat/lng `wp` (planar approx). */
@@ -4945,7 +5178,12 @@ function showPlanResult(r) {
   const statusWarning = r.statusWarning
     ? `<div class="warn">${escapeHtml(r.statusWarning)}</div>` : "";
   const avoided = r.avoided
-    ? `<div class="popup-meta tight success">↻ Re-planned to avoid closed pass${r.avoided.length > 1 ? "es" : ""}: ${r.avoided.join(", ")}</div>` : "";
+    ? `<div class="popup-meta tight success">↻ Re-planned to avoid pass${r.avoided.length > 1 ? "es" : ""} outside the open/restricted filter: ${r.avoided.join(", ")}</div>` : "";
+  const implicitPasses = (r.implicitPasses || []).filter(Boolean);
+  const implicitPassN = implicitPasses.length;
+  const implicitPassBlock = implicitPassN > 0
+    ? `<div class="popup-meta tight">Included en-route pass${implicitPassN === 1 ? "" : "es"} crossed by connector road: ${implicitPasses.map(p => escapeHtml(p.name)).join(", ")}</div>`
+    : "";
   const title = r.advanced ? "Optimized selected route" : "Best tour";
   /* Time accounting — drive vs dwell vs extras vs total. We always render
      a single "total" up front, and a parenthetical breakdown when there's
@@ -4963,9 +5201,15 @@ function showPlanResult(r) {
     : `~<strong>${fmtDuration(driveH)}</strong> driving`;
   const passN = passOnly.length;
   const poiN  = stops.length - passN;
+  const matchedN = r.matched ?? Math.max(0, stops.length - implicitPassN);
+  const candidateCopy = r.poolSize != null
+    ? `${matchedN} of ${r.poolSize} candidates`
+    : `${matchedN} selected`;
   const stopSummary = poiN > 0
     ? `<strong>${passN}</strong> pass${passN === 1 ? "" : "es"} + <strong>${poiN}</strong> POI${poiN === 1 ? "" : "s"}`
-    : `<strong>${r.matched}</strong> selected pass${r.matched === 1 ? "" : "es"}`;
+    : implicitPassN > 0
+      ? `<strong>${passN}</strong> pass${passN === 1 ? "" : "es"} (${matchedN} selected + ${implicitPassN} en-route)`
+      : `<strong>${matchedN}</strong> selected pass${matchedN === 1 ? "" : "es"}`;
   const distanceBlock = r.targetMode === "time"
     ? `<strong>${Math.round(r.km)} km</strong>`
     : `<strong>${Math.round(r.km)} km</strong>`;
@@ -4975,10 +5219,14 @@ function showPlanResult(r) {
   const statsLine = r.advanced
     ? `${stopSummary} · ${distanceBlock} · ${timeBlock}`
     : poiN > 0
-      ? `${stopSummary} of ${r.poolSize} candidates
+      ? `${stopSummary} (${candidateCopy}${implicitPassN > 0 ? ` + ${implicitPassN} en-route` : ""})
          ${r.openOnly ? `(${r.totalOpen} passes shortlisted)` : ""} ·
          ${distanceBlock} · ${timeBlock}${targetBadge}`
-      : `<strong>${r.matched}</strong> of ${r.poolSize} candidates
+      : implicitPassN > 0
+        ? `<strong>${passN}</strong> pass${passN === 1 ? "" : "es"} (${candidateCopy} + ${implicitPassN} en-route)
+          ${r.openOnly ? `(out of ${r.totalOpen} projected open/restricted passes)` : ""} ·
+          ${distanceBlock} · ${timeBlock}${targetBadge}`
+        : `<strong>${matchedN}</strong> of ${r.poolSize} candidates
          ${r.openOnly ? `(out of ${r.totalOpen} projected open/restricted passes)` : ""} ·
          ${distanceBlock} · ${timeBlock}${targetBadge}`;
   /* Active POI prefs hint, when any deviates from defaults. */
@@ -5009,6 +5257,7 @@ function showPlanResult(r) {
     <h3>${title} from ${r.start.name}</h3>
     <div class="tour-passes">${stopList}</div>
     <div class="stats">${statsLine}</div>
+    ${implicitPassBlock}
     ${candidatePoolBlock}
     ${breaksBlock}
     ${prefsBlock}
@@ -5050,7 +5299,73 @@ function updatePlannedTourLayers(routeCoords = plannedRouteCoords, fallback = pl
     : EMPTY_FEATURE_COLLECTION);
 }
 
-function drawPlannedTour(start, tourStops, latlngs) {
+function closestPolylineIdxLngLat(lng, lat, coords) {
+  const cos = Math.cos(lat * Math.PI / 180);
+  let best = 0, bestD = Infinity;
+  for (let i = 0; i < coords.length; i++) {
+    const dy = (coords[i][1] - lat) * 111;
+    const dx = (coords[i][0] - lng) * 111 * cos;
+    const d = dx*dx + dy*dy;
+    if (d < bestD) { bestD = d; best = i; }
+  }
+  return best;
+}
+
+function cumulativeRouteKm(coords) {
+  const cumKm = new Float64Array(coords.length);
+  for (let i = 1; i < coords.length; i++) {
+    cumKm[i] = cumKm[i - 1] + haversine(
+      { lat: coords[i - 1][1], lon: coords[i - 1][0] },
+      { lat: coords[i][1], lon: coords[i][0] }
+    );
+  }
+  return cumKm;
+}
+
+function buildPlannedRouteGeometry(routeCoords, tourStops, meta = {}) {
+  const coords = (routeCoords || []).map(([lng, lat]) => [lng, lat]);
+  const cumKm = cumulativeRouteKm(coords);
+  const cfg = { ...currentStopsConfig(), ...(meta.stopsConfig || {}) };
+  const extrasParts = meta.extras?.parts || {};
+  const passStopMins = extrasParts.passStopMins || [];
+  let passStopIdx = 0;
+  const stops = (tourStops || [])
+    .filter(item => Number.isFinite(item?.lat) && Number.isFinite(item?.lon))
+    .map(item => {
+      const isPoi = !!item.isPoi;
+      let stopMin = 0;
+      if (!isPoi) {
+        const plannedMin = passStopMins[passStopIdx++];
+        stopMin = Number.isFinite(plannedMin) ? plannedMin : intelligentPassStopMin(item, cfg.passStopMin || 0);
+      }
+      return {
+        idx: closestPolylineIdxLngLat(item.lon, item.lat, coords),
+        name: item.name || "Stop",
+        isPoi,
+        stopMin,
+        dwellMin: Math.round((item.visitDwellSec || 0) / 60),
+        item,
+      };
+    })
+    .sort((a, b) => a.idx - b.idx);
+  const totalDwellMin = Math.round((Number(meta.dwellH) || 0) * 60) ||
+    stops.reduce((sum, s) => sum + (s.dwellMin || 0), 0);
+
+  return {
+    coords,
+    cumKm,
+    totalKm: cumKm.length ? cumKm[cumKm.length - 1] : 0,
+    driveH: Number(meta.driveH) || 0,
+    stops,
+    config: cfg,
+    totalRestMin: Math.round((extrasParts.restH || 0) * 60),
+    totalLunchMin: Math.round((extrasParts.lunchH || 0) * 60),
+    totalPassStopMin: stops.reduce((sum, s) => sum + (s.stopMin || 0), 0),
+    totalDwellMin,
+  };
+}
+
+function drawPlannedTour(start, tourStops, latlngs, meta = {}) {
   setPlannedTourIds(tourStops.map(p => p.id));
   plannedStart = start;
   plannedRouteActive = true;
@@ -5070,22 +5385,12 @@ function drawPlannedTour(start, tourStops, latlngs) {
   }
 
   plannedRouteCoords = routeCoords;
+  plannedRouteGeometry = buildPlannedRouteGeometry(routeCoords, tourStops, meta);
+  if (typeof window !== "undefined") window.plannedRouteGeometry = plannedRouteGeometry;
   plannedRouteFallback = fallback;
   updateMapSources();
   updatePlannedTourLayers(routeCoords, fallback);
   fitLngLatPairs(routeCoords, fallback ? 0.15 : 0.10);
-}
-
-function closeToPolyline(pt, latlngs, thresholdKm) {
-  const t2 = thresholdKm * thresholdKm;
-  const cos = Math.cos(pt.lat * Math.PI / 180);
-  for (let i = 0; i < latlngs.length; i++) {
-    const [la, lo] = latlngs[i];
-    const dy = (la - pt.lat) * 111;
-    const dx = (lo - pt.lon) * 111 * cos;
-    if (dx*dx + dy*dy < t2) return true;
-  }
-  return false;
 }
 
 /* ─────────────────────────── side panel ─────────────────────────── */

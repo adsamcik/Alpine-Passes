@@ -1377,7 +1377,7 @@ const ALPINE_GL_COLORS = {
   passCluster:[0.075, 0.590, 0.660, 1],
   poi:        [0.655, 0.545, 0.980, 1],
   poiDim:     [0.580, 0.639, 0.722, 0.86],
-  poiCluster: [0.075, 0.590, 0.660, 1],
+  poiCluster: [0.180, 0.440, 0.780, 1],
   white:      [1.000, 1.000, 1.000, 0.95],
   dark:       [0.043, 0.055, 0.063, 0.96],
   preview:    [0.360, 0.400, 0.420, 0.96],
@@ -1802,25 +1802,39 @@ class AlpineWebGLLayer {
         return vec4(color, outer);
       }
       vec4 clusterMarker() {
-        float aa = 0.012;
-        float body = roundedBox(v_local, vec2(0.47, 0.34), 0.17);
-        float alpha = 1.0 - smoothstep(0.0, aa, body);
+        /* Clean circular cluster bubble — teal body with a thin white
+           ring for definition and a subtle inner gradient for depth.
+           No more rectangle-with-stacked-chips noise; the count label
+           rendered as a separate label-kind instance is the dominant
+           text in the centre. */
+        float d = length(v_local);
+        float aa = 0.010;
+        float alpha = 1.0 - smoothstep(0.50 - aa, 0.50 + aa, d);
         if (alpha <= 0.0) discard;
-        float rim = smoothstep(-0.035, 0.018, body);
-        vec3 color = min(v_fill.rgb * 1.05, vec3(1.0));
-        color = mix(color, vec3(0.76, 0.98, 0.95), rim * 0.08);
+        float ring = smoothstep(0.43, 0.50, d);
+        vec3 inner = mix(v_fill.rgb, min(v_fill.rgb * 1.18, vec3(1.0)), (1.0 - v_uv.y) * 0.45);
+        inner = mix(inner * 0.92, inner, smoothstep(0.0, 0.30, d));
+        vec3 borderColor = vec3(1.0);
+        vec3 color = mix(inner, borderColor, ring * 0.68);
         return vec4(color, alpha);
       }
       vec4 previewChip() {
+        /* Compact white chip with a teal ring — used for the not-by-car
+           corner badge on POI pins and any other small accent we add
+           in future. Drops the previous "icon-on-teal" look so glyphs
+           stay legible. */
         float d = length(v_local);
         float aa = 0.014;
         float alpha = 1.0 - smoothstep(0.50 - aa, 0.50 + aa, d);
         if (alpha <= 0.0) discard;
-        float ring = smoothstep(0.39, 0.50, d);
-        vec3 color = mix(v_fill.rgb, vec3(0.92, 1.0, 0.98), ring * 0.25);
+        float ring = smoothstep(0.42, 0.50, d);
+        vec3 base = vec3(0.98, 0.99, 1.0);
+        vec3 ringColor = v_fill.rgb;
+        vec3 color = mix(base, ringColor, ring * 0.72);
         vec4 icon = fetchIcon();
-        vec3 mutedIcon = v_icon.x < 0.5 ? icon.rgb : vec3(1.0);
-        color = mix(color, mutedIcon, icon.a * (1.0 - ring * 0.35));
+        vec3 glyphColor = vec3(0.04, 0.06, 0.07);
+        vec3 iconColor = v_icon.x < 0.5 ? glyphColor : icon.rgb;
+        color = mix(color, iconColor, icon.a * (1.0 - ring * 0.5));
         return vec4(color, alpha);
       }
       vec4 labelMarker() {
@@ -2028,41 +2042,54 @@ class AlpineWebGLLayer {
     }
     if (isCluster) {
       kind = isPoi ? ALPINE_GL_KIND.poiCluster : ALPINE_GL_KIND.passCluster;
-      width = group.items.length >= 80 ? 60 : group.items.length >= 25 ? 56 : 52;
-      height = group.items.length >= 80 ? 42 : group.items.length >= 25 ? 40 : 38;
-      fill = ALPINE_GL_COLORS.passCluster;
+      /* Round bubble — sized by cluster magnitude so very large groups feel
+         heavier without dominating the map. Width === height keeps the
+         length()-based SDF in clusterMarker actually circular. */
+      const size = group.items.length >= 80 ? 50
+        : group.items.length >= 25 ? 46
+        : 42;
+      width = size;
+      height = size;
+      fill = isPoi ? ALPINE_GL_COLORS.poiCluster : ALPINE_GL_COLORS.passCluster;
       this._pushInstance(out, lng, lat, width, height, kind, flags, fill, fill, icon);
-      this._pushClusterPreviews(out, group, width, height, lng, lat);
       const countLabel = this._labelRef(String(group.items.length), isPoi ? "cluster-poi" : "cluster-pass");
       if (countLabel) {
-        const labelWidth = group.items.length >= 100 ? 32 : 26;
-        this._pushInstance(out, lng, lat, labelWidth, 16, ALPINE_GL_KIND.label, 0,
-          ALPINE_GL_COLORS.dark, ALPINE_GL_COLORS.dark, countLabel, 0, height * 0.05);
+        /* Slightly oversize the label quad so canvas anti-aliasing has
+           pixels to work with at all DPRs; the actual visible text fits
+           within ~70% of this. */
+        const labelSize = group.items.length >= 100 ? 34 : 30;
+        this._pushInstance(out, lng, lat, labelSize, labelSize, ALPINE_GL_KIND.label, 0,
+          ALPINE_GL_COLORS.dark, ALPINE_GL_COLORS.dark, countLabel, 0, 0);
       }
-      this._pickItems.push({ type: "cluster", kind: group.kind, id: group.id, group, lng, lat, radius: width * 0.58 });
+      this._pickItems.push({ type: "cluster", kind: group.kind, id: group.id, group, lng, lat, radius: width * 0.55 });
       return;
     } else if (isPoi) {
       const plannable = isPlannablePoi(group.item);
       kind = ALPINE_GL_KIND.poi;
-      width = 34;
-      height = 40;
+      width = 36;
+      height = 44;
       flags = plannable ? 0 : ALPINE_GL_FLAG_DIM;
       fill = plannable ? ALPINE_GL_COLORS.markerPurple : ALPINE_GL_COLORS.poiDim;
-      icon = textureRefForUiIcon(poiCategoryIconId(group.item.poiCategory), 0.44);
+      icon = textureRefForUiIcon(poiCategoryIconId(group.item.poiCategory), 0.62);
       this._pushInstance(out, lng, lat, width, height, kind, flags, fill, ALPINE_GL_COLORS.dark, icon, 0, height * 0.42);
       if (!plannable) {
-        this._pushInstance(out, lng, lat, 18, 18, ALPINE_GL_KIND.preview, 0,
-          [0.055, 0.078, 0.118, 0.92], stroke, textureRefForUiIcon("not-by-car", 0.78), 12, height * 0.42 + 10);
+        /* Smaller corner badge tucked into the bottom-right of the pin head
+           (positive offsetY = up; head sits in the upper portion of the
+           quad with vertical center at offsetY = height * 0.42 + ~head/2)
+           so the category glyph stays the dominant visual. */
+        this._pushInstance(out, lng, lat, 14, 14, ALPINE_GL_KIND.preview, 0,
+          [0.055, 0.078, 0.118, 0.94], stroke, textureRefForUiIcon("not-by-car", 0.82),
+          width * 0.42, height * 0.42 - height * 0.18);
       }
     } else {
       kind = ALPINE_GL_KIND.pass;
       const view = statusDisplay(passStatus(group.item));
-      width = 34;
-      height = 34;
+      width = 36;
+      height = 36;
       flags = ALPINE_GL_FLAG_SIMPLE_CIRCLE | (view.estimated ? ALPINE_GL_FLAG_ESTIMATED : 0);
       fill = ALPINE_GL_COLORS.markerPurple;
-      icon = textureRefForPassSymbol(group.item.symbolIconAsset, 0.62) ||
-             textureRefForUiIcon("pass-generic", 0.48);
+      icon = textureRefForPassSymbol(group.item.symbolIconAsset, 0.78) ||
+             textureRefForUiIcon("pass-generic", 0.62);
       this._pushInstance(out, lng, lat, width, height, kind, flags,
         fill, ALPINE_GL_COLORS.dark, icon, 0, 0);
     }
@@ -2080,27 +2107,6 @@ class AlpineWebGLLayer {
       lng,
       lat,
       radius: Math.max(width, height) * 0.65,
-    });
-  }
-
-  _pushClusterPreviews(out, group, clusterSize, clusterHeight, lng, lat) {
-    const previewSize = clusterSize >= 58 ? 24 : 22;
-    const count = Math.min(3, group.items.length);
-    const startX = -((count - 1) * previewSize * 0.82) / 2;
-    const previewFill = [0.080, 0.690, 0.620, 0.98];
-    const previewY = clusterHeight * 0.55;
-    group.items.slice(0, 3).forEach((item, index) => {
-      const isPoi = group.kind === "poi";
-      let icon;
-      if (isPoi) {
-        icon = textureRefForUiIcon(poiCategoryIconId(item.poiCategory), 0.72);
-      } else {
-        const view = statusDisplay(passStatus(item));
-        icon = textureRefForPassSymbol(item.symbolIconAsset, 0.82) ||
-          textureRefForUiIcon(stateIconId(view.state, view.estimated), 0.72);
-      }
-      this._pushInstance(out, lng, lat, previewSize, previewSize, ALPINE_GL_KIND.preview, 0,
-        previewFill, ALPINE_GL_COLORS.dark, icon, startX + index * (previewSize * 0.82), previewY);
     });
   }
 
@@ -2181,14 +2187,22 @@ class AlpineWebGLLayer {
       : (isPoi ? "#a78bfa" : "#ffd166");
     const textColor = isCluster ? "#ffffff" : "#111827";
     if (isCluster) {
-      this._roundedRect(ctx, x + 2, y + 7, 60, 50, 25);
-      ctx.fillStyle = fill;
-      ctx.fill();
       ctx.font = entry.text.length >= 3
-        ? "900 38px system-ui, -apple-system, Segoe UI, sans-serif"
-        : "900 43px system-ui, -apple-system, Segoe UI, sans-serif";
+        ? "900 34px system-ui, -apple-system, Segoe UI, sans-serif"
+        : "900 40px system-ui, -apple-system, Segoe UI, sans-serif";
+      ctx.lineJoin = "round";
+      ctx.miterLimit = 2;
+      ctx.lineWidth = entry.text.length >= 3 ? 6 : 7;
+      ctx.strokeStyle = "rgba(15, 23, 42, 0.48)";
+      ctx.strokeText(entry.text, cx, cy + 1);
+      ctx.lineWidth = entry.text.length >= 3 ? 2 : 2.5;
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.34)";
+      ctx.strokeText(entry.text, cx, cy + 1);
+      ctx.font = entry.text.length >= 3
+        ? "900 34px system-ui, -apple-system, Segoe UI, sans-serif"
+        : "900 40px system-ui, -apple-system, Segoe UI, sans-serif";
       ctx.fillStyle = textColor;
-      ctx.fillText(entry.text, cx, cy + 2);
+      ctx.fillText(entry.text, cx, cy + 1);
     } else {
       ctx.beginPath();
       ctx.arc(cx, cy, 20, 0, Math.PI * 2);

@@ -1336,9 +1336,12 @@ select option:checked {
 }
 .popup-title h2 span:last-child { min-width: 0; }
 .popup-title .pass-art-icon {
-  width: 68px;
-  height: 52px;
-  aspect-ratio: auto;
+  /* Source sprite cells are 128×128 square — keep the container square
+     so the illustration doesn't get stretched, just bigger than the
+     legacy 46px size for more presence next to the heading. */
+  width: 60px;
+  height: 60px;
+  aspect-ratio: 1;
   border-radius: 12px;
 }
 .popup-title .quality {

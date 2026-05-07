@@ -502,6 +502,7 @@ function statusSortRank(status) {
 const PROJECTION_HORIZON_DAYS = 31;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const planDateEl = document.getElementById("planDate");
+const planStartTimeEl = document.getElementById("planStartTime");
 const planDateHintEl = document.getElementById("planDateHint");
 
 function startOfLocalDay(date) {
@@ -530,6 +531,17 @@ function daysBetweenDates(fromDate, toDate) {
 
 function currentTripDate() {
   return parseDateInputValue(planDateEl?.value);
+}
+
+function currentTripStartTime() {
+  const value = String(planStartTimeEl?.value || "08:00");
+  return /^\d{2}:\d{2}$/.test(value) ? value : "08:00";
+}
+
+function currentTripDateTime() {
+  const date = currentTripDate();
+  const [hours, minutes] = currentTripStartTime().split(":").map(Number);
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), hours || 0, minutes || 0);
 }
 
 /* Map the trip date to one of the four seasons used by the POI dataset.
@@ -711,10 +723,18 @@ function updateTripDateHint() {
 }
 
 function initTripDateControl() {
-  if (!planDateEl) return;
   const today = todayLocalDate();
-  planDateEl.min = toDateInputValue(today);
-  if (!planDateEl.value) planDateEl.value = toDateInputValue(today);
+  if (planDateEl) {
+    planDateEl.min = toDateInputValue(today);
+    if (!planDateEl.value) planDateEl.value = toDateInputValue(today);
+  }
+  if (planStartTimeEl) {
+    try {
+      const saved = localStorage.getItem("alpine.planner.startTime");
+      if (saved && /^\d{2}:\d{2}$/.test(saved)) planStartTimeEl.value = saved;
+    } catch {}
+    if (!planStartTimeEl.value) planStartTimeEl.value = "08:00";
+  }
   updateTripDateHint();
 }
 
@@ -3610,6 +3630,16 @@ planDateEl?.addEventListener("change", () => {
     planResult.innerHTML = `<div class="warn">Trip date changed to ${escapeHtml(formatTripDate(currentTripDate()))}. Run the planner again to optimize against the updated pass expectations.</div>`;
   }
 });
+planStartTimeEl?.addEventListener("change", () => {
+  try { localStorage.setItem("alpine.planner.startTime", currentTripStartTime()); } catch {}
+  if (plannedRouteGeometry) {
+    if (weatherHydrationTimer) clearTimeout(weatherHydrationTimer);
+    weatherHydrationTimer = setTimeout(() => {
+      weatherHydrationTimer = null;
+      hydratePlanWeather();
+    }, 350);
+  }
+});
 planRunBtn.addEventListener("click", () => planTour());
 advancedModeEl.addEventListener("change", syncAdvancedMode);
 advancedPassSearchEl.addEventListener("input", renderAdvancedPicker);
@@ -3668,6 +3698,11 @@ map.on("click", (e) => {
 });
 
 function clearPlannedTour() {
+  weatherHydrationSeq++;
+  if (weatherHydrationTimer) {
+    clearTimeout(weatherHydrationTimer);
+    weatherHydrationTimer = null;
+  }
   setPlannedTourIds([]);
   plannedStart = null;
   plannedRouteActive = false;
@@ -3719,6 +3754,174 @@ function dedupe(key, factory) {
   const p = factory().finally(() => inFlight.delete(key));
   inFlight.set(key, p);
   return p;
+}
+
+const WEATHER_TTL = 30 * 60 * 1000;
+const WEATHER_ENDPOINT = "https://api.open-meteo.com/v1/forecast";
+const WEATHER_WIND_WARN_KMH = 50;
+let weatherHydrationSeq = 0;
+let weatherHydrationTimer = null;
+
+function weatherCacheKey(lat, lng, tripDate) {
+  return `alps:weather:${shortHash(`${lat.toFixed(2)}:${lng.toFixed(2)}:${tripDate}`)}`;
+}
+
+function stopElevation(item) {
+  for (const key of ["elev", "elevation", "altitude", "height", "ele"]) {
+    const value = Number(item?.[key]);
+    if (Number.isFinite(value)) return value;
+  }
+  return null;
+}
+
+function wmoWeather(code) {
+  const c = Number(code);
+  if (c === 0) return { icon: "☀", text: "sunny" };
+  if (c === 1) return { icon: "🌤", text: "partly cloudy" };
+  if (c === 2) return { icon: "⛅", text: "mostly cloudy" };
+  if (c === 3) return { icon: "⛅", text: "cloudy" };
+  if (c >= 45 && c <= 48) return { icon: "🌫", text: "fog" };
+  if (c >= 51 && c <= 67) return { icon: "🌧", text: c >= 61 ? "rain" : "light rain" };
+  if (c >= 71 && c <= 77) return { icon: "❄", text: "snow" };
+  if (c >= 80 && c <= 86) return { icon: "🌦", text: c >= 85 ? "snow showers" : "showers" };
+  if (c >= 95 && c <= 99) return { icon: "⛈", text: "storm" };
+  return { icon: "🌤", text: "forecast" };
+}
+
+function nearestWeatherHour(hourly, eta) {
+  const times = hourly?.time || [];
+  if (!times.length) return -1;
+  const etaMs = eta.getTime();
+  let bestIdx = -1;
+  let bestDelta = Infinity;
+  for (let i = 0; i < times.length; i++) {
+    const t = new Date(times[i]).getTime();
+    if (!Number.isFinite(t)) continue;
+    const delta = Math.abs(t - etaMs);
+    if (delta < bestDelta) {
+      bestDelta = delta;
+      bestIdx = i;
+    }
+  }
+  return bestDelta <= 90 * 60 * 1000 ? bestIdx : -1;
+}
+
+async function fetchWeatherForecast(lat, lng, tripDate) {
+  const key = weatherCacheKey(lat, lng, tripDate);
+  const cached = cacheGet(key, WEATHER_TTL);
+  if (cached) return cached;
+  return dedupe(key, async () => {
+    const params = new URLSearchParams({
+      latitude: String(lat),
+      longitude: String(lng),
+      hourly: "temperature_2m,precipitation,weather_code,wind_speed_10m,snowfall",
+      timezone: "auto",
+      forecast_days: "7",
+    });
+    const res = await fetch(`${WEATHER_ENDPOINT}?${params.toString()}`);
+    if (!res.ok) throw new Error("weather unavailable");
+    const json = await res.json();
+    cacheSet(key, json);
+    return json;
+  });
+}
+
+async function mapConcurrent(items, limit, worker) {
+  const out = new Array(items.length);
+  let next = 0;
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await worker(items[i], i);
+    }
+  });
+  await Promise.all(runners);
+  return out;
+}
+
+function etaForGeometryStop(geom, stop) {
+  const start = currentTripDateTime();
+  const idx = stop.idx || 0;
+  const distKm = geom.cumKm?.[idx] || 0;
+  const driveRatio = geom.totalKm > 0 ? clampNumber(distKm / geom.totalKm, 0, 1) : 0;
+  const driveHAtStop = (geom.driveH || 0) * driveRatio;
+  const earlierStops = (geom.stops || []).filter(s => s.idx < idx);
+  const earlierStopMin = earlierStops.reduce((sum, s) => sum + (s.stopMin || 0) + (s.dwellMin || 0), 0);
+  const restMin = (geom.totalRestMin || 0) * (geom.driveH > 0 ? Math.min(1, driveHAtStop / geom.driveH) : 0);
+  const lunchMin = geom.driveH > 0 && driveHAtStop >= geom.driveH / 2 ? (geom.totalLunchMin || 0) : 0;
+  return new Date(start.getTime() + Math.round((driveHAtStop * 60 + earlierStopMin + restMin + lunchMin) * 60 * 1000));
+}
+
+function formatWeatherChip(hourly, hourIdx, elevation) {
+  if (hourIdx < 0) return "";
+  const temp = Number(hourly.temperature_2m?.[hourIdx]);
+  const code = hourly.weather_code?.[hourIdx];
+  if (!Number.isFinite(temp) || code == null) return "";
+  const precip = Number(hourly.precipitation?.[hourIdx]) || 0;
+  const wind = Number(hourly.wind_speed_10m?.[hourIdx]) || 0;
+  const snowfall = Number(hourly.snowfall?.[hourIdx]) || 0;
+  const w = wmoWeather(code);
+  let icon = w.icon;
+  let text = w.text;
+  if (precip > 0 && !/(rain|showers|snow|storm)/.test(text)) text = "light rain";
+  const elev = Number(elevation);
+  if (snowfall > 0 && (!Number.isFinite(elev) || elev > 1500)) {
+    icon = "❄";
+    text = text.includes("snow") ? text : `snow · ${text}`;
+  }
+  const warnings = [];
+  if (wind > WEATHER_WIND_WARN_KMH) warnings.push("⚠ strong wind");
+  return `${icon} ${Math.round(temp)}° · ${text}${warnings.length ? ` · ${warnings.join(" · ")}` : ""}`;
+}
+
+function setWeatherUnavailableHint(message) {
+  const hint = document.getElementById("weatherUnavailableHint");
+  if (!hint) return;
+  hint.textContent = message || "";
+  hint.hidden = !message;
+}
+
+function stopWeatherNodes() {
+  return Array.from(document.querySelectorAll(".tour-stop-weather"));
+}
+
+async function hydratePlanWeather() {
+  const seq = ++weatherHydrationSeq;
+  const geom = plannedRouteGeometry;
+  const chips = stopWeatherNodes();
+  if (!geom?.stops?.length || chips.length === 0) return;
+  setWeatherUnavailableHint("");
+  chips.forEach(chip => { chip.hidden = true; chip.textContent = ""; });
+  const tripDate = planDateEl?.value || toDateInputValue(currentTripDate());
+  if (daysBetweenDates(todayLocalDate(), currentTripDate()) > 6) {
+    setWeatherUnavailableHint("Weather forecasts are available for the next 7 days.");
+    return;
+  }
+  let populated = 0;
+  const chipsByTourIndex = new Map(chips.map(chip => [Number(chip.dataset.weatherStop), chip]));
+  await mapConcurrent(geom.stops, 10, async stop => {
+    const item = stop.item || {};
+    const chip = chipsByTourIndex.get(Number(stop.tourIndex));
+    if (!chip) return;
+    const lat = Number(item.lat);
+    const lng = Number(item.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    try {
+      const forecast = await fetchWeatherForecast(lat, lng, tripDate);
+      if (seq !== weatherHydrationSeq) return;
+      const hourIdx = nearestWeatherHour(forecast?.hourly, etaForGeometryStop(geom, stop));
+      const text = formatWeatherChip(forecast?.hourly, hourIdx, stopElevation(item));
+      if (!chip || !text) return;
+      chip.textContent = text;
+      chip.hidden = false;
+      populated++;
+    } catch {
+      /* Forecast chips are best-effort and must not block route rendering. */
+    }
+  });
+  if (seq === weatherHydrationSeq && populated === 0) {
+    setWeatherUnavailableHint("Weather forecast unavailable for this tour.");
+  }
 }
 
 async function osrmTable(coordsStr) {
@@ -5143,15 +5346,16 @@ function showPlanResult(r) {
   const stops = r.tourStops || r.tourPasses || [];
   const arrow = ' <span class="arrow">→</span> ';
   const stopList = stops.map((p, i) => {
-    const t = r.modes[i];
+    const t = (r.modes || [])[i];
+    const weather = ` <span class="tour-stop-weather" data-weather-stop="${i}" hidden></span>`;
     if (p.isPoi) {
       const dwell = p.visitDwellSec ? ` <span class="dwell-badge" title="Typical visit time">${(p.visitDwellSec / 3600).toFixed(1)}h</span>` : "";
-      return `<span class="tour-stop poi-stop">${poiCategoryIcon(p.poiCategory, "poi-stop-glyph")} ${escapeHtml(p.name)}${dwell}</span>`;
+      return `<span class="tour-stop poi-stop">${poiCategoryIcon(p.poiCategory, "poi-stop-glyph")} ${escapeHtml(p.name)}${dwell}${weather}</span>`;
     }
     const modeBadge = t?.mode === "out-and-back"
       ? ` <span class="mode-badge" title="Visit summit and return same way">↻</span>`
       : ``;
-    return `<span class="tour-stop pass-stop">${escapeHtml(p.name)}${modeBadge}${qualityStarsCompact(p.quality)}</span>`;
+    return `<span class="tour-stop pass-stop">${escapeHtml(p.name)}${modeBadge}${qualityStarsCompact(p.quality)}${weather}</span>`;
   }).join(arrow);
   const passOnly = stops.filter(p => !p.isPoi);
   const avgQ = passOnly.length
@@ -5262,6 +5466,7 @@ function showPlanResult(r) {
     ${breaksBlock}
     ${prefsBlock}
     ${tripDateLine}
+    <div class="weather-unavailable" id="weatherUnavailableHint" hidden></div>
     ${qualityLine}
     ${modeNote}
     ${avoided}
@@ -5330,8 +5535,9 @@ function buildPlannedRouteGeometry(routeCoords, tourStops, meta = {}) {
   const passStopMins = extrasParts.passStopMins || [];
   let passStopIdx = 0;
   const stops = (tourStops || [])
-    .filter(item => Number.isFinite(item?.lat) && Number.isFinite(item?.lon))
-    .map(item => {
+    .map((item, tourIndex) => ({ item, tourIndex }))
+    .filter(({ item }) => Number.isFinite(item?.lat) && Number.isFinite(item?.lon))
+    .map(({ item, tourIndex }) => {
       const isPoi = !!item.isPoi;
       let stopMin = 0;
       if (!isPoi) {
@@ -5340,6 +5546,7 @@ function buildPlannedRouteGeometry(routeCoords, tourStops, meta = {}) {
       }
       return {
         idx: closestPolylineIdxLngLat(item.lon, item.lat, coords),
+        tourIndex,
         name: item.name || "Stop",
         isPoi,
         stopMin,
@@ -5391,6 +5598,7 @@ function drawPlannedTour(start, tourStops, latlngs, meta = {}) {
   updateMapSources();
   updatePlannedTourLayers(routeCoords, fallback);
   fitLngLatPairs(routeCoords, fallback ? 0.15 : 0.10);
+  hydratePlanWeather();
 }
 
 /* ─────────────────────────── side panel ─────────────────────────── */

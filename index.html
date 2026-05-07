@@ -13,18 +13,19 @@
 
 <link rel="preconnect" href="https://unpkg.com">
 <link rel="preconnect" href="https://tiles.openfreemap.org">
+<link rel="preconnect" href="https://api.open-meteo.com">
 <link rel="preload" href="assets/ui-icons/alpine-ui-icons.png" as="image" crossorigin="anonymous">
 <link rel="preload" href="assets/pass-icon-sheets/top-50-icon-sprite-01.png" as="image" crossorigin="anonymous" fetchpriority="low">
 <link rel="preload" href="assets/pass-icon-sheets/top-50-icon-sprite-02.png" as="image" crossorigin="anonymous" fetchpriority="low">
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.css">
 <script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js" defer></script>
 
-<link rel="stylesheet" href="assets/css/site.css?v=alpine-engine-20">
+<link rel="stylesheet" href="assets/css/site.css?v=alpine-engine-21">
 <script src="assets/js/passes-data.js" defer></script>
 <script src="assets/js/swiss-pois.js" defer></script>
 <script src="assets/js/passes-cams.js" defer></script>
 <script src="assets/js/pass-icons.js" defer></script>
-<script src="assets/js/app.js?v=alpine-engine-20" defer></script>
+<script src="assets/js/app.js?v=alpine-engine-21" defer></script>
 </head>
 <body>
 
@@ -97,8 +98,11 @@
               </div>
             </label>
             <label>
-              <span>Trip date</span>
-              <input id="planDate" type="date" aria-label="Trip date">
+              <span>Trip date &amp; start</span>
+              <div class="trip-date-time-row">
+                <input id="planDate" type="date" aria-label="Trip date">
+                <input id="planStartTime" type="time" value="08:00" aria-label="Trip start time">
+              </div>
               <em class="planner-help" id="planDateHint">Pass expectations update from live dates, OSM rules, history, and clearly marked guesses.</em>
             </label>
           </div>

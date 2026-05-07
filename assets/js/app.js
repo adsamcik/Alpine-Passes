@@ -1232,7 +1232,7 @@ const map = new maplibregl.Map({
   center: [10.0, 46.7],
   zoom: 7,
   minZoom: 4,
-  maxZoom: 18,
+  maxZoom: 14,
   attributionControl: true,
 });
 window.alpineMap = map;
@@ -3226,7 +3226,12 @@ const POI_PRESETS = {
   wine:     { cats: ["wine-region","village","old-town"], themes: ["food-drink"], minScore: 6, maxCount: 4, label: "Wine & food · ★6+ · max 4" },
   reset:    { cats: [], themes: [], minScore: 6, maxCount: 3, label: "Default · any category · any theme · ★6+ · max 3" },
 };
-let activePresetId = null;
+/* Active presets — multi-select with union semantics. Clicking a preset
+   toggles it in/out of the set; the active state is the UNION of all
+   active presets' cats/themes, with the LOWEST minScore (most permissive)
+   and LARGEST maxCount across them. The "reset" button clears the set
+   and every other filter chip. */
+const activePresetIds = new Set();
 const planRunBtn = document.getElementById("planRun");
 const planResult = document.getElementById("planResult");
 const planPickBtn= document.getElementById("planPick");
@@ -3523,8 +3528,12 @@ function updateTimeTolHint() {
 }
 function fmtMinScoreLabel(v) { return `★ ${v}+`; }
 function poiPrefsCurrentSubtitle() {
-  if (activePresetId && POI_PRESETS[activePresetId]) {
-    return POI_PRESETS[activePresetId].label;
+  if (activePresetIds.size > 0) {
+    const labels = [...activePresetIds]
+      .filter(id => POI_PRESETS[id])
+      .map(id => POI_PRESETS[id].label.split(" · ")[0]);
+    if (labels.length === 1) return POI_PRESETS[[...activePresetIds][0]].label;
+    return `Stacked: ${labels.join(" + ")} · ★ ${poiMinScoreVal()}+ · max ${poiMaxCountVal()}`;
   }
   const catCount = allowedPoiCategories.size;
   const themeCount = allowedPoiThemes.size;
@@ -3535,31 +3544,81 @@ function poiPrefsCurrentSubtitle() {
 function refreshPoiPrefsSubtitle() {
   if (poiPrefsSubtitleEl) poiPrefsSubtitleEl.textContent = poiPrefsCurrentSubtitle();
 }
-function setActivePreset(id) {
-  activePresetId = id;
+function syncPresetButtons() {
   poiPresetsEl?.querySelectorAll("[data-preset]").forEach(b => {
-    b.classList.toggle("active", b.dataset.preset === id);
+    b.classList.toggle("active", activePresetIds.has(b.dataset.preset));
   });
-  refreshPoiPrefsSubtitle();
 }
 function clearActivePreset() {
-  activePresetId = null;
-  poiPresetsEl?.querySelectorAll("[data-preset]").forEach(b => b.classList.remove("active"));
+  activePresetIds.clear();
+  syncPresetButtons();
   refreshPoiPrefsSubtitle();
+}
+/* Recompute filter state from the UNION of all currently-active presets:
+   union of cats and themes; min(minScore) so each new preset opens up
+   the score floor; max(maxCount) so each new preset only relaxes the
+   cap. When no presets are active, leaves the manual chip state alone. */
+function recomputeFromActivePresets() {
+  if (activePresetIds.size === 0) return;
+  allowedPoiCategories.clear();
+  allowedPoiThemes.clear();
+  let minScore = Infinity;
+  let maxCount = -Infinity;
+  for (const id of activePresetIds) {
+    const p = POI_PRESETS[id];
+    if (!p) continue;
+    for (const c of p.cats)   allowedPoiCategories.add(c);
+    for (const t of p.themes) allowedPoiThemes.add(t);
+    if (p.minScore < minScore) minScore = p.minScore;
+    if (p.maxCount > maxCount) maxCount = p.maxCount;
+  }
+  if (Number.isFinite(minScore)) {
+    poiMinScoreEl.value = String(minScore);
+    poiMinScoreLabelEl.textContent = fmtMinScoreLabel(minScore);
+  }
+  if (Number.isFinite(maxCount)) {
+    poiMaxCountEl.value = String(maxCount);
+    poiMaxCountLabelEl.textContent = String(maxCount);
+  }
+  renderPoiPrefsChips();
 }
 function applyPoiPreset(id) {
   const p = POI_PRESETS[id];
   if (!p) return;
-  allowedPoiCategories.clear();
-  for (const c of p.cats) allowedPoiCategories.add(c);
-  allowedPoiThemes.clear();
-  for (const t of p.themes) allowedPoiThemes.add(t);
-  poiMinScoreEl.value = String(p.minScore);
-  poiMaxCountEl.value = String(p.maxCount);
-  poiMinScoreLabelEl.textContent = fmtMinScoreLabel(p.minScore);
-  poiMaxCountLabelEl.textContent = String(p.maxCount);
-  renderPoiPrefsChips();
-  setActivePreset(id);
+  /* "reset" preset wipes the entire prefs state — single-button escape
+     hatch out of any combination of stacked presets and manual chips. */
+  if (id === "reset") {
+    activePresetIds.clear();
+    allowedPoiCategories.clear();
+    allowedPoiThemes.clear();
+    poiMinScoreEl.value = String(p.minScore);
+    poiMaxCountEl.value = String(p.maxCount);
+    poiMinScoreLabelEl.textContent = fmtMinScoreLabel(p.minScore);
+    poiMaxCountLabelEl.textContent = String(p.maxCount);
+    renderPoiPrefsChips();
+    syncPresetButtons();
+    refreshPoiPrefsSubtitle();
+    return;
+  }
+  /* Toggle: clicking an already-active preset removes it from the
+     stack. Clicking an inactive one adds it. State is then recomputed
+     as the union of remaining active presets. */
+  if (activePresetIds.has(id)) activePresetIds.delete(id);
+  else activePresetIds.add(id);
+  if (activePresetIds.size === 0) {
+    /* All toggled off — restore default neutral state. */
+    allowedPoiCategories.clear();
+    allowedPoiThemes.clear();
+    poiMinScoreEl.value = "6";
+    poiMaxCountEl.value = "3";
+    poiMinScoreLabelEl.textContent = fmtMinScoreLabel(6);
+    poiMaxCountLabelEl.textContent = "3";
+    renderPoiPrefsChips();
+  } else {
+    recomputeFromActivePresets();
+  }
+  syncPresetButtons();
+  refreshPoiPrefsSubtitle();
 }
 function renderPoiPrefsChips() {
   if (!poiCatChipsEl) return;
@@ -4994,7 +5053,7 @@ async function planTour() {
       maxCount: poiMaxCountVal(),
       cats: [...cats],
       themes: [...themes],
-      preset: activePresetId,
+      preset: activePresetIds.size > 0 ? [...activePresetIds] : null,
     };
     poiCands = PLANNABLE_POIS
       .filter(p => !tripSeason || (p.poiSeason || []).includes(tripSeason))
@@ -5466,7 +5525,13 @@ function showPlanResult(r) {
   const prefsBlock = (r.poiPrefs && (r.poiPrefs.preset || r.poiPrefs.cats.length || r.poiPrefs.themes.length || r.poiPrefs.minScore !== 6 || r.poiPrefs.maxCount !== 3))
     ? (() => {
         if (r.poiPrefs.preset) {
-          const lab = POI_PRESETS[r.poiPrefs.preset]?.label || r.poiPrefs.preset;
+          /* `preset` is now an array (multi-select) — fall back to the
+             single-string format from older results for back-compat. */
+          const ids = Array.isArray(r.poiPrefs.preset) ? r.poiPrefs.preset : [r.poiPrefs.preset];
+          const labels = ids.map(id => POI_PRESETS[id]?.label.split(" · ")[0] || id);
+          const lab = labels.length === 1
+            ? POI_PRESETS[ids[0]]?.label || ids[0]
+            : `Stacked: ${labels.join(" + ")}`;
           return `<div class="popup-meta tight">Sights: ${escapeHtml(lab)}</div>`;
         }
         const bits = [];

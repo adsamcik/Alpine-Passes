@@ -4009,6 +4009,12 @@ async function osrmRoute(coordsStr) {
 const PASS_QUALITY_POWER = 4;
 const PASS_PER_VISIT_COST = 1.5;
 const OUT_AND_BACK_RETRACE_PENALTY = 2.5;
+/* Out-and-back pass visits (climb to summit then retrace to the same
+   gateway) produce visually ugly hairpin loops on the map and add no
+   "stop value" since there's nothing at the summit beyond the view.
+   Globally banned: the DP only considers traversal pairs (enter ≠ exit)
+   and implicit-pass detection only counts true drive-throughs. */
+const ALLOW_OUT_AND_BACK = false;
 const SHARED_GATEWAY_KM = 5;
 const SHARED_GATEWAY_PENALTY = 2.0;
 
@@ -4164,6 +4170,7 @@ function _bestTourGatedImpl(matrix, N, targetSpec, tolerance, maxPasses, passQ, 
     for (let s = 0; s < 2; s++) {
       let best = Infinity, bestEnter = -1;
       for (let e = 0; e < 2; e++) {
+        if (!ALLOW_OUT_AND_BACK && e === s) continue;
         const enterIdx = e === 0 ? baseA(i) : baseB(i);
         const cost = costMatrix[0][enterIdx] + visitCost(i, e, s);
         if (cost < best) { best = cost; bestEnter = e; }
@@ -4190,6 +4197,7 @@ function _bestTourGatedImpl(matrix, N, targetSpec, tolerance, maxPasses, passQ, 
             const newMask = mask | (1 << j);
             let best = Infinity, bestEnter = -1;
             for (let e = 0; e < 2; e++) {
+              if (!ALLOW_OUT_AND_BACK && e === s2) continue;
               const enterIdx = e === 0 ? baseA(j) : baseB(j);
               const cost = cur + costMatrix[fromIdx][enterIdx] + visitCost(j, e, s2);
               if (cost < best) { best = cost; bestEnter = e; }
@@ -4428,6 +4436,7 @@ function bestExactSelectedTour(matrix, N, passQ, stops) {
     for (let exitSide = 0; exitSide < 2; exitSide++) {
       let best = Infinity, bestEnter = -1;
       for (let enterSide = 0; enterSide < 2; enterSide++) {
+        if (!ALLOW_OUT_AND_BACK && enterSide === exitSide) continue;
         const cost = matrixValue(dist, 0, sideIdx(i, enterSide)) + visitCost(i, enterSide, exitSide);
         if (cost < best) { best = cost; bestEnter = enterSide; }
       }
@@ -4450,6 +4459,7 @@ function bestExactSelectedTour(matrix, N, passQ, stops) {
           const newMask = mask | (1 << j);
           for (let nextExitSide = 0; nextExitSide < 2; nextExitSide++) {
             for (let nextEnterSide = 0; nextEnterSide < 2; nextEnterSide++) {
+              if (!ALLOW_OUT_AND_BACK && nextEnterSide === nextExitSide) continue;
               const cost = cur +
                 matrixValue(dist, fromIdx, sideIdx(j, nextEnterSide)) +
                 visitCost(j, nextEnterSide, nextExitSide);
@@ -4666,6 +4676,11 @@ function advancedStatusWarning(tourStops) {
 }
 
 const ROUTE_PASS_CROSSING_KM = 1.5;
+/* When checking implicit-pass detection: gateways must be within this
+   distance of the leg polyline AND on opposite sides of the summit
+   along the route, otherwise we'd surface out-and-back climbs as
+   "drove through" passes. */
+const ROUTE_PASS_GATEWAY_KM = 2.5;
 
 function plannerStatusAllowsPass(p, openOnly) {
   if (!openOnly) return true;
@@ -4741,6 +4756,20 @@ function routePassCrossingsForPlan({ tourStops, perm, wpMatrixIdx, wpIdx, latlng
         }
         continue;
       }
+
+      /* Require BOTH gateways near the polyline AND on opposite sides
+         of the summit along the route. This filters out out-and-back
+         hairpin climbs (where only one gateway is touched) — we only
+         flag a pass as "implicitly driven over" when the route truly
+         enters one side and exits the other. */
+      if (!p.baseA || !p.baseB) continue;
+      const aHit = nearestPolylineHit(p.baseA, latlngs, a, b, ROUTE_PASS_GATEWAY_KM);
+      const bHit = nearestPolylineHit(p.baseB, latlngs, a, b, ROUTE_PASS_GATEWAY_KM);
+      if (!aHit || !bHit) continue;
+      const summitIdx = hit.idx;
+      const aBefore = aHit.idx < summitIdx;
+      const bBefore = bHit.idx < summitIdx;
+      if (aBefore === bBefore) continue;
 
       const prev = implicitById.get(p.id);
       const entry = { pass: p, leg, insertionIndex, routeIdx: hit.idx, distanceKm: hit.distanceKm };

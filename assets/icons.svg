@@ -65,4 +65,10 @@
     <path d="M9 9C9 7.5 10.25 6.5 12 6.5S15 7.5 15 9C15 11.5 12 11.5 12 14" fill="none" stroke="var(--icon-cut, #0e1418)" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"/>
     <circle cx="12" cy="17.5" r="1.5" fill="var(--icon-cut, #0e1418)"/>
   </symbol>
+
+  <symbol id="alpine-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="13" r="7.5"/>
+    <path d="M12 9v4l2.5 2"/>
+    <path d="M9.5 3.5h5"/>
+  </symbol>
 </svg>

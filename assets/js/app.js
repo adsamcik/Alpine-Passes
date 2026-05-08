@@ -3334,8 +3334,6 @@ function buildDisclosure(label, bodyHTML) {
    explanation, with a small sub-score breakdown.
    Sub-scores: sB scenicBeauty, sI summitInterest, dE drivingExperience, pp popularity (all 0-10). */
 function whyRatingLine(p) {
-  const stars = Math.round((p.quality || 0) * 5);
-  const starStr = stars > 0 ? "★".repeat(stars) : "—";
   const reasoning = p.reasoning ? escapeHtml(p.reasoning) : "";
   const sg = p.qualitySignals;
   const SCORE_LABELS = {
@@ -3355,7 +3353,7 @@ function whyRatingLine(p) {
   if (!reasoning && !breakdown) return "";
   const cf = p.confidence;
   const cfTag = cf === "l" ? ' <span class="cf-tag" title="Low confidence — sparse data">·low confidence</span>' : "";
-  const summaryRow = `<div class="why-summary"><span class="why-stars"><b>${starStr}</b></span>${breakdown}${cfTag}</div>`;
+  const summaryRow = `<div class="why-summary">${breakdown}${cfTag}</div>`;
   const reasoningHtml = reasoning ? `<div class="why-reasoning">${reasoning}</div>` : "";
   return summaryRow + (reasoningHtml ? buildDisclosure('Why this score?', reasoningHtml) : "");
 }
@@ -7111,6 +7109,10 @@ const showNotableOnlyEl = document.getElementById("showNotableOnly");
 const VIEW_LIMIT = 80;
 passUiReady = true;
 
+function listNoteTextElement() {
+  return noteEl?.querySelector(".listnote-text") || noteEl;
+}
+
 /* "Notable" gates out low-confidence entries plus everything below this
    quality cutoff. Keep this aligned with the generated pass icon set so
    every notable pass has both scenic and compact sprite artwork. */
@@ -7158,13 +7160,13 @@ function syncMarkerVisibility() {
 function syncPoiMarkerVisibility() {
   updateMapSources();
 }
-function syncOpenOnlyFilter() {
+function syncOpenOnlyFilter(userTriggered = false) {
   syncMarkerVisibility();
-  renderList();
+  renderList(userTriggered);
   renderAdvancedPicker();
 }
 
-function renderList() {
+function renderList(userTriggered = false) {
   const q = searchEl.value.trim().toLowerCase();
   const sort = sortEl.value;
   const start = currentStart();
@@ -7247,9 +7249,21 @@ function renderList() {
     lazyLoadPassIcons(listEl);
   }
 
-  noteEl.textContent = useSearch
-    ? `${total} ${filterTag}match${total === 1 ? "" : "es"}${total > VIEW_LIMIT ? ` (showing first ${VIEW_LIMIT})` : ""}`
-    : `${total} ${filterTag}in view${total > VIEW_LIMIT ? ` (showing first ${VIEW_LIMIT})` : ""} · ${PASSES.filter(passesAllFilters).length} ${filterTag}total`;
+  if (userTriggered) {
+    const rows = listEl.querySelectorAll("li[data-id]");
+    const cap = Math.min(rows.length, 12);
+    for (let i = 0; i < cap; i++) {
+      rows[i].classList.add("row-staggered");
+      rows[i].style.setProperty("--row-i", i);
+    }
+  }
+
+  const noteText = listNoteTextElement();
+  if (noteText) {
+    noteText.textContent = useSearch
+      ? `${total} ${filterTag}match${total === 1 ? "" : "es"}${total > VIEW_LIMIT ? ` (showing first ${VIEW_LIMIT})` : ""}`
+      : `${total} ${filterTag}in view${total > VIEW_LIMIT ? ` (showing first ${VIEW_LIMIT})` : ""} · ${PASSES.filter(passesAllFilters).length} ${filterTag}total`;
+  }
 }
 
 /* ─────────────────────── POI side-panel rendering ─────────────────────── */
@@ -7334,7 +7348,7 @@ function comparePoiBySort(a, b, sort, start) {
   return (b.quality || 0) - (a.quality || 0);
 }
 
-function renderPoiList() {
+function renderPoiList(userTriggered = false) {
   if (!poiListEl) return;
   const q = (poiSearchEl?.value || "").trim().toLowerCase();
   const sort = poiSortEl?.value || "score";
@@ -7412,6 +7426,15 @@ function renderPoiList() {
     }
   }
 
+  if (userTriggered) {
+    const rows = poiListEl.querySelectorAll("li[data-poi-id]");
+    const cap = Math.min(rows.length, 12);
+    for (let i = 0; i < cap; i++) {
+      rows[i].classList.add("row-staggered");
+      rows[i].style.setProperty("--row-i", i);
+    }
+  }
+
   /* Update tab counters: passes total reflects passes-in-view count;
      POI total reflects the POI list. */
   if (tabCountPois) {
@@ -7420,9 +7443,12 @@ function renderPoiList() {
 
   /* When the POI tab is active, mirror noteEl text to the POI footnote. */
   if (activeExplorerTab === "pois") {
-    noteEl.textContent = useSearch
-      ? `${total} match${total === 1 ? "" : "es"}${total > VIEW_LIMIT ? ` (showing first ${VIEW_LIMIT})` : ""}`
-      : `${total} in view${total > VIEW_LIMIT ? ` (showing first ${VIEW_LIMIT})` : ""} · ${POIS.length} total`;
+    const noteText = listNoteTextElement();
+    if (noteText) {
+      noteText.textContent = useSearch
+        ? `${total} match${total === 1 ? "" : "es"}${total > VIEW_LIMIT ? ` (showing first ${VIEW_LIMIT})` : ""}`
+        : `${total} in view${total > VIEW_LIMIT ? ` (showing first ${VIEW_LIMIT})` : ""} · ${POIS.length} total`;
+    }
   }
 }
 
@@ -7435,7 +7461,7 @@ renderList = function () {
   if (tabCountPasses) {
     /* Read the count from the existing footnote text (it's authoritative)
        to avoid duplicating the filter logic. */
-    const m = noteEl.textContent.match(/^(\d+)/);
+    const m = listNoteTextElement()?.textContent.match(/^(\d+)/);
     tabCountPasses.textContent = m ? `· ${m[1]}` : "";
   }
 };
@@ -7491,19 +7517,19 @@ tabPois?.addEventListener("keydown", handleTabKeydown);
 tabPasses?.setAttribute("tabindex", "0");
 tabPois?.setAttribute("tabindex", "-1");
 
-poiSearchEl?.addEventListener("input", () => { renderPoiList(); syncPoiMarkerVisibility(); });
-poiSortEl?.addEventListener("change", renderPoiList);
-poiCatFilterEl?.addEventListener("change", () => { renderPoiList(); syncPoiMarkerVisibility(); });
-poiRegionFilterEl?.addEventListener("change", () => { renderPoiList(); syncPoiMarkerVisibility(); });
-poiPlannableOnlyEl?.addEventListener("change", () => { renderPoiList(); syncPoiMarkerVisibility(); });
-poiTopOnlyEl?.addEventListener("change", () => { renderPoiList(); syncPoiMarkerVisibility(); });
+poiSearchEl?.addEventListener("input", () => { renderPoiList(true); syncPoiMarkerVisibility(); });
+poiSortEl?.addEventListener("change", () => renderPoiList(true));
+poiCatFilterEl?.addEventListener("change", () => { renderPoiList(true); syncPoiMarkerVisibility(); });
+poiRegionFilterEl?.addEventListener("change", () => { renderPoiList(true); syncPoiMarkerVisibility(); });
+poiPlannableOnlyEl?.addEventListener("change", () => { renderPoiList(true); syncPoiMarkerVisibility(); });
+poiTopOnlyEl?.addEventListener("change", () => { renderPoiList(true); syncPoiMarkerVisibility(); });
 
-searchEl.addEventListener("input", renderList);
-sortEl  .addEventListener("change", renderList);
-sortOpenFirstEl.addEventListener("change", renderList);
-startSel.addEventListener("change", renderList);
-showOpenOnlyEl.addEventListener("change", syncOpenOnlyFilter);
-showNotableOnlyEl.addEventListener("change", syncOpenOnlyFilter);
+searchEl.addEventListener("input", () => renderList(true));
+sortEl  .addEventListener("change", () => renderList(true));
+sortOpenFirstEl.addEventListener("change", () => renderList(true));
+startSel.addEventListener("change", () => renderList(true));
+showOpenOnlyEl.addEventListener("change", () => syncOpenOnlyFilter(true));
+showNotableOnlyEl.addEventListener("change", () => syncOpenOnlyFilter(true));
 
 /* Debounce viewport-driven re-renders: panning fires moveend many times
    per second; renderList() / renderPoiList() are each cheap (~5 ms) but
@@ -7932,10 +7958,12 @@ _ensureStatusPill();
   let _tweenRaf = null;
   const _rl_tween = renderList;
   renderList = function () {
-    const oldText = noteEl ? noteEl.textContent : '';
+    const oldNoteText = listNoteTextElement();
+    const oldText = oldNoteText ? oldNoteText.textContent : '';
     _rl_tween.apply(this, arguments);
-    if (!noteEl || _prefersReducedMotion) return;
-    const newText = noteEl.textContent;
+    const newNoteText = listNoteTextElement();
+    if (!newNoteText || _prefersReducedMotion) return;
+    const newText = newNoteText.textContent;
     if (oldText === newText) return;
     const oldN = parseInt(oldText, 10);
     const newN = parseInt(newText, 10);
@@ -7947,7 +7975,7 @@ _ensureStatusPill();
     const step   = (ts) => {
       const t   = Math.min((ts - startT) / dur, 1);
       const cur = Math.round(oldN + (newN - oldN) * t);
-      noteEl.textContent = cur + suffix;
+      newNoteText.textContent = cur + suffix;
       if (t < 1) { _tweenRaf = requestAnimationFrame(step); }
       else        { _tweenRaf = null; }
     };

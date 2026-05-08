@@ -1276,6 +1276,7 @@ const map = new maplibregl.Map({
   minZoom: 4,
   maxZoom: 14,
   attributionControl: true,
+  preserveDrawingBuffer: true,
 });
 window.alpineMap = map;
 
@@ -1999,7 +2000,9 @@ class AlpineWebGLLayer {
         else c = previewChip();
         /* Hover brightness boost — only for single pass/poi markers (kind < 2).
            Clusters, labels and preview chips are unaffected. */
-        c.rgb = clamp(c.rgb + 0.20 * v_hover * (1.0 - step(2.0, kind)), 0.0, 1.0);
+        float leafHover = v_hover * (1.0 - step(2.0, kind));
+        float clusterHover = v_hover * step(2.0, kind) * (1.0 - step(3.5, kind));
+        c.rgb = clamp(c.rgb + 0.20 * leafHover + 0.12 * clusterHover, 0.0, 1.0);
         // Entrance fade-in
         c.a *= v_entrance_alpha;
         // Selected marker pulse — brightness/alpha boost for leaf markers only
@@ -2234,7 +2237,8 @@ class AlpineWebGLLayer {
       width = size;
       height = size;
       fill = isPoi ? ALPINE_GL_COLORS.poiCluster : ALPINE_GL_COLORS.passCluster;
-      this._pushInstance(out, lng, lat, width, height, kind, flags, fill, fill, icon, 0, 0, 0, bornAtSec, 0);
+      const clusterHover = (group.id === this._hoverTargetId) ? this._hoverAnim : 0;
+      this._pushInstance(out, lng, lat, width, height, kind, flags, fill, fill, icon, 0, 0, clusterHover, bornAtSec, 0);
       const countLabel = this._labelRef(String(group.items.length), isPoi ? "cluster-poi" : "cluster-pass");
       if (countLabel) {
         /* Slightly oversize the label quad so canvas anti-aliasing has
@@ -2594,7 +2598,8 @@ map.on("mousemove", event => {
   }
   const pick = alpineOverlayLayer.pickAt(event.point);
   canvas.style.cursor = pick ? "pointer" : "";
-  alpineOverlayLayer.setHover(pick?.type === "marker" ? pick.id : null);
+  const hoverable = pick && (pick.type === "marker" || pick.type === "cluster");
+  alpineOverlayLayer.setHover(hoverable ? pick.id : null);
 });
 map.on("mouseout", () => alpineOverlayLayer.setHover(null));
 map.on("moveend", scheduleAlpineOverlayLayout);
@@ -2974,6 +2979,55 @@ function setPoiLayerVisible(visible) {
   renderPoiList();
 }
 
+let _styleSwapOverlay = null;
+function performMapStyleSwap(nextStyle) {
+  const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+  if (reduce) {
+    map.setStyle(nextStyle);
+    map.once('idle', restoreMapLayers);
+    return;
+  }
+  if (_styleSwapOverlay) {
+    _styleSwapOverlay.remove();
+    _styleSwapOverlay = null;
+  }
+  let dataUrl = null;
+  try {
+    map.triggerRepaint();
+    dataUrl = map.getCanvas().toDataURL('image/png');
+  } catch (_) {
+    map.setStyle(nextStyle);
+    map.once('idle', restoreMapLayers);
+    return;
+  }
+  if (!dataUrl || dataUrl.length < 200) {
+    map.setStyle(nextStyle);
+    map.once('idle', restoreMapLayers);
+    return;
+  }
+  const overlay = document.createElement('img');
+  overlay.src = dataUrl;
+  overlay.className = 'alpine-style-swap-overlay';
+  overlay.setAttribute('aria-hidden', 'true');
+  map.getContainer().appendChild(overlay);
+  _styleSwapOverlay = overlay;
+  map.setStyle(nextStyle);
+  map.once('idle', () => {
+    restoreMapLayers();
+    if (_styleSwapOverlay !== overlay) return;
+    requestAnimationFrame(() => { overlay.style.opacity = '0'; });
+    let done = false;
+    const cleanup = () => {
+      if (done) return; done = true;
+      overlay.removeEventListener('transitionend', cleanup);
+      overlay.remove();
+      if (_styleSwapOverlay === overlay) _styleSwapOverlay = null;
+    };
+    overlay.addEventListener('transitionend', cleanup);
+    setTimeout(cleanup, 900);
+  });
+}
+
 class AlpineLayerControl {
   onAdd() {
     const el = document.createElement("div");
@@ -2993,8 +3047,7 @@ class AlpineLayerControl {
       if (!next) return;
       currentBaseLayerName = next.name;
       updateMapInfo(currentBaseLayerName);
-      map.setStyle(next.style);
-      map.once("idle", restoreMapLayers);
+      performMapStyleSwap(next.style);
     });
     poiToggle.addEventListener("change", () => setPoiLayerVisible(poiToggle.checked));
     return el;

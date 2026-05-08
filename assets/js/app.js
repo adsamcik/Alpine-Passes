@@ -2742,9 +2742,15 @@ function mapBoundsContainsPoint(p) {
 }
 
 function alpineFlyTo({ center, zoom, offset, padding }) {
+  const baseOpts = {
+    center,
+    ...(zoom != null && { zoom }),
+    ...(offset !== undefined && { offset }),
+    ...(padding !== undefined && { padding }),
+  };
   const rm = window.matchMedia?.('(prefers-reduced-motion: reduce)');
   if (rm?.matches) {
-    map.jumpTo({ center, zoom, offset, padding });
+    map.jumpTo(baseOpts);
     return;
   }
   const cur = map.getCenter();
@@ -2755,7 +2761,7 @@ function alpineFlyTo({ center, zoom, offset, padding }) {
   const pixelDist = Math.hypot(pCur.x - pTar.x, pCur.y - pTar.y);
   const zoomDelta = Math.abs(targetZoom - curZoom);
   if (pixelDist < 80 && zoomDelta < 0.75) {
-    map.easeTo({ center, zoom: targetZoom, duration: 220, offset, padding });
+    map.easeTo({ ...baseOpts, zoom: targetZoom, duration: 220 });
     return;
   }
   let dur = Math.max(350, Math.min(900, 550 * (zoomDelta / 3)));
@@ -2764,7 +2770,7 @@ function alpineFlyTo({ center, zoom, offset, padding }) {
     map.stop();
     dur = Math.min(dur, 400);
   }
-  map.flyTo({ center, zoom: targetZoom, offset, padding, duration: dur, curve: 1.42, essential: true });
+  map.flyTo({ ...baseOpts, zoom: targetZoom, duration: dur, curve: 1.42, essential: true });
 }
 
 function flyToItem(p, zoom = 11) {
@@ -2817,6 +2823,7 @@ function openMapPopup(lngLat, html, maxWidth = "360px") {
       'bottom-right': [-10,-10],
       'left':         [10,   0],
       'right':        [-10,  0],
+      'center':       [0,    0],
     },
     anchor: mobileAnchor,
     maxWidth: '320px',

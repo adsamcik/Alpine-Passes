@@ -1298,6 +1298,7 @@ let mapLayersReady = false;
 let poiLayerVisible = true;
 let activePopup = null;
 let popupSourceEl = null;
+let popupSourceKey = null;
 let lastFocusedRow = null;
 let _popupTitleSeq = 0;
 let passUiReady = false;
@@ -2815,6 +2816,22 @@ function createMarkerRing(lngLat, popup) {
   return ring;
 }
 
+function applyPopupDialogAria(contentEl) {
+  if (!contentEl) return;
+  contentEl.setAttribute('role', 'dialog');
+  contentEl.setAttribute('aria-modal', 'true');
+  if (!contentEl.hasAttribute('tabindex')) contentEl.setAttribute('tabindex', '-1');
+  const heading = contentEl.querySelector('h1, h2, h3, .popup-title, [data-popup-title]');
+  if (heading) {
+    if (!heading.id) heading.id = `popup-title-${++_popupTitleSeq}`;
+    contentEl.setAttribute('aria-labelledby', heading.id);
+    contentEl.removeAttribute('aria-label');
+  } else {
+    contentEl.setAttribute('aria-label', 'Details');
+    contentEl.removeAttribute('aria-labelledby');
+  }
+}
+
 /* Unconditionally apply image binding + wiki-in stagger after any setHTML.
    Called after the initial render AND after any post-wiki setHTML so that
    the pre-existing MapLibre TypeError (which prevents activePopup assignment)
@@ -2833,6 +2850,8 @@ function applyPopupBindings(popup) {
     setTimeout(() => body.classList.remove('wiki-in'), 240 + body.children.length * 60 + 80);
   }
   requestAnimationFrame(() => applyBodyStagger(root));
+  const contentEl = root.querySelector('.maplibregl-popup-content');
+  applyPopupDialogAria(contentEl);
 }
 
 function openMapPopup(lngLat, html, maxWidth = "360px") {
@@ -2873,18 +2892,12 @@ function openMapPopup(lngLat, html, maxWidth = "360px") {
   }
   const contentEl = popup.getElement().querySelector('.maplibregl-popup-content');
   if (contentEl) {
-    popupSourceEl = lastFocusedRow || (document.activeElement !== document.body ? document.activeElement : null);
+    const initialSource = lastFocusedRow || (document.activeElement !== document.body ? document.activeElement : null);
+    popupSourceEl = initialSource;
+    popupSourceKey = initialSource?.dataset?.id || initialSource?.dataset?.poiId || null;
     contentEl.setAttribute('tabindex', '-1');
     contentEl.focus({ preventScroll: true });
-    contentEl.setAttribute('role', 'dialog');
-    contentEl.setAttribute('aria-modal', 'true');
-    const heading = contentEl.querySelector('h1, h2, h3, .popup-title, [data-popup-title]');
-    if (heading) {
-      if (!heading.id) heading.id = `popup-title-${++_popupTitleSeq}`;
-      contentEl.setAttribute('aria-labelledby', heading.id);
-    } else {
-      contentEl.setAttribute('aria-label', 'Details');
-    }
+    applyPopupDialogAria(contentEl);
     const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
     const onKey = (e) => {
       if (e.key !== 'Tab') return;
@@ -2913,9 +2926,18 @@ function openMapPopup(lngLat, html, maxWidth = "360px") {
   popup.on('close', () => {
     if (_popupOpenGen === _gen) _mapEl.removeAttribute('data-popup-open');
     const src = popupSourceEl;
+    const key = popupSourceKey;
     popupSourceEl = null;
+    popupSourceKey = null;
+    let target = null;
     if (src && document.contains(src)) {
-      try { src.focus({ preventScroll: true }); } catch (_) {}
+      target = src;
+    } else if (key) {
+      target = document.querySelector(`#passList li[data-id="${CSS.escape(key)}"]`)
+        || document.querySelector(`#poiList li[data-poi-id="${CSS.escape(key)}"]`);
+    }
+    if (target) {
+      try { target.focus({ preventScroll: true }); } catch (_) {}
     }
   });
   /* After the popup mounts, ease the map so the popup fully fits in view.
@@ -2995,11 +3017,16 @@ async function openPassPopup(p, lngLat = [p.lon, p.lat]) {
   try {
     const wiki = await fetchWiki(p.wikiTitle, p.wikiLang);
     if (activePopup === popup) {
-      popup.setHTML(buildPopupHtml(p, passStatus(p), wiki));
-      lazyLoadPassIcons(popup.getElement(), true);
-      const el2 = popup.getElement().querySelector('.maplibregl-popup-content');
-      if (el2) { el2.setAttribute('tabindex', '-1'); }
-      applyPopupBindings(popup); // RE-BIND after wiki content replaces HTML
+      try {
+        popup.setHTML(buildPopupHtml(p, passStatus(p), wiki));
+      } finally {
+        if (activePopup === popup) {
+          lazyLoadPassIcons(popup.getElement(), true);
+          const el2 = popup.getElement().querySelector('.maplibregl-popup-content');
+          if (el2) { el2.setAttribute('tabindex', '-1'); }
+          applyPopupBindings(popup); // RE-BIND after wiki content replaces HTML
+        }
+      }
     }
   } catch (e) {
     console.debug('[alpine] wiki fetch failed', e);

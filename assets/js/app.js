@@ -1297,6 +1297,9 @@ const EMPTY_FEATURE_COLLECTION = { type: "FeatureCollection", features: [] };
 let mapLayersReady = false;
 let poiLayerVisible = true;
 let activePopup = null;
+let popupSourceEl = null;
+let lastFocusedRow = null;
+let _popupTitleSeq = 0;
 let passUiReady = false;
 let poiUiReady = false;
 let mapLayerRestoreQueued = false;
@@ -2869,13 +2872,52 @@ function openMapPopup(lngLat, html, maxWidth = "360px") {
     }
   }
   const contentEl = popup.getElement().querySelector('.maplibregl-popup-content');
-  if (contentEl) { contentEl.setAttribute('tabindex', '-1'); contentEl.focus({ preventScroll: true }); }
+  if (contentEl) {
+    popupSourceEl = lastFocusedRow || (document.activeElement !== document.body ? document.activeElement : null);
+    contentEl.setAttribute('tabindex', '-1');
+    contentEl.focus({ preventScroll: true });
+    contentEl.setAttribute('role', 'dialog');
+    contentEl.setAttribute('aria-modal', 'true');
+    const heading = contentEl.querySelector('h1, h2, h3, .popup-title, [data-popup-title]');
+    if (heading) {
+      if (!heading.id) heading.id = `popup-title-${++_popupTitleSeq}`;
+      contentEl.setAttribute('aria-labelledby', heading.id);
+    } else {
+      contentEl.setAttribute('aria-label', 'Details');
+    }
+    const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+    const onKey = (e) => {
+      if (e.key !== 'Tab') return;
+      const nodes = Array.from(contentEl.querySelectorAll(FOCUSABLE))
+        .filter(n => n.offsetParent !== null || n === contentEl);
+      if (!nodes.length) { e.preventDefault(); contentEl.focus(); return; }
+      const first = nodes[0];
+      const last = nodes[nodes.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || active === contentEl)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    contentEl.addEventListener('keydown', onKey);
+    popup.on('close', () => { contentEl.removeEventListener('keydown', onKey); });
+  }
   activePopup = popup;
   wrapPopupClose(popup);
   const _mapEl = map.getContainer();
   const _gen = ++_popupOpenGen;
   _mapEl.setAttribute('data-popup-open', 'true');
-  popup.on('close', () => { if (_popupOpenGen === _gen) _mapEl.removeAttribute('data-popup-open'); });
+  popup.on('close', () => {
+    if (_popupOpenGen === _gen) _mapEl.removeAttribute('data-popup-open');
+    const src = popupSourceEl;
+    popupSourceEl = null;
+    if (src && document.contains(src)) {
+      try { src.focus({ preventScroll: true }); } catch (_) {}
+    }
+  });
   /* After the popup mounts, ease the map so the popup fully fits in view.
      MapLibre auto-anchors the popup top/bottom of the marker but a tall
      popup can still spill off-screen near viewport edges; nudging the
@@ -6364,7 +6406,7 @@ function renderList() {
       const listIcon = p.symbolIconAsset
         ? `<span class="pass-list-icon-wrap">${passIconHtml(p, "pass-art-icon list symbol", "symbol")} ${statusIcon}</span>`
         : statusIcon;
-      return `<li data-id="${p.id}" class="${selected ? "selected" : ""}" title="${advancedModeEl.checked ? "Select this pass for the route" : "Zoom to this pass"}">
+      return `<li data-id="${p.id}" class="${selected ? "selected" : ""}" tabindex="0" role="button" ${advancedModeEl.checked ? `aria-pressed="${selected}"` : ''} title="${advancedModeEl.checked ? "Select this pass for the route" : "Zoom to this pass"}">
         ${listIcon}
         <span>
           <div class="name">${p.name} ${qualityStarsCompact(p.quality)}</div>
@@ -6389,6 +6431,17 @@ function renderList() {
         }, 480);
       });
     });
+    if (!listEl.dataset.kbdBound) {
+      listEl.dataset.kbdBound = '1';
+      listEl.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+        const li = e.target.closest('li[data-id]');
+        if (!li || !listEl.contains(li)) return;
+        e.preventDefault();
+        lastFocusedRow = li;
+        li.click();
+      });
+    }
     lazyLoadPassIcons(listEl);
   }
 
@@ -6516,7 +6569,7 @@ function renderPoiList() {
         : notDrivable
           ? `Not directly reachable by car (${p.poiAccess.join(", ")})`
           : "Zoom to this sight";
-      return `<li data-poi-id="${escapeHtml(p.id)}" class="poi-row${selected ? " selected" : ""}${notDrivable ? " not-drivable" : ""}" title="${escapeHtml(titleAttr)}">
+      return `<li data-poi-id="${escapeHtml(p.id)}" class="poi-row${selected ? " selected" : ""}${notDrivable ? " not-drivable" : ""}" tabindex="0" role="button" ${advanced ? `aria-pressed="${selected}"` : ''} title="${escapeHtml(titleAttr)}">
         <span class="poi-row-glyph" data-cat="${escapeHtml(p.poiCategory)}" aria-hidden="true">${poiCategoryIcon(p.poiCategory, "poi-row-art")}</span>
         <span>
           <div class="name">${escapeHtml(p.name)} ${qualityStarsCompact(p.quality)}</div>
@@ -6544,6 +6597,17 @@ function renderPoiList() {
         }, 480);
       });
     });
+    if (!poiListEl.dataset.kbdBound) {
+      poiListEl.dataset.kbdBound = '1';
+      poiListEl.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+        const li = e.target.closest('li[data-poi-id]');
+        if (!li || !poiListEl.contains(li)) return;
+        e.preventDefault();
+        lastFocusedRow = li;
+        li.click();
+      });
+    }
   }
 
   /* Update tab counters: passes total reflects passes-in-view count;
@@ -7211,4 +7275,19 @@ function wrapPopupClose(popup) {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     setTimeout(origRemove, reduced ? 120 : 180);
   };
+}
+
+/* ====================================================================
+   iter-9 polish: a11y / keyboard / focus
+   ==================================================================== */
+
+/* ── FIX 2: Escape key closes active popup ───────────────────────────── */
+if (!window.__escClosePopupBound) {
+  window.__escClosePopupBound = true;
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && activePopup) {
+      e.stopPropagation();
+      try { activePopup.remove(); } catch (_) {}
+    }
+  });
 }

@@ -133,6 +133,39 @@ if (ALPS_INPUT.length !== ALPS_RAW.length) {
   console.info(`Filtered ${ALPS_RAW.length - ALPS_INPUT.length} non-Alpine entries (kept ${ALPS_INPUT.length}/${ALPS_RAW.length}).`);
 }
 const PASS_CAMS_MAP = (typeof window !== "undefined" && window.PASS_CAMS) || {};
+function scenicPointFromRaw(raw, fallbackName = "Scenic stop", fallbackKind = "viewpoint") {
+  if (!raw) return null;
+  if (Array.isArray(raw)) {
+    const [lat, lon, name, sideOrDwell, qOrKind, dwellOrKind, kindMaybe] = raw;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    const side = typeof sideOrDwell === "string" ? sideOrDwell : "summit";
+    const dwellMin = typeof sideOrDwell === "number" ? sideOrDwell
+      : typeof dwellOrKind === "number" ? dwellOrKind
+      : null;
+    const q = typeof qOrKind === "number" ? qOrKind : null;
+    const kind = typeof qOrKind === "string" ? qOrKind
+      : typeof dwellOrKind === "string" ? dwellOrKind
+      : typeof kindMaybe === "string" ? kindMaybe
+      : fallbackKind;
+    return { lat, lon, name: name || fallbackName, side, q, dwellMin, kind };
+  }
+
+  const lat = Number.isFinite(raw.lat) ? raw.lat : raw.la;
+  const lon = Number.isFinite(raw.lon) ? raw.lon : raw.lo;
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  return {
+    lat,
+    lon,
+    name: raw.name || raw.n || fallbackName,
+    side: raw.side || raw.s || "summit",
+    q: typeof raw.q === "number" ? raw.q : null,
+    dwellMin: typeof raw.dwellMin === "number" ? raw.dwellMin
+      : typeof raw.m === "number" ? raw.m
+      : null,
+    kind: raw.kind || raw.k || fallbackKind,
+  };
+}
+
 const PASSES = ALPS_INPUT.map((d, i) => {
   const fullName = d.n;
   const parts = fullName.split(/\s*\/\s*|\s*-\s*/);
@@ -140,6 +173,10 @@ const PASSES = ALPS_INPUT.map((d, i) => {
   const iconKey = `${fullName}|${d.e}`;
   const scenicIconAsset = window.PASS_ICON_ASSETS?.[iconKey] || null;
   const symbolIconAsset = window.PASS_SYMBOL_ASSETS?.[iconKey] || scenicIconAsset;
+  const summitParking = scenicPointFromRaw(d.pk, "Summit parking", "summit-parking");
+  const viewpoints = Array.isArray(d.vp)
+    ? d.vp.map(v => scenicPointFromRaw(v, "Viewpoint", "viewpoint")).filter(Boolean)
+    : [];
   return {
     id: "p" + i,
     rawName: fullName,
@@ -162,6 +199,11 @@ const PASSES = ALPS_INPUT.map((d, i) => {
     qSummit:    typeof d.qSm === "number" ? d.qSm : 0,   // summit alone
     qApproach:  typeof d.qAp === "number" ? d.qAp : 0,   // climb (one side)
     qualitySignals: d.sg || null,
+    /* Optional curated roadside micro-stops. Raw fields are intentionally
+       compact for generated data: `pk` = summit parking, `vp` = viewpoints.
+       When absent, the planner falls back to the pass summit as a scenic stop. */
+    summitParking,
+    viewpoints,
     tldr:       d.td || "",
     tldrSource: d.ts || "",
     reasoning:  d.rs || "",
@@ -3016,6 +3058,7 @@ function poiMaxCountVal() { return +poiMaxCountEl.value; }
 const STOPS_LS_KEY = "alpine.planner.stops.v1";
 const STOPS_DEFAULTS = Object.freeze({
   passStopMin: 5,         /* minutes per pass for photo/view stop */
+  viewpointMode: "recommended", /* "recommended"|"summit"|"all" */
   lunchBreak: "auto",     /* "auto"|"0"|"30"|"45"|"60"|"90" minutes */
   restBreakOn: true,      /* enable driving rest break */
   restInterval: 2.5,      /* hours between driving rest breaks */
@@ -3023,6 +3066,7 @@ const STOPS_DEFAULTS = Object.freeze({
 });
 const passStopMinEl   = document.getElementById("passStopMin");
 const passStopLabelEl = document.getElementById("passStopLabel");
+const viewpointModeEl = document.getElementById("viewpointMode");
 const lunchBreakEl    = document.getElementById("lunchBreak");
 const restBreakOnEl   = document.getElementById("restBreakOn");
 const restBreakDetailEl = document.getElementById("restBreakDetail");
@@ -3048,6 +3092,7 @@ function saveStopsConfig(cfg) {
 
 function applyStopsConfig(cfg) {
   if (passStopMinEl) passStopMinEl.value = String(cfg.passStopMin ?? STOPS_DEFAULTS.passStopMin);
+  if (viewpointModeEl) viewpointModeEl.value = String(cfg.viewpointMode ?? STOPS_DEFAULTS.viewpointMode);
   if (lunchBreakEl)  lunchBreakEl.value  = String(cfg.lunchBreak  ?? STOPS_DEFAULTS.lunchBreak);
   if (restBreakOnEl) restBreakOnEl.checked = cfg.restBreakOn ?? STOPS_DEFAULTS.restBreakOn;
   if (restIntervalEl) restIntervalEl.value = String(cfg.restInterval ?? STOPS_DEFAULTS.restInterval);
@@ -3057,6 +3102,7 @@ function applyStopsConfig(cfg) {
 function currentStopsConfig() {
   return {
     passStopMin: passStopMinEl ? +passStopMinEl.value : STOPS_DEFAULTS.passStopMin,
+    viewpointMode: viewpointModeEl ? viewpointModeEl.value : STOPS_DEFAULTS.viewpointMode,
     lunchBreak:  lunchBreakEl ? lunchBreakEl.value : STOPS_DEFAULTS.lunchBreak,
     restBreakOn: restBreakOnEl ? !!restBreakOnEl.checked : STOPS_DEFAULTS.restBreakOn,
     restInterval: restIntervalEl ? +restIntervalEl.value : STOPS_DEFAULTS.restInterval,
@@ -3152,8 +3198,8 @@ function fmtExtrasSummary(parts) {
   if (parts.passStopH > 0 && parts.passN > 0) {
     const min = Math.round(parts.passStopH * 60);
     bits.push(parts.passStopUniform === false
-      ? `${parts.passN} pass ${parts.passN === 1 ? "stop" : "stops"} (total ${min} min)`
-      : `${parts.passN} pass ${parts.passN === 1 ? "stop" : "stops"} (${min} min)`);
+      ? `${parts.passN} scenic pass ${parts.passN === 1 ? "stop" : "stops"} (total ${min} min)`
+      : `${parts.passN} scenic pass ${parts.passN === 1 ? "stop" : "stops"} (${min} min)`);
   }
   if (parts.lunchH > 0) {
     const min = Math.round(parts.lunchH * 60);
@@ -3177,7 +3223,10 @@ function estimateTourPassN(targetValue, targetMode) {
 
 function plannerStopsSubtitleText(cfg = currentStopsConfig()) {
   const bits = [];
-  bits.push(cfg.passStopMin > 0 ? `${cfg.passStopMin} min/pass` : "no pass stops");
+  bits.push(cfg.passStopMin > 0 ? `${cfg.passStopMin} min scenic/pass` : "no scenic pass stops");
+  if (cfg.passStopMin > 0) {
+    bits.push(cfg.viewpointMode === "summit" ? "summits only" : cfg.viewpointMode === "all" ? "any viewpoint" : "best viewpoint");
+  }
   bits.push(
     cfg.lunchBreak === "auto" ? "lunch auto"
       : cfg.lunchBreak === "0" || +cfg.lunchBreak === 0 ? "no lunch"
@@ -3206,7 +3255,7 @@ if (passStopMinEl) {
     refreshStopsUi();
     saveStopsConfig(currentStopsConfig());
   };
-  [passStopMinEl, lunchBreakEl, restBreakOnEl, restIntervalEl, restDurationEl]
+  [passStopMinEl, viewpointModeEl, lunchBreakEl, restBreakOnEl, restIntervalEl, restDurationEl]
     .filter(Boolean)
     .forEach(el => el.addEventListener("input", onStopsChange));
 }
@@ -4703,9 +4752,10 @@ function tourWaypointPlan(start, stops, perm) {
     }
     const enter = t.enterSide === 0 ? p.baseA : p.baseB;
     const exit  = t.exitSide  === 0 ? p.baseA : p.baseB;
+    const summitStop = p.summitParking || p;
     waypoints.push([enter.lat, enter.lon]);
     wpMatrixIdx.push(1 + 3 * t.passIdx + t.enterSide * 2);
-    waypoints.push([p.lat, p.lon]);
+    waypoints.push([summitStop.lat, summitStop.lon]);
     wpMatrixIdx.push(1 + 3 * t.passIdx + 1);
     waypoints.push([exit.lat, exit.lon]);
     wpMatrixIdx.push(1 + 3 * t.passIdx + t.exitSide  * 2);
@@ -4863,6 +4913,133 @@ function mergeImplicitRoutePasses(tourStops, modes, implicitPasses) {
   return { tourStops: mergedStops, modes: mergedModes };
 }
 
+const VIEWPOINT_MODE_MIN_Q = Object.freeze({
+  summit: Infinity,
+  recommended: 0.6,
+  all: 0,
+});
+
+function scenicKindLabel(kind) {
+  switch (kind) {
+    case "summit-parking": return "summit parking";
+    case "belvedere": return "belvedere";
+    case "layby": return "roadside viewpoint";
+    case "viewpoint": return "viewpoint";
+    default: return "scenic stop";
+  }
+}
+
+function modeAllowsViewpointSide(mode, side) {
+  if (!side || side === "summit" || !mode || mode.implicit) return true;
+  if (mode.mode === "traverse") return true;
+  const normalizedSide = String(side).toUpperCase();
+  const entrySide = mode.enterSide === 0 ? "A" : "B";
+  return normalizedSide === entrySide;
+}
+
+function scenicStopChoiceForPass(pass, mode, cfg) {
+  if (!pass || pass.isPoi) return null;
+  const viewpointMode = cfg?.viewpointMode || STOPS_DEFAULTS.viewpointMode;
+  const threshold = VIEWPOINT_MODE_MIN_Q[viewpointMode] ?? VIEWPOINT_MODE_MIN_Q.recommended;
+  const curated = (pass.viewpoints || [])
+    .filter(v => modeAllowsViewpointSide(mode, v.side))
+    .map(v => ({ ...v, q: typeof v.q === "number" ? v.q : 0.5 }))
+    .filter(v => v.q >= threshold)
+    .sort((a, b) => (b.q - a.q) || (a.dwellMin || 0) - (b.dwellMin || 0))[0];
+
+  if (curated) {
+    return {
+      name: curated.name || "Viewpoint",
+      kind: curated.kind || "viewpoint",
+      point: { lat: curated.lat, lon: curated.lon },
+      side: curated.side || "summit",
+      quality: curated.q,
+      source: "curated",
+    };
+  }
+
+  if (pass.summitParking) {
+    return {
+      name: pass.summitParking.name || "Summit parking",
+      kind: pass.summitParking.kind || "summit-parking",
+      point: { lat: pass.summitParking.lat, lon: pass.summitParking.lon },
+      side: "summit",
+      quality: pass.qSummit || pass.quality || 0,
+      source: "summit-parking",
+    };
+  }
+
+  return {
+    name: pass.bestPhoto ? "Best-photo summit viewpoint" : "Summit viewpoint",
+    kind: "viewpoint",
+    point: { lat: pass.lat, lon: pass.lon },
+    side: "summit",
+    quality: pass.qSummit || pass.quality || 0,
+    source: "summit",
+  };
+}
+
+function nearestUnusedScenicStop(scenicStops, targetIndex, usedIds) {
+  let best = null;
+  for (const stop of scenicStops) {
+    if (usedIds.has(stop.id)) continue;
+    const distance = Math.abs(stop.order - targetIndex);
+    if (!best ||
+        distance < best.distance ||
+        (distance === best.distance && (stop.quality || 0) > (best.stop.quality || 0))) {
+      best = { stop, distance };
+    }
+  }
+  return best?.stop || null;
+}
+
+function planScenicStops({ tourStops, modes, extrasParts, config }) {
+  const cfg = config || currentStopsConfig();
+  const scenicStops = (tourStops || []).map((p, order) => {
+    if (!p || p.isPoi) return null;
+    const stopMin = intelligentPassStopMin(p, cfg.passStopMin || 0);
+    const mode = modes?.[order] || null;
+    const choice = scenicStopChoiceForPass(p, mode, cfg);
+    if (!choice) return null;
+    return {
+      id: `${p.id}:scenic:${order}`,
+      passId: p.id,
+      passName: p.name,
+      order,
+      name: choice.name,
+      kind: choice.kind,
+      kindLabel: scenicKindLabel(choice.kind),
+      point: choice.point,
+      side: choice.side,
+      quality: choice.quality,
+      source: choice.source,
+      stopMin,
+      restMin: 0,
+      restNumbers: [],
+    };
+  }).filter(Boolean);
+
+  const restCount = extrasParts?.restCount || 0;
+  const restDuration = Math.max(0, Number(cfg.restDuration) || 0);
+  if (restCount > 0 && restDuration > 0 && scenicStops.length) {
+    const used = new Set();
+    for (let i = 1; i <= restCount; i++) {
+      const targetIndex = Math.min(
+        scenicStops.length - 1,
+        Math.floor((i * scenicStops.length) / (restCount + 1))
+      );
+      const choice = nearestUnusedScenicStop(scenicStops, targetIndex, used) || scenicStops[targetIndex];
+      if (choice) {
+        choice.restMin += restDuration;
+        choice.restNumbers.push(i);
+        used.add(choice.id);
+      }
+    }
+  }
+
+  return scenicStops.filter(s => s.stopMin > 0 || s.restMin > 0);
+}
+
 async function planSelectedTour() {
   clearPlannedTour();
   const start = currentStart();
@@ -4939,11 +5116,18 @@ async function planSelectedTour() {
   }
   /* Stops & breaks accounting ??? same policy as auto-mode. */
   const advPassList = (tourStops || []).filter(s => !s.isPoi);
+  const stopsConfig = currentStopsConfig();
   const advExtras = computeExtras({
     passN: advPassList.length,
     driveH,
-    config: currentStopsConfig(),
+    config: stopsConfig,
     passList: advPassList,
+  });
+  const scenicStops = planScenicStops({
+    tourStops,
+    modes: displayModes,
+    extrasParts: advExtras.parts,
+    config: stopsConfig,
   });
   const totalH = driveH + dwellH + advExtras.extrasH;
 
@@ -4965,8 +5149,9 @@ async function planSelectedTour() {
     tripDate: currentTripDate(),
     modes: displayModes,
     implicitPasses: implicitPasses.map(x => x.pass),
+    scenicStops,
   });
-  drawPlannedTour(start, tourStops, latlngs, { driveH, dwellH, extras: advExtras, stopsConfig: currentStopsConfig() });
+  drawPlannedTour(start, tourStops, latlngs, { driveH, dwellH, extras: advExtras, stopsConfig });
 }
 
 async function planTour() {
@@ -5265,6 +5450,13 @@ async function planTour() {
     policyTotalH: targetMode === "time" ? targetValue : null,
     passList: actualPassList,
   });
+  const displayModes = chosenModes || chosen.perm;
+  const scenicStops = planScenicStops({
+    tourStops: chosenTourStops,
+    modes: displayModes,
+    extrasParts: extras.parts,
+    config: stopsConfig,
+  });
   const totalWithExtras = (chosen.driveH || 0) + (chosen.dwellH || 0) + extras.extrasH;
   /* Recompute "in range" against the actual final total (drive + dwell +
      breaks). The optimizer's `chosen.inRange` is computed before OSRM and
@@ -5308,8 +5500,9 @@ async function planTour() {
     tripDate: currentTripDate(),
     avoided: blockedNames.size > 0 ? [...blockedNames] : null,
     candidatePoolNote: candidatePoolNote || null,
-    modes: chosenModes || chosen.perm,   // [{passIdx, enterSide, exitSide, mode}, ...]
+    modes: displayModes,   // [{passIdx, enterSide, exitSide, mode}, ...]
     implicitPasses: chosenImplicitPasses,
+    scenicStops,
   });
   drawPlannedTour(start, chosenTourStops, chosenLatLngs, { driveH: chosen.driveH, dwellH: chosen.dwellH || 0, extras, stopsConfig });
 }
@@ -5416,6 +5609,26 @@ function detectRetracedConnectorLegs(latlngs, wpIdx) {
     result.push({ legA: a, legB: b, overlapM: Math.round(overlap) });
   }
   return result;
+}
+
+function renderScenicStopsBlock(scenicStops) {
+  if (!Array.isArray(scenicStops) || scenicStops.length === 0) return "";
+  const shown = scenicStops.slice(0, 6).map(s => {
+    const title = s.source === "curated"
+      ? `${s.passName}: ${s.name}`
+      : `${s.passName} ${s.kindLabel}`;
+    const timeBits = [];
+    if (s.stopMin > 0) timeBits.push(`${s.stopMin} min`);
+    if (s.restMin > 0) timeBits.push(`${s.restMin} min rest`);
+    const restHint = s.restNumbers?.length
+      ? `; rest #${s.restNumbers.join("/")}`
+      : "";
+    return `${escapeHtml(title)} <span class="time-breakdown">(${escapeHtml(timeBits.join(" + ") + restHint)})</span>`;
+  });
+  const extra = scenicStops.length > shown.length
+    ? ` <span class="time-breakdown">+${scenicStops.length - shown.length} more</span>`
+    : "";
+  return `<div class="popup-meta tight">Scenic stops planned: ${shown.join(" &middot; ")}${extra}</div>`;
 }
 
 function showPlanResult(r) {
@@ -5548,6 +5761,7 @@ function showPlanResult(r) {
   const breaksBlock = (extrasH > 0 && r.extrasParts)
     ? `<div class="popup-meta tight">Breaks: ${escapeHtml(fmtExtrasSummary(r.extrasParts))}</div>`
     : "";
+  const scenicStopsBlock = renderScenicStopsBlock(r.scenicStops);
   const tripDateLine = r.tripDate
     ? `<div class="popup-meta tight projection${daysBetweenDates(todayLocalDate(), r.tripDate) > 0 ? " guess" : ""}">Trip date: ${escapeHtml(formatTripDate(r.tripDate))} · projected pass states; guesses are marked “Likely” / “guess”.</div>`
     : "";
@@ -5558,6 +5772,7 @@ function showPlanResult(r) {
     ${implicitPassBlock}
     ${candidatePoolBlock}
     ${breaksBlock}
+    ${scenicStopsBlock}
     ${prefsBlock}
     ${tripDateLine}
     <div class="weather-unavailable" id="weatherUnavailableHint" hidden></div>

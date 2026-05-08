@@ -20,12 +20,12 @@
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.css">
 <script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js" defer></script>
 
-<link rel="stylesheet" href="assets/css/site.css?v=alpine-engine-23">
+<link rel="stylesheet" href="assets/css/site.css?v=alpine-engine-24">
 <script src="assets/js/passes-data.js" defer></script>
 <script src="assets/js/swiss-pois.js" defer></script>
 <script src="assets/js/passes-cams.js" defer></script>
 <script src="assets/js/pass-icons.js" defer></script>
-<script src="assets/js/app.js?v=alpine-engine-23" defer></script>
+<script src="assets/js/app.js?v=alpine-engine-24" defer></script>
 </head>
 <body>
 
@@ -223,8 +223,16 @@
             <div class="poi-prefs-body">
               <div class="poi-range-grid">
                 <label class="poi-prefs-row">
-                  <span class="poi-prefs-label">Photo / view stop per pass: <strong id="passStopLabel">5 min</strong></span>
-                  <input id="passStopMin" type="range" min="0" max="20" step="1" value="5" aria-label="Minutes per pass for photo or view stop">
+                  <span class="poi-prefs-label">Summit / viewpoint stop per pass: <strong id="passStopLabel">5 min</strong></span>
+                  <input id="passStopMin" type="range" min="0" max="20" step="1" value="5" aria-label="Minutes per pass for summit or viewpoint stop">
+                </label>
+                <label class="poi-prefs-row">
+                  <span class="poi-prefs-label">Where to stop</span>
+                  <select id="viewpointMode" aria-label="Pass scenic stop preference">
+                    <option value="recommended" selected>Best nearby viewpoint</option>
+                    <option value="summit">Summit parking only</option>
+                    <option value="all">Any useful viewpoint</option>
+                  </select>
                 </label>
                 <label class="poi-prefs-row">
                   <span class="poi-prefs-label">Lunch break</span>
@@ -252,7 +260,7 @@
                   <input id="restDuration" type="range" min="5" max="30" step="5" value="15" aria-label="Minutes per driving rest break">
                 </label>
               </div>
-              <p class="planner-help">In time mode the planner reserves this slack so the day-length budget includes breaks. Set photo stop to <em>0 min</em> and lunch to <em>None</em> to disable.</p>
+              <p class="planner-help">In time mode the planner reserves this slack so the day-length budget includes scenic pass stops and breaks. Set scenic stop to <em>0 min</em> and lunch to <em>None</em> to disable.</p>
             </div>
           </details>
         </div>

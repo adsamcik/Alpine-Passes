@@ -2884,6 +2884,7 @@ input[type="range"]:disabled {
 .start-row > button { display: inline-flex; align-items: center; gap: 6px; }
 .start-row .button-label { font-size: .9em; line-height: 1; white-space: nowrap; }
 #planStart option[value=""] { color: var(--fg-dim); font-style: italic; }
+.planner-body .plan-locate-error,
 .plan-locate-error {
   display: block;
   margin-top: 4px;

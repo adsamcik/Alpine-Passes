@@ -2807,6 +2807,25 @@ function createMarkerRing(lngLat, popup) {
   return ring;
 }
 
+/* Unconditionally apply image binding + wiki-in stagger after any setHTML.
+   Called after the initial render AND after any post-wiki setHTML so that
+   the pre-existing MapLibre TypeError (which prevents activePopup assignment)
+   can no longer block these effects. */
+function applyPopupBindings(popup) {
+  const root = popup.getElement();
+  if (!root) return;
+  const imgWrap = root.querySelector('.popup-img-wrap');
+  if (imgWrap) bindPopupImage(imgWrap);
+  const body = root.querySelector('.popup-body');
+  if (body) {
+    body.classList.remove('wiki-in');
+    [...body.children].forEach((el, i) => el.style.setProperty('--i', i));
+    void body.offsetWidth; // force reflow so re-add triggers transition
+    body.classList.add('wiki-in');
+    setTimeout(() => body.classList.remove('wiki-in'), 240 + body.children.length * 60 + 80);
+  }
+}
+
 function openMapPopup(lngLat, html, maxWidth = "360px") {
   if (activePopup) activePopup.remove();
   const isMobile = window.innerWidth <= 640;
@@ -2888,15 +2907,10 @@ async function openPassPopup(p, lngLat = [p.lon, p.lat]) {
     lazyLoadPassIcons(popup.getElement(), true);
     const el2 = popup.getElement().querySelector('.maplibregl-popup-content');
     if (el2) { el2.setAttribute('tabindex', '-1'); }
-    const _imgWrap1 = popup.getElement().querySelector('.popup-img-wrap');
-    if (_imgWrap1) bindPopupImage(_imgWrap1);
-    const _popBody = popup.getElement().querySelector('.popup-body');
-    if (_popBody) {
-      _popBody.classList.add('wiki-in');
-      [..._popBody.children].forEach((el, i) => el.style.setProperty('--i', i));
-      setTimeout(() => _popBody.classList.remove('wiki-in'), 240 + _popBody.children.length * 60 + 50);
-    }
   }
+  // Apply image binding + wiki-in stagger unconditionally so the pre-existing
+  // MapLibre TypeError (which can prevent activePopup assignment) never blocks them.
+  applyPopupBindings(popup);
 }
 
 function openPoiPopup(poi, lngLat = [poi.lon, poi.lat]) {
@@ -2904,8 +2918,7 @@ function openPoiPopup(poi, lngLat = [poi.lon, poi.lat]) {
   alpineOverlayLayer.setSelected(`poi:${poi.id}`);
   createMarkerRing(lngLat, popup);
   popup.on('close', () => alpineOverlayLayer.setSelected(null));
-  const _poiWrap = popup.getElement().querySelector('.popup-img-wrap');
-  if (_poiWrap) bindPopupImage(_poiWrap);
+  applyPopupBindings(popup);
 }
 
 function setPoiLayerVisible(visible) {
@@ -7019,4 +7032,24 @@ function renderPassSkeletons(n = 6) {
       li.addEventListener('animationend', () => li.classList.remove('is-entering'), { once: true });
     });
   };
+}
+
+/* Issue 3 fix: search/sort addEventListener calls captured the original renderList
+   reference before the wrapper above was applied, so they bypass the wrapper.
+   A MutationObserver decouples the .is-entering stagger from the call site —
+   any code that modifies #passList children (old or new renderList) gets the effect. */
+{
+  const _passListEl = document.getElementById('passList');
+  if (_passListEl) {
+    const _passMO = new MutationObserver(() => {
+      if (_passListEl.querySelector('.pass-skeleton')) return; // skip skeleton phase
+      _passListEl.querySelectorAll('li[data-id]').forEach((li, i) => {
+        if (li.classList.contains('is-entering')) return; // wrapper already applied it
+        li.classList.add('is-entering');
+        li.style.setProperty('--i', i % 20);
+        li.addEventListener('animationend', () => li.classList.remove('is-entering'), { once: true });
+      });
+    });
+    _passMO.observe(_passListEl, { childList: true });
+  }
 }

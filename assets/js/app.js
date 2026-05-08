@@ -2824,6 +2824,7 @@ function applyPopupBindings(popup) {
     body.classList.add('wiki-in');
     setTimeout(() => body.classList.remove('wiki-in'), 240 + body.children.length * 60 + 80);
   }
+  requestAnimationFrame(() => applyBodyStagger(root));
 }
 
 function openMapPopup(lngLat, html, maxWidth = "360px") {
@@ -2856,6 +2857,11 @@ function openMapPopup(lngLat, html, maxWidth = "360px") {
   const contentEl = popup.getElement().querySelector('.maplibregl-popup-content');
   if (contentEl) { contentEl.setAttribute('tabindex', '-1'); contentEl.focus({ preventScroll: true }); }
   activePopup = popup;
+  wrapPopupClose(popup);
+  const _mapEl = map.getContainer();
+  const _gen = ++_popupOpenGen;
+  _mapEl.setAttribute('data-popup-open', 'true');
+  popup.on('close', () => { if (_popupOpenGen === _gen) _mapEl.removeAttribute('data-popup-open'); });
   /* After the popup mounts, ease the map so the popup fully fits in view.
      MapLibre auto-anchors the popup top/bottom of the marker but a tall
      popup can still spill off-screen near viewport edges; nudging the
@@ -7107,3 +7113,39 @@ document.addEventListener('click', (e) => {
   const open = btn.getAttribute('aria-expanded') === 'true';
   btn.setAttribute('aria-expanded', String(!open));
 });
+
+/* ====================================================================
+   iter-7 polish: body stagger / close exit / picker slide / spacing
+   ==================================================================== */
+
+/* ── FIX 1: applyBodyStagger ─────────────────────────────────────── */
+function applyBodyStagger(popupEl) {
+  const body = popupEl ? popupEl.querySelector('.popup-body') : null;
+  if (!body) return;
+  const kids = Array.from(body.children);
+  const n = kids.length || 1;
+  const step = Math.max(24, Math.min(40, Math.floor(320 / n)));
+  body.style.setProperty('--stagger-step', step + 'ms');
+  kids.forEach((el, i) => el.style.setProperty('--stagger-i', Math.min(i, 9)));
+  body.classList.remove('ap-body-stagger');
+  void body.offsetWidth;
+  body.classList.add('ap-body-stagger');
+  setTimeout(() => body.classList.remove('ap-body-stagger'), 120 + 9 * 40 + 240 + 80);
+}
+
+/* ── FIX 2: wrapPopupClose + generation counter ──────────────────── */
+let _popupOpenGen = 0;
+
+function wrapPopupClose(popup) {
+  const origRemove = popup.remove.bind(popup);
+  let closing = false;
+  popup.remove = function() {
+    if (closing) return origRemove();
+    const el = popup.getElement && popup.getElement();
+    if (!el) return origRemove();
+    closing = true;
+    el.classList.add('ap-popup--closing');
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    setTimeout(origRemove, reduced ? 120 : 180);
+  };
+}

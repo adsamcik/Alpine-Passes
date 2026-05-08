@@ -2362,3 +2362,165 @@ input[type="range"]:disabled {
     overflow: visible;
   }
 }
+
+/* ===== iter-4 polish: sticky toolbar / status chip / mobile pill / motion ===== */
+
+/* ─── FIX 1: Sticky browse toolbar + scroll-shadow fade ─────────── */
+#sidebarPanelBrowse .controls {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--panel-strong);
+  border-bottom: 1px solid var(--border);
+  transition: box-shadow .2s ease, border-bottom-color .2s ease;
+}
+/* Shadow gradient that fades in when toolbar is elevated */
+#sidebarPanelBrowse .controls::before {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0; right: 0;
+  height: 18px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, .18), transparent);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .2s ease;
+}
+#sidebarPanelBrowse .controls.is-elevated {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, .32);
+  border-bottom-color: var(--border-strong);
+}
+#sidebarPanelBrowse .controls.is-elevated::before { opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  #sidebarPanelBrowse .controls,
+  #sidebarPanelBrowse .controls::before { transition: none; }
+}
+
+/* ─── FIX 2: Status chip (replaces inline status icon in pass rows) ─ */
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px 2px 5px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .03em;
+  white-space: nowrap;
+  line-height: 1.4;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.status-chip__dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.status-chip--open {
+  background: color-mix(in srgb, var(--open) 16%, transparent);
+  color: var(--open);
+  border: 1px solid color-mix(in srgb, var(--open) 35%, transparent);
+}
+.status-chip--open .status-chip__dot { background: var(--open); }
+.status-chip--restricted {
+  background: color-mix(in srgb, var(--restricted) 16%, transparent);
+  color: var(--restricted);
+  border: 1px solid color-mix(in srgb, var(--restricted) 35%, transparent);
+}
+.status-chip--restricted .status-chip__dot { background: var(--restricted); }
+.status-chip--closed {
+  background: color-mix(in srgb, var(--closed) 16%, transparent);
+  color: var(--closed);
+  border: 1px solid color-mix(in srgb, var(--closed) 35%, transparent);
+}
+.status-chip--closed .status-chip__dot { background: var(--closed); }
+.status-chip--unknown {
+  background: rgba(255, 255, 255, .06);
+  color: var(--fg-dim);
+  border: 1px solid var(--border);
+}
+.status-chip--unknown .status-chip__dot { background: var(--fg-dim); }
+/* Estimated: dashed border, slightly muted */
+.status-chip--est {
+  border-style: dashed;
+  opacity: .85;
+}
+/* Live-dot pulse for open chips only */
+@media (prefers-reduced-motion: no-preference) {
+  .status-chip--open .status-chip__dot {
+    animation: sc-dot-pulse 2.2s ease-in-out infinite;
+  }
+}
+@keyframes sc-dot-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: .4; transform: scale(.65); }
+}
+
+/* ─── FIX 3: Mobile compact status pill ──────────────────────────── */
+.status-pill { display: none; }
+
+@media (max-width: 780px) {
+  .status-pill {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    position: fixed;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 200;
+    background: var(--panel-strong);
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    padding: 5px 12px;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, .42);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    animation: sp-rise .22s cubic-bezier(.34, 1.56, .64, 1) both;
+    font-size: 11.5px;
+    font-weight: 700;
+  }
+  @keyframes sp-rise {
+    from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .status-pill { animation: none; }
+  }
+  .sp-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 6px;
+  }
+  .sp-item + .sp-item {
+    border-left: 1px solid var(--border);
+  }
+  .sp-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .sp-open       .sp-dot { background: var(--open); }
+  .sp-restricted .sp-dot { background: var(--restricted); }
+  .sp-closed     .sp-dot { background: var(--closed); }
+  .sp-open       { color: var(--open); }
+  .sp-restricted { color: var(--restricted); }
+  .sp-closed     { color: var(--closed); }
+}
+
+/* ─── FIX 4: Reload spin + row :active press + count tween ──────── */
+@keyframes reloadSpin {
+  to { transform: rotate(360deg); }
+}
+.refresh-button.is-busy .button-icon {
+  animation: reloadSpin .9s linear infinite;
+}
+/* Enhanced :active press feedback — overrides iter-2 scale-only rule */
+:where(#passList, #poiList) li:not(.empty):active {
+  transform: translateX(2px) scale(.995);
+  transition-duration: 80ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  :where(#passList, #poiList) li:not(.empty):active { transform: none; }
+}

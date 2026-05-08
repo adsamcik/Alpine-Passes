@@ -6794,3 +6794,161 @@ if (_revealRoot) armReveal(_revealRoot);
     armReveal(poiListEl);
   };
 }
+
+/* ====================================================================
+   iter-4 polish: sticky toolbar / status chip / mobile pill / motion
+   ==================================================================== */
+
+/* ── FIX 1: Sticky browse toolbar scroll-elevation ──────────────────
+   rAF-throttled scroll listener; detects mobile vs desktop scroller by
+   checking getComputedStyle(.sidebar-scroll).overflowY === 'visible'. */
+{
+  const _ss4     = document.querySelector('.sidebar-scroll');
+  let   _elevRaf = null;
+
+  function _setElevation(scrollTop) {
+    const elevated = scrollTop > 4;
+    document.querySelectorAll('#sidebarPanelBrowse .controls').forEach(c => {
+      c.classList.toggle('is-elevated', elevated);
+    });
+  }
+
+  function _readScrollTop() {
+    if (!_ss4) return 0;
+    const isMobile = getComputedStyle(_ss4).overflowY === 'visible';
+    return isMobile ? (window.scrollY || 0) : _ss4.scrollTop;
+  }
+
+  function _onScroll4() {
+    if (_elevRaf) return;
+    _elevRaf = requestAnimationFrame(() => {
+      _elevRaf = null;
+      _setElevation(_readScrollTop());
+    });
+  }
+
+  if (_ss4) _ss4.addEventListener('scroll', _onScroll4, { passive: true });
+  window.addEventListener('scroll', _onScroll4, { passive: true });
+  window.addEventListener('resize', _onScroll4, { passive: true });
+  /* initial state */
+  _setElevation(_readScrollTop());
+}
+
+/* ── FIX 2: Status chip helper + inject into pass rows ──────────────
+   renderStatusChip() replaces the plain SVG status-icon span in each
+   pass list row with a colored pill (dot + label + aria). */
+function renderStatusChip(state, estimated) {
+  const map = { open: 'Open', restricted: 'Restricted', closed: 'Closed' };
+  const s   = map[state] ? state : 'unknown';
+  const baseLabel = map[s] || 'Unknown';
+  const label     = estimated ? `~${baseLabel}` : baseLabel;
+  const cls = `status-chip status-chip--${s}${estimated ? ' status-chip--est' : ''}`;
+  const aria = `Status: ${estimated ? 'likely ' : ''}${baseLabel.toLowerCase()}`;
+  return `<span class="${cls}" role="status" aria-label="${aria}"><span class="status-chip__dot" aria-hidden="true"></span>${label}</span>`;
+}
+
+{
+  const _rl_chip = renderList;
+  renderList = function () {
+    _rl_chip.apply(this, arguments);
+    const listEl = document.getElementById('passList');
+    if (!listEl) return;
+    listEl.querySelectorAll('li[data-id]').forEach(li => {
+      const p = PASSES.find(x => x.id === li.dataset.id);
+      if (!p) return;
+      const sv = statusDisplay(passStatus(p));
+      const chip = renderStatusChip(sv.state, sv.estimated);
+      const si = li.querySelector('.status-icon');
+      if (si) si.outerHTML = chip;
+    });
+  };
+}
+
+/* ── FIX 3: Mobile compact status pill ──────────────────────────────
+   Fixed bottom-center pill (open/restricted/closed counts).
+   Populated via MutationObserver on #updatedText so it stays in sync
+   with the live-data IIFE without modifying its async closure. */
+function _ensureStatusPill() {
+  if (document.querySelector('.status-pill')) return;
+  const el = document.createElement('div');
+  el.className   = 'status-pill';
+  el.role        = 'status';
+  el.setAttribute('aria-live', 'polite');
+  document.body.appendChild(el);
+}
+
+function _updateStatusPill() {
+  const pill = document.querySelector('.status-pill');
+  if (!pill) return;
+  let nOpen = 0, nRestricted = 0, nClosed = 0;
+  PASSES.forEach(p => {
+    const st = statusDisplay(p._status || {}).state;
+    if      (st === 'open')       nOpen++;
+    else if (st === 'restricted') nRestricted++;
+    else if (st === 'closed')     nClosed++;
+  });
+  pill.innerHTML =
+    `<span class="sp-item sp-open"><span class="sp-dot"></span>${nOpen}</span>` +
+    `<span class="sp-item sp-restricted"><span class="sp-dot"></span>${nRestricted}</span>` +
+    `<span class="sp-item sp-closed"><span class="sp-dot"></span>${nClosed}</span>`;
+}
+
+_ensureStatusPill();
+/* Observe #updatedText — fires once live data arrives */
+{
+  const _utEl = document.getElementById('updatedText');
+  if (_utEl) {
+    new MutationObserver(_updateStatusPill)
+      .observe(_utEl, { characterData: true, childList: true, subtree: true });
+  }
+}
+/* Also refresh pill whenever the pass list re-renders */
+{
+  const _rl_pill = renderList;
+  renderList = function () {
+    _rl_pill.apply(this, arguments);
+    _updateStatusPill();
+  };
+}
+
+/* ── FIX 4: Reload spin + row :active + count tween ─────────────────
+   Reload: capture-phase listener adds .is-busy before location.reload().
+   Count tween: rAF interpolation over 250ms on noteEl after renderList. */
+
+/* Reload spin — capture phase fires before existing bubble listener */
+{
+  const _rb = document.getElementById('refreshBtn');
+  if (_rb) {
+    _rb.addEventListener('click', function () {
+      this.classList.add('is-busy');
+    }, true /* capture */);
+  }
+}
+
+/* Count tween — wrap renderList, interpolate the leading integer */
+{
+  let _tweenRaf = null;
+  const _rl_tween = renderList;
+  renderList = function () {
+    const oldText = noteEl ? noteEl.textContent : '';
+    _rl_tween.apply(this, arguments);
+    if (!noteEl || _prefersReducedMotion) return;
+    const newText = noteEl.textContent;
+    if (oldText === newText) return;
+    const oldN = parseInt(oldText, 10);
+    const newN = parseInt(newText, 10);
+    if (isNaN(newN) || isNaN(oldN) || oldN === newN) return;
+    const suffix = newText.replace(/^\d+/, '');
+    if (_tweenRaf) cancelAnimationFrame(_tweenRaf);
+    const startT = performance.now();
+    const dur    = 250;
+    const step   = (ts) => {
+      const t   = Math.min((ts - startT) / dur, 1);
+      const cur = Math.round(oldN + (newN - oldN) * t);
+      noteEl.textContent = cur + suffix;
+      if (t < 1) { _tweenRaf = requestAnimationFrame(step); }
+      else        { _tweenRaf = null; }
+    };
+    _tweenRaf = requestAnimationFrame(step);
+  };
+}

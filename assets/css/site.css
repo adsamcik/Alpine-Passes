@@ -2932,3 +2932,48 @@ input[type="range"]:disabled {
   #poiList > li.row-staggered,
   .row-staggered { animation: none; }
 }
+
+/* ===== iter-13 polish: tour result CTAs ===== */
+.plan-result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.plan-result-actions .plan-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--fg);
+  text-decoration: none;
+  font-size: .9em;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background-color .14s ease, border-color .14s ease, transform .12s ease;
+}
+.plan-result-actions .plan-action .button-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.plan-result-actions .plan-action:hover {
+  background: color-mix(in oklab, var(--bg-3) 80%, var(--accent) 12%);
+  border-color: var(--accent-2);
+}
+.plan-result-actions .plan-action:active { transform: scale(.97); }
+.plan-result-actions .plan-action:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.plan-result-actions .plan-action[aria-disabled="true"] {
+  opacity: .62;
+  cursor: not-allowed;
+}
+@media (prefers-reduced-motion: reduce) {
+  .plan-result-actions .plan-action { transition: none; }
+  .plan-result-actions .plan-action:active { transform: none; }
+}

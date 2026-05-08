@@ -6788,6 +6788,159 @@ function renderTourStatChips(r) {
     `<li><span class="chip-k">${escapeHtml(k)}</span><span class="chip-v">${escapeHtml(v)}</span></li>`).join("")}</ul>`;
 }
 
+function normalizedTourPoint(point) {
+  if (!point) return null;
+  const lat = Number(point.lat);
+  const lon = Number(point.lon ?? point.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  return {
+    ...point,
+    lat,
+    lon,
+    name: point.name || point.displayName || "",
+  };
+}
+
+function tourStateForActions(tour = null) {
+  if (tour) return tour;
+  if (typeof window !== "undefined" && window.plannedRouteGeometry) {
+    return window.plannedRouteGeometry;
+  }
+  return plannedRouteGeometry;
+}
+
+function tourStartForActions(tour = null) {
+  const activeTour = tourStateForActions(tour);
+  return normalizedTourPoint(
+    activeTour?.start ||
+    plannedStart ||
+    (typeof currentStart === "function" ? currentStart() : null)
+  );
+}
+
+function tourStopsForActions(tour = null) {
+  const activeTour = tourStateForActions(tour);
+  return activeTour?.stops || activeTour?.tourStops || activeTour?.tourPasses || [];
+}
+
+function tourStopPoint(stop) {
+  const item = stop?.item || stop;
+  return normalizedTourPoint({
+    ...(item || {}),
+    lat: item?.lat ?? stop?.lat,
+    lon: item?.lon ?? item?.lng ?? stop?.lon ?? stop?.lng,
+    name: item?.name ?? stop?.name,
+  });
+}
+
+function tourCoordString(point) {
+  const p = normalizedTourPoint(point);
+  return p ? `${p.lat.toFixed(5)},${p.lon.toFixed(5)}` : null;
+}
+
+function buildGoogleMapsDirectionsUrl(tour = null) {
+  const activeTour = tourStateForActions(tour);
+  if (!activeTour) return null;
+  const start = tourStartForActions(activeTour);
+  const origin = tourCoordString(start);
+  const waypoints = tourStopsForActions(activeTour)
+    .map(stop => tourCoordString(tourStopPoint(stop)))
+    .filter(Boolean);
+  if (!origin || !waypoints.length) return null;
+
+  const params = new URLSearchParams();
+  params.set("api", "1");
+  params.set("travelmode", "driving");
+  params.set("origin", origin);
+  params.set("destination", waypoints[waypoints.length - 1]);
+  const intermediate = waypoints.slice(0, -1);
+  if (intermediate.length) params.set("waypoints", intermediate.join("|"));
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
+function buildTourShareUrl(tour = null) {
+  const activeTour = tourStateForActions(tour);
+  if (!activeTour) return null;
+  const start = tourStartForActions(activeTour);
+  const startCoord = tourCoordString(start);
+  if (!startCoord) return null;
+
+  const stopIds = tourStopsForActions(activeTour)
+    .map(stop => {
+      const item = stop?.item || stop;
+      return item?.id ?? stop?.id;
+    })
+    .filter(id => id != null && String(id).trim().length > 0)
+    .map(String);
+
+  const params = new URLSearchParams();
+  params.set("start", startCoord);
+  if (start.name) params.set("startName", start.name);
+  if (stopIds.length) params.set("stops", stopIds.join(","));
+
+  const base = window.location.origin && window.location.origin !== "null"
+    ? `${window.location.origin}${window.location.pathname}`
+    : window.location.href.split("#")[0].split("?")[0];
+  return `${base}#tour=${params.toString()}`;
+}
+
+async function copyTourLink(buttonEl) {
+  const url = buildTourShareUrl();
+  if (!url) return;
+  const labelEl = buttonEl?.querySelector(".button-label");
+  const originalLabel = buttonEl?.dataset.originalLabel ||
+    labelEl?.textContent ||
+    buttonEl?.textContent ||
+    "Copy link";
+  if (buttonEl) buttonEl.dataset.originalLabel = originalLabel;
+
+  try {
+    if (!navigator.clipboard?.writeText) throw new Error("Clipboard API unavailable");
+    await navigator.clipboard.writeText(url);
+    if (labelEl) labelEl.textContent = "Copied!";
+    window.setTimeout(() => {
+      if (labelEl) labelEl.textContent = originalLabel;
+    }, 1500);
+  } catch (e) {
+    window.prompt("Copy this link:", url);
+  }
+}
+
+function renderPlanResultActions(result = null) {
+  const actionTour = result
+    ? { start: result.start, stops: result.tourStops || result.tourPasses || [] }
+    : null;
+  const mapsUrl = buildGoogleMapsDirectionsUrl(actionTour);
+  const mapsAttrs = mapsUrl
+    ? `href="${escapeHtml(mapsUrl)}"`
+    : `href="#" aria-disabled="true"`;
+  return `
+    <div class="plan-result-actions">
+      <a id="planOpenMaps" class="plan-action plan-action-maps" ${mapsAttrs} target="_blank" rel="noopener">
+        <span class="button-icon" aria-hidden="true">→</span>
+        <span class="button-label">Open in Google Maps</span>
+      </a>
+      <button id="planCopyLink" class="plan-action plan-action-copy" type="button">
+        <span class="button-icon" aria-hidden="true">⎘</span>
+        <span class="button-label">Copy link</span>
+      </button>
+      <button id="planClear" class="plan-action" type="button">Clear</button>
+    </div>`;
+}
+
+function refreshPlanResultActions(tour = null) {
+  const mapsLink = planResult.querySelector("#planOpenMaps");
+  if (!mapsLink) return;
+  const mapsUrl = buildGoogleMapsDirectionsUrl(tour);
+  if (mapsUrl) {
+    mapsLink.href = mapsUrl;
+    mapsLink.removeAttribute("aria-disabled");
+  } else {
+    mapsLink.href = "#";
+    mapsLink.setAttribute("aria-disabled", "true");
+  }
+}
+
 let planResultClickHandlerBound = false;
 
 function handlePlanResultClick(e) {
@@ -6799,6 +6952,23 @@ function handlePlanResultClick(e) {
     clearPlannedTour();
     planResult.classList.add("empty");
     planResult.innerHTML = "";
+    return;
+  }
+
+  const copyBtn = target.closest("#planCopyLink");
+  if (copyBtn && planResult.contains(copyBtn)) {
+    void copyTourLink(copyBtn);
+    return;
+  }
+
+  const mapsLink = target.closest("#planOpenMaps");
+  if (mapsLink && planResult.contains(mapsLink)) {
+    const mapsUrl = buildGoogleMapsDirectionsUrl();
+    if (!mapsUrl) {
+      e.preventDefault();
+      return;
+    }
+    mapsLink.href = mapsUrl;
     return;
   }
 
@@ -6972,7 +7142,7 @@ function showPlanResult(r) {
     ${warn}
     ${routeWarning}
     ${statusWarning}
-    <div class="plan-result-actions"><button id="planClear">Clear</button></div>`;
+    ${renderPlanResultActions(r)}`;
   planResult.classList.add("pr-in");
   Array.from(planResult.children).forEach((el, i) => el.style.setProperty("--i", i));
 }
@@ -7054,8 +7224,14 @@ function buildPlannedRouteGeometry(routeCoords, tourStops, meta = {}) {
     .sort((a, b) => a.idx - b.idx);
   const totalDwellMin = Math.round((Number(meta.dwellH) || 0) * 60) ||
     stops.reduce((sum, s) => sum + (s.dwellMin || 0), 0);
+  const start = normalizedTourPoint(
+    meta.start ||
+    plannedStart ||
+    (typeof currentStart === "function" ? currentStart() : null)
+  );
 
   return {
+    start,
     coords,
     cumKm,
     totalKm: cumKm.length ? cumKm[cumKm.length - 1] : 0,
@@ -7089,11 +7265,12 @@ function drawPlannedTour(start, tourStops, latlngs, meta = {}) {
   }
 
   plannedRouteCoords = routeCoords;
-  plannedRouteGeometry = buildPlannedRouteGeometry(routeCoords, tourStops, meta);
+  plannedRouteGeometry = buildPlannedRouteGeometry(routeCoords, tourStops, { ...meta, start });
   if (typeof window !== "undefined") window.plannedRouteGeometry = plannedRouteGeometry;
   plannedRouteFallback = fallback;
   updateMapSources();
   updatePlannedTourLayers(routeCoords, fallback);
+  refreshPlanResultActions(plannedRouteGeometry);
   fitLngLatPairs(routeCoords, fallback ? 0.15 : 0.10);
   hydratePlanWeather();
 }

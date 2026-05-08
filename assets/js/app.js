@@ -3920,7 +3920,7 @@ function renderStartSearchResults(results, message = "") {
   }
   planStartSearchResultsEl.hidden = false;
   planStartSearchResultsEl.innerHTML = startSearchResults.map((r, i) => `
-    <button class="start-search-result" type="button" data-start-result="${i}">
+    <button class="start-search-result" type="button" data-start-result="${i}" style="--i:${i}">
       <strong>${escapeHtml(r.name)}</strong>
       <span>${escapeHtml(r.detail)}</span>
     </button>
@@ -4565,8 +4565,25 @@ planPickBtn.addEventListener("click", () => {
   syncPickButtonState();
 });
 planLocateBtn?.addEventListener("click", requestCurrentLocationStart);
+let planStartSearchDebounceTimer = null;
+const PLAN_START_SEARCH_DEBOUNCE_MS = 250;
+function schedulePlanStartSearch() {
+  if (planStartSearchDebounceTimer) clearTimeout(planStartSearchDebounceTimer);
+  planStartSearchDebounceTimer = setTimeout(() => {
+    planStartSearchDebounceTimer = null;
+    const q = (planStartSearchEl?.value || "").trim();
+    if (q.length < 3) { renderStartSearchResults([]); return; }
+    if (planStartSearchBtn?.disabled) return;
+    searchStartPlaces();
+  }, PLAN_START_SEARCH_DEBOUNCE_MS);
+}
 planStartSearchBtn?.addEventListener("click", searchStartPlaces);
+planStartSearchEl?.addEventListener("input", schedulePlanStartSearch);
 planStartSearchEl?.addEventListener("keydown", e => {
+  if (planStartSearchDebounceTimer) {
+    clearTimeout(planStartSearchDebounceTimer);
+    planStartSearchDebounceTimer = null;
+  }
   if (e.key === "Enter") {
     e.preventDefault();
     searchStartPlaces();
@@ -6712,6 +6729,35 @@ function renderRouteAlternativesBlock(r) {
     </div>`;
 }
 
+function cleanStartName(name) {
+  return String(name || "").replace(/\s*\(-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\)\s*$/, "").trim() || name;
+}
+
+function renderTourStatChips(r) {
+  const chips = [];
+  const stops = r.tourStops || r.tourPasses || [];
+  const passN = stops.filter(p => !p.isPoi).length;
+  const poiN = stops.length - passN;
+  const driveH = r.driveH ?? r.h;
+  const dwellH = r.dwellH ?? 0;
+  const extrasH = r.extrasH ?? 0;
+  const totalH = r.totalH ?? (driveH != null ? driveH + dwellH + extrasH : null);
+
+  if (r.km != null) chips.push(["Distance", `${Math.round(r.km)} km`]);
+  if (totalH != null) chips.push(["Total", fmtDuration(totalH)]);
+  if (driveH != null) chips.push(["Driving", fmtDuration(driveH)]);
+  if (extrasH > 0) chips.push(["Breaks", fmtDuration(extrasH)]);
+  if (stops.length > 0) {
+    const stopsText = poiN > 0
+      ? `${passN} pass${passN === 1 ? "" : "es"} + ${poiN} POI${poiN === 1 ? "" : "s"}`
+      : `${stops.length} stop${stops.length === 1 ? "" : "s"}`;
+    chips.push(["Stops", stopsText]);
+  }
+  if (chips.length === 0) return "";
+  return `<ul class="tour-stats-chips">${chips.map(([k, v]) =>
+    `<li><span class="chip-k">${escapeHtml(k)}</span><span class="chip-v">${escapeHtml(v)}</span></li>`).join("")}</ul>`;
+}
+
 let planResultClickHandlerBound = false;
 
 function handlePlanResultClick(e) {
@@ -6741,6 +6787,7 @@ bindPlanResultClickHandler();
 
 function showPlanResult(r) {
   planResult.classList.remove("empty");
+  planResult.classList.remove("pr-in");
   planResult.removeAttribute("aria-busy");
   if (r.loading) {
     planResult.setAttribute("aria-busy", "true");
@@ -6869,15 +6916,18 @@ function showPlanResult(r) {
   const breaksBlock = (extrasH > 0 && r.extrasParts)
     ? `<div class="popup-meta tight">Breaks: ${escapeHtml(fmtExtrasSummary(r.extrasParts))}</div>`
     : "";
+  const statChips = renderTourStatChips(r);
+  const statsBlock = statChips || `<div class="stats">${statsLine}</div>`;
+  const startName = cleanStartName(r.start.displayName || r.start.name);
   const scenicStopsBlock = renderScenicStopsBlock(r.scenicStops);
   const routeAlternativesBlock = renderRouteAlternativesBlock(r);
   const tripDateLine = r.tripDate
     ? `<div class="popup-meta tight projection${daysBetweenDates(todayLocalDate(), r.tripDate) > 0 ? " guess" : ""}">Trip date: ${escapeHtml(formatTripDate(r.tripDate))} · projected pass states; guesses are marked “Likely” / “guess”.</div>`
     : "";
   planResult.innerHTML = `
-    <h3>${title} from ${r.start.name}</h3>
+    <h3>${escapeHtml(title)} from ${escapeHtml(startName)}</h3>
     <div class="tour-passes">${stopList}</div>
-    <div class="stats">${statsLine}</div>
+    ${statsBlock}
     ${implicitPassBlock}
     ${candidatePoolBlock}
     ${breaksBlock}
@@ -6893,6 +6943,8 @@ function showPlanResult(r) {
     ${routeWarning}
     ${statusWarning}
     <div class="plan-result-actions"><button id="planClear">Clear</button></div>`;
+  planResult.classList.add("pr-in");
+  Array.from(planResult.children).forEach((el, i) => el.style.setProperty("--i", i));
 }
 
 function updatePlannedTourLayers(routeCoords = plannedRouteCoords, fallback = plannedRouteFallback) {
@@ -7879,13 +7931,13 @@ _ensureStatusPill();
 function bindPopupImage(wrap) {
   const img = wrap.querySelector('img.popup-img');
   if (!img) return;
-  if (img.complete && img.naturalWidth > 0) {
-    wrap.classList.remove('is-loading');
-    wrap.classList.add('is-loaded');
-  } else {
-    img.onload  = () => { wrap.classList.remove('is-loading'); wrap.classList.add('is-loaded'); };
-    img.onerror = () => { wrap.classList.remove('is-loading'); wrap.classList.add('is-error'); };
-  }
+  const markLoaded = () => { wrap.classList.remove('is-loading','is-error'); wrap.classList.add('is-loaded'); };
+  const markError  = () => { wrap.classList.remove('is-loading','is-loaded'); wrap.classList.add('is-error'); };
+  if (!img.getAttribute('src')) { markError(); return; }
+  if (img.complete && img.naturalWidth === 0) { markError(); return; }
+  if (img.complete && img.naturalWidth > 0) { markLoaded(); return; }
+  img.addEventListener('load',  markLoaded, { once: true });
+  img.addEventListener('error', markError,  { once: true });
 }
 
 /* ── FIX 1: Skeleton rows ────────────────────────────────────────── */

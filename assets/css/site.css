@@ -2305,3 +2305,60 @@ input[type="range"]:disabled {
 .ap-popup .maplibregl-popup-content::-webkit-scrollbar-thumb:hover {
   background: rgba(143, 169, 181, .5);
 }
+
+/* ===== iter-3 polish: marker motion / flyTo / mobile popup ===== */
+
+/* ─── FIX 1: Marker pulse ring (CSS div, selected marker) ────────── */
+.ap-marker-ring {
+  position: absolute;
+  width: 44px; height: 44px;
+  margin-left: -22px; margin-top: -22px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  pointer-events: none;
+  z-index: 5;
+  animation: ap-marker-pulse 0.55s ease-out 3;
+}
+@keyframes ap-marker-pulse {
+  0%   { transform: scale(0.85); opacity: 0.55; }
+  100% { transform: scale(1.4);  opacity: 0; }
+}
+.ap-marker-ring.settled {
+  animation: none;
+  transform: scale(1.1);
+  opacity: 0.25;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ap-marker-ring { animation: none; opacity: 0.25; transform: scale(1.1); }
+}
+
+/* ─── FIX 3: Mobile popup polish ─────────────────────────────────── */
+@media (max-width: 640px) {
+  .ap-popup .maplibregl-popup-content {
+    max-width: min(92vw, 360px);
+    margin-inline: auto;
+    max-height: 70vh;
+    padding-top: 36px;
+    overflow-y: auto;
+  }
+  .ap-popup .maplibregl-popup-close-button {
+    position: sticky;
+    top: 8px; right: 8px;
+    margin-left: auto;
+    background: var(--panel-strong);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    z-index: 2;
+  }
+  /* line-clamp description text in popup (popup-tldr is the description class) */
+  .ap-popup .popup-tldr {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .ap-popup .popup-tldr.expanded {
+    -webkit-line-clamp: unset;
+    overflow: visible;
+  }
+}

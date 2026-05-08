@@ -1423,7 +1423,7 @@ function addCircleLayer(layer) {
 }
 
 const ALPINE_GL_LAYER_ID = "alpine-overlay";
-const ALPINE_GL_STRIDE = 21;
+const ALPINE_GL_STRIDE = 23;
 const ALPINE_GL_KIND = { pass: 0, poi: 1, passCluster: 2, poiCluster: 3, label: 4, preview: 5 };
 const ALPINE_GL_LABEL_COLS = 16;
 const ALPINE_GL_LABEL_ROWS = 16;
@@ -1534,6 +1534,9 @@ class AlpineWebGLLayer {
     this._hoverTargetId = null;
     this._hoverAnim = 0;
     this._lastFrameTs = 0;
+    this._featureState = new Map();   // featureId -> { bornAt (sec), lastSeenAt (ms), selectedAt (sec) }
+    this._selectedId = null;
+    this._hasLoadedOnce = false;
   }
 
   setGroups(groups, start = null) {
@@ -1551,6 +1554,18 @@ class AlpineWebGLLayer {
     if (this._hoverTargetId === id) return;
     this._hoverTargetId = id;
     this._map && this._map.triggerRepaint();
+  }
+
+  setSelected(id) {
+    if (this._selectedId === id) return;
+    this._selectedId = id;
+    if (id) {
+      const s = this._featureState.get(id) || { bornAt: performance.now() / 1000, lastSeenAt: performance.now() };
+      s.selectedAt = performance.now() / 1000;
+      this._featureState.set(id, s);
+    }
+    this._dirty = true;
+    this._map?.triggerRepaint();
   }
 
   _prepareGroupAnimations(oldGroups, newGroups) {
@@ -1717,6 +1732,16 @@ class AlpineWebGLLayer {
       }
       if (hoverAnimating) this._map?.triggerRepaint();
     }
+    // Keep RAF alive while any entrance animation is still running
+    if (!this._reducedMotion && this._featureState.size > 0) {
+      const _nowSec = performance.now() / 1000;
+      for (const s of this._featureState.values()) {
+        if (_nowSec - s.bornAt >= 0 && _nowSec - s.bornAt < 0.32) {
+          this._map?.triggerRepaint();
+          break;
+        }
+      }
+    }
     if (this._dirty) this._uploadInstances(gl);
     if (this._labelDirty) this._uploadLabelTexture(gl);
     if (!this._instanceCount) return;
@@ -1730,6 +1755,12 @@ class AlpineWebGLLayer {
     gl.uniform2f(loc.uViewport, gl.drawingBufferWidth, gl.drawingBufferHeight);
     gl.uniform1f(loc.uDpr, window.devicePixelRatio || 1);
     gl.uniform1f(loc.uTime, this._reducedMotion ? 0 : (performance.now() - this._startedAt) / 1000);
+    const _nowMs = performance.now();
+    gl.uniform1f(loc.uNow, _nowMs / 1000);
+    gl.uniform1f(loc.uReducedMotion, this._reducedMotion ? 1.0 : 0.0);
+    const _selState = this._selectedId ? this._featureState.get(this._selectedId) : null;
+    const _pulseSec = _selState?.selectedAt ? (_nowMs / 1000 - _selState.selectedAt) : 999.0;
+    gl.uniform1f(loc.uPulseClock, this._reducedMotion ? 999.0 : _pulseSec);
     this._bindTextures(gl, loc);
     this._bindAttributes(gl, loc);
     this._drawInstanced(gl);
@@ -1789,10 +1820,14 @@ class AlpineWebGLLayer {
       attribute vec4 a_icon;
       attribute vec2 a_offset;
       attribute float a_hover;
+      attribute float a_entrance;
+      attribute float a_selected;
       uniform mat4 u_matrix;
       uniform vec2 u_viewport;
       uniform float u_dpr;
       uniform float u_time;
+      uniform float u_now;
+      uniform float u_reduced_motion;
       varying vec2 v_uv;
       varying vec2 v_local;
       varying vec4 v_meta;
@@ -1801,10 +1836,17 @@ class AlpineWebGLLayer {
       varying vec4 v_icon;
       varying float v_time;
       varying float v_hover;
+      varying float v_entrance_alpha;
+      varying float v_selected;
       void main() {
         vec4 clip = u_matrix * vec4(a_pos, 0.0, 1.0);
         vec2 ndc = clip.xy / clip.w;
-        vec2 size = vec2(a_meta.x, a_meta.y) * mix(1.0, 1.12, a_hover);
+        float elapsed = max(0.0, u_now - a_entrance);
+        float t_entrance = clamp(elapsed / 0.32, 0.0, 1.0);
+        float t_smooth = smoothstep(0.0, 1.0, t_entrance);
+        float overshoot = 1.0 + 0.06 * (1.0 - abs(2.0 * t_smooth - 1.0));
+        float entranceScale = u_reduced_motion > 0.5 ? 1.0 : (t_smooth * overshoot);
+        vec2 size = vec2(a_meta.x, a_meta.y) * mix(1.0, 1.12, a_hover) * entranceScale;
         vec2 pxOffset = a_quad * size + a_offset;
         vec2 ndcOffset = (pxOffset * u_dpr) / (u_viewport * 0.5);
         gl_Position = vec4((ndc + ndcOffset) * clip.w, clip.z, clip.w);
@@ -1816,6 +1858,8 @@ class AlpineWebGLLayer {
         v_icon = a_icon;
         v_time = u_time;
         v_hover = a_hover;
+        v_entrance_alpha = u_reduced_motion > 0.5 ? 1.0 : t_smooth;
+        v_selected = a_selected;
       }`;
     const fragmentSource = `
       precision mediump float;
@@ -1831,6 +1875,9 @@ class AlpineWebGLLayer {
       varying vec4 v_icon;
       varying float v_time;
       varying float v_hover;
+      varying float v_entrance_alpha;
+      varying float v_selected;
+      uniform float u_pulse_clock;
       const float PI = 3.14159265359;
       bool flagSet(float flags, float bit) {
         return mod(floor(flags / bit), 2.0) >= 1.0;
@@ -1953,6 +2000,16 @@ class AlpineWebGLLayer {
         /* Hover brightness boost — only for single pass/poi markers (kind < 2).
            Clusters, labels and preview chips are unaffected. */
         c.rgb = clamp(c.rgb + 0.20 * v_hover * (1.0 - step(2.0, kind)), 0.0, 1.0);
+        // Entrance fade-in
+        c.a *= v_entrance_alpha;
+        // Selected marker pulse — brightness/alpha boost for leaf markers only
+        if (v_selected > 0.5 && u_pulse_clock < 1.6) {
+          float cycles = u_pulse_clock / 0.55;
+          float fr = fract(cycles);
+          float ringAlpha = cycles < 2.5 ? (1.0 - fr) * 0.55 : 0.20;
+          c.rgb += vec3(0.15) * ringAlpha;
+          c.a = max(c.a, ringAlpha * 0.8);
+        }
         gl_FragColor = c;
       }`;
     const vertex = this._compileShader(gl, gl.VERTEX_SHADER, vertexSource);
@@ -1993,10 +2050,15 @@ class AlpineWebGLLayer {
       aIcon: gl.getAttribLocation(program, "a_icon"),
       aOffset: gl.getAttribLocation(program, "a_offset"),
       aHover: gl.getAttribLocation(program, "a_hover"),
+      aEntrance: gl.getAttribLocation(program, "a_entrance"),
+      aSelected: gl.getAttribLocation(program, "a_selected"),
       uMatrix: gl.getUniformLocation(program, "u_matrix"),
       uViewport: gl.getUniformLocation(program, "u_viewport"),
       uDpr: gl.getUniformLocation(program, "u_dpr"),
       uTime: gl.getUniformLocation(program, "u_time"),
+      uNow: gl.getUniformLocation(program, "u_now"),
+      uReducedMotion: gl.getUniformLocation(program, "u_reduced_motion"),
+      uPulseClock: gl.getUniformLocation(program, "u_pulse_clock"),
       uUiTex: gl.getUniformLocation(program, "u_uiTex"),
       uPassTex1: gl.getUniformLocation(program, "u_passTex1"),
       uPassTex2: gl.getUniformLocation(program, "u_passTex2"),
@@ -2084,6 +2146,8 @@ class AlpineWebGLLayer {
     this._instanceAttrib(gl, loc.aIcon, 4, stride, 14);
     this._instanceAttrib(gl, loc.aOffset, 2, stride, 18);
     this._instanceAttrib(gl, loc.aHover, 1, stride, 20);
+    this._instanceAttrib(gl, loc.aEntrance, 1, stride, 21);
+    this._instanceAttrib(gl, loc.aSelected, 1, stride, 22);
   }
 
   _instanceAttrib(gl, location, size, strideBytes, floatOffset) {
@@ -2123,16 +2187,20 @@ class AlpineWebGLLayer {
     this._pickItems = [];
     this._labelEntries = [];
     this._labelKeys = new Map();
-    for (const group of this._groups) this._pushGroupInstances(out, group, now);
-    for (const group of this._transientGroups) this._pushGroupInstances(out, group, now);
+    const _allGroups = [...this._groups, ...this._transientGroups];
+    const _totalGroups = Math.max(1, _allGroups.length);
+    let _rank = 0;
+    for (const group of this._groups) this._pushGroupInstances(out, group, now, _rank++, _totalGroups);
+    for (const group of this._transientGroups) this._pushGroupInstances(out, group, now, _rank++, _totalGroups);
     if (this._start) this._pushStartInstance(out, this._start);
     this._drawLabelAtlas();
     this._labelDirty = true;
     this._instanceCount = out.length / ALPINE_GL_STRIDE;
     this._instanceData = new Float32Array(out);
+    this._hasLoadedOnce = true;
   }
 
-  _pushGroupInstances(out, group, now = performance.now()) {
+  _pushGroupInstances(out, group, now = performance.now(), rank = 0, totalGroups = 1) {
     const isCluster = group.type === "cluster";
     const isPoi = group.kind === "poi";
     let kind, width, height, flags = 0, fill, stroke = ALPINE_GL_COLORS.white, icon = { sheet: -1, u: 0, v: 0, scale: 0 };
@@ -2144,6 +2212,17 @@ class AlpineWebGLLayer {
       lng = pos.lng;
       lat = pos.lat;
     }
+    // Entrance stagger tracking for animated fade-in
+    const featureId = group.id;
+    const stagWindowMs = this._hasLoadedOnce ? 120 : 240;
+    const prevState = this._featureState.get(featureId);
+    const recentlyVisible = prevState && (now - prevState.lastSeenAt) < 500;
+    const bornAtSec = recentlyVisible
+      ? prevState.bornAt
+      : (now + (rank / totalGroups) * stagWindowMs) / 1000;
+    const selectedAt = prevState?.selectedAt || 0;
+    this._featureState.set(featureId, { bornAt: bornAtSec, lastSeenAt: now, selectedAt });
+    const isSelected = featureId === this._selectedId ? 1 : 0;
     if (isCluster) {
       kind = isPoi ? ALPINE_GL_KIND.poiCluster : ALPINE_GL_KIND.passCluster;
       /* Round bubble — sized by cluster magnitude so very large groups feel
@@ -2155,7 +2234,7 @@ class AlpineWebGLLayer {
       width = size;
       height = size;
       fill = isPoi ? ALPINE_GL_COLORS.poiCluster : ALPINE_GL_COLORS.passCluster;
-      this._pushInstance(out, lng, lat, width, height, kind, flags, fill, fill, icon);
+      this._pushInstance(out, lng, lat, width, height, kind, flags, fill, fill, icon, 0, 0, 0, bornAtSec, 0);
       const countLabel = this._labelRef(String(group.items.length), isPoi ? "cluster-poi" : "cluster-pass");
       if (countLabel) {
         /* Slightly oversize the label quad so canvas anti-aliasing has
@@ -2163,7 +2242,7 @@ class AlpineWebGLLayer {
            within ~70% of this. */
         const labelSize = group.items.length >= 100 ? 34 : 30;
         this._pushInstance(out, lng, lat, labelSize, labelSize, ALPINE_GL_KIND.label, 0,
-          ALPINE_GL_COLORS.dark, ALPINE_GL_COLORS.dark, countLabel, 0, 0);
+          ALPINE_GL_COLORS.dark, ALPINE_GL_COLORS.dark, countLabel, 0, 0, 0, bornAtSec, 0);
       }
       this._pickItems.push({ type: "cluster", kind: group.kind, id: group.id, group, lng, lat, radius: width * 0.55 });
       return;
@@ -2176,7 +2255,7 @@ class AlpineWebGLLayer {
       fill = plannable ? ALPINE_GL_COLORS.markerPurple : ALPINE_GL_COLORS.poiDim;
       icon = textureRefForUiIcon(poiCategoryIconId(group.item.poiCategory), 0.62);
       const poiHover = (group.item?.id === this._hoverTargetId) ? this._hoverAnim : 0;
-      this._pushInstance(out, lng, lat, width, height, kind, flags, fill, ALPINE_GL_COLORS.dark, icon, 0, height * 0.42, poiHover);
+      this._pushInstance(out, lng, lat, width, height, kind, flags, fill, ALPINE_GL_COLORS.dark, icon, 0, height * 0.42, poiHover, bornAtSec, isSelected);
       if (!plannable) {
         /* Smaller corner badge tucked into the bottom-right of the pin head
            (positive offsetY = up; head sits in the upper portion of the
@@ -2184,7 +2263,7 @@ class AlpineWebGLLayer {
            so the category glyph stays the dominant visual. */
         this._pushInstance(out, lng, lat, 14, 14, ALPINE_GL_KIND.preview, 0,
           [0.055, 0.078, 0.118, 0.94], stroke, textureRefForUiIcon("not-by-car", 0.82),
-          width * 0.42, height * 0.42 - height * 0.18);
+          width * 0.42, height * 0.42 - height * 0.18, 0, bornAtSec, 0);
       }
     } else {
       kind = ALPINE_GL_KIND.pass;
@@ -2197,13 +2276,13 @@ class AlpineWebGLLayer {
              textureRefForUiIcon("pass-generic", 0.62);
       const passHover = (group.item?.id === this._hoverTargetId) ? this._hoverAnim : 0;
       this._pushInstance(out, lng, lat, width, height, kind, flags,
-        fill, ALPINE_GL_COLORS.dark, icon, 0, 0, passHover);
+        fill, ALPINE_GL_COLORS.dark, icon, 0, 0, passHover, bornAtSec, isSelected);
     }
     const badge = plannedBadgeNumber(group.item);
     if (badge) {
       const badgeIcon = this._labelRef(String(badge), isPoi ? "badge-poi" : "badge-pass");
       if (badgeIcon) this._pushInstance(out, lng, lat, 22, 22, ALPINE_GL_KIND.label, 0,
-        fill, stroke, badgeIcon, 13, height * 0.42 + 9);
+        fill, stroke, badgeIcon, 13, height * 0.42 + 9, 0, bornAtSec, 0);
     }
     this._pickItems.push({
       type: "marker",
@@ -2221,14 +2300,14 @@ class AlpineWebGLLayer {
     if (label) this._pushInstance(out, start.lon, start.lat, 38, 38, ALPINE_GL_KIND.label, 0, ALPINE_GL_COLORS.white, ALPINE_GL_COLORS.white, label, 0, -15);
   }
 
-  _pushInstance(out, lng, lat, width, height, kind, flags, fill, stroke, icon, offsetX = 0, offsetY = 0, hover = 0) {
+  _pushInstance(out, lng, lat, width, height, kind, flags, fill, stroke, icon, offsetX = 0, offsetY = 0, hover = 0, entrance = 0, selected = 0) {
     const merc = lngLatToMercatorNorm(lng, lat);
     out.push(
       merc.x, merc.y, width, height, kind, flags,
       fill[0], fill[1], fill[2], fill[3],
       stroke[0], stroke[1], stroke[2], stroke[3],
       icon.sheet, icon.u, icon.v, icon.scale,
-      offsetX, offsetY, hover
+      offsetX, offsetY, hover, entrance, selected
     );
   }
 
@@ -2662,8 +2741,34 @@ function mapBoundsContainsPoint(p) {
   return map.getBounds().contains([p.lon, p.lat]);
 }
 
+function alpineFlyTo({ center, zoom, offset, padding }) {
+  const rm = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+  if (rm?.matches) {
+    map.jumpTo({ center, zoom, offset, padding });
+    return;
+  }
+  const cur = map.getCenter();
+  const curZoom = map.getZoom();
+  const targetZoom = zoom != null ? zoom : curZoom;
+  const pCur = map.project(cur);
+  const pTar = map.project(center);
+  const pixelDist = Math.hypot(pCur.x - pTar.x, pCur.y - pTar.y);
+  const zoomDelta = Math.abs(targetZoom - curZoom);
+  if (pixelDist < 80 && zoomDelta < 0.75) {
+    map.easeTo({ center, zoom: targetZoom, duration: 220, offset, padding });
+    return;
+  }
+  let dur = Math.max(350, Math.min(900, 550 * (zoomDelta / 3)));
+  if (zoomDelta < 0.5) dur = 350;
+  if (map.isMoving()) {
+    map.stop();
+    dur = Math.min(dur, 400);
+  }
+  map.flyTo({ center, zoom: targetZoom, offset, padding, duration: dur, curve: 1.42, essential: true });
+}
+
 function flyToItem(p, zoom = 11) {
-  map.flyTo({ center: [p.lon, p.lat], zoom: Math.max(map.getZoom(), zoom), duration: 450 });
+  alpineFlyTo({ center: [p.lon, p.lat], zoom: Math.max(map.getZoom(), zoom) });
 }
 
 function fitLngLatPairs(points, pad = 0.10) {
@@ -2675,8 +2780,33 @@ function fitLngLatPairs(points, pad = 0.10) {
   map.fitBounds(bounds, { padding, duration: 500, maxZoom: 13 });
 }
 
+function createMarkerRing(lngLat, popup) {
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) return null;
+  const container = map.getContainer();
+  const ring = document.createElement('div');
+  ring.className = 'ap-marker-ring';
+  const updatePos = () => {
+    const p = map.project(lngLat);
+    ring.style.left = p.x + 'px';
+    ring.style.top = p.y + 'px';
+  };
+  updatePos();
+  container.appendChild(ring);
+  map.on('move', updatePos);
+  setTimeout(() => ring.classList.add('settled'), 1650);
+  popup.on('close', () => {
+    ring.remove();
+    map.off('move', updatePos);
+  });
+  return ring;
+}
+
 function openMapPopup(lngLat, html, maxWidth = "360px") {
   if (activePopup) activePopup.remove();
+  const isMobile = window.innerWidth <= 640;
+  const markerPx = map.project(lngLat);
+  const ch = map.getContainer().clientHeight;
+  const mobileAnchor = isMobile ? (markerPx.y < ch * 0.4 ? 'top' : 'bottom') : 'auto';
   const popup = new maplibregl.Popup({
     offset: {
       'top':          [0,   10],
@@ -2688,7 +2818,7 @@ function openMapPopup(lngLat, html, maxWidth = "360px") {
       'left':         [10,   0],
       'right':        [-10,  0],
     },
-    anchor: 'auto',
+    anchor: mobileAnchor,
     maxWidth: '320px',
     closeButton: true,
     closeOnClick: false,
@@ -2739,6 +2869,9 @@ function panMapForPopup(lngLat, popup) {
 
 async function openPassPopup(p, lngLat = [p.lon, p.lat]) {
   const popup = openMapPopup(lngLat, buildPopupHtml(p, passStatus(p), null), "480px");
+  alpineOverlayLayer.setSelected(`pass:${p.id}`);
+  createMarkerRing(lngLat, popup);
+  popup.on('close', () => alpineOverlayLayer.setSelected(null));
   lazyLoadPassIcons(popup.getElement(), true);
   const wiki = await fetchWiki(p.wikiTitle, p.wikiLang);
   if (activePopup === popup) {
@@ -2750,7 +2883,10 @@ async function openPassPopup(p, lngLat = [p.lon, p.lat]) {
 }
 
 function openPoiPopup(poi, lngLat = [poi.lon, poi.lat]) {
-  openMapPopup(lngLat, buildPoiPopupHtml(poi), "480px");
+  const popup = openMapPopup(lngLat, buildPoiPopupHtml(poi), "480px");
+  alpineOverlayLayer.setSelected(`poi:${poi.id}`);
+  createMarkerRing(lngLat, popup);
+  popup.on('close', () => alpineOverlayLayer.setSelected(null));
 }
 
 function setPoiLayerVisible(visible) {

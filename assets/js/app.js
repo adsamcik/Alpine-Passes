@@ -2678,7 +2678,16 @@ function fitLngLatPairs(points, pad = 0.10) {
 function openMapPopup(lngLat, html, maxWidth = "360px") {
   if (activePopup) activePopup.remove();
   const popup = new maplibregl.Popup({
-    offset: 25,
+    offset: {
+      'top':          [0,   10],
+      'top-left':     [10,  10],
+      'top-right':    [-10, 10],
+      'bottom':       [0,  -10],
+      'bottom-left':  [10, -10],
+      'bottom-right': [-10,-10],
+      'left':         [10,   0],
+      'right':        [-10,  0],
+    },
     anchor: 'auto',
     maxWidth: '320px',
     closeButton: true,
@@ -2735,6 +2744,8 @@ async function openPassPopup(p, lngLat = [p.lon, p.lat]) {
   if (activePopup === popup) {
     popup.setHTML(buildPopupHtml(p, passStatus(p), wiki));
     lazyLoadPassIcons(popup.getElement(), true);
+    const el2 = popup.getElement().querySelector('.maplibregl-popup-content');
+    if (el2) { el2.setAttribute('tabindex', '-1'); }
   }
 }
 

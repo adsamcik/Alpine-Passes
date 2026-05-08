@@ -484,12 +484,27 @@ function cleanStatusDetail(status, label) {
   return detail;
 }
 
+function openingHintProjectionLabel(status, state) {
+  const projection = status?.projection;
+  if (projection?.basis !== "opening-hint" || projection.guessed !== false) return "";
+  const hintDate = status?.openingHint?.date;
+  const day = Number(hintDate?.day);
+  const month = Number(hintDate?.month);
+  if (!Number.isInteger(day) || !Number.isInteger(month) || day < 1 || day > 31 || month < 1 || month > 12) return "";
+  const dateLabel = formatOpeningDate(hintDate);
+  if (!dateLabel) return "";
+  if (state === "closed") return `Closed until ${dateLabel}`;
+  if (state === "open") return `Open from ${dateLabel}`;
+  return "";
+}
+
 function statusDisplay(status) {
   const state = status?.state || "unknown";
   const estimated = isEstimatedStatus(status);
-  const label = estimated
+  const exactProjectionLabel = openingHintProjectionLabel(status, state);
+  const label = exactProjectionLabel || (estimated
     ? (ESTIMATED_STATE_LABEL[state] || `Likely ${STATE_LABEL[state]?.toLowerCase() || "unknown"}`)
-    : (STATE_LABEL[state] || STATE_LABEL.unknown);
+    : (STATE_LABEL[state] || STATE_LABEL.unknown));
   const source = status?.source || "unknown";
   const sourceMeta = STATUS_SOURCE_META[source] || STATUS_SOURCE_META.unknown;
   const className = `${state}${estimated ? " estimated" : ""}`;
@@ -524,8 +539,9 @@ function sourceBadgeHtml(status) {
 
 function listStatusLabel(status) {
   const d = statusDisplay(status);
-  if (status?.projection?.listLabel) return `${d.label} (${status.projection.listLabel})`;
-  if (status?.openingHint) return `${d.label} (${openingHintListLabel(status.openingHint)})`;
+  const exactProjectionLabel = openingHintProjectionLabel(status, d.state);
+  if (status?.projection?.listLabel) return exactProjectionLabel ? d.label : `${d.label} (${status.projection.listLabel})`;
+  if (status?.openingHint) return exactProjectionLabel ? d.label : `${d.label} (${openingHintListLabel(status.openingHint)})`;
   if (d.estimated && d.detail) return `${d.label} (${d.detail.replace(/^(Typical|Historical) season:\s*/, "")})`;
   if (d.source === "osm" && d.detail) return `${d.label} ${d.detail}`;
   return d.label;
@@ -725,6 +741,8 @@ let plannedRouteActive = false;
 let plannedRouteCoords = null;
 let plannedRouteGeometry = null;
 let plannedRouteFallback = false;
+let plannedRouteAlternatives = [];
+let activeRouteAlternativeIndex = 0;
 
 function setPlannedTourIds(ids) {
   plannedTourIds = Array.isArray(ids) ? ids.slice() : [];
@@ -1436,6 +1454,7 @@ const ALPINE_GL_LABEL_CELL = 64;
 const ALPINE_GL_FLAG_ESTIMATED = 1;
 const ALPINE_GL_FLAG_DIM = 2;
 const ALPINE_GL_FLAG_SIMPLE_CIRCLE = 4;
+const ALPINE_GL_PASS_ART_SCALE = 1.1;
 const ALPINE_GL_COLORS = {
   markerPurple:[0.545, 0.424, 0.925, 1],
   open:       [0.239, 0.863, 0.518, 1],
@@ -1921,7 +1940,8 @@ class AlpineWebGLLayer {
         if (v_icon.x < 0.5) {
           color = mix(color, vec3(1.0), iconMask * 0.92);
         } else {
-          color = mix(color, mix(icon.rgb, vec3(1.0), 0.22), iconMask * 0.96);
+          color = mix(color, icon.rgb, icon.a);
+          color = mix(color, vec3(1.0), edge * 0.14 * icon.a);
         }
         return vec4(color, alpha);
       }
@@ -2280,7 +2300,7 @@ class AlpineWebGLLayer {
       height = 36;
       flags = ALPINE_GL_FLAG_SIMPLE_CIRCLE | (view.estimated ? ALPINE_GL_FLAG_ESTIMATED : 0);
       fill = ALPINE_GL_COLORS.markerPurple;
-      icon = textureRefForPassSymbol(group.item.symbolIconAsset, 0.78) ||
+      icon = textureRefForPassSymbol(group.item.symbolIconAsset, ALPINE_GL_PASS_ART_SCALE) ||
              textureRefForUiIcon("pass-generic", 0.62);
       const passHover = (group.item?.id === this._hoverTargetId) ? this._hoverAnim : 0;
       this._pushInstance(out, lng, lat, width, height, kind, flags,
@@ -2580,9 +2600,25 @@ function zoomToOverlayCluster(group) {
   map.fitBounds(bounds, { padding: 90, duration: 450, maxZoom: Math.min(map.getZoom() + 3, 13) });
 }
 
+const overlayClickPickCache = new WeakMap();
+
+function overlayPickFromMapEvent(event) {
+  if (!event?.point || typeof alpineOverlayLayer?.pickAt !== "function") return null;
+  const cacheKey = event.originalEvent && typeof event.originalEvent === "object" ? event.originalEvent : null;
+  if (cacheKey && overlayClickPickCache.has(cacheKey)) return overlayClickPickCache.get(cacheKey);
+  const pick = alpineOverlayLayer.pickAt(event.point);
+  if (cacheKey) overlayClickPickCache.set(cacheKey, pick || null);
+  return pick;
+}
+
+function routeClickHitsOverlay(event) {
+  const pick = overlayPickFromMapEvent(event);
+  return pick?.type === "marker" || pick?.type === "cluster";
+}
+
 map.on("click", event => {
   if (pickingStart || document.body.classList.contains("picking")) return;
-  const pick = alpineOverlayLayer.pickAt(event.point);
+  const pick = overlayPickFromMapEvent(event);
   if (!pick) return;
   event.originalEvent?.preventDefault?.();
   if (pick.type === "cluster") {
@@ -2715,6 +2751,7 @@ function routeStopSummary(stops, stopsTakenMin, lunchMin, restMin) {
 
 function onRouteClick(e) {
   if (!plannedRouteGeometry || pickingStart || document.body.classList.contains("picking")) return;
+  if (routeClickHitsOverlay(e)) return;
   const geom = plannedRouteGeometry;
   if (!geom.coords?.length || !geom.cumKm?.length) return;
   e.preventDefault?.();
@@ -3183,7 +3220,7 @@ function buildPopupHtml(p, status, wiki) {
        </div>`
     : "";
   const planBtnBlock = (p.baseA && p.baseB)
-    ? `<div class="popup-actions"><button class="popup-add-btn" type="button" data-pass-add="${escapeHtml(p.id)}" aria-label="Add ${escapeHtml(p.name)} to tour">＋ Add to selected route</button></div>`
+    ? `<div class="popup-actions">${buildPopupRouteButtonHtml("pass", p)}</div>`
     : "";
   const linkParts = [];
   if (passDetail) linkParts.push(`<a href="${passDetail}" target="_blank" rel="noopener">↗ alpen-paesse.ch</a>`);
@@ -3217,6 +3254,34 @@ function buildPopupHtml(p, status, wiki) {
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+}
+
+function isPopupRouteItemSelected(kind, id) {
+  return kind === "poi" ? selectedPoiIds.has(id) : selectedPassIds.has(id);
+}
+
+function popupRouteButtonState(kind, item) {
+  const selected = isPopupRouteItemSelected(kind, item.id);
+  return {
+    selected,
+    label: selected ? "− Remove from selected route" : "＋ Add to selected route",
+    ariaLabel: selected
+      ? `Remove ${item.name} from selected route`
+      : `Add ${item.name} to selected route`,
+  };
+}
+
+function buildPopupRouteButtonHtml(kind, item) {
+  const dataAttr = kind === "poi" ? "data-poi-add" : "data-pass-add";
+  const state = popupRouteButtonState(kind, item);
+  return `<button class="popup-add-btn" type="button" ${dataAttr}="${escapeHtml(item.id)}" aria-label="${escapeHtml(state.ariaLabel)}" aria-pressed="${state.selected}">${state.label}</button>`;
+}
+
+function updatePopupRouteButton(btn, kind, item) {
+  const state = popupRouteButtonState(kind, item);
+  btn.textContent = state.label;
+  btn.setAttribute("aria-label", state.ariaLabel);
+  btn.setAttribute("aria-pressed", String(state.selected));
 }
 
 function passIconHtml(p, className = "pass-art-icon", variant = "scenic") {
@@ -3344,7 +3409,7 @@ function buildPoiPopupHtml(poi) {
       </div>`;
   }
   const planBtn = isPlannablePoi(poi)
-    ? `<button class="popup-add-btn" type="button" data-poi-add="${escapeHtml(poi.id)}" aria-label="Add ${escapeHtml(poi.name)} to tour">＋ Add to selected route</button>`
+    ? buildPopupRouteButtonHtml("poi", poi)
     : `<div class="popup-meta tight" title="POI is not directly reachable by car (${escapeHtml(accessLine)})">${uiIconHtml("not-by-car", "inline-ui-icon", "Not car-accessible")} Not car-accessible — view-only on the map</div>`;
   return `
     <article class="popup poi-popup" data-poi="${escapeHtml(poi.id)}">
@@ -3370,20 +3435,20 @@ function buildPoiPopupHtml(poi) {
     </article>`;
 }
 
-/* Popup-delegated handler: "Add to selected route" buttons on POI and
-   pass popups. Both routes go through the same UX — flip into advanced
-   mode if needed, then add the stop. */
+/* Popup-delegated handler: route selection buttons on POI and pass popups. */
 document.addEventListener("click", e => {
   const poiBtn = e.target.closest("[data-poi-add]");
   if (poiBtn) {
     const id = poiBtn.dataset.poiAdd;
-    if (typeof toggleSelectedPoi === "function" && PLANNABLE_POI_IDS.has(id)) {
-      /* Make sure advanced mode is on so the user actually sees the change. */
-      if (typeof advancedModeEl !== "undefined" && !advancedModeEl.checked) {
+    const poi = POI_BY_ID.get(id);
+    if (poi && typeof toggleSelectedPoi === "function" && PLANNABLE_POI_IDS.has(id)) {
+      const shouldSelect = !selectedPoiIds.has(id);
+      if (shouldSelect && typeof advancedModeEl !== "undefined" && !advancedModeEl.checked) {
         advancedModeEl.checked = true;
         if (typeof syncAdvancedMode === "function") syncAdvancedMode();
       }
-      toggleSelectedPoi(id, true);
+      toggleSelectedPoi(id, shouldSelect);
+      updatePopupRouteButton(poiBtn, "poi", poi);
     }
     return;
   }
@@ -3392,11 +3457,13 @@ document.addEventListener("click", e => {
     const id = passBtn.dataset.passAdd;
     const pass = PASS_BY_ID.get(id);
     if (pass && pass.baseA && pass.baseB && typeof toggleSelectedPass === "function") {
-      if (typeof advancedModeEl !== "undefined" && !advancedModeEl.checked) {
+      const shouldSelect = !selectedPassIds.has(id);
+      if (shouldSelect && typeof advancedModeEl !== "undefined" && !advancedModeEl.checked) {
         advancedModeEl.checked = true;
         if (typeof syncAdvancedMode === "function") syncAdvancedMode();
       }
-      toggleSelectedPass(id, true);
+      toggleSelectedPass(id, shouldSelect);
+      updatePopupRouteButton(passBtn, "pass", pass);
     }
   }
 });
@@ -3699,6 +3766,10 @@ const activePresetIds = new Set();
 const planRunBtn = document.getElementById("planRun");
 const planResult = document.getElementById("planResult");
 const planPickBtn= document.getElementById("planPick");
+const planLocateBtn = document.getElementById("planLocate");
+const planStartSearchEl = document.getElementById("planStartSearch");
+const planStartSearchBtn = document.getElementById("planStartSearchBtn");
+const planStartSearchResultsEl = document.getElementById("planStartSearchResults");
 const advancedModeEl = document.getElementById("planAdvanced");
 const advancedPlannerEl = document.getElementById("advancedPlanner");
 const advancedPassSearchEl = document.getElementById("planPassSearch");
@@ -3720,12 +3791,218 @@ const advancedPoiThemeEl = document.getElementById("planPoiTheme");
    31 OSRM matrix nodes (1 + 3·10) keeps us well under public-server limits. */
 const ADVANCED_MAX_STOPS = 10;
 const ADVANCED_PICKER_LIMIT = 100;
+const GEOLOCATION_OPTIONS = Object.freeze({
+  enableHighAccuracy: true,
+  timeout: 10000,
+  maximumAge: 60000,
+});
+const START_GEOCODE_ENDPOINT = "https://photon.komoot.io/api/";
+const START_GEOCODE_LIMIT = 5;
 const selectedPassIds = new Set();
 const selectedPoiIds  = new Set();
+let planLocateDefaults = null;
+let planStartSearchDefaultText = null;
+let startSearchAbort = null;
+let startSearchSeq = 0;
+let startSearchResults = [];
 
 function currentStart() {
   if (startSel.value === "custom" && customStart) return customStart;
   return PRESET_STARTS[startSel.value];
+}
+
+function showPlanWarning(message) {
+  planResult.classList.remove("empty");
+  planResult.removeAttribute("aria-busy");
+  planResult.innerHTML = `<div class="warn">${escapeHtml(message)}</div>`;
+}
+
+function validStartCoords(lat, lon) {
+  return Number.isFinite(lat) && Number.isFinite(lon) &&
+    Math.abs(lat) <= 90 && Math.abs(lon) <= 180;
+}
+
+function applyCustomStart(name, lat, lon) {
+  const nextLat = Number(lat);
+  const nextLon = Number(lon);
+  if (!validStartCoords(nextLat, nextLon)) return false;
+
+  customStart = { name, lat: nextLat, lon: nextLon };
+  const opt = startSel.querySelector('option[value="custom"]');
+  if (opt) {
+    opt.disabled = false;
+    opt.textContent = "📍 " + customStart.name;
+  }
+  startSel.value = "custom";
+  startSel.dispatchEvent(new Event("change", { bubbles: true }));
+  return true;
+}
+
+function setStartSearchBusy(busy) {
+  if (!planStartSearchBtn) return;
+  if (planStartSearchDefaultText == null) {
+    planStartSearchDefaultText = planStartSearchBtn.textContent || "Search";
+  }
+  planStartSearchBtn.disabled = busy;
+  planStartSearchBtn.setAttribute("aria-busy", String(busy));
+  planStartSearchBtn.textContent = busy ? "Searching…" : planStartSearchDefaultText;
+  if (!busy) planStartSearchBtn.removeAttribute("aria-busy");
+}
+
+function normalizeStartSearchQuery() {
+  return (planStartSearchEl?.value || "").trim().replace(/\s+/g, " ");
+}
+
+function directStartCoordsFromQuery(query) {
+  const m = query.match(/^\s*(-?\d+(?:\.\d+)?)\s*[,;\s]\s*(-?\d+(?:\.\d+)?)\s*$/);
+  if (!m) return null;
+  const lat = Number(m[1]);
+  const lon = Number(m[2]);
+  return validStartCoords(lat, lon) ? { lat, lon } : null;
+}
+
+function geocodeLanguageCode() {
+  return typeof navigator !== "undefined" && navigator.language
+    ? navigator.language.split("-")[0]
+    : "en";
+}
+
+function geocodePrimaryName(raw) {
+  const props = raw?.properties || raw || {};
+  const address = raw?.address || {};
+  return String(
+    props.name ||
+    address.city ||
+    address.town ||
+    address.village ||
+    address.municipality ||
+    address.hamlet ||
+    address.county ||
+    address.state ||
+    raw?.display_name?.split(",")[0] ||
+    "Search result"
+  ).trim();
+}
+
+function normalizeStartGeocodeResult(raw) {
+  const coords = Array.isArray(raw?.geometry?.coordinates) ? raw.geometry.coordinates : null;
+  const lat = coords ? Number(coords[1]) : Number(raw?.lat);
+  const lon = coords ? Number(coords[0]) : Number(raw?.lon);
+  if (!validStartCoords(lat, lon)) return null;
+  const name = geocodePrimaryName(raw);
+  const props = raw?.properties || {};
+  const photonDetail = [
+    props.street,
+    props.postcode,
+    props.city || props.county,
+    props.state,
+    props.country,
+  ].filter(Boolean).join(", ");
+  const display = String(raw?.display_name || photonDetail || "").trim();
+  const detail = display && display !== name
+    ? display
+    : `${lat.toFixed(3)}, ${lon.toFixed(3)}`;
+  return { name, detail, lat, lon };
+}
+
+function renderStartSearchResults(results, message = "") {
+  if (!planStartSearchResultsEl) return;
+  startSearchResults = Array.isArray(results) ? results : [];
+  if (message) {
+    planStartSearchResultsEl.hidden = false;
+    planStartSearchResultsEl.innerHTML = `<div class="start-search-empty">${escapeHtml(message)}</div>`;
+    return;
+  }
+  if (!startSearchResults.length) {
+    planStartSearchResultsEl.hidden = true;
+    planStartSearchResultsEl.innerHTML = "";
+    return;
+  }
+  planStartSearchResultsEl.hidden = false;
+  planStartSearchResultsEl.innerHTML = startSearchResults.map((r, i) => `
+    <button class="start-search-result" type="button" data-start-result="${i}">
+      <strong>${escapeHtml(r.name)}</strong>
+      <span>${escapeHtml(r.detail)}</span>
+    </button>
+  `).join("");
+}
+
+function selectStartSearchResult(index) {
+  const result = startSearchResults[index];
+  if (!result) return;
+  const name = `${result.name} (${result.lat.toFixed(3)}, ${result.lon.toFixed(3)})`;
+  if (!applyCustomStart(name, result.lat, result.lon)) {
+    showPlanWarning("Search result returned invalid coordinates. Try another place or pick on the map.");
+    return;
+  }
+  if (planStartSearchEl) planStartSearchEl.value = result.name;
+  renderStartSearchResults([]);
+}
+
+async function searchStartPlaces() {
+  const query = normalizeStartSearchQuery();
+  if (query.length < 2) {
+    renderStartSearchResults([], "Type at least 2 characters to search for a starting point.");
+    return;
+  }
+
+  const direct = directStartCoordsFromQuery(query);
+  if (direct) {
+    applyCustomStart(`Custom (${direct.lat.toFixed(3)}, ${direct.lon.toFixed(3)})`, direct.lat, direct.lon);
+    renderStartSearchResults([]);
+    return;
+  }
+
+  if (typeof fetch !== "function") {
+    showPlanWarning("Place search is not supported by this browser. Choose a preset or pick a start on the map.");
+    return;
+  }
+  if (pickingStart) {
+    pickingStart = false;
+    syncPickButtonState();
+  }
+
+  if (startSearchAbort) startSearchAbort.abort();
+  const seq = ++startSearchSeq;
+  const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+  startSearchAbort = controller;
+  setStartSearchBusy(true);
+  renderStartSearchResults([], "Searching places…");
+
+  const params = new URLSearchParams({
+    q: query,
+    limit: String(START_GEOCODE_LIMIT),
+    lang: geocodeLanguageCode(),
+  });
+
+  try {
+    const response = await fetch(`${START_GEOCODE_ENDPOINT}?${params.toString()}`, {
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+      signal: controller?.signal,
+    });
+    if (!response.ok) throw new Error(`geocode ${response.status}`);
+    const payload = await response.json();
+    if (seq !== startSearchSeq) return;
+    const rows = Array.isArray(payload?.features) ? payload.features : payload;
+    const results = Array.isArray(rows)
+      ? rows.map(normalizeStartGeocodeResult).filter(Boolean).slice(0, START_GEOCODE_LIMIT)
+      : [];
+    if (!results.length) {
+      renderStartSearchResults([], `No starting points found for “${query}”. Try a town, address, or coordinates.`);
+      return;
+    }
+    renderStartSearchResults(results);
+  } catch (error) {
+    if (error?.name === "AbortError") return;
+    if (seq === startSearchSeq) {
+      showPlanWarning("Place search is unavailable right now. Choose a preset, use current location, or pick on the map.");
+      renderStartSearchResults([], "Search failed. Try again or pick on the map.");
+    }
+  } finally {
+    if (seq === startSearchSeq) setStartSearchBusy(false);
+    if (startSearchAbort === controller) startSearchAbort = null;
+  }
 }
 
 function plannerButtonLabel() {
@@ -4203,19 +4480,114 @@ function syncPickButtonState() {
   planPickBtn.setAttribute("aria-pressed", String(pickingStart));
 }
 
+function locateButtonDefaults() {
+  if (!planLocateBtn) return { html: "", title: "" };
+  if (!planLocateDefaults) {
+    planLocateDefaults = {
+      html: planLocateBtn.innerHTML,
+      title: planLocateBtn.getAttribute("title") || "",
+    };
+  }
+  return planLocateDefaults;
+}
+
+function setLocateButtonBusy(busy) {
+  if (!planLocateBtn) return;
+  const defaults = locateButtonDefaults();
+  planLocateBtn.disabled = busy;
+  planLocateBtn.classList.toggle("is-busy", busy);
+  if (busy) {
+    planLocateBtn.setAttribute("aria-busy", "true");
+    planLocateBtn.setAttribute("title", "Locating…");
+    planLocateBtn.innerHTML = `<span class="spinner" aria-hidden="true"></span>`;
+  } else {
+    planLocateBtn.removeAttribute("aria-busy");
+    planLocateBtn.setAttribute("title", defaults.title);
+    planLocateBtn.innerHTML = defaults.html;
+  }
+}
+
+function geolocationWarning(error) {
+  switch (error?.code) {
+    case 1:
+      return "Location permission denied. Choose a preset or pick a start on the map.";
+    case 2:
+      return "Current location unavailable. Choose a preset or pick a start on the map.";
+    case 3:
+      return "Location request timed out. Choose a preset or pick a start on the map.";
+    default:
+      return "Could not get current location. Choose a preset or pick a start on the map.";
+  }
+}
+
+function requestCurrentLocationStart() {
+  if (typeof window !== "undefined" && window.isSecureContext === false) {
+    showPlanWarning("Current location needs HTTPS or localhost. Choose a preset or pick a start on the map.");
+    return;
+  }
+  if (typeof navigator === "undefined" || !navigator.geolocation) {
+    showPlanWarning("Current location is not supported by this browser. Choose a preset or pick a start on the map.");
+    return;
+  }
+
+  if (pickingStart) {
+    pickingStart = false;
+    syncPickButtonState();
+  }
+  setLocateButtonBusy(true);
+  try {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocateButtonBusy(false);
+        const lat = Number(position?.coords?.latitude);
+        const lon = Number(position?.coords?.longitude);
+        if (!validStartCoords(lat, lon)) {
+          showPlanWarning("Current location returned invalid coordinates. Choose a preset or pick a start on the map.");
+          return;
+        }
+        applyCustomStart(`Current location (${lat.toFixed(3)}, ${lon.toFixed(3)})`, lat, lon);
+      },
+      (error) => {
+        setLocateButtonBusy(false);
+        showPlanWarning(geolocationWarning(error));
+      },
+      GEOLOCATION_OPTIONS
+    );
+  } catch {
+    setLocateButtonBusy(false);
+    showPlanWarning("Could not start location request. Choose a preset or pick a start on the map.");
+  }
+}
+
 planPickBtn.addEventListener("click", () => {
   pickingStart = !pickingStart;
   if (pickingStart && activePopup) { activePopup.remove(); activePopup = null; }
   syncPickButtonState();
 });
+planLocateBtn?.addEventListener("click", requestCurrentLocationStart);
+planStartSearchBtn?.addEventListener("click", searchStartPlaces);
+planStartSearchEl?.addEventListener("keydown", e => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    searchStartPlaces();
+  } else if (e.key === "Escape") {
+    renderStartSearchResults([]);
+  }
+});
+planStartSearchResultsEl?.addEventListener("click", e => {
+  const btn = e.target.closest("button[data-start-result]");
+  if (!btn || !planStartSearchResultsEl.contains(btn)) return;
+  selectStartSearchResult(Number(btn.dataset.startResult));
+});
 map.on("click", (e) => {
   if (!pickingStart) return;
-  customStart = { name: `Custom (${e.lngLat.lat.toFixed(3)}, ${e.lngLat.lng.toFixed(3)})`,
-                  lat: e.lngLat.lat, lon: e.lngLat.lng };
-  let opt = startSel.querySelector('option[value="custom"]');
-  opt.disabled = false;
-  opt.textContent = "📍 " + customStart.name;
-  startSel.value = "custom";
+  const lat = Number(e.lngLat.lat);
+  const lon = Number(e.lngLat.lng);
+  if (!validStartCoords(lat, lon)) {
+    showPlanWarning("Map click returned invalid coordinates. Choose a preset or try another map point.");
+  } else {
+    applyCustomStart(`Custom (${lat.toFixed(3)}, ${lon.toFixed(3)})`, lat, lon);
+  }
   pickingStart = false;
   syncPickButtonState();
 });
@@ -4233,6 +4605,8 @@ function clearPlannedTour() {
   plannedRouteGeometry = null;
   if (typeof window !== "undefined") window.plannedRouteGeometry = null;
   plannedRouteFallback = false;
+  plannedRouteAlternatives = [];
+  activeRouteAlternativeIndex = 0;
   if (activePopup) { activePopup.remove(); activePopup = null; }
   updatePlannedTourLayers();
   updateMapSources();
@@ -4462,20 +4836,27 @@ async function osrmTable(coordsStr) {
   });
 }
 
-async function osrmRoute(coordsStr) {
-  const key = `alps:osrm:r:${shortHash(coordsStr)}`;
+function normalizeOsrmRoute(route) {
+  return {
+    geom: route.geometry.coordinates,
+    distanceKm: Math.round(route.distance / 1000),
+    durationH: +(route.duration / 3600).toFixed(1),
+  };
+}
+
+async function osrmRoute(coordsStr, options = {}) {
+  const wantsAlternatives = !!options.alternatives;
+  const key = `alps:osrm:r:${wantsAlternatives ? "alt:" : ""}${shortHash(coordsStr)}`;
   const cached = cacheGet(key, OSRM_ROUTE_TTL);
   if (cached) { console.log("osrm route: cache hit"); return cached; }
   return dedupe(key, async () => {
-    const url = `https://router.project-osrm.org/route/v1/driving/${coordsStr}?overview=full&geometries=geojson`;
+    const altParam = wantsAlternatives ? "&alternatives=3" : "";
+    const url = `https://router.project-osrm.org/route/v1/driving/${coordsStr}?overview=full&geometries=geojson${altParam}`;
     const r = await fetch(url);
     const j = await r.json();
     if (!j.routes || j.code !== "Ok") throw new Error("OSRM route " + j.code);
-    const out = {
-      geom: j.routes[0].geometry.coordinates,
-      distanceKm: Math.round(j.routes[0].distance / 1000),
-      durationH: +(j.routes[0].duration / 3600).toFixed(1),
-    };
+    const routes = j.routes.map(normalizeOsrmRoute);
+    const out = { ...routes[0], routes };
     cacheSet(key, out);
     return out;
   });
@@ -5455,6 +5836,163 @@ function planScenicStops({ tourStops, modes, extrasParts, config }) {
   return scenicStops.filter(s => s.stopMin > 0 || s.restMin > 0);
 }
 
+const ROUTE_ALTERNATIVE_LIMIT = 3;
+
+function routeListFromOsrm(routeOut) {
+  const routes = Array.isArray(routeOut?.routes) && routeOut.routes.length
+    ? routeOut.routes
+    : routeOut ? [routeOut] : [];
+  const seen = new Set();
+  const unique = [];
+  for (const route of routes) {
+    if (!Array.isArray(route?.geom) || route.geom.length < 2) continue;
+    const first = route.geom[0];
+    const last = route.geom[route.geom.length - 1];
+    const key = [
+      Math.round((route.distanceKm || 0) * 10),
+      Math.round((route.durationH || 0) * 60),
+      first?.[0]?.toFixed?.(4),
+      first?.[1]?.toFixed?.(4),
+      last?.[0]?.toFixed?.(4),
+      last?.[1]?.toFixed?.(4),
+      route.geom.length,
+    ].join(":");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(route);
+    if (unique.length >= ROUTE_ALTERNATIVE_LIMIT) break;
+  }
+  return unique;
+}
+
+function retraceInfoForRoute(route, plan) {
+  const latlngs = Array.isArray(route?.geom)
+    ? route.geom.map(([lo, la]) => [la, lo])
+    : [];
+  if (!plan?.waypoints?.length || latlngs.length < 2) {
+    return { latlngs, wpIdx: [], legs: [], overlapM: 0 };
+  }
+  const wpIdx = plan.waypoints.map(wp => closestPolylineIdx(wp, latlngs));
+  const legs = detectRetracedConnectorLegs(latlngs, wpIdx, plan.wpMatrixIdx);
+  const overlapM = legs.reduce((sum, r) => sum + (r.overlapM || 0), 0);
+  return { latlngs, wpIdx, legs, overlapM };
+}
+
+function rankedRouteEntriesFromOsrm(routeOut, plan) {
+  return routeListFromOsrm(routeOut)
+    .map((route, originalIndex) => ({
+      route,
+      originalIndex,
+      retrace: retraceInfoForRoute(route, plan),
+    }))
+    .sort((a, b) =>
+      (a.retrace.overlapM - b.retrace.overlapM) ||
+      (a.retrace.legs.length - b.retrace.legs.length) ||
+      (a.originalIndex - b.originalIndex)
+    );
+}
+
+function routeDisplayForVariant({ route, tourStops, perm, plan, openOnly }) {
+  const latlngs = route.geom.map(([lo, la]) => [la, lo]);
+  const wpIdx = plan.waypoints.map(wp => closestPolylineIdx(wp, latlngs));
+  const crossings = routePassCrossingsForPlan({
+    tourStops,
+    perm,
+    wpMatrixIdx: plan.wpMatrixIdx,
+    wpIdx,
+    latlngs,
+    openOnly,
+  });
+  if (crossings.blocked.length) {
+    return { blocked: crossings.blocked };
+  }
+  const implicitPasses = crossings.implicit;
+  const merged = mergeImplicitRoutePasses(tourStops, perm, implicitPasses);
+  return {
+    tourStops: merged.tourStops,
+    modes: merged.modes,
+    implicitPasses: implicitPasses.map(x => x.pass),
+    latlngs,
+  };
+}
+
+function makeRouteAlternative({ route, index, start, baseTourStops, perm, plan, openOnly, stopsConfig, dwellH, policyTotalH, commonResult }) {
+  const display = routeDisplayForVariant({ route, tourStops: baseTourStops, perm, plan, openOnly });
+  if (display.blocked) return null;
+  const passList = (display.tourStops || []).filter(s => !s.isPoi);
+  const extras = computeExtras({
+    passN: passList.length,
+    driveH: route.durationH,
+    config: stopsConfig,
+    policyTotalH,
+    passList,
+  });
+  const totalH = route.durationH + (dwellH || 0) + extras.extrasH;
+  const scenicStops = planScenicStops({
+    tourStops: display.tourStops,
+    modes: display.modes,
+    extrasParts: extras.parts,
+    config: stopsConfig,
+  });
+  const result = {
+    ...commonResult,
+    start,
+    tourStops: display.tourStops,
+    km: route.distanceKm,
+    driveH: route.durationH,
+    dwellH: dwellH || 0,
+    extrasH: extras.extrasH,
+    extrasParts: extras.parts,
+    totalH,
+    modes: display.modes,
+    implicitPasses: display.implicitPasses,
+    scenicStops,
+  };
+  if (result.targetMode === "time" && Number.isFinite(result.targetValue)) {
+    result.inRange = Math.abs(totalH - result.targetValue) <= result.targetValue * Math.max(result.targetTol ?? 0.20, 0.05);
+  } else if (result.targetMode === "distance" && Number.isFinite(result.targetValue)) {
+    result.inRange = Math.abs(route.distanceKm - result.targetValue) <= result.targetValue * (result.targetTol ?? 0.20);
+  }
+  if (result.advanced) result.statusWarning = advancedStatusWarning(display.tourStops);
+  return {
+    label: index === 0 ? "Best road" : `Alternative ${index + 1}`,
+    result,
+    draw: {
+      start,
+      tourStops: display.tourStops,
+      latlngs: display.latlngs,
+      meta: { driveH: route.durationH, dwellH: dwellH || 0, extras, stopsConfig },
+    },
+  };
+}
+
+function routeAlternativeSummaries() {
+  return plannedRouteAlternatives.map((alt, index) => ({
+    index,
+    label: alt.label,
+    km: alt.result.km,
+    driveH: alt.result.driveH,
+    totalH: alt.result.totalH,
+  }));
+}
+
+function setPlannedRouteAlternatives(alternatives, activeIndex = 0) {
+  plannedRouteAlternatives = Array.isArray(alternatives) ? alternatives.filter(Boolean) : [];
+  activeRouteAlternativeIndex = Math.max(0, Math.min(activeIndex, plannedRouteAlternatives.length - 1));
+}
+
+function activateRouteAlternative(index) {
+  const alt = plannedRouteAlternatives[index];
+  if (!alt) return;
+  activeRouteAlternativeIndex = index;
+  showPlanResult({
+    ...alt.result,
+    routeAlternativeIndex: index,
+    routeAlternatives: routeAlternativeSummaries(),
+  });
+  drawPlannedTour(alt.draw.start, alt.draw.tourStops, alt.draw.latlngs, alt.draw.meta);
+}
+
 async function planSelectedTour() {
   clearPlannedTour();
   const start = currentStart();
@@ -5486,87 +6024,125 @@ async function planSelectedTour() {
     qSummit: p.qSummit || 0,
     qApproach: p.qApproach || 0,
   }));
-  const result = bestExactSelectedTour(matrix, selected.length, passQ, selected);
-  if (!result) {
+  let latestDetailedPlan = null;
+  let approximateFallback = null;
+  let routeWarning = "";
+  const retraceLog = [];
+  for (let iter = 0; iter < RETRACE_REPAIR_MAX_ITER; iter++) {
+    const result = bestExactSelectedTour(matrix, selected.length, passQ, selected);
+    if (!result) break;
+
+    const baseTourStops = result.perm.map(t => selected[t.passIdx]);
+    const plan = tourWaypointPlan(start, selected, result.perm);
+    const waypoints = plan.waypoints;
+    approximateFallback = { result, baseTourStops, plan };
+
+    let routeOut;
+    try {
+      routeOut = await osrmRoute(coordsFromWaypoints(waypoints), { alternatives: true });
+    } catch (e) {
+      if (!latestDetailedPlan) {
+        routeWarning = "Could not fetch detailed route geometry; map line is approximate.";
+      }
+      break;
+    }
+
+    const rankedRoutes = rankedRouteEntriesFromOsrm(routeOut, plan);
+    latestDetailedPlan = { result, baseTourStops, plan, routeOut };
+    const retraceLegs = (iter < RETRACE_REPAIR_MAX_ITER - 1 && rankedRoutes[0])
+      ? rankedRoutes[0].retrace.legs
+      : [];
+    if (!retraceLegs.length) break;
+
+    console.log(`advanced planner iter ${iter}: retrace pairs detected:`,
+      retraceLegs.map(r => `legs ${r.legA}↔${r.legB} share ${r.overlapM}m`).join("; "));
+    applyRetracePenalties(matrix, plan.wpMatrixIdx, retraceLegs);
+    retraceLog.push(...retraceLegs.map(r => r.overlapM));
+  }
+
+  if (retraceLog.length) {
+    console.log(`advanced planner: retraceFixes=${retraceLog.length}`);
+  }
+
+  const finalPlan = latestDetailedPlan || approximateFallback;
+  if (!finalPlan) {
     resetPlanButton();
     showPlanResult({ error: "No route found through the selected stops." });
     return;
   }
-
-  let tourStops = result.perm.map(t => selected[t.passIdx]);
-  const plan = tourWaypointPlan(start, selected, result.perm);
-  const waypoints = plan.waypoints;
-  let displayModes = result.perm;
-  let implicitPasses = [];
+  const { result, baseTourStops, plan } = finalPlan;
   /* Driving time/distance from the planner matrix as a baseline; OSRM full
      route below replaces them with road-accurate values. Dwell time stays
      separate so it's never lost or mis-labelled (rubber-duck blocking #2). */
-  let driveH = result.h;
-  let driveKm = result.km;
   const dwellH = result.dwellH || 0;
-  let latlngs = null;
-  let routeWarning = "";
-  try {
-    const routeOut = await osrmRoute(coordsFromWaypoints(waypoints));
-    latlngs = routeOut.geom.map(([lo, la]) => [la, lo]);
-    driveKm = routeOut.distanceKm;
-    driveH  = routeOut.durationH;
-    const wpIdx = waypoints.map(wp => closestPolylineIdx(wp, latlngs));
-    const crossings = routePassCrossingsForPlan({
-      tourStops,
-      perm: result.perm,
-      wpMatrixIdx: plan.wpMatrixIdx,
-      wpIdx,
-      latlngs,
-      openOnly: false,
-    });
-    implicitPasses = crossings.implicit;
-    if (implicitPasses.length) {
-      const merged = mergeImplicitRoutePasses(tourStops, result.perm, implicitPasses);
-      tourStops = merged.tourStops;
-      displayModes = merged.modes;
-    }
-  } catch (e) {
-    routeWarning = "Could not fetch detailed route geometry; map line is approximate.";
+  let alternatives = [];
+  if (latestDetailedPlan) {
+    const commonResult = {
+      matched: selected.length,
+      poolSize: selected.length,
+      inRange: true,
+      advanced: true,
+      routeWarning,
+      tripDate: currentTripDate(),
+    };
+    alternatives = rankedRouteEntriesFromOsrm(latestDetailedPlan.routeOut, latestDetailedPlan.plan)
+      .map((entry, index) => makeRouteAlternative({
+        route: entry.route,
+        index,
+        start,
+        baseTourStops,
+        perm: result.perm,
+        plan,
+        openOnly: false,
+        stopsConfig: currentStopsConfig(),
+        dwellH,
+        policyTotalH: null,
+        commonResult,
+      }))
+      .filter(Boolean);
   }
-  /* Stops & breaks accounting ??? same policy as auto-mode. */
-  const advPassList = (tourStops || []).filter(s => !s.isPoi);
-  const stopsConfig = currentStopsConfig();
-  const advExtras = computeExtras({
-    passN: advPassList.length,
-    driveH,
-    config: stopsConfig,
-    passList: advPassList,
-  });
-  const scenicStops = planScenicStops({
-    tourStops,
-    modes: displayModes,
-    extrasParts: advExtras.parts,
-    config: stopsConfig,
-  });
-  const totalH = driveH + dwellH + advExtras.extrasH;
 
   resetPlanButton();
+  if (alternatives.length) {
+    setPlannedRouteAlternatives(alternatives);
+    activateRouteAlternative(0);
+    return;
+  }
+
+  const stopsConfig = currentStopsConfig();
+  const advExtras = computeExtras({
+    passN: baseTourStops.filter(s => !s.isPoi).length,
+    driveH: result.h,
+    config: stopsConfig,
+    passList: baseTourStops,
+  });
+  const fallbackScenicStops = planScenicStops({
+    tourStops: baseTourStops,
+    modes: result.perm,
+    extrasParts: advExtras.parts,
+    config: stopsConfig,
+  });
   showPlanResult({
     start,
-    tourStops,
-    km: driveKm,
-    driveH, dwellH,
+    tourStops: baseTourStops,
+    km: result.km,
+    driveH: result.h,
+    dwellH,
     extrasH: advExtras.extrasH,
     extrasParts: advExtras.parts,
-    totalH,
+    totalH: result.h + dwellH + advExtras.extrasH,
     matched: selected.length,
     poolSize: selected.length,
     inRange: true,
     advanced: true,
     routeWarning,
-    statusWarning: advancedStatusWarning(tourStops),
+    statusWarning: advancedStatusWarning(baseTourStops),
     tripDate: currentTripDate(),
-    modes: displayModes,
-    implicitPasses: implicitPasses.map(x => x.pass),
-    scenicStops,
+    modes: result.perm,
+    implicitPasses: [],
+    scenicStops: fallbackScenicStops,
   });
-  drawPlannedTour(start, tourStops, latlngs, { driveH, dwellH, extras: advExtras, stopsConfig });
+  drawPlannedTour(start, baseTourStops, null, { driveH: result.h, dwellH, extras: advExtras, stopsConfig });
 }
 
 async function planTour() {
@@ -5724,11 +6300,14 @@ async function planTour() {
      when two distinct connector legs of the tour drive the same valley
      road, we soft-penalise both edges and re-plan to push the optimiser
      toward exploring new ground. */
-  const MAX_ITER = 5;
+  const MAX_ITER = RETRACE_REPAIR_MAX_ITER;
 
   let chosen = null;
   let chosenLatLngs = null;
   let chosenWaypoints = null;
+  let chosenPlan = null;
+  let chosenBaseTourStops = null;
+  let chosenPerm = null;
   let chosenTourStops = null;
   let chosenModes = null;
   let chosenImplicitPasses = [];
@@ -5780,7 +6359,7 @@ async function planTour() {
        to resolve first (blocking changes the tour anyway), and
        only on iterations where we still have a re-plan budget left. */
     const retraceLegs = (blockedThisIter.length === 0 && iter < MAX_ITER - 1)
-      ? detectRetracedConnectorLegs(latlngs, wpIdx)
+      ? detectRetracedConnectorLegs(latlngs, wpIdx, wpMatrixIdx)
       : [];
 
     /* Always record this iteration's tour as our current best — closed-
@@ -5798,6 +6377,9 @@ async function planTour() {
       chosen.h = chosen.driveH;  /* legacy field, used by older readers */
       chosenLatLngs = latlngs;
       chosenWaypoints = waypoints;
+      chosenPlan = plan;
+      chosenBaseTourStops = tourStops;
+      chosenPerm = result.perm;
       const merged = mergeImplicitRoutePasses(tourStops, result.perm, implicitPassesThisIter);
       chosenTourStops = merged.tourStops;
       chosenModes = merged.modes;
@@ -5824,17 +6406,8 @@ async function planTour() {
       console.log(`planner iter ${iter}: retrace pairs detected:`,
         retraceLegs.map(r => `legs ${r.legA}↔${r.legB} share ${r.overlapM}m`).join("; "));
     }
-    for (const r of retraceLegs) {
-      const fromMA = wpMatrixIdx[r.legA];
-      const toMA   = wpMatrixIdx[r.legA + 1];
-      const fromMB = wpMatrixIdx[r.legB];
-      const toMB   = wpMatrixIdx[r.legB + 1];
-      matrix.dist[fromMA][toMA] *= RETRACE_PENALTY_MULT;
-      matrix.dist[toMA][fromMA] *= RETRACE_PENALTY_MULT;
-      matrix.dist[fromMB][toMB] *= RETRACE_PENALTY_MULT;
-      matrix.dist[toMB][fromMB] *= RETRACE_PENALTY_MULT;
-      retraceLog.push(r.overlapM);
-    }
+    applyRetracePenalties(matrix, wpMatrixIdx, retraceLegs);
+    retraceLog.push(...retraceLegs.map(r => r.overlapM));
   }
 
   console.log(`planner: ${candidates.length} candidates (${passShare.length} passes + ${poiShare.length} POIs) · ${Math.round(plannerMs)} ms total · avoided=[${[...blockedNames].join(",")}] · retraceFixes=${retraceLog.length}`);
@@ -5898,28 +6471,67 @@ async function planTour() {
     return;
   }
 
-  showPlanResult({
+  const commonResult = {
     start, tourStops: chosenTourStops,
+    matched: chosen.k,
+    poolSize: candidates.length,
+    totalOpen: allCands.length,
+    targetMode, targetValue, targetTol, openOnly,
+    poiPrefs: poiPrefsSnapshot,
+    tripDate: currentTripDate(),
+    avoided: blockedNames.size > 0 ? [...blockedNames] : null,
+    candidatePoolNote: candidatePoolNote || null,
+  };
+  const primaryResult = {
+    ...commonResult,
     km: chosen.km,
     driveH: chosen.driveH,
     dwellH: chosen.dwellH || 0,
     extrasH: extras.extrasH,
     extrasParts: extras.parts,
     totalH: totalWithExtras,
-    matched: chosen.k,
-    poolSize: candidates.length,
-    totalOpen: allCands.length,
     inRange: finalInRange,
-    targetMode, targetValue, targetTol, openOnly,
-    poiPrefs: poiPrefsSnapshot,
-    tripDate: currentTripDate(),
-    avoided: blockedNames.size > 0 ? [...blockedNames] : null,
-    candidatePoolNote: candidatePoolNote || null,
     modes: displayModes,   // [{passIdx, enterSide, exitSide, mode}, ...]
     implicitPasses: chosenImplicitPasses,
     scenicStops,
-  });
-  drawPlannedTour(start, chosenTourStops, chosenLatLngs, { driveH: chosen.driveH, dwellH: chosen.dwellH || 0, extras, stopsConfig });
+  };
+  let alternatives = [];
+  if (chosenPlan && chosenBaseTourStops && chosenPerm && chosenWaypoints) {
+    try {
+      const routeOut = await osrmRoute(coordsFromWaypoints(chosenWaypoints), { alternatives: true });
+      alternatives = rankedRouteEntriesFromOsrm(routeOut, chosenPlan)
+        .map((entry, index) => makeRouteAlternative({
+          route: entry.route,
+          index,
+          start,
+          baseTourStops: chosenBaseTourStops,
+          perm: chosenPerm,
+          plan: chosenPlan,
+          openOnly,
+          stopsConfig,
+          dwellH: chosen.dwellH || 0,
+          policyTotalH: targetMode === "time" ? targetValue : null,
+          commonResult,
+        }))
+        .filter(Boolean);
+    } catch {
+      alternatives = [];
+    }
+  }
+  if (!alternatives.length) {
+    alternatives = [{
+      label: "Best road",
+      result: primaryResult,
+      draw: {
+        start,
+        tourStops: chosenTourStops,
+        latlngs: chosenLatLngs,
+        meta: { driveH: chosen.driveH, dwellH: chosen.dwellH || 0, extras, stopsConfig },
+      },
+    }];
+  }
+  setPlannedRouteAlternatives(alternatives);
+  activateRouteAlternative(0);
 }
 
 /* Index in `polyline` of the point closest to lat/lng `wp` (planar approx). */
@@ -5942,16 +6554,53 @@ function closestPolylineIdx(wp, polyline) {
    cells with index distance >1 leg checks whether they're geographically
    on top of each other. Accumulated "shared metres" per connector-leg
    pair tells us when two distinct connector drives use the same valley
-   road. Only connector legs (leg-index `mod 3 === 0`) are considered —
-   the climb+descent legs of a single pass are intra-pass and intentional.
+   road. Only inter-stop connector legs are considered; the climb+descent
+   legs within one pass are intentional and ignored.
 
    Returns [{ legA, legB, overlapM }] for connector pairs whose shared
    road length exceeds RETRACE_MIN_OVERLAP_M. */
+const RETRACE_REPAIR_MAX_ITER = 5;
 const RETRACE_THRESH_M = 100;      // points within this distance count as "same valley road"
 const RETRACE_MIN_OVERLAP_M = 800; // must share at least this many metres to count
 const RETRACE_SAMPLE_M = 200;      // densification spacing
-const RETRACE_PENALTY_MULT = 2.0;  // multiply both shared edges' cost per iter
-function detectRetracedConnectorLegs(latlngs, wpIdx) {
+const RETRACE_PENALTY_MULT = 3.0;  // strong soft cost; finite edges stay feasible, but repeats lose decisively
+
+function applyRetracePenaltyValue(table, from, to) {
+  if (Number.isFinite(table?.[from]?.[to])) {
+    table[from][to] *= RETRACE_PENALTY_MULT;
+  }
+}
+
+function applyRetracePenalties(matrix, wpMatrixIdx, retraceLegs) {
+  for (const r of retraceLegs) {
+    const edges = [
+      [wpMatrixIdx[r.legA], wpMatrixIdx[r.legA + 1]],
+      [wpMatrixIdx[r.legB], wpMatrixIdx[r.legB + 1]],
+    ];
+    for (const [from, to] of edges) {
+      applyRetracePenaltyValue(matrix.dist, from, to);
+      applyRetracePenaltyValue(matrix.dist, to, from);
+      applyRetracePenaltyValue(matrix.dur, from, to);
+      applyRetracePenaltyValue(matrix.dur, to, from);
+    }
+  }
+}
+
+function matrixStopIndex(idx) {
+  return idx > 0 ? Math.floor((idx - 1) / 3) : -1;
+}
+
+function isRetraceConnectorLeg(leg, wpMatrixIdx) {
+  if (!Array.isArray(wpMatrixIdx) || wpMatrixIdx.length <= leg + 1) {
+    return (leg % 3) === 0;
+  }
+  const from = wpMatrixIdx[leg];
+  const to = wpMatrixIdx[leg + 1];
+  if (from === 0 || to === 0) return true;
+  return matrixStopIndex(from) !== matrixStopIndex(to);
+}
+
+function detectRetracedConnectorLegs(latlngs, wpIdx, wpMatrixIdx = null) {
   if (!latlngs.length || wpIdx.length < 2) return [];
   const numLegs = wpIdx.length - 1;
 
@@ -5968,7 +6617,7 @@ function detectRetracedConnectorLegs(latlngs, wpIdx) {
   let acc = 0;
   for (let i = 0; i < latlngs.length; i++) {
     const leg = legByIdx[i];
-    const isConnector = (leg % 3) === 0;
+    const isConnector = isRetraceConnectorLeg(leg, wpMatrixIdx);
     if (i === 0) {
       if (isConnector) samples.push({ idx: 0, lat: latlngs[0][0], lon: latlngs[0][1], leg });
       continue;
@@ -6045,6 +6694,50 @@ function renderScenicStopsBlock(scenicStops) {
     : "";
   return `<div class="popup-meta tight">Scenic stops planned: ${shown.join(" &middot; ")}${extra}</div>`;
 }
+
+function renderRouteAlternativesBlock(r) {
+  const alternatives = Array.isArray(r.routeAlternatives) ? r.routeAlternatives : [];
+  if (alternatives.length < 2) return "";
+  const activeIndex = Number.isFinite(r.routeAlternativeIndex) ? r.routeAlternativeIndex : 0;
+  const buttons = alternatives.map(alt => {
+    const active = alt.index === activeIndex;
+    return `<button type="button" class="route-alt-btn${active ? " active" : ""}" data-route-alt="${alt.index}" aria-pressed="${active}">
+      <strong>${escapeHtml(alt.label)}</strong>
+      <span>${Math.round(alt.km)} km · ${fmtDuration(alt.totalH || alt.driveH)}</span>
+    </button>`;
+  }).join("");
+  return `<div class="route-alternatives" aria-label="Route alternatives">
+    <div class="popup-meta tight"><strong>Road alternatives</strong> <span class="time-breakdown">same stops, different roads</span></div>
+    <div class="route-alt-list">${buttons}</div>
+    </div>`;
+}
+
+let planResultClickHandlerBound = false;
+
+function handlePlanResultClick(e) {
+  const target = e.target instanceof Element ? e.target : null;
+  if (!target) return;
+
+  const clearBtn = target.closest("#planClear");
+  if (clearBtn && planResult.contains(clearBtn)) {
+    clearPlannedTour();
+    planResult.classList.add("empty");
+    planResult.innerHTML = "";
+    return;
+  }
+
+  const altBtn = target.closest("[data-route-alt]");
+  if (!altBtn || !planResult.contains(altBtn)) return;
+  activateRouteAlternative(Number(altBtn.dataset.routeAlt));
+}
+
+function bindPlanResultClickHandler() {
+  if (planResultClickHandlerBound) return;
+  planResult.addEventListener("click", handlePlanResultClick);
+  planResultClickHandlerBound = true;
+}
+
+bindPlanResultClickHandler();
 
 function showPlanResult(r) {
   planResult.classList.remove("empty");
@@ -6177,6 +6870,7 @@ function showPlanResult(r) {
     ? `<div class="popup-meta tight">Breaks: ${escapeHtml(fmtExtrasSummary(r.extrasParts))}</div>`
     : "";
   const scenicStopsBlock = renderScenicStopsBlock(r.scenicStops);
+  const routeAlternativesBlock = renderRouteAlternativesBlock(r);
   const tripDateLine = r.tripDate
     ? `<div class="popup-meta tight projection${daysBetweenDates(todayLocalDate(), r.tripDate) > 0 ? " guess" : ""}">Trip date: ${escapeHtml(formatTripDate(r.tripDate))} · projected pass states; guesses are marked “Likely” / “guess”.</div>`
     : "";
@@ -6188,6 +6882,7 @@ function showPlanResult(r) {
     ${candidatePoolBlock}
     ${breaksBlock}
     ${scenicStopsBlock}
+    ${routeAlternativesBlock}
     ${prefsBlock}
     ${tripDateLine}
     <div class="weather-unavailable" id="weatherUnavailableHint" hidden></div>
@@ -6198,10 +6893,6 @@ function showPlanResult(r) {
     ${routeWarning}
     ${statusWarning}
     <div class="plan-result-actions"><button id="planClear">Clear</button></div>`;
-  document.getElementById("planClear").onclick = () => {
-    clearPlannedTour();
-    planResult.classList.add("empty"); planResult.innerHTML = "";
-  };
 }
 
 function updatePlannedTourLayers(routeCoords = plannedRouteCoords, fallback = plannedRouteFallback) {

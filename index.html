@@ -20,12 +20,12 @@
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.css">
 <script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js" defer></script>
 
-<link rel="stylesheet" href="assets/css/site.css?v=alpine-engine-24">
+<link rel="stylesheet" href="assets/css/site.css?v=alpine-engine-26">
 <script src="assets/js/passes-data.js" defer></script>
 <script src="assets/js/swiss-pois.js" defer></script>
 <script src="assets/js/passes-cams.js" defer></script>
 <script src="assets/js/pass-icons.js" defer></script>
-<script src="assets/js/app.js?v=alpine-engine-24" defer></script>
+<script src="assets/js/app.js?v=alpine-engine-26" defer></script>
 </head>
 <body>
 
@@ -95,7 +95,13 @@
                   <option value="custom" disabled>(custom — click map)</option>
                 </select>
                 <button id="planPick" type="button" title="Click on map to set start" aria-label="Pick a custom start point on the map" aria-pressed="false"><svg class="button-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-pin"></use></svg></button>
+                <button id="planLocate" type="button" title="Use current browser location" aria-label="Use current browser location as start"><svg class="button-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-compass"></use></svg></button>
               </div>
+              <div class="start-search-row">
+                <input id="planStartSearch" type="search" placeholder="Search any town or address" autocomplete="off" aria-label="Search any starting point" aria-controls="planStartSearchResults">
+                <button id="planStartSearchBtn" type="button">Search</button>
+              </div>
+              <div id="planStartSearchResults" class="start-search-results" aria-live="polite" hidden></div>
             </label>
             <label>
               <span>Trip date &amp; start</span>

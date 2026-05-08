@@ -3705,16 +3705,21 @@ function estimateTourPassN(targetValue, targetMode) {
 
 function plannerStopsSubtitleText(cfg = currentStopsConfig()) {
   const bits = [];
-  bits.push(cfg.passStopMin > 0 ? `${cfg.passStopMin} min scenic/pass` : "no scenic pass stops");
+  bits.push(cfg.passStopMin > 0
+    ? `${cfg.passStopMin} min scenic stop per pass`
+    : "no scenic pass stops");
   if (cfg.passStopMin > 0) {
-    bits.push(cfg.viewpointMode === "summit" ? "summits only" : cfg.viewpointMode === "all" ? "any viewpoint" : "best viewpoint");
+    bits.push(cfg.viewpointMode === "summit" ? "summits only"
+      : cfg.viewpointMode === "all" ? "any viewpoint"
+      : "best viewpoint");
   }
-  bits.push(
-    cfg.lunchBreak === "auto" ? "lunch auto"
-      : cfg.lunchBreak === "0" || +cfg.lunchBreak === 0 ? "no lunch"
-      : `lunch ${cfg.lunchBreak} min`
-  );
-  bits.push(cfg.restBreakOn ? `rest ${cfg.restDuration}min/${cfg.restInterval}h` : "no rest");
+  bits.push(cfg.lunchBreak === "auto" ? "lunch break auto"
+    : cfg.lunchBreak === "0" || +cfg.lunchBreak === 0 ? "no lunch break"
+    : `lunch break ${cfg.lunchBreak} min`);
+  const interval = (+cfg.restInterval).toFixed(cfg.restInterval % 1 === 0 ? 0 : 1);
+  bits.push(cfg.restBreakOn
+    ? `${cfg.restDuration} min rest every ${interval} h`
+    : "no driving rest");
   return bits.join(" · ");
 }
 
@@ -4480,6 +4485,22 @@ function syncPickButtonState() {
   planPickBtn.setAttribute("aria-pressed", String(pickingStart));
 }
 
+const planLocateErrorEl = document.getElementById("planLocateError");
+let planLocateErrorTimer = null;
+function clearPlanLocateError() {
+  if (planLocateErrorTimer) { clearTimeout(planLocateErrorTimer); planLocateErrorTimer = null; }
+  if (!planLocateErrorEl) return;
+  planLocateErrorEl.textContent = "";
+  planLocateErrorEl.hidden = true;
+}
+function showPlanLocateError(message) {
+  if (!planLocateErrorEl) return;
+  planLocateErrorEl.textContent = message;
+  planLocateErrorEl.hidden = false;
+  if (planLocateErrorTimer) clearTimeout(planLocateErrorTimer);
+  planLocateErrorTimer = setTimeout(clearPlanLocateError, 8000);
+}
+
 function locateButtonDefaults() {
   if (!planLocateBtn) return { html: "", title: "" };
   if (!planLocateDefaults) {
@@ -4521,12 +4542,17 @@ function geolocationWarning(error) {
 }
 
 function requestCurrentLocationStart() {
+  clearPlanLocateError();
   if (typeof window !== "undefined" && window.isSecureContext === false) {
-    showPlanWarning("Current location needs HTTPS or localhost. Choose a preset or pick a start on the map.");
+    const message = "Current location needs HTTPS or localhost. Choose a preset or pick a start on the map.";
+    showPlanWarning(message);
+    showPlanLocateError(message);
     return;
   }
   if (typeof navigator === "undefined" || !navigator.geolocation) {
-    showPlanWarning("Current location is not supported by this browser. Choose a preset or pick a start on the map.");
+    const message = "Current location is not supported by this browser. Choose a preset or pick a start on the map.";
+    showPlanWarning(message);
+    showPlanLocateError(message);
     return;
   }
 
@@ -4542,20 +4568,26 @@ function requestCurrentLocationStart() {
         const lat = Number(position?.coords?.latitude);
         const lon = Number(position?.coords?.longitude);
         if (!validStartCoords(lat, lon)) {
-          showPlanWarning("Current location returned invalid coordinates. Choose a preset or pick a start on the map.");
+          const message = "Current location returned invalid coordinates. Choose a preset or pick a start on the map.";
+          showPlanWarning(message);
+          showPlanLocateError(message);
           return;
         }
         applyCustomStart(`Current location (${lat.toFixed(3)}, ${lon.toFixed(3)})`, lat, lon);
       },
       (error) => {
         setLocateButtonBusy(false);
-        showPlanWarning(geolocationWarning(error));
+        const message = geolocationWarning(error);
+        showPlanWarning(message);
+        showPlanLocateError(message);
       },
       GEOLOCATION_OPTIONS
     );
   } catch {
     setLocateButtonBusy(false);
-    showPlanWarning("Could not start location request. Choose a preset or pick a start on the map.");
+    const message = "Could not start location request. Choose a preset or pick a start on the map.";
+    showPlanWarning(message);
+    showPlanLocateError(message);
   }
 }
 

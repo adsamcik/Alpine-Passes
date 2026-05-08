@@ -2879,3 +2879,14 @@ input[type="range"]:disabled {
 @media (prefers-reduced-motion: reduce) {
   #planResult.pr-in > * { animation: none; }
 }
+
+/* ===== iter-11 polish: plan panel labels / placeholder / stops copy / locate error ===== */
+.start-row > button { display: inline-flex; align-items: center; gap: 6px; }
+.start-row .button-label { font-size: .9em; line-height: 1; white-space: nowrap; }
+#planStart option[value=""] { color: var(--fg-dim); font-style: italic; }
+.plan-locate-error {
+  display: block;
+  margin-top: 4px;
+  font-size: .85em;
+  color: var(--closed);
+}

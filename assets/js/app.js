@@ -2852,8 +2852,17 @@ function openMapPopup(lngLat, html, maxWidth = "360px") {
     className: 'ap-popup',
   })
     .setLngLat(lngLat)
-    .setHTML(html)
-    .addTo(map);
+    .setHTML(html);
+  try {
+    popup.addTo(map);
+  } catch (e) {
+    // MapLibre 5.6.1 internal positioning bug — popup still mounts visually.
+    // Log once for diagnostics; suppress to avoid spamming console.
+    if (!window.__mlPopupAddBugLogged) {
+      console.warn('[alpine] suppressing MapLibre popup.addTo internal positioning error (cosmetic);', e?.message);
+      window.__mlPopupAddBugLogged = true;
+    }
+  }
   const contentEl = popup.getElement().querySelector('.maplibregl-popup-content');
   if (contentEl) { contentEl.setAttribute('tabindex', '-1'); contentEl.focus({ preventScroll: true }); }
   activePopup = popup;
@@ -2935,18 +2944,19 @@ async function openPassPopup(p, lngLat = [p.lon, p.lat]) {
   createMarkerRing(lngLat, popup);
   popup.on('close', () => alpineOverlayLayer.setSelected(null));
   lazyLoadPassIcons(popup.getElement(), true);
-  const _imgWrap0 = popup.getElement().querySelector('.popup-img-wrap');
-  if (_imgWrap0) bindPopupImage(_imgWrap0);
-  const wiki = await fetchWiki(p.wikiTitle, p.wikiLang);
-  if (activePopup === popup) {
-    popup.setHTML(buildPopupHtml(p, passStatus(p), wiki));
-    lazyLoadPassIcons(popup.getElement(), true);
-    const el2 = popup.getElement().querySelector('.maplibregl-popup-content');
-    if (el2) { el2.setAttribute('tabindex', '-1'); }
+  applyPopupBindings(popup); // INITIAL bindings — image, body stagger, etc. before wiki fetch
+  try {
+    const wiki = await fetchWiki(p.wikiTitle, p.wikiLang);
+    if (activePopup === popup) {
+      popup.setHTML(buildPopupHtml(p, passStatus(p), wiki));
+      lazyLoadPassIcons(popup.getElement(), true);
+      const el2 = popup.getElement().querySelector('.maplibregl-popup-content');
+      if (el2) { el2.setAttribute('tabindex', '-1'); }
+      applyPopupBindings(popup); // RE-BIND after wiki content replaces HTML
+    }
+  } catch (e) {
+    console.debug('[alpine] wiki fetch failed', e);
   }
-  // Apply image binding + wiki-in stagger unconditionally so the pre-existing
-  // MapLibre TypeError (which can prevent activePopup assignment) never blocks them.
-  applyPopupBindings(popup);
 }
 
 function openPoiPopup(poi, lngLat = [poi.lon, poi.lat]) {

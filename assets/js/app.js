@@ -1423,7 +1423,7 @@ function addCircleLayer(layer) {
 }
 
 const ALPINE_GL_LAYER_ID = "alpine-overlay";
-const ALPINE_GL_STRIDE = 20;
+const ALPINE_GL_STRIDE = 21;
 const ALPINE_GL_KIND = { pass: 0, poi: 1, passCluster: 2, poiCluster: 3, label: 4, preview: 5 };
 const ALPINE_GL_LABEL_COLS = 16;
 const ALPINE_GL_LABEL_ROWS = 16;
@@ -1530,6 +1530,10 @@ class AlpineWebGLLayer {
     this._labelKeys = new Map();
     this._reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches || false;
     this._startedAt = performance.now();
+    this._hoverId = null;
+    this._hoverTargetId = null;
+    this._hoverAnim = 0;
+    this._lastFrameTs = 0;
   }
 
   setGroups(groups, start = null) {
@@ -1541,6 +1545,12 @@ class AlpineWebGLLayer {
     this._dirty = true;
     this._labelDirty = true;
     this._map?.triggerRepaint();
+  }
+
+  setHover(id) {
+    if (this._hoverTargetId === id) return;
+    this._hoverTargetId = id;
+    this._map && this._map.triggerRepaint();
   }
 
   _prepareGroupAnimations(oldGroups, newGroups) {
@@ -1688,6 +1698,25 @@ class AlpineWebGLLayer {
       this._rebuildInstances(performance.now());
       this._dirty = true;
     }
+    /* Hover animation — advance per-frame tween and rebuild if needed.
+       Uses dirty-flag rebuild strategy: no partial buffer updates needed
+       given typical marker counts (<500 instances). */
+    {
+      const now = performance.now();
+      const dt = this._lastFrameTs ? Math.min(64, now - this._lastFrameTs) : 16;
+      this._lastFrameTs = now;
+      const hoverTarget = this._hoverTargetId !== null ? 1 : 0;
+      const hoverStep = this._reducedMotion ? 1 : dt / 140;
+      this._hoverAnim += (hoverTarget - this._hoverAnim) * Math.min(1, hoverStep);
+      if (Math.abs(hoverTarget - this._hoverAnim) < 0.01) this._hoverAnim = hoverTarget;
+      const hoverAnimating = Math.abs(hoverTarget - this._hoverAnim) > 0.001;
+      if (hoverAnimating || this._hoverTargetId !== this._hoverId) {
+        this._hoverId = this._hoverTargetId;
+        this._rebuildInstances(now);
+        this._dirty = true;
+      }
+      if (hoverAnimating) this._map?.triggerRepaint();
+    }
     if (this._dirty) this._uploadInstances(gl);
     if (this._labelDirty) this._uploadLabelTexture(gl);
     if (!this._instanceCount) return;
@@ -1759,6 +1788,7 @@ class AlpineWebGLLayer {
       attribute vec4 a_stroke;
       attribute vec4 a_icon;
       attribute vec2 a_offset;
+      attribute float a_hover;
       uniform mat4 u_matrix;
       uniform vec2 u_viewport;
       uniform float u_dpr;
@@ -1770,10 +1800,12 @@ class AlpineWebGLLayer {
       varying vec4 v_stroke;
       varying vec4 v_icon;
       varying float v_time;
+      varying float v_hover;
       void main() {
         vec4 clip = u_matrix * vec4(a_pos, 0.0, 1.0);
         vec2 ndc = clip.xy / clip.w;
-        vec2 pxOffset = a_quad * vec2(a_meta.x, a_meta.y) + a_offset;
+        vec2 size = vec2(a_meta.x, a_meta.y) * mix(1.0, 1.12, a_hover);
+        vec2 pxOffset = a_quad * size + a_offset;
         vec2 ndcOffset = (pxOffset * u_dpr) / (u_viewport * 0.5);
         gl_Position = vec4((ndc + ndcOffset) * clip.w, clip.z, clip.w);
         v_uv = a_quad + 0.5;
@@ -1783,6 +1815,7 @@ class AlpineWebGLLayer {
         v_stroke = a_stroke;
         v_icon = a_icon;
         v_time = u_time;
+        v_hover = a_hover;
       }`;
     const fragmentSource = `
       precision mediump float;
@@ -1797,6 +1830,7 @@ class AlpineWebGLLayer {
       varying vec4 v_stroke;
       varying vec4 v_icon;
       varying float v_time;
+      varying float v_hover;
       const float PI = 3.14159265359;
       bool flagSet(float flags, float bit) {
         return mod(floor(flags / bit), 2.0) >= 1.0;
@@ -1911,10 +1945,15 @@ class AlpineWebGLLayer {
       }
       void main() {
         float kind = v_meta.z;
-        if (kind < 1.5) gl_FragColor = pinMarker();
-        else if (kind < 3.5) gl_FragColor = clusterMarker();
-        else if (kind < 4.5) gl_FragColor = labelMarker();
-        else gl_FragColor = previewChip();
+        vec4 c;
+        if (kind < 1.5) c = pinMarker();
+        else if (kind < 3.5) c = clusterMarker();
+        else if (kind < 4.5) c = labelMarker();
+        else c = previewChip();
+        /* Hover brightness boost — only for single pass/poi markers (kind < 2).
+           Clusters, labels and preview chips are unaffected. */
+        c.rgb = clamp(c.rgb + 0.20 * v_hover * (1.0 - step(2.0, kind)), 0.0, 1.0);
+        gl_FragColor = c;
       }`;
     const vertex = this._compileShader(gl, gl.VERTEX_SHADER, vertexSource);
     const fragment = this._compileShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
@@ -1953,6 +1992,7 @@ class AlpineWebGLLayer {
       aStroke: gl.getAttribLocation(program, "a_stroke"),
       aIcon: gl.getAttribLocation(program, "a_icon"),
       aOffset: gl.getAttribLocation(program, "a_offset"),
+      aHover: gl.getAttribLocation(program, "a_hover"),
       uMatrix: gl.getUniformLocation(program, "u_matrix"),
       uViewport: gl.getUniformLocation(program, "u_viewport"),
       uDpr: gl.getUniformLocation(program, "u_dpr"),
@@ -2043,6 +2083,7 @@ class AlpineWebGLLayer {
     this._instanceAttrib(gl, loc.aStroke, 4, stride, 10);
     this._instanceAttrib(gl, loc.aIcon, 4, stride, 14);
     this._instanceAttrib(gl, loc.aOffset, 2, stride, 18);
+    this._instanceAttrib(gl, loc.aHover, 1, stride, 20);
   }
 
   _instanceAttrib(gl, location, size, strideBytes, floatOffset) {
@@ -2134,7 +2175,8 @@ class AlpineWebGLLayer {
       flags = plannable ? 0 : ALPINE_GL_FLAG_DIM;
       fill = plannable ? ALPINE_GL_COLORS.markerPurple : ALPINE_GL_COLORS.poiDim;
       icon = textureRefForUiIcon(poiCategoryIconId(group.item.poiCategory), 0.62);
-      this._pushInstance(out, lng, lat, width, height, kind, flags, fill, ALPINE_GL_COLORS.dark, icon, 0, height * 0.42);
+      const poiHover = (group.item?.id === this._hoverTargetId) ? this._hoverAnim : 0;
+      this._pushInstance(out, lng, lat, width, height, kind, flags, fill, ALPINE_GL_COLORS.dark, icon, 0, height * 0.42, poiHover);
       if (!plannable) {
         /* Smaller corner badge tucked into the bottom-right of the pin head
            (positive offsetY = up; head sits in the upper portion of the
@@ -2153,8 +2195,9 @@ class AlpineWebGLLayer {
       fill = ALPINE_GL_COLORS.markerPurple;
       icon = textureRefForPassSymbol(group.item.symbolIconAsset, 0.78) ||
              textureRefForUiIcon("pass-generic", 0.62);
+      const passHover = (group.item?.id === this._hoverTargetId) ? this._hoverAnim : 0;
       this._pushInstance(out, lng, lat, width, height, kind, flags,
-        fill, ALPINE_GL_COLORS.dark, icon, 0, 0);
+        fill, ALPINE_GL_COLORS.dark, icon, 0, 0, passHover);
     }
     const badge = plannedBadgeNumber(group.item);
     if (badge) {
@@ -2178,14 +2221,14 @@ class AlpineWebGLLayer {
     if (label) this._pushInstance(out, start.lon, start.lat, 38, 38, ALPINE_GL_KIND.label, 0, ALPINE_GL_COLORS.white, ALPINE_GL_COLORS.white, label, 0, -15);
   }
 
-  _pushInstance(out, lng, lat, width, height, kind, flags, fill, stroke, icon, offsetX = 0, offsetY = 0) {
+  _pushInstance(out, lng, lat, width, height, kind, flags, fill, stroke, icon, offsetX = 0, offsetY = 0, hover = 0) {
     const merc = lngLatToMercatorNorm(lng, lat);
     out.push(
       merc.x, merc.y, width, height, kind, flags,
       fill[0], fill[1], fill[2], fill[3],
       stroke[0], stroke[1], stroke[2], stroke[3],
       icon.sheet, icon.u, icon.v, icon.scale,
-      offsetX, offsetY
+      offsetX, offsetY, hover
     );
   }
 
@@ -2467,10 +2510,14 @@ map.on("mousemove", event => {
   const canvas = map.getCanvas();
   if (pickingStart || document.body.classList.contains("picking")) {
     canvas.style.cursor = "crosshair";
+    alpineOverlayLayer.setHover(null);
     return;
   }
-  canvas.style.cursor = alpineOverlayLayer.pickAt(event.point) ? "pointer" : "";
+  const pick = alpineOverlayLayer.pickAt(event.point);
+  canvas.style.cursor = pick ? "pointer" : "";
+  alpineOverlayLayer.setHover(pick?.type === "marker" ? pick.id : null);
 });
+map.on("mouseout", () => alpineOverlayLayer.setHover(null));
 map.on("moveend", scheduleAlpineOverlayLayout);
 /* Re-cluster only when the user has settled — cluster radius depends on the
    final zoom step, not on transient values during a wheel/easeTo flight. */
@@ -2630,10 +2677,19 @@ function fitLngLatPairs(points, pad = 0.10) {
 
 function openMapPopup(lngLat, html, maxWidth = "360px") {
   if (activePopup) activePopup.remove();
-  const popup = new maplibregl.Popup({ maxWidth, closeButton: true, closeOnClick: true })
+  const popup = new maplibregl.Popup({
+    offset: 25,
+    anchor: 'auto',
+    maxWidth: '320px',
+    closeButton: true,
+    closeOnClick: false,
+    className: 'ap-popup',
+  })
     .setLngLat(lngLat)
     .setHTML(html)
     .addTo(map);
+  const contentEl = popup.getElement().querySelector('.maplibregl-popup-content');
+  if (contentEl) { contentEl.setAttribute('tabindex', '-1'); contentEl.focus({ preventScroll: true }); }
   activePopup = popup;
   /* After the popup mounts, ease the map so the popup fully fits in view.
      MapLibre auto-anchors the popup top/bottom of the marker but a tall

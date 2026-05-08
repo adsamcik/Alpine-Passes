@@ -2166,3 +2166,124 @@ input[type="range"]:disabled {
   /* Match desktop value — footer overlaps content without adequate clearance */
   .sidebar-scroll { padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
 }
+
+/* ===== iter-2 polish: popup / marker-hover / controls / chip-wrap ===== */
+
+/* ─── FIX 1: Popup dark-theme overhaul ───────────────────────────── */
+.ap-popup .maplibregl-popup-content {
+  background: var(--panel-strong);
+  color: var(--fg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 14px 16px 12px;
+  min-width: 240px;
+  max-width: 320px;
+  animation: ap-popup-in .22s cubic-bezier(.2,.8,.2,1) both;
+  outline: none;
+}
+.ap-popup .maplibregl-popup-content:focus-visible {
+  box-shadow: var(--shadow), 0 0 0 2px var(--accent);
+}
+.ap-popup .maplibregl-popup-close-button {
+  width: 28px; height: 28px;
+  font-size: 20px; line-height: 26px;
+  color: var(--fg-soft);
+  border-radius: 50%;
+  top: 6px; right: 6px;
+  transition: transform .18s ease, color .18s ease, background .18s ease;
+  /* Reset heavy styles from the global rule */
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.ap-popup .maplibregl-popup-close-button:hover {
+  color: var(--fg);
+  background: var(--bg-3);
+  transform: rotate(90deg) scale(1.05);
+}
+.ap-popup .maplibregl-popup-close-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.ap-popup .maplibregl-popup-tip {
+  border-top-color: var(--panel-strong);
+  border-bottom-color: var(--panel-strong);
+  filter: drop-shadow(0 1px 0 var(--border-strong));
+}
+@keyframes ap-popup-in {
+  from { opacity: 0; transform: translateY(6px) scale(.98); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ap-popup .maplibregl-popup-content { animation: ap-popup-fade .15s linear both; }
+  .ap-popup .maplibregl-popup-close-button { transition: none; }
+  .ap-popup .maplibregl-popup-close-button:hover { transform: none; }
+}
+@keyframes ap-popup-fade { from{opacity:0} to{opacity:1} }
+
+/* ─── FIX 3: MapLibre control group restyle ──────────────────────── */
+.maplibregl-ctrl-top-right,
+.maplibregl-ctrl-bottom-right,
+.maplibregl-ctrl-top-left,
+.maplibregl-ctrl-bottom-left { margin: 12px; }
+.maplibregl-ctrl-group {
+  background: var(--panel-strong);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-soft);
+  overflow: hidden;
+}
+.maplibregl-ctrl-group button {
+  width: 36px; height: 36px;
+  background: transparent;
+  border: 0;
+  color: var(--fg-soft);
+  transition: background .18s ease, color .18s ease, box-shadow .18s ease;
+}
+.maplibregl-ctrl-group button + button { border-top: 1px solid var(--border); }
+.maplibregl-ctrl-group button:hover { background: var(--bg-3); color: var(--fg); }
+.maplibregl-ctrl-group button:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  filter: brightness(0) invert(1);
+  opacity: .78;
+  transition: opacity .18s ease;
+}
+.maplibregl-ctrl-group button:hover .maplibregl-ctrl-icon { opacity: 1; }
+.maplibregl-ctrl-attrib {
+  background: rgba(20,28,34,.72);
+  color: var(--fg-soft);
+  border-radius: var(--radius);
+}
+.maplibregl-ctrl-attrib a { color: var(--accent); }
+@media (prefers-reduced-motion: reduce) {
+  .maplibregl-ctrl-group button,
+  .maplibregl-ctrl-group button .maplibregl-ctrl-icon { transition: none; }
+}
+
+/* ─── FIX 4: Mobile filter chip wrap ─────────────────────────────── */
+/* .controls already has flex-wrap: wrap. This breakpoint tightens
+   row-gap and ensures each chip's touch target stays comfortably tappable. */
+@media (max-width: 640px) {
+  .controls {
+    row-gap: 8px;
+    column-gap: 6px;
+    padding: 8px 12px 10px;
+  }
+  .controls label.check {
+    white-space: nowrap;
+    min-height: 36px;
+  }
+  .controls input[type="search"] {
+    min-width: 100%;
+  }
+  .controls select {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}

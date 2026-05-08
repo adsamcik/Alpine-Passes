@@ -2643,3 +2643,45 @@ input[type="range"]:disabled {
 @media (prefers-reduced-motion: reduce) {
   .sidebar-scroll::-webkit-scrollbar-thumb { transition: none; }
 }
+
+/* ===== iter-6 polish: popup positioning + disclosure + score labels ===== */
+
+/* ── FIX 1: Mobile popup max-height + scroll ──────────────────────── */
+.maplibregl-popup-content {
+  max-height: var(--popup-max-h, 70vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+@media (max-width: 720px) {
+  .maplibregl-popup { z-index: 6; }
+}
+
+/* ── FIX 2: Disclosure accordion ─────────────────────────────────── */
+.disclosure {
+  all: unset;
+  display: flex; align-items: center; gap: .4em;
+  cursor: pointer; font: inherit; color: var(--fg-dim);
+  padding: 6px 0; width: 100%;
+}
+.disclosure:hover, .disclosure:focus-visible { color: var(--fg); }
+.disclosure::before {
+  content: ''; display: inline-block; width: 8px; height: 8px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 220ms cubic-bezier(.2,.7,.2,1);
+  flex-shrink: 0;
+}
+.disclosure[aria-expanded="true"]::before { transform: rotate(45deg); }
+.disclosure-panel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 220ms cubic-bezier(.2,.7,.2,1);
+}
+.disclosure-panel > .disclosure-inner { min-height: 0; overflow: hidden; }
+.disclosure[aria-expanded="true"] + .disclosure-panel { grid-template-rows: 1fr; }
+@media (prefers-reduced-motion: reduce) {
+  .disclosure-panel, .disclosure::before { transition: none; }
+}
+

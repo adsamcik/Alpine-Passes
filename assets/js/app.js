@@ -2868,29 +2868,59 @@ function openMapPopup(lngLat, html, maxWidth = "360px") {
 }
 
 function panMapForPopup(lngLat, popup) {
-  const container = map.getContainer();
-  if (!container) return;
-  const popupEl = popup?.getElement();
-  if (!popupEl) return;
-  const popupContent = popupEl.querySelector(".maplibregl-popup-content");
-  if (!popupContent) return;
-  const ch = container.offsetHeight;
-  const popupHeight = Math.min(popupContent.offsetHeight, ch - 80);
-  /* Place the marker in the upper portion so the popup grows downward
-     with comfortable margins. Cap so we never push it off-screen. */
-  const desiredMarkerY = Math.max(64, Math.min(ch - popupHeight - 32, ch * 0.28));
-  const markerScreen = map.project(lngLat);
-  const dy = markerScreen.y - desiredMarkerY;
-  const popupWidth = popupContent.offsetWidth;
-  const dxLeft = Math.max(0, popupWidth / 2 + 24 - markerScreen.x);
-  const dxRight = Math.max(0, markerScreen.x + popupWidth / 2 + 24 - container.offsetWidth);
-  const dx = dxLeft - dxRight;
-  if (Math.abs(dy) > 24 || Math.abs(dx) > 12) {
-    map.easeTo({
-      center: map.unproject([markerScreen.x - dx, markerScreen.y - dy]),
-      duration: 320,
-    });
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (window.innerWidth > 720) {
+    /* ── Desktop: original iter-3 behaviour ─────────────────────────── */
+    const container = map.getContainer();
+    if (!container) return;
+    const popupEl = popup?.getElement();
+    if (!popupEl) return;
+    const popupContent = popupEl.querySelector(".maplibregl-popup-content");
+    if (!popupContent) return;
+    const ch = container.offsetHeight;
+    const popupHeight = Math.min(popupContent.offsetHeight, ch - 80);
+    const desiredMarkerY = Math.max(64, Math.min(ch - popupHeight - 32, ch * 0.28));
+    const markerScreen = map.project(lngLat);
+    const dy = markerScreen.y - desiredMarkerY;
+    const popupWidth = popupContent.offsetWidth;
+    const dxLeft = Math.max(0, popupWidth / 2 + 24 - markerScreen.x);
+    const dxRight = Math.max(0, markerScreen.x + popupWidth / 2 + 24 - container.offsetWidth);
+    const dx = dxLeft - dxRight;
+    if (Math.abs(dy) > 24 || Math.abs(dx) > 12) {
+      if (reduce) map.jumpTo({ center: map.unproject([markerScreen.x - dx, markerScreen.y - dy]) });
+      else map.easeTo({ center: map.unproject([markerScreen.x - dx, markerScreen.y - dy]), duration: 320 });
+    }
+    return;
   }
+  /* ── Mobile: rAF-deferred measurement + anchor + max-height clamping ── */
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const el = popup.getElement(); if (!el) return;
+    const content = el.querySelector('.maplibregl-popup-content');
+    if (!content) return;
+    const mapRect = map.getContainer().getBoundingClientRect();
+    const safe = 12;
+    const pt = map.project(lngLat); // marker in container px
+    const spaceAbove = pt.y - safe;
+    const spaceBelow = mapRect.height - pt.y - safe - 40; // marker stem
+    const desired = content.scrollHeight + 24;
+    let anchor, maxH;
+    if (spaceAbove >= desired) { anchor = 'bottom'; maxH = spaceAbove; }
+    else if (spaceBelow >= desired) { anchor = 'top'; maxH = spaceBelow; }
+    else if (spaceBelow >= spaceAbove) { anchor = 'top'; maxH = spaceBelow; }
+    else { anchor = 'bottom'; maxH = spaceAbove; }
+    el.style.setProperty('--popup-max-h', Math.max(180, maxH) + 'px');
+    el.classList.remove('maplibregl-popup-anchor-top', 'maplibregl-popup-anchor-bottom');
+    el.classList.add('maplibregl-popup-anchor-' + anchor);
+    const popupH = Math.min(desired, maxH);
+    const targetMarkerY = anchor === 'bottom'
+      ? Math.max(popupH + safe, mapRect.height * 0.55)
+      : Math.min(mapRect.height - popupH - safe - 40, mapRect.height * 0.45);
+    const dy = pt.y - targetMarkerY;
+    const center = map.project(map.getCenter());
+    const newCenter = map.unproject([center.x, center.y + dy]);
+    if (reduce) map.jumpTo({ center: newCenter });
+    else map.easeTo({ center: newCenter, duration: 280, easing: t => 1 - Math.pow(1 - t, 3) });
+  }));
 }
 
 async function openPassPopup(p, lngLat = [p.lon, p.lat]) {
@@ -2989,7 +3019,8 @@ function buildPopupHtml(p, status, wiki) {
   ].filter(Boolean).join(" · ");
   const metaBlock = meta ? `<div class="popup-meta">${meta}</div>` : "";
   const info = status?.info
-    ? `<div class="popup-info">${status.info.split("\n\n").map(par => `<p>${escapeHtml(par)}</p>`).join("")}</div>` : "";
+    ? buildDisclosure('Seasonal closure info', status.info.split("\n\n").map(par => `<p>${escapeHtml(par)}</p>`).join(""))
+    : "";
   const tldrBlock = p.tldr
     ? `<div class="popup-tldr">${escapeHtml(p.tldr)}</div>`
     : "";
@@ -3007,9 +3038,10 @@ function buildPopupHtml(p, status, wiki) {
   const camsBlock = p.cams && p.cams.length
     ? `<div class="popup-cams" aria-label="Live webcams">
          <div class="popup-cams-label">📹 Live cams</div>
-         <ul class="popup-cams-list">
-           ${p.cams.map(c => `<li><a href="${escapeHtml(c.u)}" target="_blank" rel="noopener"><span class="cam-label">${escapeHtml(c.l)}</span><span class="cam-source">${escapeHtml(c.s)}</span></a></li>`).join("")}
-         </ul>
+         ${buildDisclosure(`Live cams (${p.cams.length})`,
+           `<ul class="popup-cams-list">${p.cams.map(c =>
+             `<li><a href="${escapeHtml(c.u)}" target="_blank" rel="noopener"><span class="cam-label">${escapeHtml(c.l)}</span><span class="cam-source">${escapeHtml(c.s)}</span></a></li>`
+           ).join("")}</ul>`)}
        </div>`
     : "";
   const planBtnBlock = (p.baseA && p.baseB)
@@ -3090,6 +3122,11 @@ function lazyLoadPassIcons(root = document, immediate = false) {
   });
 }
 
+function buildDisclosure(label, bodyHTML) {
+  return `<button class="disclosure" type="button" aria-expanded="false">${label}</button>` +
+         `<div class="disclosure-panel"><div class="disclosure-inner">${bodyHTML}</div></div>`;
+}
+
 /* "Why this rating" line — uses the LLM reasoning sentence as the primary
    explanation, with a small sub-score breakdown.
    Sub-scores: sB scenicBeauty, sI summitInterest, dE drivingExperience, pp popularity (all 0-10). */
@@ -3098,21 +3135,26 @@ function whyRatingLine(p) {
   const starStr = stars > 0 ? "★".repeat(stars) : "—";
   const reasoning = p.reasoning ? escapeHtml(p.reasoning) : "";
   const sg = p.qualitySignals;
+  const SCORE_LABELS = {
+    known: 'Fame', summit: 'Summit experience',
+    scenery: 'Scenery', scenic: 'Scenery', driving: 'Driving'
+  };
   let breakdown = "";
   if (sg && typeof sg.sB === "number") {
     breakdown =
         `<span class="why-chips" title="Agent sub-scores 0-10">`
-      + `<span class="score-chip">scenic <b>${sg.sB.toFixed(1)}</b></span>`
-      + `<span class="score-chip">driving <b>${sg.dE.toFixed(1)}</b></span>`
-      + `<span class="score-chip">summit <b>${sg.sI.toFixed(1)}</b></span>`
-      + `<span class="score-chip">known <b>${sg.pp.toFixed(1)}</b></span>`
+      + `<span class="score-chip">${SCORE_LABELS.scenic} <b>${sg.sB.toFixed(1)}</b></span>`
+      + `<span class="score-chip">${SCORE_LABELS.driving} <b>${sg.dE.toFixed(1)}</b></span>`
+      + `<span class="score-chip">${SCORE_LABELS.summit} <b>${sg.sI.toFixed(1)}</b></span>`
+      + `<span class="score-chip">${SCORE_LABELS.known} <b>${sg.pp.toFixed(1)}</b></span>`
       + `</span>`;
   }
   if (!reasoning && !breakdown) return "";
   const cf = p.confidence;
   const cfTag = cf === "l" ? ' <span class="cf-tag" title="Low confidence — sparse data">·low confidence</span>' : "";
-  return `<div class="why-summary"><span class="why-stars"><b>${starStr}</b></span>${breakdown}${cfTag}</div>`
-       + (reasoning ? `<div class="why-reasoning">${reasoning}</div>` : "");
+  const summaryRow = `<div class="why-summary"><span class="why-stars"><b>${starStr}</b></span>${breakdown}${cfTag}</div>`;
+  const reasoningHtml = reasoning ? `<div class="why-reasoning">${reasoning}</div>` : "";
+  return summaryRow + (reasoningHtml ? buildDisclosure('Why this score?', reasoningHtml) : "");
 }
 
 function qualityStars(q) {
@@ -7053,3 +7095,15 @@ function renderPassSkeletons(n = 6) {
     _passMO.observe(_passListEl, { childList: true });
   }
 }
+
+/* ====================================================================
+   iter-6 polish: popup positioning + disclosure + score labels
+   ==================================================================== */
+
+/* ── Delegated disclosure toggle ──────────────────────────────────── */
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.disclosure');
+  if (!btn) return;
+  const open = btn.getAttribute('aria-expanded') === 'true';
+  btn.setAttribute('aria-expanded', String(!open));
+});

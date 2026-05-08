@@ -2337,7 +2337,7 @@ input[type="range"]:disabled {
   .ap-popup .maplibregl-popup-content {
     max-width: min(92vw, 360px);
     margin-inline: auto;
-    max-height: 70vh;
+    max-height: var(--popup-max-h, 70vh);
     padding-top: 36px;
     overflow-y: auto;
   }
@@ -2647,7 +2647,7 @@ input[type="range"]:disabled {
 /* ===== iter-6 polish: popup positioning + disclosure + score labels ===== */
 
 /* ── FIX 1: Mobile popup max-height + scroll ──────────────────────── */
-.maplibregl-popup-content {
+.ap-popup .maplibregl-popup-content {
   max-height: var(--popup-max-h, 70vh);
   overflow-y: auto;
   overscroll-behavior: contain;

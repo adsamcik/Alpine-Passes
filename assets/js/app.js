@@ -2880,12 +2880,22 @@ async function openPassPopup(p, lngLat = [p.lon, p.lat]) {
   createMarkerRing(lngLat, popup);
   popup.on('close', () => alpineOverlayLayer.setSelected(null));
   lazyLoadPassIcons(popup.getElement(), true);
+  const _imgWrap0 = popup.getElement().querySelector('.popup-img-wrap');
+  if (_imgWrap0) bindPopupImage(_imgWrap0);
   const wiki = await fetchWiki(p.wikiTitle, p.wikiLang);
   if (activePopup === popup) {
     popup.setHTML(buildPopupHtml(p, passStatus(p), wiki));
     lazyLoadPassIcons(popup.getElement(), true);
     const el2 = popup.getElement().querySelector('.maplibregl-popup-content');
     if (el2) { el2.setAttribute('tabindex', '-1'); }
+    const _imgWrap1 = popup.getElement().querySelector('.popup-img-wrap');
+    if (_imgWrap1) bindPopupImage(_imgWrap1);
+    const _popBody = popup.getElement().querySelector('.popup-body');
+    if (_popBody) {
+      _popBody.classList.add('wiki-in');
+      [..._popBody.children].forEach((el, i) => el.style.setProperty('--i', i));
+      setTimeout(() => _popBody.classList.remove('wiki-in'), 240 + _popBody.children.length * 60 + 50);
+    }
   }
 }
 
@@ -2894,6 +2904,8 @@ function openPoiPopup(poi, lngLat = [poi.lon, poi.lat]) {
   alpineOverlayLayer.setSelected(`poi:${poi.id}`);
   createMarkerRing(lngLat, popup);
   popup.on('close', () => alpineOverlayLayer.setSelected(null));
+  const _poiWrap = popup.getElement().querySelector('.popup-img-wrap');
+  if (_poiWrap) bindPopupImage(_poiWrap);
 }
 
 function setPoiLayerVisible(visible) {
@@ -2948,7 +2960,7 @@ function buildPopupHtml(p, status, wiki) {
      thumbnail (which loads asynchronously after the popup opens). */
   const photoSrc = p.bestPhoto || wiki?.thumb;
   const img = photoSrc
-    ? `<img class="popup-img" src="${photoSrc}" alt="${p.name}" loading="lazy">`
+    ? `<div class="popup-img-wrap is-loading"><img class="popup-img" src="${photoSrc}" alt="${p.name}" loading="lazy"></div>`
     : `<div class="popup-img placeholder">no photo</div>`;
 
   const stateLine = status
@@ -3113,7 +3125,7 @@ refreshProjectedStatuses();
 function buildPoiPopupHtml(poi) {
   const wikiHref = `https://${poi.wikiLang}.wikipedia.org/wiki/${encodeURIComponent(poi.wikiTitle)}`;
   const img = poi.bestPhoto
-    ? `<img class="popup-img" src="${escapeHtml(poi.bestPhoto)}" alt="${escapeHtml(poi.name)}" loading="lazy">`
+    ? `<div class="popup-img-wrap is-loading"><img class="popup-img" src="${escapeHtml(poi.bestPhoto)}" alt="${escapeHtml(poi.name)}" loading="lazy"></div>`
     : `<div class="popup-img placeholder">no photo</div>`;
   const themeBadges = poi.poiThemes.slice(0, 6).map(t =>
     `<span class="poi-theme-chip">${escapeHtml(t)}</span>`).join("");
@@ -6950,5 +6962,61 @@ _ensureStatusPill();
       else        { _tweenRaf = null; }
     };
     _tweenRaf = requestAnimationFrame(step);
+  };
+}
+
+/* ====================================================================
+   iter-5 polish: skeleton shimmer / popup loading / scrollbar
+   ==================================================================== */
+
+/* ── FIX 2: bindPopupImage — attach load/error to .popup-img-wrap ── */
+function bindPopupImage(wrap) {
+  const img = wrap.querySelector('img.popup-img');
+  if (!img) return;
+  if (img.complete && img.naturalWidth > 0) {
+    wrap.classList.remove('is-loading');
+    wrap.classList.add('is-loaded');
+  } else {
+    img.onload  = () => { wrap.classList.remove('is-loading'); wrap.classList.add('is-loaded'); };
+    img.onerror = () => { wrap.classList.remove('is-loading'); wrap.classList.add('is-error'); };
+  }
+}
+
+/* ── FIX 1: Skeleton rows ────────────────────────────────────────── */
+function renderPassSkeletons(n = 6) {
+  const list = document.getElementById('passList');
+  if (!list) return;
+  list.innerHTML = '';
+  for (let i = 0; i < n; i++) {
+    const li = document.createElement('li');
+    li.className = 'pass-skeleton';
+    li.style.setProperty('--skel-delay', (i * -120) + 'ms');
+    li.innerHTML = `<span class="sk-dot skeleton"></span>
+      <div class="sk-lines">
+        <span class="sk-title skeleton"></span>
+        <span class="sk-meta skeleton"></span>
+      </div>`;
+    list.appendChild(li);
+  }
+}
+
+/* Wrap renderList: refreshing state + is-entering stagger on new rows */
+{
+  let _skelFirst5 = true;
+  const _rl_skel5 = renderList;
+  renderList = function () {
+    const list = document.getElementById('passList');
+    if (list && !_skelFirst5) {
+      list.dataset.state = 'refreshing';
+    }
+    _skelFirst5 = false;
+    _rl_skel5.apply(this, arguments);
+    if (!list) return;
+    requestAnimationFrame(() => { delete list.dataset.state; });
+    list.querySelectorAll('li[data-id]').forEach((li, i) => {
+      li.classList.add('is-entering');
+      li.style.setProperty('--i', i % 20);
+      li.addEventListener('animationend', () => li.classList.remove('is-entering'), { once: true });
+    });
   };
 }

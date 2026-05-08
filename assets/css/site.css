@@ -2524,3 +2524,122 @@ input[type="range"]:disabled {
 @media (prefers-reduced-motion: reduce) {
   :where(#passList, #poiList) li:not(.empty):active { transform: none; }
 }
+
+/* ===== iter-5 polish: skeleton shimmer / popup loading / scrollbar ===== */
+
+/* ── FIX 1: List skeleton shimmer ─────────────────────────────────── */
+@keyframes shimmer { from { background-position: 200% 0 } to { background-position: -200% 0 } }
+@keyframes skel-pulse { from { opacity: .55 } to { opacity: .9 } }
+.skeleton {
+  background: linear-gradient(105deg,
+    var(--bg-3) 0%,
+    color-mix(in oklab, var(--bg-3) 80%, var(--accent) 8%) 50%,
+    var(--bg-3) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1400ms linear infinite;
+  animation-delay: var(--skel-delay, 0ms);
+  border-radius: 6px;
+}
+.pass-skeleton {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+  pointer-events: none;
+}
+.pass-skeleton .sk-dot { width: 28px; height: 28px; border-radius: 50%; flex: 0 0 28px; }
+.pass-skeleton .sk-lines { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.pass-skeleton .sk-title { height: 12px; width: 60%; }
+.pass-skeleton .sk-meta  { height: 10px; width: 40%; }
+#passList[data-state="refreshing"] > li:not(.pass-skeleton) {
+  opacity: .35;
+  transition: opacity 180ms ease;
+}
+.pass-list > li.is-entering {
+  animation: row-in 220ms ease-out both;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+@keyframes row-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: skel-pulse 1.6s ease-in-out infinite alternate; }
+  .pass-list > li.is-entering { animation: none; }
+}
+
+/* ── FIX 2: Popup hero image skeleton + onload fade + onerror fallback ─ */
+.popup-img-wrap {
+  position: relative; width: 100%; aspect-ratio: 16 / 9;
+  overflow: hidden; border-radius: var(--radius); background: var(--bg-3);
+}
+.popup-img-wrap > img.popup-img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+  opacity: 0;
+  transition: opacity 260ms ease-out;
+}
+.popup-img-wrap.is-loaded > img.popup-img { opacity: 1; }
+.popup-img-wrap.is-loading::before {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(105deg,
+    var(--bg-3) 0%,
+    color-mix(in oklab, var(--bg-3) 78%, var(--accent) 10%) 50%,
+    var(--bg-3) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1400ms linear infinite;
+}
+.popup-img-wrap.is-error > img.popup-img { display: none; }
+.popup-img-wrap.is-error::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: var(--bg-3) center / 32px no-repeat
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24' fill='none' stroke='%23B8C7CF' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M3 18l5-6 4 4 3-3 6 7'/><circle cx='8' cy='8' r='2'/><rect x='2' y='3' width='20' height='18' rx='2'/></svg>");
+  opacity: .8;
+}
+@media (prefers-reduced-motion: reduce) {
+  .popup-img-wrap.is-loading::before { animation: none; opacity: .6; }
+  .popup-img-wrap > img.popup-img { transition: none; }
+}
+
+/* ── FIX 3: Popup wiki body skeleton + stagger fade-in ───────────── */
+.popup-body .wiki-skeleton { display: flex; flex-direction: column; gap: 8px; padding: 4px 0; }
+.popup-body .wiki-skeleton .sk-line { height: 10px; border-radius: 5px; }
+.popup-body .wiki-skeleton .sk-line:nth-child(1) { width: 100%; --skel-delay: 0ms; }
+.popup-body .wiki-skeleton .sk-line:nth-child(2) { width: 92%;  --skel-delay: -180ms; }
+.popup-body .wiki-skeleton .sk-line:nth-child(3) { width: 64%;  --skel-delay: -360ms; }
+.popup-body.wiki-in > * {
+  animation: wiki-line-in 240ms ease-out both;
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
+@keyframes wiki-line-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.popup-body .wiki-error { color: var(--fg-dim); font-size: .9em; }
+@media (prefers-reduced-motion: reduce) { .popup-body.wiki-in > * { animation: none; } }
+
+/* ── FIX 4: Custom thin auto-hiding scrollbar + bottom mask-fade ──── */
+/* Scoped to .sidebar-scroll — overrides the global ::-webkit-scrollbar rules
+   above (lines 40-46) for this element via higher specificity. */
+.sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--fg-soft) 50%, transparent) transparent;
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent 100%);
+  scroll-padding-bottom: 32px;
+}
+.sidebar-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+.sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--fg-soft) 45%, transparent);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  opacity: 0;
+  transition: opacity 200ms ease, background-color 200ms ease;
+}
+.sidebar-scroll:hover::-webkit-scrollbar-thumb,
+.sidebar-scroll:focus-within::-webkit-scrollbar-thumb {
+  opacity: 1;
+  background: color-mix(in oklab, var(--fg-soft) 70%, transparent);
+  background-clip: padding-box;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--accent) 55%, var(--fg-soft));
+  background-clip: padding-box;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-scroll::-webkit-scrollbar-thumb { transition: none; }
+}

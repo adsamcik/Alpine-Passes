@@ -6443,3 +6443,136 @@ document.getElementById("refreshBtn").addEventListener("click", () => {
   /* Reload the page without bypassing the daily live-source cache. */
   location.reload();
 });
+
+/* ====================================================================
+   iter-1 polish: tabs / interactions / reveal / baseline
+   ==================================================================== */
+
+/* ── FIX 1: Sliding tab indicator ────────────────────────────────────
+   Measures the active label/button inside a tab strip and writes
+   --tab-x / --tab-w on the strip element so the CSS ::before pill
+   slides to the correct position. */
+function syncTabIndicator(strip, itemSel, isActiveFn) {
+  const items  = Array.from(strip.querySelectorAll(itemSel));
+  const active = items.find(isActiveFn);
+  if (!active) return;
+  const sr = strip.getBoundingClientRect();
+  const ar = active.getBoundingClientRect();
+  strip.style.setProperty('--tab-x', (ar.left - sr.left) + 'px');
+  strip.style.setProperty('--tab-w', ar.width + 'px');
+}
+
+function syncSidebarTabIndicator() {
+  const strip = document.querySelector('.sidebar-tab-strip');
+  if (!strip) return;
+  syncTabIndicator(strip, '.sidebar-tab', label => {
+    const id = label.getAttribute('for');
+    return id ? !!document.getElementById(id)?.checked : false;
+  });
+}
+
+function syncExplorerTabIndicator() {
+  const strip = document.querySelector('.explorer-tabs');
+  if (!strip) return;
+  syncTabIndicator(strip, '.explorer-tab', btn => btn.classList.contains('active'));
+}
+
+/* Listen for radio changes on the sidebar tabs */
+document.querySelectorAll('.sidebar-tab-radio').forEach(radio => {
+  radio.addEventListener('change', () => requestAnimationFrame(syncSidebarTabIndicator));
+});
+
+/* Wrap showExplorerTab to keep the sub-tab pill in sync */
+{
+  const _setForIndicator = showExplorerTab;
+  showExplorerTab = function () {
+    _setForIndicator.apply(this, arguments);
+    requestAnimationFrame(syncExplorerTabIndicator);
+  };
+}
+
+window.addEventListener('resize', () => {
+  syncSidebarTabIndicator();
+  syncExplorerTabIndicator();
+});
+if (document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(() => {
+    syncSidebarTabIndicator();
+    syncExplorerTabIndicator();
+  });
+}
+/* Initial sync (script is defer — DOM is ready) */
+syncSidebarTabIndicator();
+syncExplorerTabIndicator();
+
+/* ── FIX 3: Staggered reveal ─────────────────────────────────────────
+   An IntersectionObserver adds .is-in to .reveal elements as they
+   scroll into the sidebar viewport.  Under prefers-reduced-motion the
+   class is added immediately so nothing stays invisible. */
+const _revealRoot          = document.querySelector('.sidebar-scroll') || null;
+const _prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const _revealObserver = typeof IntersectionObserver !== 'undefined'
+  ? new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-in');
+          _revealObserver.unobserve(entry.target);
+        }
+      });
+    }, { root: _revealRoot, threshold: 0.05 })
+  : null;
+
+let _revealFallback = null;
+
+function armReveal(container) {
+  clearTimeout(_revealFallback);
+  const pending = Array.from(container.querySelectorAll('.reveal:not(.is-in)'));
+  if (!pending.length) return;
+  if (_prefersReducedMotion || !_revealObserver) {
+    pending.forEach(el => el.classList.add('is-in'));
+    return;
+  }
+  pending.forEach(el => _revealObserver.observe(el));
+  /* Safety net: ensure nothing stays invisible if the observer is slow */
+  _revealFallback = setTimeout(() => {
+    container.querySelectorAll('.reveal:not(.is-in)').forEach(el => el.classList.add('is-in'));
+  }, 600);
+}
+
+/* Add reveal to static planner cards */
+document.querySelectorAll('.planner-card, .planner-intro').forEach((el, i) => {
+  el.classList.add('reveal');
+  el.style.setProperty('--reveal-delay', i * 60 + 'ms');
+});
+if (_revealRoot) armReveal(_revealRoot);
+
+/* Wrap renderList to stagger the pass rows */
+{
+  const _rl_reveal = renderList;
+  renderList = function () {
+    _rl_reveal.apply(this, arguments);
+    const listEl = document.getElementById('passList');
+    if (!listEl) return;
+    listEl.querySelectorAll('li[data-id]').forEach((el, i) => {
+      el.classList.add('reveal');
+      el.style.setProperty('--reveal-delay', (i % 20) * 30 + 'ms');
+    });
+    armReveal(listEl);
+  };
+}
+
+/* Wrap renderPoiList to stagger the POI rows */
+{
+  const _rpl_reveal = renderPoiList;
+  renderPoiList = function () {
+    _rpl_reveal.apply(this, arguments);
+    const poiListEl = document.getElementById('poiList');
+    if (!poiListEl) return;
+    poiListEl.querySelectorAll('li[data-poi-id]').forEach((el, i) => {
+      el.classList.add('reveal');
+      el.style.setProperty('--reveal-delay', (i % 20) * 30 + 'ms');
+    });
+    armReveal(poiListEl);
+  };
+}

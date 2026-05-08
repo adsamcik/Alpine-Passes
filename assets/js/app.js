@@ -6505,6 +6505,14 @@ if (document.fonts && document.fonts.ready) {
 syncSidebarTabIndicator();
 syncExplorerTabIndicator();
 
+/* Re-sync the sub-tab pill whenever the Browse panel becomes visible.
+   On first activation the panel transitions from display:none so the
+   initial syncExplorerTabIndicator() above measured zero dimensions. */
+const _browseRadio = document.getElementById('sidebarTabBrowse');
+if (_browseRadio) {
+  _browseRadio.addEventListener('change', () => requestAnimationFrame(syncExplorerTabIndicator));
+}
+
 /* ── FIX 3: Staggered reveal ─────────────────────────────────────────
    An IntersectionObserver adds .is-in to .reveal elements as they
    scroll into the sidebar viewport.  Under prefers-reduced-motion the

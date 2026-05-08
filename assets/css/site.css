@@ -2163,6 +2163,6 @@ input[type="range"]:disabled {
 /* ─── FIX 4: Sidebar scroll safe-area ────────────────────────────── */
 .sidebar-scroll { padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
 @media (max-width: 800px) {
-  /* On mobile the sidebar overflows its frame; keep a modest gap */
-  .sidebar-scroll { padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)); }
+  /* Match desktop value — footer overlaps content without adequate clearance */
+  .sidebar-scroll { padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
 }

@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "currency": "CHF",
-  "last_refreshed_at": "2026-05-09T07:58:27Z",
+  "last_refreshed_at": "2026-05-09T16:52:32Z",
   "_doc": "Cached starting-prices for POIs in assets/js/swiss-pois.js. Keyed by POI name (n field). Refreshed on deploy by tools/fetch_poi_prices.py + .github/workflows/refresh-poi-prices.yml. Manually-curated entries (source_kind=manual) are NEVER overwritten by the auto-refresher; only source_kind=wikidata entries are updated. The committed JSON is the persistent fallback when live fetching fails.",
   "entries": {
     "Aareschlucht (Aare Gorge)": {

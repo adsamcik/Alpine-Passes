@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Refresh the cached POI starting-prices JSON.
 
-Reads the POI list from ``assets/js/swiss-pois.js`` and the cached prices
-from ``assets/data/poi-prices.json``. For every cache entry tagged
-``source_kind: "wikidata"`` the script attempts to refresh the value from
-Wikidata's price property (P2284). Entries tagged ``source_kind: "manual"``
-are NEVER overwritten — they are the human-curated baseline.
+Reads the POI list from every per-country POI file (``assets/js/*-pois.js``)
+and the cached prices from ``assets/data/poi-prices.json``. For every cache
+entry tagged ``source_kind: "wikidata"`` the script attempts to refresh the
+value from Wikidata's price property (P2284). Entries tagged
+``source_kind: "manual"`` are NEVER overwritten — they are the
+human-curated baseline.
 
 Critical safety guarantees (preserve persistent fallback data):
 
@@ -42,7 +43,12 @@ from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-POI_SOURCE = REPO_ROOT / "assets" / "js" / "swiss-pois.js"
+# Per-country POI files. Add new files here as countries are added.
+POI_SOURCES: list[tuple[Path, str]] = [
+    (REPO_ROOT / "assets" / "js" / "swiss-pois.js",  "SWISS_POIS"),
+    (REPO_ROOT / "assets" / "js" / "french-pois.js", "FRENCH_POIS"),
+    (REPO_ROOT / "assets" / "js" / "italy-pois.js",  "ITALY_POIS"),
+]
 CACHE_FILE = REPO_ROOT / "assets" / "data" / "poi-prices.json"
 
 USER_AGENT = (
@@ -60,21 +66,22 @@ INTER_REQUEST_DELAY_SEC = 0.4  # be polite to Wikidata
 
 
 # ────────────────────────── POI source parsing ──────────────────────────
-def parse_poi_source(text: str) -> list[dict[str, Any]]:
-    """Extract POI dicts from the ``swiss-pois.js`` file.
+def parse_poi_source(text: str, const_name: str = "SWISS_POIS") -> list[dict[str, Any]]:
+    """Extract POI dicts from a per-country POI JS file.
 
-    The file declares ``const SWISS_POIS = [ {...}, {...}, ... ];`` where
+    The file declares ``const <NAME> = [ {...}, {...}, ... ];`` where
     each object literal is JSON-compatible. Rather than a full JS parse,
     we slice the array body and feed it to ``json.loads`` after stripping
     trailing commas. This is robust to whitespace and quoting changes
     that don't break JSON compatibility.
     """
-    start = text.find("const SWISS_POIS")
+    needle = f"const {const_name}"
+    start = text.find(needle)
     if start < 0:
-        raise ValueError("Could not find `const SWISS_POIS` in source file")
+        raise ValueError(f"Could not find `{needle}` in source file")
     bracket_open = text.find("[", start)
     if bracket_open < 0:
-        raise ValueError("Could not find array opener after SWISS_POIS")
+        raise ValueError(f"Could not find array opener after {const_name}")
 
     depth = 0
     end = -1
@@ -100,11 +107,32 @@ def parse_poi_source(text: str) -> list[dict[str, Any]]:
                 end = i
                 break
     if end < 0:
-        raise ValueError("Unterminated SWISS_POIS array")
+        raise ValueError(f"Unterminated {const_name} array")
 
     body = text[bracket_open : end + 1]
+    # Strip JS block comments — /* ... */ — which the per-country POI files
+    # use as in-array region markers. JSON cannot contain comments. We do
+    # NOT strip `//` line comments because URLs in `bp` fields contain `//`
+    # and a naive regex would corrupt them; the per-country files use
+    # block comments only by convention.
+    body = re.sub(r"/\*.*?\*/", "", body, flags=re.DOTALL)
+    # Strip trailing commas before ] / }
     body = re.sub(r",(\s*[\]}])", r"\1", body)
     return json.loads(body)
+
+
+def load_all_pois() -> list[dict[str, Any]]:
+    """Load and concatenate POIs from every configured per-country source."""
+    pois: list[dict[str, Any]] = []
+    for path, const_name in POI_SOURCES:
+        if not path.exists():
+            print(f"[refresh] POI source not found (skipping): {path}", file=sys.stderr)
+            continue
+        text = path.read_text(encoding="utf-8")
+        batch = parse_poi_source(text, const_name)
+        print(f"[refresh] Parsed {len(batch)} POIs from {path.name}")
+        pois.extend(batch)
+    return pois
 
 
 # ─────────────────────────── cache I/O ────────────────────────────────
@@ -195,13 +223,12 @@ def fetch_wikidata_price_chf(qid: str) -> tuple[float, str] | None:
 
 # ─────────────────────────── main loop ────────────────────────────────
 def refresh(*, dry_run: bool = False) -> int:
-    if not POI_SOURCE.exists():
-        print(f"[refresh] POI source not found: {POI_SOURCE}", file=sys.stderr)
+    if not any(path.exists() for path, _ in POI_SOURCES):
+        print("[refresh] No POI source files found; aborting.", file=sys.stderr)
         return 1
 
-    text = POI_SOURCE.read_text(encoding="utf-8")
     try:
-        pois = parse_poi_source(text)
+        pois = load_all_pois()
     except Exception as e:
         print(f"[refresh] Parse failure (cache untouched): {e}", file=sys.stderr)
         return 2

@@ -3275,3 +3275,24 @@ input[type="range"]:disabled {
   padding-bottom: 4px;
   transform: none;
 }
+
+/* ===== popup polish: pass-art-icon image fills the rounded shape ===== */
+/* The previous treatment showed visible 'edges' inside the rounded
+   square because (a) a 1px white inset rim was drawn on the inner
+   border, and (b) any natural padding around the sprite cell bled the
+   white-tint background through. The user's directive: the image fills
+   the icon completely, with the rounded background acting as a mask
+   only. */
+.pass-art-icon {
+  background-color: transparent;
+  /* ~8% overscale so the cell content bleeds past the rounded corners
+     and gets clipped cleanly by border-radius/overflow:hidden. The
+     existing JS position percentages (0/25/50/75/100) still center cells
+     within ~2px at the typical 38-56px icon sizes. */
+  background-size: 540% 540%;
+  /* drop the 1px white inset rim — the rounded corner alone is the mask now */
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.32);
+}
+.pass-art-icon.symbol {
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.30);
+}

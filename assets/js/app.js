@@ -734,6 +734,28 @@ function passStatus(p) {
   return p._displayStatus || p._status || defaultStatus(p);
 }
 
+function clusterStatusTieRank(state) {
+  if (!state || state === "unknown") return -1;
+  return statusSortRank({ state });
+}
+
+function dominantClusterStatus(items) {
+  const tally = {};
+  for (const it of items || []) {
+    const state = statusDisplay(passStatus(it)).state || "unknown";
+    tally[state] = (tally[state] || 0) + 1;
+  }
+  let best = null;
+  let bestCount = -1;
+  for (const [state, count] of Object.entries(tally)) {
+    if (count > bestCount || (count === bestCount && clusterStatusTieRank(state) > clusterStatusTieRank(best))) {
+      best = state;
+      bestCount = count;
+    }
+  }
+  return best || "unknown";
+}
+
 let plannedTourIds = [];
 let plannedBadgeMap = new Map();
 let plannedStart = null;
@@ -2260,7 +2282,9 @@ class AlpineWebGLLayer {
         : 42;
       width = size;
       height = size;
-      fill = isPoi ? ALPINE_GL_COLORS.poiCluster : ALPINE_GL_COLORS.passCluster;
+      fill = isPoi
+        ? ALPINE_GL_COLORS.poiCluster
+        : (ALPINE_GL_COLORS[dominantClusterStatus(group.items)] || ALPINE_GL_COLORS.passCluster);
       const clusterHover = (group.id === this._hoverTargetId) ? this._hoverAnim : 0;
       this._pushInstance(out, lng, lat, width, height, kind, flags, fill, fill, icon, 0, 0, clusterHover, bornAtSec, 0);
       const countLabel = this._labelRef(String(group.items.length), isPoi ? "cluster-poi" : "cluster-pass");

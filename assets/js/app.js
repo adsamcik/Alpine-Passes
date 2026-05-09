@@ -260,9 +260,10 @@ document.getElementById("passCount").textContent = PASSES.length.toLocaleString(
    be added to a tour. `isPoi: true` is the discriminator used
    throughout the planner. */
 const POI_RAW = [
-  ...((typeof SWISS_POIS  !== "undefined" && Array.isArray(SWISS_POIS))  ? SWISS_POIS  : []),
-  ...((typeof FRENCH_POIS !== "undefined" && Array.isArray(FRENCH_POIS)) ? FRENCH_POIS : []),
-  ...((typeof ITALY_POIS  !== "undefined" && Array.isArray(ITALY_POIS))  ? ITALY_POIS  : []),
+  ...((typeof SWISS_POIS    !== "undefined" && Array.isArray(SWISS_POIS))    ? SWISS_POIS    : []),
+  ...((typeof FRENCH_POIS   !== "undefined" && Array.isArray(FRENCH_POIS))   ? FRENCH_POIS   : []),
+  ...((typeof ITALY_POIS    !== "undefined" && Array.isArray(ITALY_POIS))    ? ITALY_POIS    : []),
+  ...((typeof AUSTRIAN_POIS !== "undefined" && Array.isArray(AUSTRIAN_POIS)) ? AUSTRIAN_POIS : []),
 ];
 const POIS = POI_RAW.map((d, i) => ({
   id: "poi" + i,

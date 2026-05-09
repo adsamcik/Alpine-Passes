@@ -495,7 +495,9 @@ function cleanStatusDetail(status, label) {
 function openingHintProjectionLabel(status, state) {
   const projection = status?.projection;
   if (projection?.basis !== "opening-hint" || projection.guessed !== false) return "";
-  const hintDate = status?.openingHint?.date;
+  const hint = status?.openingHint;
+  if (openingHintOpenFromDatePassed(hint)) return "";
+  const hintDate = hint?.date;
   const day = Number(hintDate?.day);
   const month = Number(hintDate?.month);
   if (!Number.isInteger(day) || !Number.isInteger(month) || day < 1 || day > 31 || month < 1 || month > 12) return "";
@@ -549,7 +551,10 @@ function listStatusLabel(status) {
   const d = statusDisplay(status);
   const exactProjectionLabel = openingHintProjectionLabel(status, d.state);
   if (status?.projection?.listLabel) return exactProjectionLabel ? d.label : `${d.label} (${status.projection.listLabel})`;
-  if (status?.openingHint) return exactProjectionLabel ? d.label : `${d.label} (${openingHintListLabel(status.openingHint)})`;
+  if (status?.openingHint) {
+    const hintListLabel = openingHintListLabel(status.openingHint);
+    if (hintListLabel) return exactProjectionLabel ? d.label : `${d.label} (${hintListLabel})`;
+  }
   if (d.estimated && d.detail) return `${d.label} (${d.detail.replace(/^(Typical|Historical) season:\s*/, "")})`;
   if (d.source === "osm" && d.detail) return `${d.label} ${d.detail}`;
   return d.label;
@@ -644,6 +649,12 @@ function openingHintDateForTrip(hint, tripDate) {
   return Number.isNaN(date.getTime()) ? null : startOfLocalDay(date);
 }
 
+function openingHintOpenFromDatePassed(hint, today = todayLocalDate()) {
+  if (hint?.kind !== "open-from") return false;
+  const hintDate = openingHintDateForTrip(hint, today);
+  return !!hintDate && daysBetweenDates(hintDate, today) > 0;
+}
+
 function projectionFromOpeningHint(status, tripDate) {
   const hint = status?.openingHint;
   const hintDate = openingHintDateForTrip(hint, tripDate);
@@ -652,6 +663,7 @@ function projectionFromOpeningHint(status, tripDate) {
   const openByTrip = hint.kind === "closed-until" ? cmp > 0 : cmp >= 0;
   if (openByTrip && cmp > PROJECTION_HORIZON_DAYS) return null;
   const hintLabel = openingHintLabel(hint);
+  if (!hintLabel) return null;
   const tripLabel = formatTripDate(tripDate);
   const dateLabel = formatOpeningDate(hint.date);
   const state = openByTrip ? "open" : "closed";
@@ -990,6 +1002,7 @@ function formatOpeningDate(date) {
 
 function openingHintLabel(hint) {
   if (!hint) return "";
+  if (openingHintOpenFromDatePassed(hint)) return "";
   const date = formatOpeningDate(hint.date);
   if (hint.kind === "closed-until") return `Closed until ${date}`;
   if (hint.kind === "open-from") return `Open from ${date}`;
@@ -998,6 +1011,7 @@ function openingHintLabel(hint) {
 
 function openingHintListLabel(hint) {
   if (!hint) return "";
+  if (openingHintOpenFromDatePassed(hint)) return "";
   const date = formatOpeningDate(hint.date);
   if (hint.kind === "closed-until") return `closed until ${date}`;
   if (hint.kind === "open-from") return `open from ${date}`;
@@ -3547,8 +3561,9 @@ function buildPopupHtml(p, status, wiki) {
   const projectionBlock = status?.projection
     ? `<div class="popup-meta projection${status.projection.guessed ? " guess" : ""}">${escapeHtml(status.projection.label)}</div>`
     : "";
-  const openingBlock = status?.openingHint
-    ? `<div class="popup-meta opening">${escapeHtml(openingHintLabel(status.openingHint))}</div>`
+  const openingLabelText = status?.openingHint ? openingHintLabel(status.openingHint) : "";
+  const openingBlock = openingLabelText
+    ? `<div class="popup-meta opening">${escapeHtml(openingLabelText)}</div>`
     : "";
   const historyBlock = status?.history
     ? `<div class="popup-meta history">History: typical open season ${escapeHtml(historySeasonLabel(status.history))} · ${status.history.recordCount} records (${status.history.firstYear}–${status.history.lastYear})</div>`

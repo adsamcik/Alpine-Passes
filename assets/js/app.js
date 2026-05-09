@@ -2988,7 +2988,7 @@ function lngLatToWorldPx(lng, lat, zoom) {
 }
 
 function worldPxToLngLat(x, y, zoom) {
-  /* Inverse of lngLatToWorldPx — used by deconflictCrossKindClusters to
+  /* Inverse of lngLatToWorldPx — used by deconflictClusterOverlap to
      convert pixel-space nudges back to map coordinates. */
   const scale = OVERLAY_TILE_SIZE * Math.pow(2, zoom);
   const lng = (x / scale) * 360 - 180;
@@ -3107,21 +3107,26 @@ function layoutAlpineOverlay() {
     ...buildOverlayGroups(overlayPoiItems(), "poi"),
   ];
   /* Pass and POI groups are clustered independently so they can spatially
-     overlap (same valley → both a pass cluster and a POI cluster). Nudge
-     overlapping cross-kind pairs apart in pixel space so their pebble piles
-     visually clear each other. */
-  deconflictCrossKindClusters(groups, clusterZoomFor(map.getZoom()));
+     overlap (same valley → both a pass cluster and a POI cluster). Even
+     within one kind, adjacent grid cells with items near the cell boundary
+     can produce centroids closer than the grid radius. Nudge any
+     overlapping pile pair apart in pixel space so they visually clear
+     each other. */
+  deconflictClusterOverlap(groups, clusterZoomFor(map.getZoom()));
   for (const group of groups) {
     if (group.type === "cluster") alpineOverlayClusters.set(group.id, group);
   }
   alpineOverlayLayer.setGroups(groups, plannedStart);
 }
 
-function deconflictCrossKindClusters(groups, zoom) {
-  /* Pixel-space spring repulsion between cross-kind cluster/marker pairs.
-     Same-kind pairs are already kept apart by the cluster grid. We only
-     act when bounding circles would visually overlap; buffer is small (3px)
-     so semantic position drift stays subtle. */
+function deconflictClusterOverlap(groups, zoom) {
+  /* Pixel-space spring repulsion between any cluster/marker pair whose
+     visual circles overlap (same-kind OR cross-kind). Same-kind clusters
+     come from independent grid cells but their centroids — averaged from
+     actual item positions, not cell centers — can land close to each
+     other when items cluster near a cell boundary. Cross-kind pairs are
+     never grid-coordinated at all. Either way: if visuals overlap, nudge.
+     Buffer is small (3px) so semantic position drift stays subtle. */
   if (groups.length < 2) return;
   const visualRadius = (g) => {
     if (g.type === "cluster") return 32;       // pebble pile half-width
@@ -3145,7 +3150,6 @@ function deconflictCrossKindClusters(groups, zoom) {
       for (let j = i + 1; j < items.length; j++) {
         const a = items[i];
         const b = items[j];
-        if (a.g.kind === b.g.kind) continue;
         if (a.locked && b.locked) continue;
         const dx = a.wp.x - b.wp.x;
         const dy = a.wp.y - b.wp.y;

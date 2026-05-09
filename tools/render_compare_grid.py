@@ -42,10 +42,18 @@ ICON_NAMES = [
     "poi-wine-region",
     "poi-special-experience",
     "pass-generic",
+    "poi-funicular",
 ]
 
 
 def render_svg(svg_path: Path, size: int) -> Image.Image:
+    if not svg_path.exists():
+        image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(image)
+        draw.rectangle([1, 1, size - 2, size - 2], outline=(90, 105, 120, 180), width=max(1, size // 32))
+        draw.line([4, 4, size - 4, size - 4], fill=(90, 105, 120, 180), width=max(1, size // 24))
+        draw.line([size - 4, 4, 4, size - 4], fill=(90, 105, 120, 180), width=max(1, size // 24))
+        return image
     raw = cairosvg.svg2png(url=str(svg_path), output_width=size, output_height=size)
     return Image.open(BytesIO(raw)).convert("RGBA")
 

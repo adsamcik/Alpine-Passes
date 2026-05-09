@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render the 25 traced UI icons into a comparison grid for visual review.
+"""Render the traced UI icons into a comparison grid for visual review.
 
 For each icon emit a row showing the source 128x128 normalized PNG, then the
 SVG rasterized at 64/32/18px (with 4x retina scale at 18px so a screenshot
@@ -11,7 +11,6 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-import cairosvg
 from PIL import Image, ImageDraw, ImageFont
 
 
@@ -41,10 +40,13 @@ ICON_NAMES = [
     "poi-wine-region",
     "poi-special-experience",
     "pass-generic",
+    "poi-funicular",
 ]
 
 
 def render_svg(svg_path: Path, size: int, scale: int = 1) -> Image.Image:
+    import cairosvg
+
     raw = cairosvg.svg2png(
         url=str(svg_path),
         output_width=size * scale,
@@ -78,7 +80,7 @@ def make_grid(
     draw.text((label_w + 8, 8), "source PNG", fill=(120, 200, 255, 255), font=head)
     for i, size in enumerate(sizes):
         x = label_w + (i + 1) * cell + 8
-        draw.text((x, 8), f"SVG {size}px", fill=(120, 200, 255, 255), font=head)
+        draw.text((x, 8), f"icon {size}px", fill=(120, 200, 255, 255), font=head)
 
     for r, name in enumerate(ICON_NAMES):
         y = 40 + r * cell
@@ -93,7 +95,10 @@ def make_grid(
 
         for ci, size in enumerate(sizes):
             scale = max(1, 128 // size) if size <= 32 else 1
-            img = render_svg(svg_path, size, scale=scale)
+            img = render_svg(svg_path, size, scale=scale) if svg_path.exists() else src.resize(
+                (size * scale, size * scale),
+                Image.Resampling.LANCZOS,
+            )
             x = label_w + (ci + 1) * cell + (cell - img.width) // 2
             yy = y + (cell - img.height) // 2
             canvas.paste(img, (x, yy), img)

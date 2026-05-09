@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""Vectorize the generated 5x5 UI icon sheet into per-icon SVGs.
+"""Vectorize the generated UI icon sheet into per-icon SVGs.
 
 The source artwork uses a chroma-green background. This script:
 
-1. Splits the source sheet into a 5x5 grid, allowing for non-divisible source
-   dimensions.
+1. Splits the source sheet into a 5-column by 6-row grid, allowing for
+   non-divisible source dimensions.
 2. Removes the green background.
 3. Detects true alpha bounds per icon.
 4. Centers each icon on a square transparent canvas with a fixed safe padding.
 5. Writes normalized PNG cells and colour-traced SVGs.
-6. Rebuilds the 640x640 CSS sprite sheet from the normalized cells.
+6. Rebuilds the CSS sprite sheet from the normalized cells.
 
-The rebuilt sheet keeps the same 5x5 layout and CSS background-position mapping.
+The rebuilt sheet keeps the same atlas layout and CSS background-position mapping.
 The per-icon SVGs are meant to be manually tweakable if a later pass needs
 hand-polishing.
 """
@@ -68,6 +68,7 @@ ICON_NAMES = [
     "poi-wine-region",
     "poi-special-experience",
     "pass-generic",
+    "poi-funicular",
 ]
 
 
@@ -354,7 +355,8 @@ def vectorize_sheet(
     png_dir: Path,
     svg_dir: Path,
     sprite_path: Path,
-    grid: int,
+    cols: int,
+    rows: int,
     canvas_size: int,
     padding: int,
     min_component_area: int,
@@ -368,12 +370,14 @@ def vectorize_sheet(
         shutil.copyfile(source, source_copy)
 
     sheet = Image.open(source).convert("RGBA")
-    x_edges = grid_edges(sheet.width, grid)
-    y_edges = grid_edges(sheet.height, grid)
-    sprite = Image.new("RGBA", (grid * canvas_size, grid * canvas_size), (0, 0, 0, 0))
+    x_edges = grid_edges(sheet.width, cols)
+    y_edges = grid_edges(sheet.height, rows)
+    sprite = Image.new("RGBA", (cols * canvas_size, rows * canvas_size), (0, 0, 0, 0))
 
     for index, name in enumerate(ICON_NAMES):
-        row, col = divmod(index, grid)
+        row, col = divmod(index, cols)
+        if row >= rows:
+            raise ValueError(f"{len(ICON_NAMES)} icons do not fit in a {cols}x{rows} atlas")
         cell = sheet.crop((x_edges[col], y_edges[row], x_edges[col + 1], y_edges[row + 1]))
         normalized = normalize_icon(
             cell,
@@ -404,7 +408,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--png-dir", type=Path, default=Path("assets/ui-icons/normalized-png"))
     parser.add_argument("--svg-dir", type=Path, default=Path("assets/ui-icons/svg"))
     parser.add_argument("--sprite", type=Path, default=Path("assets/ui-icons/alpine-ui-icons.png"))
-    parser.add_argument("--grid", type=int, default=5)
+    parser.add_argument("--cols", type=int, default=5)
+    parser.add_argument("--rows", type=int, default=6)
+    parser.add_argument("--grid", type=int, default=None, help="legacy alias for --cols")
     parser.add_argument("--canvas-size", type=int, default=128)
     parser.add_argument("--padding", type=int, default=12)
     parser.add_argument(
@@ -418,13 +424,15 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    cols = args.grid if args.grid is not None else args.cols
     vectorize_sheet(
         source=args.source,
         source_copy=args.source_copy,
         png_dir=args.png_dir,
         svg_dir=args.svg_dir,
         sprite_path=args.sprite,
-        grid=args.grid,
+        cols=cols,
+        rows=args.rows,
         canvas_size=args.canvas_size,
         padding=args.padding,
         min_component_area=args.min_component_area,

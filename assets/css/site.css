@@ -68,7 +68,7 @@ button:not(:disabled):active { transform: translateY(1px); }
   height: 1em;
   flex: 0 0 auto;
   background-image: url("../ui-icons/alpine-ui-icons.png");
-  background-size: 500% 500%;
+  background-size: 500% 600%;
   background-repeat: no-repeat;
   background-position: var(--ui-icon-x, 0%) var(--ui-icon-y, 0%);
   vertical-align: -.15em;
@@ -78,26 +78,27 @@ button:not(:disabled):active { transform: translateY(1px); }
 .ui-icon-status-closed { --ui-icon-x: 50%; --ui-icon-y: 0%; }
 .ui-icon-status-estimated { --ui-icon-x: 75%; --ui-icon-y: 0%; }
 .ui-icon-status-unknown { --ui-icon-x: 100%; --ui-icon-y: 0%; }
-.ui-icon-poi-generic { --ui-icon-x: 0%; --ui-icon-y: 25%; }
-.ui-icon-not-by-car { --ui-icon-x: 25%; --ui-icon-y: 25%; }
-.ui-icon-poi-mountain-summit { --ui-icon-x: 50%; --ui-icon-y: 25%; }
-.ui-icon-poi-alpine-lake { --ui-icon-x: 75%; --ui-icon-y: 25%; }
-.ui-icon-poi-waterfall-gorge { --ui-icon-x: 100%; --ui-icon-y: 25%; }
-.ui-icon-poi-glacier { --ui-icon-x: 0%; --ui-icon-y: 50%; }
-.ui-icon-poi-old-town { --ui-icon-x: 25%; --ui-icon-y: 50%; }
-.ui-icon-poi-castle-fortress { --ui-icon-x: 50%; --ui-icon-y: 50%; }
-.ui-icon-poi-monastery-church { --ui-icon-x: 75%; --ui-icon-y: 50%; }
-.ui-icon-poi-scenic-railway { --ui-icon-x: 100%; --ui-icon-y: 50%; }
-.ui-icon-poi-bridge-engineering { --ui-icon-x: 0%; --ui-icon-y: 75%; }
-.ui-icon-poi-village { --ui-icon-x: 25%; --ui-icon-y: 75%; }
-.ui-icon-poi-national-park { --ui-icon-x: 50%; --ui-icon-y: 75%; }
-.ui-icon-poi-spa-wellness { --ui-icon-x: 75%; --ui-icon-y: 75%; }
-.ui-icon-poi-viewpoint-panorama { --ui-icon-x: 100%; --ui-icon-y: 75%; }
-.ui-icon-poi-museum-cultural { --ui-icon-x: 0%; --ui-icon-y: 100%; }
-.ui-icon-poi-geology-cave { --ui-icon-x: 25%; --ui-icon-y: 100%; }
-.ui-icon-poi-wine-region { --ui-icon-x: 50%; --ui-icon-y: 100%; }
-.ui-icon-poi-special-experience { --ui-icon-x: 75%; --ui-icon-y: 100%; }
-.ui-icon-pass-generic { --ui-icon-x: 100%; --ui-icon-y: 100%; }
+.ui-icon-poi-generic { --ui-icon-x: 0%; --ui-icon-y: 20%; }
+.ui-icon-not-by-car { --ui-icon-x: 25%; --ui-icon-y: 20%; }
+.ui-icon-poi-mountain-summit { --ui-icon-x: 50%; --ui-icon-y: 20%; }
+.ui-icon-poi-alpine-lake { --ui-icon-x: 75%; --ui-icon-y: 20%; }
+.ui-icon-poi-waterfall-gorge { --ui-icon-x: 100%; --ui-icon-y: 20%; }
+.ui-icon-poi-glacier { --ui-icon-x: 0%; --ui-icon-y: 40%; }
+.ui-icon-poi-old-town { --ui-icon-x: 25%; --ui-icon-y: 40%; }
+.ui-icon-poi-castle-fortress { --ui-icon-x: 50%; --ui-icon-y: 40%; }
+.ui-icon-poi-monastery-church { --ui-icon-x: 75%; --ui-icon-y: 40%; }
+.ui-icon-poi-scenic-railway { --ui-icon-x: 100%; --ui-icon-y: 40%; }
+.ui-icon-poi-bridge-engineering { --ui-icon-x: 0%; --ui-icon-y: 60%; }
+.ui-icon-poi-village { --ui-icon-x: 25%; --ui-icon-y: 60%; }
+.ui-icon-poi-national-park { --ui-icon-x: 50%; --ui-icon-y: 60%; }
+.ui-icon-poi-spa-wellness { --ui-icon-x: 75%; --ui-icon-y: 60%; }
+.ui-icon-poi-viewpoint-panorama { --ui-icon-x: 100%; --ui-icon-y: 60%; }
+.ui-icon-poi-museum-cultural { --ui-icon-x: 0%; --ui-icon-y: 80%; }
+.ui-icon-poi-geology-cave { --ui-icon-x: 25%; --ui-icon-y: 80%; }
+.ui-icon-poi-wine-region { --ui-icon-x: 50%; --ui-icon-y: 80%; }
+.ui-icon-poi-special-experience { --ui-icon-x: 75%; --ui-icon-y: 80%; }
+.ui-icon-pass-generic { --ui-icon-x: 100%; --ui-icon-y: 80%; }
+.ui-icon-poi-funicular { --ui-icon-x: 0%; --ui-icon-y: 100%; }
 input::placeholder { color: #768894; opacity: 1; }
 input[type="checkbox"] { accent-color: var(--accent); }
 select, input[type="search"], input[type="date"], input[type="time"] { color-scheme: dark; }

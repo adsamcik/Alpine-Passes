@@ -30,7 +30,8 @@
      waterfall-gorge          6  Waterfall or gorge
      geology-cave             3  Cave / geological feature
      spa-wellness             3  Thermal spa / wellness town
-     scenic-railway           2  Scenic railway line / cog / funicular as POI
+     scenic-railway           2  Scenic railway line / cog as POI
+     funicular                0  Funicular ride as POI (signature historic / record-breaking)
      glacier                  2  Glacier viewpoint or experience
      wine-region              1  Wine region / vineyard landscape
      bridge-engineering       1  Bridge or engineering marvel

@@ -399,6 +399,7 @@ const POI_CATEGORY_LABELS = {
   "castle-fortress":     "Castle / fortress",
   "monastery-church":    "Monastery / church",
   "scenic-railway":      "Scenic railway",
+  "funicular":           "Funicular",
   "bridge-engineering":  "Bridge / engineering",
   "village":             "Village",
   "national-park":       "National park",
@@ -418,6 +419,7 @@ const POI_CATEGORY_ICON = {
   "castle-fortress":     "poi-castle-fortress",
   "monastery-church":    "poi-monastery-church",
   "scenic-railway":      "poi-scenic-railway",
+  "funicular":           "poi-scenic-railway",
   "bridge-engineering":  "poi-bridge-engineering",
   "village":             "poi-village",
   "national-park":       "poi-national-park",
@@ -3195,8 +3197,13 @@ function setupMapLayers() {
     source: ROUTE_SOURCE_ID,
     paint: {
       "line-color": "#ffd166",
-      "line-width": ["case", ["get", "fallback"], 3.5, 5],
-      "line-opacity": ["case", ["get", "fallback"], 0.85, 1],
+      /* Explicit boolean coercion: ["get", "fallback"] returns null when
+         the property is missing on a feature, which makes MapLibre's
+         spec validator warn ("expected number, found null") even though
+         null evaluates falsy in case-condition position. ["==", ..., true]
+         always returns a boolean and silences the warning. */
+      "line-width": ["case", ["==", ["get", "fallback"], true], 3.5, 5],
+      "line-opacity": ["case", ["==", ["get", "fallback"], true], 0.85, 1],
     },
     layout: { "line-cap": "round", "line-join": "round" },
   });
@@ -4276,7 +4283,7 @@ function themeLabel(key) {
   return THEME_LABELS[key] || (key.charAt(0).toUpperCase() + key.slice(1).replace(/-/g, " "));
 }
 const POI_PRESETS = {
-  family:   { cats: ["viewpoint-panorama","alpine-lake","scenic-railway","special-experience","museum-cultural"], themes: ["family-friendly"], minScore: 7, maxCount: 4, label: "Family day · ★7+ · max 4" },
+  family:   { cats: ["viewpoint-panorama","alpine-lake","scenic-railway","funicular","special-experience","museum-cultural"], themes: ["family-friendly"], minScore: 7, maxCount: 4, label: "Family day · ★7+ · max 4" },
   cultural: { cats: ["castle-fortress","monastery-church","old-town","museum-cultural"], themes: ["unesco","historic"], minScore: 7, maxCount: 4, label: "Cultural tour · ★7+ · max 4" },
   photo:    { cats: ["viewpoint-panorama","alpine-lake","mountain-summit","glacier","waterfall-gorge"], themes: ["photogenic","iconic"], minScore: 8, maxCount: 3, label: "Photo tour · ★8+ · max 3" },
   hidden:   { cats: [], themes: ["hidden-gem"], minScore: 6, maxCount: 3, label: "Hidden gems · ★6+ · max 3" },

@@ -246,17 +246,24 @@ PASSES.forEach(p => {
 const PASS_BY_ID = new Map(PASSES.map(p => [p.id, p]));
 
 document.getElementById("passCount").textContent = PASSES.length.toLocaleString();
-/* ─────────────────────── Switzerland POI dataset ───────────────────────
-   Loaded from `swiss-pois.js` (see that file for the source schema).
-   POIs are normalised into the same field shape as PASSES so the existing
-   planner, popup and tour-rendering helpers can treat them uniformly.
+/* ─────────────────────── Alpine POI datasets ───────────────────────
+   Loaded from per-country POI files (`swiss-pois.js`, `french-pois.js`,
+   …). All files share the schema described in `swiss-pois.js`.
+   POIs are normalised into the same field shape as PASSES so the
+   existing planner, popup and tour-rendering helpers can treat them
+   uniformly.
 
    For routing purposes a POI is a single geographic point, so we set
    `baseA == baseB == summit`.  POIs that aren't reachable by car
-   (Jungfraujoch, Mürren, …) are excluded from the planner picker — they
-   still appear on the map for context but can't be added to a tour.
-   `isPoi: true` is the discriminator used throughout the planner. */
-const POI_RAW = (typeof SWISS_POIS !== "undefined" && Array.isArray(SWISS_POIS)) ? SWISS_POIS : [];
+   (Jungfraujoch, Mürren, Mont Blanc summit, …) are excluded from the
+   planner picker — they still appear on the map for context but can't
+   be added to a tour. `isPoi: true` is the discriminator used
+   throughout the planner. */
+const POI_RAW = [
+  ...((typeof SWISS_POIS  !== "undefined" && Array.isArray(SWISS_POIS))  ? SWISS_POIS  : []),
+  ...((typeof FRENCH_POIS !== "undefined" && Array.isArray(FRENCH_POIS)) ? FRENCH_POIS : []),
+  ...((typeof ITALY_POIS  !== "undefined" && Array.isArray(ITALY_POIS))  ? ITALY_POIS  : []),
+];
 const POIS = POI_RAW.map((d, i) => ({
   id: "poi" + i,
   rawName: d.n,
@@ -290,6 +297,7 @@ const POIS = POI_RAW.map((d, i) => ({
   poiAccess:  Array.isArray(d.access) ? d.access.slice() : [],
   poiSeason:  Array.isArray(d.season) ? d.season.slice() : [],
   poiRegion:  d.region || "",
+  poiCountry: d.co || "",
   /* Visit-time at destination (separate from driving time). */
   visitDwellSec: typeof d.dur === "number" ? Math.round(d.dur * 3600) : 0,
   /* Starting price (filled in async by loadPoiPrices()). */
@@ -754,6 +762,61 @@ function dominantClusterStatus(items) {
     }
   }
   return best || "unknown";
+}
+
+function poiClusterPebbleTargetCount(count, distinctCount) {
+  if (count >= 40) return 3;
+  if (count >= 10) return 4;
+  if (distinctCount <= 1) return 2;
+  return Math.min(3, distinctCount);
+}
+
+function poiClusterPebbleModel(items) {
+  const list = Array.isArray(items) ? items : [];
+  const tally = new Map();
+  for (const item of list) {
+    const categoryIcon = poiCategoryIconId(item?.poiCategory);
+    tally.set(categoryIcon, (tally.get(categoryIcon) || 0) + 1);
+  }
+  if (!tally.size) tally.set("poi-generic", Math.max(1, list.length));
+
+  const ranked = Array.from(tally, ([categoryIcon, categoryCount]) => ({ categoryIcon, categoryCount }))
+    .sort((a, b) => (b.categoryCount - a.categoryCount) || a.categoryIcon.localeCompare(b.categoryIcon));
+  const count = list.length;
+  const total = Math.max(1, count);
+  const targetCount = poiClusterPebbleTargetCount(count, ranked.length);
+  const pebbles = ranked.slice(0, targetCount).map(entry => {
+    const share = Math.max(0.01, entry.categoryCount / total);
+    return {
+      categoryIcon: entry.categoryIcon,
+      categoryCount: entry.categoryCount,
+      share,
+      share2: Math.sqrt(share),
+    };
+  });
+
+  const dominant = pebbles[0] || {
+    categoryIcon: "poi-generic",
+    categoryCount: Math.max(1, count),
+    share: 1,
+    share2: 1,
+  };
+  let duplicateIndex = 0;
+  while (pebbles.length < targetCount) {
+    const rawShare = dominant.share * Math.max(0.28, 0.58 - duplicateIndex * 0.10);
+    const maxDuplicateShare = pebbles.length > 1 ? pebbles[pebbles.length - 1].share * 0.92 : rawShare;
+    const share = Math.max(0.08, Math.min(rawShare, maxDuplicateShare));
+    pebbles.push({
+      categoryIcon: dominant.categoryIcon,
+      categoryCount: Math.max(1, Math.round(share * total)),
+      share,
+      share2: Math.sqrt(share),
+      duplicate: true,
+    });
+    duplicateIndex++;
+  }
+
+  return { count, pebbles };
 }
 
 let plannedTourIds = [];
@@ -1468,7 +1531,7 @@ function addCircleLayer(layer) {
 }
 
 const ALPINE_GL_LAYER_ID = "alpine-overlay";
-const ALPINE_GL_STRIDE = 23;
+const ALPINE_GL_STRIDE = 39;
 const ALPINE_GL_KIND = { pass: 0, poi: 1, passCluster: 2, poiCluster: 3, label: 4, preview: 5 };
 const ALPINE_GL_LABEL_COLS = 16;
 const ALPINE_GL_LABEL_ROWS = 16;
@@ -1536,6 +1599,130 @@ function atlasCellUv(cell) {
 function textureRefForUiIcon(id, scale = 0.85) {
   const [u, v] = atlasCellUv(UI_ATLAS_CELLS[id] || UI_ATLAS_CELLS["poi-generic"]);
   return { sheet: 0, u, v, scale };
+}
+
+function hashStringToUint(str) {
+  let hash = 2166136261;
+  const text = String(str || "");
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function prngFromHash(hash) {
+  let state = hash >>> 0;
+  return () => {
+    state += 0x6D2B79F5;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function packedGlyphForUiIcon(id) {
+  const cell = UI_ATLAS_CELLS[id] || UI_ATLAS_CELLS["poi-generic"];
+  const col = Math.max(0, Math.min(4, Number(cell[0]) || 0));
+  const row = Math.max(0, Math.min(4, Number(cell[1]) || 0));
+  return col * 10 + row + 1;
+}
+
+function poiClusterLayoutSize(model) {
+  if (model.count >= 40 || model.pebbles.length >= 4) return 64;
+  if (model.pebbles.length >= 3) return 60;
+  return 56;
+}
+
+function pebbleLayoutBounds(pebbles) {
+  const bounds = { minX: 0.5, maxX: -0.5, minY: 0.5, maxY: -0.5 };
+  for (const p of pebbles) {
+    bounds.minX = Math.min(bounds.minX, p.cx - p.r);
+    bounds.maxX = Math.max(bounds.maxX, p.cx + p.r);
+    bounds.minY = Math.min(bounds.minY, p.cy - p.r);
+    bounds.maxY = Math.max(bounds.maxY, p.cy + p.r);
+  }
+  return bounds;
+}
+
+function fitPebbleLayout(pebbles) {
+  let bounds = pebbleLayoutBounds(pebbles);
+  const maxSpan = Math.max(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY);
+  if (maxSpan > 0.98) {
+    const scale = 0.98 / maxSpan;
+    for (const p of pebbles) {
+      p.cx *= scale;
+      p.cy *= scale;
+      p.r *= scale;
+    }
+    bounds = pebbleLayoutBounds(pebbles);
+  }
+
+  let dx = 0;
+  let dy = 0;
+  if (bounds.minX < -0.49) dx = -0.49 - bounds.minX;
+  if (bounds.maxX + dx > 0.49) dx = 0.49 - bounds.maxX;
+  if (bounds.minY < -0.49) dy = -0.49 - bounds.minY;
+  if (bounds.maxY + dy > 0.49) dy = 0.49 - bounds.maxY;
+  if (dx || dy) {
+    for (const p of pebbles) {
+      p.cx += dx;
+      p.cy += dy;
+    }
+  }
+}
+
+function layoutPoiClusterPebbles(model, seed) {
+  const pebblesIn = (model?.pebbles?.length ? model.pebbles : poiClusterPebbleModel([]).pebbles).slice(0, 4);
+  const count = Number(model?.count) || 0;
+  const n = Math.max(1, pebblesIn.length);
+  const rand = prngFromHash(hashStringToUint(seed));
+  const dominantShare = Math.max(0.01, pebblesIn[0]?.share || 1);
+  const baseRadius = count >= 40 ? 0.33 : (n >= 4 ? 0.30 : 0.32);
+  const minRadius = n >= 4 ? 0.18 : 0.21;
+  const secondaryMax = baseRadius * (n >= 4 ? 0.78 : (n >= 3 ? 0.80 : 0.88));
+  const pebbles = pebblesIn.map((p, i) => {
+    const ratio = Math.sqrt(Math.max(0.01, p.share || 0.01) / dominantShare);
+    const r = i === 0
+      ? baseRadius
+      : clampNumber(baseRadius * ratio, minRadius, secondaryMax);
+    return {
+      categoryIcon: p.categoryIcon,
+      share: p.share,
+      share2: p.share2,
+      cx: 0,
+      cy: 0,
+      r,
+      glyphAtlasRef: textureRefForUiIcon(p.categoryIcon, 0.62),
+      packedGlyph: packedGlyphForUiIcon(p.categoryIcon),
+    };
+  });
+
+  pebbles[0].cx = 0.06 + (rand() - 0.5) * 0.04;
+  pebbles[0].cy = 0.05 + (rand() - 0.5) * 0.04;
+  const angleSets = {
+    2: [225],
+    3: [225, 315],
+    4: [205, 315, 150],
+  };
+  const angles = angleSets[Math.min(4, n)] || angleSets[2];
+  for (let i = 1; i < pebbles.length; i++) {
+    const angle = ((angles[i - 1] || (205 + i * 73)) + (rand() - 0.5) * 22) * Math.PI / 180;
+    const overlap = Math.min(pebbles[0].r, pebbles[i].r) * (0.34 + rand() * 0.16);
+    const dist = pebbles[0].r + pebbles[i].r - overlap;
+    pebbles[i].cx = pebbles[0].cx + Math.cos(angle) * dist;
+    pebbles[i].cy = pebbles[0].cy + Math.sin(angle) * dist;
+  }
+  fitPebbleLayout(pebbles);
+  const size = poiClusterLayoutSize({ count, pebbles });
+
+  return {
+    dominantIndex: 0,
+    width: size,
+    height: size,
+    pebbles,
+  };
 }
 
 function textureRefForPassSymbol(asset, scale = 1.0) {
@@ -1869,22 +2056,23 @@ class AlpineWebGLLayer {
       attribute float a_hover;
       attribute float a_entrance;
       attribute float a_selected;
+      attribute vec4 a_pebble0;
+      attribute vec4 a_pebble1;
+      attribute vec4 a_pebble2;
+      attribute vec4 a_pebble3;
       uniform mat4 u_matrix;
       uniform vec2 u_viewport;
       uniform float u_dpr;
       uniform float u_time;
       uniform float u_now;
       uniform float u_reduced_motion;
-      varying vec2 v_uv;
-      varying vec2 v_local;
+      varying vec4 v_quad;
       varying vec4 v_meta;
       varying vec4 v_fill;
       varying vec4 v_stroke;
       varying vec4 v_icon;
-      varying float v_time;
-      varying float v_hover;
-      varying float v_entrance_alpha;
-      varying float v_selected;
+      varying vec4 v_state;
+      varying vec4 v_pebble3;
       void main() {
         vec4 clip = u_matrix * vec4(a_pos, 0.0, 1.0);
         vec2 ndc = clip.xy / clip.w;
@@ -1897,16 +2085,20 @@ class AlpineWebGLLayer {
         vec2 pxOffset = a_quad * size + a_offset;
         vec2 ndcOffset = (pxOffset * u_dpr) / (u_viewport * 0.5);
         gl_Position = vec4((ndc + ndcOffset) * clip.w, clip.z, clip.w);
-        v_uv = a_quad + 0.5;
-        v_local = a_quad;
+        v_quad = vec4(a_quad + 0.5, a_quad);
         v_meta = a_meta;
-        v_fill = a_fill;
-        v_stroke = a_stroke;
-        v_icon = a_icon;
-        v_time = u_time;
-        v_hover = a_hover;
-        v_entrance_alpha = u_reduced_motion > 0.5 ? 1.0 : t_smooth;
-        v_selected = a_selected;
+        v_state = vec4(u_time, a_hover, u_reduced_motion > 0.5 ? 1.0 : t_smooth, a_selected);
+        if (a_meta.z > 2.5 && a_meta.z < 3.5) {
+          v_fill = a_pebble0;
+          v_stroke = a_pebble1;
+          v_icon = a_pebble2;
+          v_pebble3 = a_pebble3;
+        } else {
+          v_fill = a_fill;
+          v_stroke = a_stroke;
+          v_icon = a_icon;
+          v_pebble3 = vec4(0.0);
+        }
       }`;
     const fragmentSource = `
       precision mediump float;
@@ -1914,16 +2106,19 @@ class AlpineWebGLLayer {
       uniform sampler2D u_passTex1;
       uniform sampler2D u_passTex2;
       uniform sampler2D u_labelTex;
-      varying vec2 v_uv;
-      varying vec2 v_local;
+      varying vec4 v_quad;
       varying vec4 v_meta;
       varying vec4 v_fill;
       varying vec4 v_stroke;
       varying vec4 v_icon;
-      varying float v_time;
-      varying float v_hover;
-      varying float v_entrance_alpha;
-      varying float v_selected;
+      varying vec4 v_state;
+      varying vec4 v_pebble3;
+      #define v_uv v_quad.xy
+      #define v_local v_quad.zw
+      #define v_time v_state.x
+      #define v_hover v_state.y
+      #define v_entrance_alpha v_state.z
+      #define v_selected v_state.w
       uniform float u_pulse_clock;
       const float PI = 3.14159265359;
       bool flagSet(float flags, float bit) {
@@ -2010,6 +2205,58 @@ class AlpineWebGLLayer {
         vec3 color = mix(inner, borderColor, ring * 0.68);
         return vec4(color, alpha);
       }
+      float smoothMin(float a, float b, float k) {
+        float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
+        return mix(b, a, h) - k * h * (1.0 - h);
+      }
+      float pebbleDistance(vec4 pebble) {
+        if (pebble.z <= 0.001) return 1.0;
+        return length(v_local - pebble.xy) - pebble.z;
+      }
+      float pebbleGlyphMask(vec4 pebble) {
+        if (pebble.z <= 0.001 || pebble.w <= 0.001) return 0.0;
+        vec2 glyphLocal = (v_local - pebble.xy) / max(0.001, pebble.z * 1.46) + vec2(0.5);
+        if (glyphLocal.x < 0.0 || glyphLocal.x > 1.0 || glyphLocal.y < 0.0 || glyphLocal.y > 1.0) return 0.0;
+        float glyphCode = floor(pebble.w + 0.5) - 1.0;
+        if (glyphCode < 0.0) return 0.0;
+        float sheet = floor(glyphCode / 100.0);
+        if (sheet > 0.5) return 0.0;
+        float col = floor(mod(glyphCode, 100.0) / 10.0);
+        float row = mod(glyphCode, 10.0);
+        vec2 iconUv = vec2(col * 0.2 + glyphLocal.x * 0.2, (4.0 - row) * 0.2 + glyphLocal.y * 0.2);
+        float chamber = 1.0 - smoothstep(pebble.z * 0.70, pebble.z * 0.86, length(v_local - pebble.xy));
+        return texture2D(u_uiTex, iconUv).a * chamber;
+      }
+      vec4 pebblePileMarker() {
+        vec4 pebble0 = v_fill;
+        vec4 pebble1 = v_stroke;
+        vec4 pebble2 = v_icon;
+        vec4 pebble3 = v_pebble3;
+        float d = pebbleDistance(pebble0);
+        d = smoothMin(d, pebbleDistance(pebble1), 0.060);
+        d = smoothMin(d, pebbleDistance(pebble2), 0.060);
+        d = smoothMin(d, pebbleDistance(pebble3), 0.060);
+
+        float minDim = max(1.0, min(v_meta.x, v_meta.y));
+        float aa = max(1.0 / minDim, 0.010);
+        float alpha = 1.0 - smoothstep(0.0, aa * 1.45, d);
+        if (alpha <= 0.0) discard;
+
+        vec3 cream = vec3(0.957, 0.929, 0.878);
+        vec3 slate = vec3(0.133);
+        float strokeWidth = 1.5 / minDim;
+        float strokeMix = smoothstep(-strokeWidth - aa, -strokeWidth + aa, d);
+        float topLight = smoothstep(-0.42, 0.46, v_local.y);
+        vec3 color = cream * mix(0.965, 1.035, topLight);
+        color = mix(color, slate, strokeMix * 0.92);
+
+        float iconMask = max(
+          max(pebbleGlyphMask(pebble0), pebbleGlyphMask(pebble1)),
+          max(pebbleGlyphMask(pebble2), pebbleGlyphMask(pebble3))
+        );
+        color = mix(color, slate, iconMask * 0.92);
+        return vec4(color, alpha);
+      }
       vec4 previewChip() {
         /* Compact white chip with a teal ring — used for the not-by-car
            corner badge on POI pins and any other small accent we add
@@ -2042,7 +2289,8 @@ class AlpineWebGLLayer {
         float kind = v_meta.z;
         vec4 c;
         if (kind < 1.5) c = pinMarker();
-        else if (kind < 3.5) c = clusterMarker();
+        else if (kind < 2.5) c = clusterMarker();
+        else if (kind < 3.5) c = pebblePileMarker();
         else if (kind < 4.5) c = labelMarker();
         else c = previewChip();
         /* Hover brightness boost — only for single pass/poi markers (kind < 2).
@@ -2102,6 +2350,10 @@ class AlpineWebGLLayer {
       aHover: gl.getAttribLocation(program, "a_hover"),
       aEntrance: gl.getAttribLocation(program, "a_entrance"),
       aSelected: gl.getAttribLocation(program, "a_selected"),
+      aPebble0: gl.getAttribLocation(program, "a_pebble0"),
+      aPebble1: gl.getAttribLocation(program, "a_pebble1"),
+      aPebble2: gl.getAttribLocation(program, "a_pebble2"),
+      aPebble3: gl.getAttribLocation(program, "a_pebble3"),
       uMatrix: gl.getUniformLocation(program, "u_matrix"),
       uViewport: gl.getUniformLocation(program, "u_viewport"),
       uDpr: gl.getUniformLocation(program, "u_dpr"),
@@ -2198,6 +2450,10 @@ class AlpineWebGLLayer {
     this._instanceAttrib(gl, loc.aHover, 1, stride, 20);
     this._instanceAttrib(gl, loc.aEntrance, 1, stride, 21);
     this._instanceAttrib(gl, loc.aSelected, 1, stride, 22);
+    this._instanceAttrib(gl, loc.aPebble0, 4, stride, 23);
+    this._instanceAttrib(gl, loc.aPebble1, 4, stride, 27);
+    this._instanceAttrib(gl, loc.aPebble2, 4, stride, 31);
+    this._instanceAttrib(gl, loc.aPebble3, 4, stride, 35);
   }
 
   _instanceAttrib(gl, location, size, strideBytes, floatOffset) {
@@ -2295,20 +2551,40 @@ class AlpineWebGLLayer {
     const isSelected = featureId === this._selectedId ? 1 : 0;
     if (isCluster) {
       kind = isPoi ? ALPINE_GL_KIND.poiCluster : ALPINE_GL_KIND.passCluster;
-      /* Round bubble — sized by cluster magnitude so very large groups feel
-         heavier without dominating the map. Width === height keeps the
-         length()-based SDF in clusterMarker actually circular. */
+      const clusterHover = (group.id === this._hoverTargetId) ? this._hoverAnim : 0;
+
+      if (isPoi) {
+        const pebbleModel = poiClusterPebbleModel(group.items);
+        const pebbleLayout = layoutPoiClusterPebbles(pebbleModel, group.id);
+        width = pebbleLayout.width;
+        height = pebbleLayout.height;
+        fill = ALPINE_GL_COLORS.poiCluster;
+        this._pushInstance(out, lng, lat, width, height, kind, flags, fill, fill, icon, 0, 0, clusterHover, bornAtSec, 0, pebbleLayout.pebbles);
+
+        const countText = pebbleModel.count <= 99 ? String(pebbleModel.count) : "99+";
+        const countLabel = this._labelRef(countText, "cluster-pill");
+        if (countLabel) {
+          const dominantPebble = pebbleLayout.pebbles[pebbleLayout.dominantIndex] || pebbleLayout.pebbles[0];
+          const labelSize = 36;
+          const hoverScale = 1 + 0.12 * clusterHover;
+          const offsetX = (dominantPebble.cx * width + dominantPebble.r * width * 0.66) * hoverScale;
+          const offsetY = (dominantPebble.cy * height + dominantPebble.r * height * 0.66) * hoverScale;
+          this._pushInstance(out, lng, lat, labelSize, labelSize, ALPINE_GL_KIND.label, 0,
+            ALPINE_GL_COLORS.dark, ALPINE_GL_COLORS.dark, countLabel, offsetX, offsetY, clusterHover, bornAtSec, 0);
+        }
+        this._pickItems.push({ type: "cluster", kind: group.kind, id: group.id, group, lng, lat, radius: Math.max(width, height) * 0.62 });
+        return;
+      }
+
+      /* Pass clusters keep the legacy round bubble and centered count label. */
       const size = group.items.length >= 80 ? 50
         : group.items.length >= 25 ? 46
         : 42;
       width = size;
       height = size;
-      fill = isPoi
-        ? ALPINE_GL_COLORS.poiCluster
-        : (ALPINE_GL_COLORS[dominantClusterStatus(group.items)] || ALPINE_GL_COLORS.passCluster);
-      const clusterHover = (group.id === this._hoverTargetId) ? this._hoverAnim : 0;
+      fill = ALPINE_GL_COLORS[dominantClusterStatus(group.items)] || ALPINE_GL_COLORS.passCluster;
       this._pushInstance(out, lng, lat, width, height, kind, flags, fill, fill, icon, 0, 0, clusterHover, bornAtSec, 0);
-      const countLabel = this._labelRef(String(group.items.length), isPoi ? "cluster-poi" : "cluster-pass");
+      const countLabel = this._labelRef(String(group.items.length), "cluster-pass");
       if (countLabel) {
         /* Slightly oversize the label quad so canvas anti-aliasing has
            pixels to work with at all DPRs; the actual visible text fits
@@ -2373,14 +2649,22 @@ class AlpineWebGLLayer {
     if (label) this._pushInstance(out, start.lon, start.lat, 38, 38, ALPINE_GL_KIND.label, 0, ALPINE_GL_COLORS.white, ALPINE_GL_COLORS.white, label, 0, -15);
   }
 
-  _pushInstance(out, lng, lat, width, height, kind, flags, fill, stroke, icon, offsetX = 0, offsetY = 0, hover = 0, entrance = 0, selected = 0) {
+  _pushInstance(out, lng, lat, width, height, kind, flags, fill, stroke, icon, offsetX = 0, offsetY = 0, hover = 0, entrance = 0, selected = 0, pebbles = null) {
     const merc = lngLatToMercatorNorm(lng, lat);
+    const p0 = pebbles?.[0];
+    const p1 = pebbles?.[1];
+    const p2 = pebbles?.[2];
+    const p3 = pebbles?.[3];
     out.push(
       merc.x, merc.y, width, height, kind, flags,
       fill[0], fill[1], fill[2], fill[3],
       stroke[0], stroke[1], stroke[2], stroke[3],
       icon.sheet, icon.u, icon.v, icon.scale,
-      offsetX, offsetY, hover, entrance, selected
+      offsetX, offsetY, hover, entrance, selected,
+      p0 ? p0.cx : 0, p0 ? p0.cy : 0, p0 ? p0.r : 0, p0 ? p0.packedGlyph : 0,
+      p1 ? p1.cx : 0, p1 ? p1.cy : 0, p1 ? p1.r : 0, p1 ? p1.packedGlyph : 0,
+      p2 ? p2.cx : 0, p2 ? p2.cy : 0, p2 ? p2.r : 0, p2 ? p2.packedGlyph : 0,
+      p3 ? p3.cx : 0, p3 ? p3.cy : 0, p3 ? p3.r : 0, p3 ? p3.packedGlyph : 0
     );
   }
 
@@ -2434,6 +2718,22 @@ class AlpineWebGLLayer {
       ctx.rotate(-Math.PI / 4);
       ctx.font = "700 24px system-ui, -apple-system, Segoe UI, sans-serif";
       ctx.fillStyle = "#111827";
+      ctx.fillText(entry.text, 0, 1);
+      ctx.restore();
+      return;
+    }
+    if (entry.type === "cluster-pill") {
+      ctx.translate(cx, cy);
+      this._roundedRect(ctx, -29, -17, 58, 34, 17);
+      ctx.fillStyle = "#222222";
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "rgba(255,255,255,0.28)";
+      ctx.stroke();
+      ctx.font = entry.text.length >= 3
+        ? "600 25px system-ui, -apple-system, Segoe UI, sans-serif"
+        : "600 26px system-ui, -apple-system, Segoe UI, sans-serif";
+      ctx.fillStyle = "#ffffff";
       ctx.fillText(entry.text, 0, 1);
       ctx.restore();
       return;
@@ -5979,7 +6279,7 @@ function retraceInfoForRoute(route, plan) {
   if (!plan?.waypoints?.length || latlngs.length < 2) {
     return { latlngs, wpIdx: [], legs: [], overlapM: 0 };
   }
-  const wpIdx = plan.waypoints.map(wp => closestPolylineIdx(wp, latlngs));
+  const wpIdx = orderedPolylineWaypointIndices(plan.waypoints, latlngs);
   const legs = detectRetracedConnectorLegs(latlngs, wpIdx, plan.wpMatrixIdx);
   const overlapM = legs.reduce((sum, r) => sum + (r.overlapM || 0), 0);
   return { latlngs, wpIdx, legs, overlapM };
@@ -6001,7 +6301,7 @@ function rankedRouteEntriesFromOsrm(routeOut, plan) {
 
 function routeDisplayForVariant({ route, tourStops, perm, plan, openOnly }) {
   const latlngs = route.geom.map(([lo, la]) => [la, lo]);
-  const wpIdx = plan.waypoints.map(wp => closestPolylineIdx(wp, latlngs));
+  const wpIdx = orderedPolylineWaypointIndices(plan.waypoints, latlngs);
   const crossings = routePassCrossingsForPlan({
     tourStops,
     perm,
@@ -6134,6 +6434,7 @@ async function planSelectedTour() {
   let latestDetailedPlan = null;
   let approximateFallback = null;
   let routeWarning = "";
+  let residualRetraceLegs = [];
   const retraceLog = [];
   for (let iter = 0; iter < RETRACE_REPAIR_MAX_ITER; iter++) {
     const result = bestExactSelectedTour(matrix, selected.length, passQ, selected);
@@ -6148,17 +6449,16 @@ async function planSelectedTour() {
     try {
       routeOut = await osrmRoute(coordsFromWaypoints(waypoints), { alternatives: true });
     } catch (e) {
-      if (!latestDetailedPlan) {
-        routeWarning = "Could not fetch detailed route geometry; map line is approximate.";
-      }
+      latestDetailedPlan = null;
+      routeWarning = "Could not fetch detailed route geometry; map line is approximate.";
       break;
     }
 
     const rankedRoutes = rankedRouteEntriesFromOsrm(routeOut, plan);
     latestDetailedPlan = { result, baseTourStops, plan, routeOut };
-    const retraceLegs = (iter < RETRACE_REPAIR_MAX_ITER - 1 && rankedRoutes[0])
-      ? rankedRoutes[0].retrace.legs
-      : [];
+    const bestRetraceLegs = rankedRoutes[0]?.retrace.legs || [];
+    residualRetraceLegs = bestRetraceLegs;
+    const retraceLegs = iter < RETRACE_REPAIR_MAX_ITER - 1 ? bestRetraceLegs : [];
     if (!retraceLegs.length) break;
 
     console.log(`advanced planner iter ${iter}: retrace pairs detected:`,
@@ -6169,6 +6469,9 @@ async function planSelectedTour() {
 
   if (retraceLog.length) {
     console.log(`advanced planner: retraceFixes=${retraceLog.length}`);
+  }
+  if (residualRetraceLegs.length) {
+    routeWarning = "Route still reuses a connector road after repair attempts. Try Road alternatives or adjust the selected stops for a cleaner loop.";
   }
 
   const finalPlan = latestDetailedPlan || approximateFallback;
@@ -6450,7 +6753,7 @@ async function planTour() {
        check connect-in (and the final exit→next or exit→start) for closures.
        POIs contribute one waypoint each so they participate in connect-in
        checks just like a pass-summit-without-climb. */
-    const wpIdx = waypoints.map(wp => closestPolylineIdx(wp, latlngs));
+    const wpIdx = orderedPolylineWaypointIndices(waypoints, latlngs);
     const crossings = routePassCrossingsForPlan({
       tourStops,
       perm: result.perm,
@@ -6642,17 +6945,35 @@ async function planTour() {
 }
 
 /* Index in `polyline` of the point closest to lat/lng `wp` (planar approx). */
-function closestPolylineIdx(wp, polyline) {
+function closestPolylineIdxInRange(wp, polyline, startIdx = 0, endIdx = polyline.length - 1) {
   const lat0 = wp[0], lon0 = wp[1];
   const cos = Math.cos(lat0 * Math.PI / 180);
   let best = 0, bestD = Infinity;
-  for (let i = 0; i < polyline.length; i++) {
+  const lo = Math.max(0, Math.min(polyline.length - 1, Math.floor(startIdx)));
+  const hi = Math.max(lo, Math.min(polyline.length - 1, Math.ceil(endIdx)));
+  for (let i = lo; i <= hi; i++) {
     const dy = (polyline[i][0] - lat0) * 111;
     const dx = (polyline[i][1] - lon0) * 111 * cos;
     const d = dx*dx + dy*dy;
     if (d < bestD) { bestD = d; best = i; }
   }
   return best;
+}
+
+function closestPolylineIdx(wp, polyline) {
+  return closestPolylineIdxInRange(wp, polyline);
+}
+
+function orderedPolylineWaypointIndices(waypoints, polyline) {
+  if (!Array.isArray(waypoints) || !Array.isArray(polyline) || !polyline.length) return [];
+  const idxs = [];
+  let minIdx = 0;
+  for (const wp of waypoints) {
+    const idx = closestPolylineIdxInRange(wp, polyline, minIdx, polyline.length - 1);
+    idxs.push(idx);
+    minIdx = idx;
+  }
+  return idxs;
 }
 
 /* Segment-level retrace detection on the chosen tour's actual route
@@ -6671,6 +6992,7 @@ const RETRACE_THRESH_M = 100;      // points within this distance count as "same
 const RETRACE_MIN_OVERLAP_M = 800; // must share at least this many metres to count
 const RETRACE_SAMPLE_M = 200;      // densification spacing
 const RETRACE_PENALTY_MULT = 3.0;  // strong soft cost; finite edges stay feasible, but repeats lose decisively
+const RETRACE_ADJACENT_WAYPOINT_BUFFER_M = 350; // ignore only the natural turn-around area around a shared waypoint
 
 function applyRetracePenaltyValue(table, from, to) {
   if (Number.isFinite(table?.[from]?.[to])) {
@@ -6707,9 +7029,28 @@ function isRetraceConnectorLeg(leg, wpMatrixIdx) {
   return matrixStopIndex(from) !== matrixStopIndex(to);
 }
 
+function cumulativePolylineMetres(latlngs) {
+  const cumulative = new Float64Array(latlngs.length);
+  for (let i = 1; i < latlngs.length; i++) {
+    cumulative[i] = cumulative[i - 1] + haversine(
+      { lat: latlngs[i-1][0], lon: latlngs[i-1][1] },
+      { lat: latlngs[i][0],   lon: latlngs[i][1]   }
+    ) * 1000;
+  }
+  return cumulative;
+}
+
+function isNearSharedAdjacentWaypoint(sample, otherLeg, wpIdx, cumulativeM) {
+  if (Math.abs(sample.leg - otherLeg) !== 1) return false;
+  const sharedIdx = wpIdx[Math.max(sample.leg, otherLeg)];
+  if (!Number.isFinite(sharedIdx) || sharedIdx < 0 || sharedIdx >= cumulativeM.length) return false;
+  return Math.abs(cumulativeM[sample.idx] - cumulativeM[sharedIdx]) <= RETRACE_ADJACENT_WAYPOINT_BUFFER_M;
+}
+
 function detectRetracedConnectorLegs(latlngs, wpIdx, wpMatrixIdx = null) {
   if (!latlngs.length || wpIdx.length < 2) return [];
   const numLegs = wpIdx.length - 1;
+  const cumulativeM = cumulativePolylineMetres(latlngs);
 
   /* Step 1: assign each polyline point to its leg. */
   const legByIdx = new Int16Array(latlngs.length);
@@ -6762,7 +7103,11 @@ function detectRetracedConnectorLegs(latlngs, wpIdx, wpMatrixIdx = null) {
         if (!cell) continue;
         for (const q of cell) {
           if (q.idx <= p.idx) continue;
-          if (Math.abs(q.leg - p.leg) <= 1) continue;     // skip same / adjacent legs
+          if (q.leg === p.leg) continue;
+          if (isNearSharedAdjacentWaypoint(p, q.leg, wpIdx, cumulativeM) ||
+              isNearSharedAdjacentWaypoint(q, p.leg, wpIdx, cumulativeM)) {
+            continue;
+          }
           const dM = haversine(p, q) * 1000;
           if (dM > RETRACE_THRESH_M) continue;
           const key = Math.min(p.leg, q.leg) + "," + Math.max(p.leg, q.leg);
@@ -7545,7 +7890,7 @@ function populatePoiSidebarFilters() {
     opt.textContent = `${poiCategoryLabel(c)} (${counts[c]})`;
     poiCatFilterEl.appendChild(opt);
   }
-  /* Regions in canonical Alpine-Passes order (matches swiss-pois.js header). */
+  /* Regions in canonical Alpine-Passes order (matches per-country POI file headers). */
   const regionCounts = {};
   POIS.forEach(p => { regionCounts[p.poiRegion] = (regionCounts[p.poiRegion] || 0) + 1; });
   const regions = Object.keys(regionCounts).sort((a, b) => regionCounts[b] - regionCounts[a]);

@@ -3776,6 +3776,21 @@ const CURATED_PREF_THEMES = [
   "panoramic-view", "historic", "food-drink",
   "hidden-gem", "swimmable", "winter-sport",
 ];
+const THEME_LABELS = {
+  "unesco": "UNESCO",
+  "family-friendly": "Family-friendly",
+  "photogenic": "Photogenic",
+  "iconic": "Iconic",
+  "panoramic-view": "Panoramic view",
+  "historic": "Historic",
+  "food-drink": "Food & drink",
+  "hidden-gem": "Hidden gem",
+  "swimmable": "Swimmable",
+  "winter-sport": "Winter sport",
+};
+function themeLabel(key) {
+  return THEME_LABELS[key] || (key.charAt(0).toUpperCase() + key.slice(1).replace(/-/g, " "));
+}
 const POI_PRESETS = {
   family:   { cats: ["viewpoint-panorama","alpine-lake","scenic-railway","special-experience","museum-cultural"], themes: ["family-friendly"], minScore: 7, maxCount: 4, label: "Family day · ★7+ · max 4" },
   cultural: { cats: ["castle-fortress","monastery-church","old-town","museum-cultural"], themes: ["unesco","historic"], minScore: 7, maxCount: 4, label: "Cultural tour · ★7+ · max 4" },
@@ -4401,7 +4416,7 @@ function renderPoiPrefsChips() {
   /* Themes — curated subset only. */
   poiThemeChipsEl.innerHTML = CURATED_PREF_THEMES.map(t => {
     const active = allowedPoiThemes.has(t);
-    return `<button type="button" class="pref-chip${active ? " active" : ""}" data-theme="${escapeHtml(t)}" aria-pressed="${active}">${escapeHtml(t)}</button>`;
+    return `<button type="button" class="pref-chip${active ? " active" : ""}" data-theme="${escapeHtml(t)}" aria-pressed="${active}">${escapeHtml(themeLabel(t))}</button>`;
   }).join("");
 }
 renderPoiPrefsChips();

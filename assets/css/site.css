@@ -3108,3 +3108,16 @@ input[type="range"]:disabled {
   color: var(--accent);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
 }
+
+/* ===== iter-18 polish: accumulated nits ===== */
+.preset-chip.preset-reset {
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--fg-soft) 20%, transparent);
+  color: var(--fg-soft);
+  font-size: .85em;
+  opacity: .7;
+}
+.preset-chip.preset-reset:hover {
+  background: color-mix(in srgb, var(--fg-soft) 8%, transparent);
+  opacity: 1;
+}

@@ -4254,6 +4254,7 @@ function normalizeStartGeocodeResult(raw) {
   if (!validStartCoords(lat, lon)) return null;
   const name = geocodePrimaryName(raw);
   const props = raw?.properties || {};
+  const countryCode = (raw?.properties?.countrycode || "").toUpperCase().slice(0, 2);
   const photonDetail = [
     props.street,
     props.postcode,
@@ -4265,7 +4266,7 @@ function normalizeStartGeocodeResult(raw) {
   const detail = display && display !== name
     ? display
     : `${lat.toFixed(3)}, ${lon.toFixed(3)}`;
-  return { name, detail, lat, lon };
+  return { name, detail, lat, lon, countryCode };
 }
 
 function renderStartSearchResults(results, message = "") {
@@ -4285,6 +4286,7 @@ function renderStartSearchResults(results, message = "") {
   planStartSearchResultsEl.innerHTML = startSearchResults.map((r, i) => `
     <button class="start-search-result" type="button" data-start-result="${i}" style="--i:${i}">
       <strong>${escapeHtml(r.name)}</strong>
+      ${r.countryCode ? `<span class="cc-badge">${escapeHtml(r.countryCode)}</span>` : ""}
       <span>${escapeHtml(r.detail)}</span>
     </button>
   `).join("");
@@ -4337,6 +4339,7 @@ async function searchStartPlaces() {
     limit: String(START_GEOCODE_LIMIT),
     lang: geocodeLanguageCode(),
   });
+  params.set("bbox", "5,43,17.5,49");
 
   try {
     const response = await fetch(`${START_GEOCODE_ENDPOINT}?${params.toString()}`, {

@@ -419,7 +419,7 @@ const POI_CATEGORY_ICON = {
   "castle-fortress":     "poi-castle-fortress",
   "monastery-church":    "poi-monastery-church",
   "scenic-railway":      "poi-scenic-railway",
-  "funicular":           "poi-scenic-railway",
+  "funicular":           "poi-funicular",
   "bridge-engineering":  "poi-bridge-engineering",
   "village":             "poi-village",
   "national-park":       "poi-national-park",
@@ -461,6 +461,7 @@ const UI_ICON_IDS = new Set([
   "poi-glacier", "poi-old-town", "poi-castle-fortress", "poi-monastery-church", "poi-scenic-railway",
   "poi-bridge-engineering", "poi-village", "poi-national-park", "poi-spa-wellness", "poi-viewpoint-panorama",
   "poi-museum-cultural", "poi-geology-cave", "poi-wine-region", "poi-special-experience", "pass-generic",
+  "poi-funicular",
 ]);
 
 function iconSvg(id, className = "app-icon") {
@@ -1653,6 +1654,10 @@ const ALPINE_GL_PEBBLE_ENTRANCE_SECONDS = 0.65;
 const ALPINE_GL_LABEL_COLS = 16;
 const ALPINE_GL_LABEL_ROWS = 16;
 const ALPINE_GL_LABEL_CELL = 64;
+const ALPINE_GL_UI_ATLAS_COLS = 5;
+const ALPINE_GL_UI_ATLAS_ROWS = 6;
+const ALPINE_GL_PASS_ATLAS_COLS = 5;
+const ALPINE_GL_PASS_ATLAS_ROWS = 5;
 const ALPINE_GL_FLAG_ESTIMATED = 1;
 const ALPINE_GL_FLAG_DIM = 2;
 const ALPINE_GL_FLAG_SIMPLE_CIRCLE = 4;
@@ -1697,6 +1702,7 @@ const UI_ATLAS_CELLS = {
   "poi-wine-region": [2, 4],
   "poi-special-experience": [3, 4],
   "pass-generic": [4, 4],
+  "poi-funicular": [0, 5],
 };
 
 function lngLatToMercatorNorm(lng, lat) {
@@ -1707,14 +1713,20 @@ function lngLatToMercatorNorm(lng, lat) {
   };
 }
 
-function atlasCellUv(cell) {
-  const col = Math.max(0, Math.min(4, Number(cell?.[0]) || 0));
-  const row = Math.max(0, Math.min(4, Number(cell?.[1]) || 0));
-  return [col * 0.2, (4 - row) * 0.2];
+function atlasCellUv(cell, cols, rows) {
+  const maxCol = Math.max(0, cols - 1);
+  const maxRow = Math.max(0, rows - 1);
+  const col = Math.max(0, Math.min(maxCol, Number(cell?.[0]) || 0));
+  const row = Math.max(0, Math.min(maxRow, Number(cell?.[1]) || 0));
+  return [col / cols, (rows - row - 1) / rows];
 }
 
 function textureRefForUiIcon(id, scale = 0.85) {
-  const [u, v] = atlasCellUv(UI_ATLAS_CELLS[id] || UI_ATLAS_CELLS["poi-generic"]);
+  const [u, v] = atlasCellUv(
+    UI_ATLAS_CELLS[id] || UI_ATLAS_CELLS["poi-generic"],
+    ALPINE_GL_UI_ATLAS_COLS,
+    ALPINE_GL_UI_ATLAS_ROWS
+  );
   return { sheet: 0, u, v, scale };
 }
 
@@ -1741,8 +1753,8 @@ function prngFromHash(hash) {
 
 function packedGlyphForUiIcon(id, style = 0) {
   const cell = UI_ATLAS_CELLS[id] || UI_ATLAS_CELLS["poi-generic"];
-  const col = Math.max(0, Math.min(4, Number(cell[0]) || 0));
-  const row = Math.max(0, Math.min(4, Number(cell[1]) || 0));
+  const col = Math.max(0, Math.min(ALPINE_GL_UI_ATLAS_COLS - 1, Number(cell[0]) || 0));
+  const row = Math.max(0, Math.min(ALPINE_GL_UI_ATLAS_ROWS - 1, Number(cell[1]) || 0));
   const styleCode = Math.max(0, Math.min(4, Number(style) || 0));
   return styleCode * PEBBLE_GLYPH_STYLE_SCALE + col * 10 + row + 1;
 }
@@ -1855,7 +1867,7 @@ function layoutPoiClusterPebbles(model, seed) {
 function textureRefForPassSymbol(asset, scale = 1.0) {
   if (!asset) return null;
   const sheet = String(asset.sheet || "").includes("sprite-02") ? 2 : 1;
-  const [u, v] = atlasCellUv([asset.col, asset.row]);
+  const [u, v] = atlasCellUv([asset.col, asset.row], ALPINE_GL_PASS_ATLAS_COLS, ALPINE_GL_PASS_ATLAS_ROWS);
   return { sheet, u, v, scale };
 }
 
@@ -2277,7 +2289,10 @@ class AlpineWebGLLayer {
         if (v_icon.x < -0.5 || v_icon.w <= 0.0) return vec4(0.0);
         vec2 iconLocal = (uv - vec2(0.5)) / max(0.001, scale) + vec2(0.5);
         if (iconLocal.x < 0.0 || iconLocal.x > 1.0 || iconLocal.y < 0.0 || iconLocal.y > 1.0) return vec4(0.0);
-        vec2 iconUv = vec2(v_icon.y + iconLocal.x * 0.2, v_icon.z + iconLocal.y * 0.2);
+        vec2 atlasStep = vec2(0.2, 0.2);
+        if (v_icon.x < 0.5) atlasStep = vec2(1.0 / ${ALPINE_GL_UI_ATLAS_COLS}.0, 1.0 / ${ALPINE_GL_UI_ATLAS_ROWS}.0);
+        else if (v_icon.x > 2.5) atlasStep = vec2(1.0 / ${ALPINE_GL_LABEL_COLS}.0, 1.0 / ${ALPINE_GL_LABEL_ROWS}.0);
+        vec2 iconUv = vec2(v_icon.y + iconLocal.x * atlasStep.x, v_icon.z + iconLocal.y * atlasStep.y);
         return sampleIcon(iconUv);
       }
       vec4 fetchIcon() {
@@ -2402,7 +2417,10 @@ class AlpineWebGLLayer {
         if (sheet > 0.5) return 0.0;
         float col = floor(mod(glyphCode, 100.0) / 10.0);
         float row = mod(glyphCode, 10.0);
-        vec2 iconUv = vec2(col * 0.2 + glyphLocal.x * 0.2, (4.0 - row) * 0.2 + glyphLocal.y * 0.2);
+        vec2 iconUv = vec2(
+          (col + glyphLocal.x) / ${ALPINE_GL_UI_ATLAS_COLS}.0,
+          (${ALPINE_GL_UI_ATLAS_ROWS}.0 - 1.0 - row + glyphLocal.y) / ${ALPINE_GL_UI_ATLAS_ROWS}.0
+        );
         float chamber = 1.0 - smoothstep(pebble.z * 0.70, pebble.z * 0.86, length(v_local - pebble.xy));
         return texture2D(u_uiTex, iconUv).a * chamber;
       }
@@ -6273,28 +6291,65 @@ function plannerStatusAllowsPass(p, openOnly) {
 
 function nearestPolylineHit(pt, latlngs, startIdx, endIdx, thresholdKm = ROUTE_PASS_CROSSING_KM) {
   if (!pt || !Array.isArray(latlngs) || latlngs.length === 0) return null;
-  const lo = Math.max(0, Math.min(startIdx, endIdx));
-  const hi = Math.min(latlngs.length - 1, Math.max(startIdx, endIdx));
+  const lo = Math.max(0, Math.min(latlngs.length - 1, Math.floor(Math.min(startIdx, endIdx))));
+  const hi = Math.max(lo, Math.min(latlngs.length - 1, Math.ceil(Math.max(startIdx, endIdx))));
   if (!Number.isFinite(lo) || !Number.isFinite(hi) || hi < lo) return null;
 
   const cos = Math.cos(pt.lat * Math.PI / 180);
   let bestIdx = -1;
   let bestD2 = Infinity;
-  for (let i = lo; i <= hi; i++) {
-    const [la, lo2] = latlngs[i];
-    const dy = (la - pt.lat) * 111;
-    const dx = (lo2 - pt.lon) * 111 * cos;
+  function consider(lat, lon, idx) {
+    const dy = (lat - pt.lat) * 111;
+    const dx = (lon - pt.lon) * 111 * cos;
     const d2 = dx * dx + dy * dy;
     if (d2 < bestD2) {
       bestD2 = d2;
-      bestIdx = i;
+      bestIdx = idx;
     }
+  }
+  for (let i = lo; i <= hi; i++) {
+    consider(latlngs[i][0], latlngs[i][1], i);
+    if (i >= hi) continue;
+    const [aLat, aLon] = latlngs[i];
+    const [bLat, bLon] = latlngs[i + 1];
+    const ax = (aLon - pt.lon) * 111 * cos;
+    const ay = (aLat - pt.lat) * 111;
+    const bx = (bLon - pt.lon) * 111 * cos;
+    const by = (bLat - pt.lat) * 111;
+    const vx = bx - ax;
+    const vy = by - ay;
+    const vv = vx * vx + vy * vy;
+    if (vv <= 0) continue;
+    const t = Math.max(0, Math.min(1, -(ax * vx + ay * vy) / vv));
+    consider(aLat + (bLat - aLat) * t, aLon + (bLon - aLon) * t, i + t);
   }
 
   const threshold2 = thresholdKm * thresholdKm;
   return bestD2 <= threshold2
     ? { idx: bestIdx, distanceKm: Math.sqrt(bestD2) }
     : null;
+}
+
+function passTraversalHitForRange(pass, latlngs, startIdx, endIdx) {
+  if (!pass?.baseA || !pass?.baseB) return null;
+  const hit = nearestPolylineHit(pass, latlngs, startIdx, endIdx);
+  if (!hit) return null;
+  const aHit = nearestPolylineHit(pass.baseA, latlngs, startIdx, endIdx, ROUTE_PASS_GATEWAY_KM);
+  const bHit = nearestPolylineHit(pass.baseB, latlngs, startIdx, endIdx, ROUTE_PASS_GATEWAY_KM);
+  if (!aHit || !bHit) return null;
+  const aBefore = aHit.idx < hit.idx;
+  const bBefore = bHit.idx < hit.idx;
+  if (aBefore === bBefore) return null;
+
+  const entry = aBefore ? pass.baseA : pass.baseB;
+  const exit = aBefore ? pass.baseB : pass.baseA;
+  const entryHit = aBefore ? aHit : bHit;
+  const exitHit = aBefore ? bHit : aHit;
+  const entryAfterSummit = nearestPolylineHit(entry, latlngs, Math.ceil(hit.idx), Math.floor(exitHit.idx), ROUTE_PASS_GATEWAY_KM);
+  const exitBeforeSummit = nearestPolylineHit(exit, latlngs, Math.ceil(entryHit.idx), Math.floor(hit.idx), ROUTE_PASS_GATEWAY_KM);
+  if (entryAfterSummit || exitBeforeSummit) return null;
+
+  return { hit, aHit, bHit };
 }
 
 function routePassCrossingsForPlan({ tourStops, perm, wpMatrixIdx, wpIdx, latlngs, openOnly = false }) {
@@ -6309,6 +6364,36 @@ function routePassCrossingsForPlan({ tourStops, perm, wpMatrixIdx, wpIdx, latlng
   const orderByPassIdx = new Map((perm || []).map((t, order) => [t.passIdx, order]));
   const passIdxForMatrix = idx => idx > 0 ? Math.floor((idx - 1) / 3) : -1;
   const blockedSeen = new Set();
+  function insertionIndexForLeg(leg) {
+    const toM = wpMatrixIdx[leg + 1];
+    const toPassIdx = passIdxForMatrix(toM);
+    return toPassIdx >= 0 && orderByPassIdx.has(toPassIdx)
+      ? orderByPassIdx.get(toPassIdx)
+      : stopCount;
+  }
+  function legForRouteIdx(routeIdx) {
+    const limit = Math.min(wpMatrixIdx.length, wpIdx.length) - 1;
+    for (let leg = 0; leg < limit; leg++) {
+      const a = wpIdx[leg];
+      const b = wpIdx[leg + 1];
+      if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+      const lo = Math.min(a, b);
+      const hi = Math.max(a, b);
+      if (routeIdx >= lo && routeIdx <= hi) return leg;
+    }
+    return Math.max(0, limit - 1);
+  }
+  function addBlockedPass(pass, fromM, toM) {
+    const key = `${pass.id}:${fromM}:${toM}`;
+    if (blockedSeen.has(key)) return;
+    blockedSeen.add(key);
+    blocked.push({ fromM, toM, name: pass.name });
+  }
+  function addImplicitPass(pass, routeIdx, insertionIndex, distanceKm) {
+    const prev = implicitById.get(pass.id);
+    const entry = { pass, insertionIndex, routeIdx, distanceKm };
+    if (!prev || routeIdx < prev.routeIdx) implicitById.set(pass.id, entry);
+  }
 
   for (let leg = 0; leg < Math.min(wpMatrixIdx.length, wpIdx.length) - 1; leg++) {
     const fromM = wpMatrixIdx[leg];
@@ -6321,43 +6406,43 @@ function routePassCrossingsForPlan({ tourStops, perm, wpMatrixIdx, wpIdx, latlng
     const b = wpIdx[leg + 1];
     if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
 
-    const insertionIndex = toPassIdx >= 0 && orderByPassIdx.has(toPassIdx)
-      ? orderByPassIdx.get(toPassIdx)
-      : stopCount;
+    const insertionIndex = insertionIndexForLeg(leg);
 
     for (const p of PASSES) {
       if (plannedIds.has(p.id)) continue;
 
-      const hit = nearestPolylineHit(p, latlngs, a, b);
-      if (!hit) continue;
+      const traversal = passTraversalHitForRange(p, latlngs, a, b);
+      if (!traversal) continue;
+      const hit = traversal.hit;
 
       if (!plannerStatusAllowsPass(p, openOnly)) {
-        const key = `${p.id}:${fromM}:${toM}`;
-        if (!blockedSeen.has(key)) {
-          blockedSeen.add(key);
-          blocked.push({ fromM, toM, name: p.name });
-        }
+        addBlockedPass(p, fromM, toM);
         continue;
       }
 
-      /* Require BOTH gateways near the polyline AND on opposite sides
-         of the summit along the route. This filters out out-and-back
-         hairpin climbs (where only one gateway is touched) — we only
-         flag a pass as "implicitly driven over" when the route truly
-         enters one side and exits the other. */
-      if (!p.baseA || !p.baseB) continue;
-      const aHit = nearestPolylineHit(p.baseA, latlngs, a, b, ROUTE_PASS_GATEWAY_KM);
-      const bHit = nearestPolylineHit(p.baseB, latlngs, a, b, ROUTE_PASS_GATEWAY_KM);
-      if (!aHit || !bHit) continue;
-      const summitIdx = hit.idx;
-      const aBefore = aHit.idx < summitIdx;
-      const bBefore = bHit.idx < summitIdx;
-      if (aBefore === bBefore) continue;
-
-      const prev = implicitById.get(p.id);
-      const entry = { pass: p, leg, insertionIndex, routeIdx: hit.idx, distanceKm: hit.distanceKm };
-      if (!prev || hit.idx < prev.routeIdx) implicitById.set(p.id, entry);
+      addImplicitPass(p, hit.idx, insertionIndex, hit.distanceKm);
     }
+  }
+
+  /* A planned waypoint can split an unplanned pass crossing across two
+     adjacent connector legs. Per-leg matching then sees only one gateway per
+     leg and misses the actual pass (the Klausen screenshot regression). Do a
+     second whole-route pass so true gateway→summit→gateway crossings are
+     surfaced even when they straddle a waypoint. */
+  for (const p of PASSES) {
+    if (plannedIds.has(p.id)) continue;
+    const traversal = passTraversalHitForRange(p, latlngs, 0, latlngs.length - 1);
+    if (!traversal) continue;
+    const hit = traversal.hit;
+
+    const leg = legForRouteIdx(hit.idx);
+    const fromM = wpMatrixIdx[leg];
+    const toM = wpMatrixIdx[leg + 1];
+    if (!plannerStatusAllowsPass(p, openOnly)) {
+      addBlockedPass(p, fromM, toM);
+      continue;
+    }
+    addImplicitPass(p, hit.idx, insertionIndexForLeg(leg), hit.distanceKm);
   }
 
   const implicit = [...implicitById.values()].sort((a, b) =>
@@ -7374,7 +7459,10 @@ function detectRetracedConnectorLegs(latlngs, wpIdx, wpMatrixIdx = null) {
         if (!cell) continue;
         for (const q of cell) {
           if (q.idx <= p.idx) continue;
-          if (q.leg === p.leg) continue;
+          if (q.leg === p.leg &&
+              Math.abs(cumulativeM[q.idx] - cumulativeM[p.idx]) <= RETRACE_MIN_OVERLAP_M) {
+            continue;
+          }
           if (isNearSharedAdjacentWaypoint(p, q.leg, wpIdx, cumulativeM) ||
               isNearSharedAdjacentWaypoint(q, p.leg, wpIdx, cumulativeM)) {
             continue;

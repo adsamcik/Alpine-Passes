@@ -2969,8 +2969,12 @@ function overlayPoiItems() {
 }
 
 function clusterRadiusFor(kind, zoom) {
-  if (kind === "pass") return zoom < 7 ? 82 : zoom < 9 ? 70 : 58;
-  return zoom < 7 ? 90 : zoom < 9 ? 74 : 62;
+  /* Pebble-pile clusters are 56-64px wide (Phase 1/2 pebble layout).
+     Grid radius must exceed that and add ~18-22px breathing room so
+     adjacent piles don't visually collide. The previous values
+     (58-90px) predated the pebble redesign — too tight at zoom >=9. */
+  if (kind === "pass") return zoom < 7 ? 110 : zoom < 9 ? 96 : 84;
+  return zoom < 7 ? 116 : zoom < 9 ? 100 : 88;
 }
 
 function shouldClusterOverlay(kind, zoom) {

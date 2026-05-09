@@ -7749,7 +7749,68 @@ map.on("moveend", () => {
     if (!poiSearchActive)  renderPoiList();
   }, 120);
 });
+
+function restoreTourFromHash() {
+  try {
+    const hash = window.location.hash || "";
+    const m = hash.match(/^#tour=(.+)$/);
+    if (!m) return;
+
+    const params = new URLSearchParams(m[1]);
+    const startStr = params.get("start");
+    if (!startStr) return;
+
+    const [latStr, lonStr] = startStr.split(",");
+    const lat = Number(latStr);
+    const lon = Number(lonStr);
+    if (!validStartCoords(lat, lon)) return;
+
+    const startName = params.get("startName") || `Tour start (${lat.toFixed(3)}, ${lon.toFixed(3)})`;
+    applyCustomStart(startName, lat, lon);
+
+    const stopsRaw = params.get("stops") || "";
+    const stopIds = stopsRaw.split(",").filter(Boolean);
+
+    if (stopIds.length) {
+      if (advancedModeEl && !advancedModeEl.checked) {
+        advancedModeEl.checked = true;
+        syncAdvancedMode();
+      }
+
+      let added = 0;
+      for (const id of stopIds) {
+        if (PASS_BY_ID.has(id)) {
+          toggleSelectedPass(id, true);
+          added++;
+        } else if (POI_BY_ID.has(id) && (typeof PLANNABLE_POI_IDS === "undefined" || PLANNABLE_POI_IDS.has(id))) {
+          toggleSelectedPoi(id, true);
+          added++;
+        }
+      }
+
+      if (added > 0 && typeof planTour === "function") {
+        setTimeout(() => {
+          try {
+            planTour();
+          } catch (e) {
+            console.warn("[alpine] tour-restore planTour failed", e);
+          }
+        }, 100);
+      }
+    }
+
+    const planTabRadio = document.getElementById("sidebarTabPlan");
+    if (planTabRadio && !planTabRadio.checked) {
+      planTabRadio.checked = true;
+      planTabRadio.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  } catch (e) {
+    console.warn("[alpine] restoreTourFromHash error", e);
+  }
+}
+
 renderList();
+restoreTourFromHash();
 renderPoiList();
 syncAdvancedMode();
 updateMapSources();

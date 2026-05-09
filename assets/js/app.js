@@ -7261,23 +7261,114 @@ function tourCoordString(point) {
   return p ? `${p.lat.toFixed(5)},${p.lon.toFixed(5)}` : null;
 }
 
+function closestPolylineIndex(point, coords) {
+  if (!Array.isArray(coords) || !coords.length || !point) return -1;
+  let best = 0;
+  let bestD = Infinity;
+  for (let i = 0; i < coords.length; i++) {
+    const [lng, lat] = coords[i];
+    const dlat = lat - point.lat;
+    const dlng = lng - point.lon;
+    const d = dlat * dlat + dlng * dlng;
+    if (d < bestD) {
+      bestD = d;
+      best = i;
+    }
+  }
+  return best;
+}
+
+function pickShapingWaypoints(start, userStops, coords, budget) {
+  if (!Array.isArray(coords) || coords.length < 3 || budget <= 0) return [];
+
+  const namedPoints = [start, ...userStops];
+  const namedIndices = namedPoints.map(p => closestPolylineIndex(p, coords));
+  const segmentSpans = [];
+  for (let i = 0; i < userStops.length; i++) {
+    const a = namedIndices[i];
+    const b = namedIndices[i + 1];
+    segmentSpans.push(Math.max(0, b - a));
+  }
+  const totalSpan = segmentSpans.reduce((s, v) => s + v, 0);
+  if (totalSpan === 0) return [];
+
+  const allocations = segmentSpans.map(span => {
+    const raw = (span / totalSpan) * budget;
+    return Math.min(3, Math.floor(raw));
+  });
+  let used = allocations.reduce((s, v) => s + v, 0);
+  const remainders = segmentSpans
+    .map((span, i) => ({ i, frac: (span / totalSpan) * budget - allocations[i] }))
+    .sort((a, b) => b.frac - a.frac);
+  for (const r of remainders) {
+    if (used >= budget) break;
+    if (allocations[r.i] >= 3) continue;
+    if (segmentSpans[r.i] < 6) continue;
+    allocations[r.i]++;
+    used++;
+  }
+
+  const result = [];
+  for (let i = 0; i < userStops.length; i++) {
+    const k = allocations[i];
+    const a = namedIndices[i];
+    const b = namedIndices[i + 1];
+    const span = segmentSpans[i];
+    if (k === 0 || span < 6) {
+      result.push({ stopIdx: i, shaping: [] });
+      continue;
+    }
+    const samples = [];
+    for (let j = 1; j <= k; j++) {
+      const idx = a + Math.round(span * j / (k + 1));
+      const [lng, lat] = coords[idx];
+      samples.push({ lat, lon: lng, via: true });
+    }
+    result.push({ stopIdx: i, shaping: samples });
+  }
+  return result;
+}
+
 function buildGoogleMapsDirectionsUrl(tour = null) {
   const activeTour = tourStateForActions(tour);
   if (!activeTour) return null;
   const start = tourStartForActions(activeTour);
-  const origin = tourCoordString(start);
-  const waypoints = tourStopsForActions(activeTour)
-    .map(stop => tourCoordString(tourStopPoint(stop)))
+  const startCoord = tourCoordString(start);
+  if (!startCoord) return null;
+
+  const userStops = tourStopsForActions(activeTour)
+    .map(stop => tourStopPoint(stop))
     .filter(Boolean);
-  if (!origin || !waypoints.length) return null;
+  if (!userStops.length) return null;
+
+  const MAX_INTERMEDIATE = 9;
+  const namedIntermediate = userStops.length - 1;
+  const shapingBudget = Math.max(0, MAX_INTERMEDIATE - namedIntermediate);
+  const routeCoords = activeTour?.coords || activeTour?.geometry?.coords;
+  const segments = (Array.isArray(routeCoords) && routeCoords.length > 2 && shapingBudget > 0)
+    ? pickShapingWaypoints(start, userStops, routeCoords, shapingBudget)
+    : userStops.map((_, i) => ({ stopIdx: i, shaping: [] }));
 
   const params = new URLSearchParams();
   params.set("api", "1");
   params.set("travelmode", "driving");
-  params.set("origin", origin);
-  params.set("destination", waypoints[waypoints.length - 1]);
-  const intermediate = waypoints.slice(0, -1);
+  params.set("origin", startCoord);
+  params.set("destination", tourCoordString(userStops[userStops.length - 1]));
+
+  const intermediate = [];
+  for (let i = 0; i < userStops.length; i++) {
+    const seg = segments[i] || { shaping: [] };
+    for (const s of seg.shaping) {
+      const c = tourCoordString(s);
+      if (c) intermediate.push(`via:${c}`);
+    }
+    if (i < userStops.length - 1) {
+      const c = tourCoordString(userStops[i]);
+      if (c) intermediate.push(c);
+    }
+  }
   if (intermediate.length) params.set("waypoints", intermediate.join("|"));
+
   return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
 

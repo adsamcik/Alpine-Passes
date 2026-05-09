@@ -3121,3 +3121,39 @@ input[type="range"]:disabled {
   background: color-mix(in srgb, var(--fg-soft) 8%, transparent);
   opacity: 1;
 }
+
+/* ===== layout fix: planner start-row reflow ===== */
+/* The original 3-col grid (select + 2 buttons) cramps the select into a
+   caret-only sliver and clips button labels in narrow desktop sidebars
+   (~250px column at typical widths). Reflow into 2 rows: the dropdown
+   gets the full top row so the placeholder reads, and the two buttons
+   share the bottom row with comfortable icon+label fit. */
+.start-row {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto auto;
+  row-gap: 6px;
+}
+.start-row > #planStart {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  min-width: 0;
+}
+.start-row > #planPick {
+  grid-column: 1;
+  grid-row: 2;
+}
+.start-row > #planLocate {
+  grid-column: 2;
+  grid-row: 2;
+}
+.start-row > #planPick,
+.start-row > #planLocate {
+  width: 100%;
+  justify-content: center;
+}
+/* Search row breathes — input never clips its placeholder; button
+   compacts at narrow widths so the input claims the freed space. */
+.start-search-row > #planStartSearch { min-width: 0; }
+@media (max-width: 1100px) {
+  #planStartSearchBtn { min-width: 60px; padding: 0 8px; }
+}

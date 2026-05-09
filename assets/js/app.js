@@ -4556,12 +4556,19 @@ function renderStartSearchResults(results, message = "") {
 function selectStartSearchResult(index) {
   const result = startSearchResults[index];
   if (!result) return;
-  const name = `${result.name} (${result.lat.toFixed(3)}, ${result.lon.toFixed(3)})`;
-  if (!applyCustomStart(name, result.lat, result.lon)) {
+  /* Use the place name verbatim as the dropdown label — no raw lat/lon
+     suffix. The coordinates would just clutter the chip with technical
+     noise; users who want them can read them in the popup or the URL
+     hash. Falls back to a "Custom (lat, lon)" string only if the search
+     result has no name (rare). */
+  const label = result.name || `Custom (${result.lat.toFixed(3)}, ${result.lon.toFixed(3)})`;
+  if (!applyCustomStart(label, result.lat, result.lon)) {
     showPlanWarning("Search result returned invalid coordinates. Try another place or pick on the map.");
     return;
   }
-  if (planStartSearchEl) planStartSearchEl.value = result.name;
+  /* Clear the search field so it's ready for the next query — the
+     selected place is now visible in the dropdown above. */
+  if (planStartSearchEl) planStartSearchEl.value = "";
   renderStartSearchResults([]);
 }
 

@@ -94,18 +94,18 @@
                   <option value="munich">Munich (DE)</option>
                   <option value="custom" disabled>(custom — click map)</option>
                 </select>
-                <button id="planPick" type="button" title="Click on map to set start" aria-label="Pick a custom start point on the map" aria-pressed="false">
-                  <svg class="button-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-pin"></use></svg>
-                  <span class="button-label">Pick on map</span>
-                </button>
-                <button id="planLocate" type="button" title="Use current browser location" aria-label="Use current browser location as start">
-                  <svg class="button-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-compass"></use></svg>
-                  <span class="button-label">My location</span>
-                </button>
               </div>
               <span id="planLocateError" class="plan-locate-error" role="status" aria-live="polite" hidden></span>
               <div class="start-search-row">
-                <input id="planStartSearch" type="search" placeholder="Town or address" autocomplete="off" aria-label="Search any starting point" aria-controls="planStartSearchResults">
+                <button id="planLocate" class="start-icon-btn" type="button" title="Use current browser location" aria-label="Use current browser location as start">
+                  <svg class="button-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-compass"></use></svg>
+                  <span class="button-label">My location</span>
+                </button>
+                <button id="planPick" class="start-icon-btn" type="button" title="Click on map to set start" aria-label="Pick a custom start point on the map" aria-pressed="false">
+                  <svg class="button-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-pin"></use></svg>
+                  <span class="button-label">Pick on map</span>
+                </button>
+                <input id="planStartSearch" type="search" placeholder="Or search town or address" autocomplete="off" aria-label="Search any starting point" aria-controls="planStartSearchResults">
                 <button id="planStartSearchBtn" type="button">Search</button>
               </div>
               <div id="planStartSearchResults" class="start-search-results" aria-live="polite" hidden></div>

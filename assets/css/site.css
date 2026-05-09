@@ -3411,3 +3411,65 @@ input[type="range"]:disabled {
   background: var(--bg-3);
   border-color: var(--border);
 }
+
+/* ===== UX rework: start point input ===== */
+/* Was: 3-control top row (select + 2 labelled buttons) + separate search
+   row underneath. Selected start showed raw "(46.935, 8.580)" coordinates
+   in the dropdown. All input methods competed equally for visual weight.
+   Now: dropdown gets its own line (full width, prominent caret); search
+   row absorbs Pick/Locate as compact icon-only buttons left of the input
+   so all alternative-input affordances live on one line. Search input is
+   the natural primary action. */
+
+/* Dropdown gets its own row */
+.start-row {
+  grid-template-columns: 1fr;
+  grid-template-rows: auto;
+}
+.start-row > #planStart {
+  grid-column: 1;
+  grid-row: 1;
+  width: 100%;
+  /* More prominent affordance for the dropdown caret */
+  background-position: right 14px center, right 36px center;
+  padding-right: 32px;
+  font-weight: 550;
+}
+
+/* Search row hosts: [📍 pick] [🧭 locate] [search input...] [Search] */
+.start-search-row {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  gap: 6px;
+  margin-top: 8px;
+}
+.start-search-row > #planLocate,
+.start-search-row > #planPick {
+  width: 38px;
+  min-width: 38px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+/* Hide the labels in the new compact icon-only context — aria-label
+   and title attribute keep the buttons accessible / discoverable. */
+.start-search-row > #planLocate .button-label,
+.start-search-row > #planPick .button-label {
+  display: none;
+}
+.start-search-row > #planLocate .button-icon,
+.start-search-row > #planPick .button-icon {
+  width: 18px;
+  height: 18px;
+}
+/* Search button shrinks at narrow widths handled by the existing
+   1100px media query; nothing new needed here. */
+
+/* Active "picking on map" state — already accent-fill via #planPick.active
+   in the legacy CSS; carry through in the new context cleanly. */
+.start-search-row > #planPick.active {
+  background: var(--accent);
+  color: #0b0e10;
+  border-color: var(--accent);
+}

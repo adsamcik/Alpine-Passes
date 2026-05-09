@@ -3227,3 +3227,51 @@ input[type="range"]:disabled {
   font-style: italic;
   text-align: center;
 }
+
+/* ===== popup polish: hero + avatar overlap pattern ===== */
+/* Make the hero banner and the title's pass-art-icon work together as a
+   single card composition (banner + overlapping avatar) instead of as
+   two competing images. */
+.popup-img-wrap,
+.popup-img-wrap.is-loading,
+.popup-img-wrap.is-error {
+  border-radius: 0;
+  margin-bottom: 0;
+}
+.popup-img.placeholder {
+  border-radius: 0;
+}
+.popup-body {
+  padding-top: 6px;
+}
+.popup-title {
+  align-items: flex-end;
+  margin-bottom: 8px;
+}
+.popup-title h2 {
+  align-items: flex-end;
+  gap: 12px;
+}
+.popup-title h2 .pass-art-icon {
+  width: 56px;
+  height: 56px;
+  margin-top: -38px;
+  margin-bottom: 0;
+  border-radius: 14px;
+  border: 3px solid var(--bg-2);
+  box-shadow:
+    0 10px 24px rgba(0, 0, 0, 0.42),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.10);
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 2;
+}
+.popup-title h2 > span:last-child {
+  padding-bottom: 2px;
+  align-self: flex-end;
+}
+.popup-title .quality {
+  align-self: flex-end;
+  padding-bottom: 4px;
+  transform: none;
+}

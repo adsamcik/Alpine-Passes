@@ -3296,3 +3296,112 @@ input[type="range"]:disabled {
 .pass-art-icon.symbol {
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.30);
 }
+
+/* ===== layout rework: 1 · TRIP ESSENTIALS section ===== */
+/* Was: 2-col grid (start | date), bare labels, slider as a separate
+   floating card from tour-size. Felt like a wall of equally-weighted
+   inputs with no clear flow.
+   Now: single-column flow, each major control in its own bounded
+   sub-card with small-caps section headers, and tour-size + slider
+   visually fused into one cohesive 'how big' card. Step-like cadence. */
+
+/* 1. Drop the 2-col grid — always single column */
+.planner-primary-card .planner-field-grid {
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+/* 2. Each <label> in the grid becomes a subtle sub-card */
+.planner-primary-card .planner-field-grid > label {
+  display: grid;
+  gap: 9px;
+  padding: 13px 14px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.022);
+  border: 1px solid var(--border);
+  margin: 0;
+  transition: border-color 0.18s ease, background-color 0.18s ease;
+}
+.planner-primary-card .planner-field-grid > label:focus-within {
+  border-color: rgba(84, 209, 255, 0.32);
+  background: rgba(84, 209, 255, 0.04);
+}
+
+/* 3. Section header in small-caps for clear hierarchy */
+.planner-primary-card .planner-field-grid > label > span:first-child {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--fg-soft, var(--fg-dim));
+  margin: 0 0 1px;
+  line-height: 1.3;
+}
+
+/* 4. Trip date + time: more comfortable proportions on a single line */
+.planner-primary-card .trip-date-time-row {
+  grid-template-columns: minmax(0, 1.4fr) minmax(96px, 0.6fr);
+  gap: 8px;
+}
+
+/* 5. Helper text reads as secondary */
+.planner-primary-card .planner-help {
+  font-style: normal;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--fg-soft, var(--fg-dim));
+  margin: 0;
+}
+
+/* 6. Tour size + distance slider visually merged into one card.
+   Use specific top/bottom radii on each piece so they look like one. */
+.planner-primary-card .planner-target-panel {
+  border-radius: 12px 12px 0 0;
+  border: 1px solid var(--border);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 0;
+  padding: 14px;
+}
+.planner-primary-card .planner-target-panel + .distance-control.planner-slider-card,
+.planner-primary-card .planner-target-panel
+  + .distance-control.planner-slider-card[hidden]
+  + .distance-control.planner-slider-card {
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 12px 12px;
+  margin-top: 0;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.022);
+}
+
+/* 7. Tour size copy — tighter typography, less aggressive */
+.planner-primary-card .target-copy strong {
+  font-size: 12.5px;
+  letter-spacing: 0.005em;
+  font-weight: 700;
+}
+.planner-primary-card .target-copy span {
+  font-size: 11.5px;
+  color: var(--fg-soft, var(--fg-dim));
+  line-height: 1.42;
+  margin-top: 4px;
+}
+
+/* 8. Card-head copy slightly tighter — section description shouldn't
+   compete with the actual fields below. */
+.planner-primary-card .planner-card-copy {
+  font-size: 11.5px;
+  line-height: 1.42;
+  margin-top: 4px;
+}
+
+/* 9. Card-level bottom margin between the head, the field grid, and the
+   merged tour-size unit. Even cadence. */
+.planner-primary-card .planner-card-head { margin-bottom: 12px; }
+.planner-primary-card .planner-field-grid { margin-bottom: 14px; }
+
+/* 10. Fix the .start-row sub-card situation: the previous sub-card has
+   its own padding, so the start-row's nested elements should not also
+   add huge gaps. Tighten internal stacking inside the sub-card. */
+.planner-primary-card .start-row { gap: 6px; }
+.planner-primary-card .start-search-row { margin-top: 4px; }

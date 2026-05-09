@@ -7024,6 +7024,17 @@ function bindPlanResultClickHandler() {
 
 bindPlanResultClickHandler();
 
+function scrollPlanResultIntoView() {
+  requestAnimationFrame(() => {
+    try {
+      planResult.scrollIntoView({ block: "start", behavior: "smooth" });
+    } catch (_) {
+      const ss = document.querySelector(".sidebar-scroll");
+      if (ss && planResult) ss.scrollTop = planResult.offsetTop;
+    }
+  });
+}
+
 function showPlanResult(r) {
   planResult.classList.remove("empty");
   planResult.classList.remove("pr-in");
@@ -7184,6 +7195,7 @@ function showPlanResult(r) {
     ${renderPlanResultActions(r)}`;
   planResult.classList.add("pr-in");
   Array.from(planResult.children).forEach((el, i) => el.style.setProperty("--i", i));
+  scrollPlanResultIntoView();
 }
 
 function updatePlannedTourLayers(routeCoords = plannedRouteCoords, fallback = plannedRouteFallback) {
@@ -7804,9 +7816,10 @@ function restoreTourFromHash() {
       }
 
       if (added > 0 && typeof planTour === "function") {
-        setTimeout(() => {
+        setTimeout(async () => {
           try {
-            planTour();
+            await planTour();
+            setTimeout(scrollPlanResultIntoView, 150);
           } catch (e) {
             console.warn("[alpine] tour-restore planTour failed", e);
           }
@@ -7826,6 +7839,11 @@ function restoreTourFromHash() {
 
 renderList();
 restoreTourFromHash();
+window.addEventListener("hashchange", () => {
+  if (window.location.hash.startsWith("#tour=")) {
+    restoreTourFromHash();
+  }
+});
 renderPoiList();
 syncAdvancedMode();
 updateMapSources();

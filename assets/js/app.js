@@ -7373,6 +7373,110 @@ function buildGoogleMapsDirectionsUrl(tour = null) {
   return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
 
+function escapeXml(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" })[c]);
+}
+
+function buildTourGpx(tour = null) {
+  const activeTour = tourStateForActions(tour);
+  if (!activeTour) return null;
+  const start = tourStartForActions(activeTour);
+  if (!start) return null;
+  const stops = tourStopsForActions(activeTour);
+  const coords = activeTour?.coords || activeTour?.geometry?.coords || [];
+  const totalKm = activeTour?.totalKm;
+  const driveH = activeTour?.driveH;
+
+  const now = new Date().toISOString();
+  const startName = start.name || "Start";
+  const tourName = `Alpine Passes — ${startName}`;
+  const desc = [
+    `${stops.length} stops`,
+    typeof totalKm === "number" ? `${Math.round(totalKm)} km` : null,
+    typeof driveH === "number" ? `~${driveH.toFixed(1)} h driving` : null,
+  ].filter(Boolean).join(" · ");
+
+  const wpts = [];
+  if (Number.isFinite(start.lat) && Number.isFinite(start.lon)) {
+    wpts.push(`  <wpt lat="${start.lat.toFixed(6)}" lon="${start.lon.toFixed(6)}">
+    <name>${escapeXml(startName)}</name>
+    <type>Start</type>
+  </wpt>`);
+  }
+  for (const stop of stops) {
+    const item = stop?.item || stop;
+    const lat = item?.lat ?? stop?.lat;
+    const lon = item?.lon ?? item?.lng ?? stop?.lon ?? stop?.lng;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+    const name = item?.name || stop?.name || "Stop";
+    const elev = Number.isFinite(item?.elev) ? `\n    <ele>${item.elev}</ele>` : "";
+    const isPass = item?.kind === "pass" || (item?.elev != null && item?.symbolIconAsset);
+    const type = isPass ? "Pass" : "POI";
+    wpts.push(`  <wpt lat="${Number(lat).toFixed(6)}" lon="${Number(lon).toFixed(6)}">${elev}
+    <name>${escapeXml(name)}</name>
+    <type>${type}</type>
+  </wpt>`);
+  }
+
+  const trkpts = coords
+    .filter(c => Array.isArray(c) && Number.isFinite(c[0]) && Number.isFinite(c[1]))
+    .map(([lng, lat]) => `      <trkpt lat="${lat.toFixed(6)}" lon="${lng.toFixed(6)}"/>`)
+    .join("\n");
+  const trk = trkpts
+    ? `  <trk>
+    <name>${escapeXml(tourName)} — planned route</name>
+    <trkseg>
+${trkpts}
+    </trkseg>
+  </trk>`
+    : "";
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Alpine Passes"
+  xmlns="http://www.topografix.com/GPX/1/1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
+  <metadata>
+    <name>${escapeXml(tourName)}</name>
+    <desc>${escapeXml(desc)}</desc>
+    <time>${now}</time>
+  </metadata>
+${wpts.join("\n")}
+${trk}
+</gpx>
+`;
+}
+
+function downloadTourGpx(buttonEl) {
+  const xml = buildTourGpx();
+  if (!xml) return;
+  const blob = new Blob([xml], { type: "application/gpx+xml" });
+  const url = URL.createObjectURL(blob);
+  const today = new Date().toISOString().slice(0, 10);
+  const activeTour = tourStateForActions();
+  const startName = activeTour ? (tourStartForActions(activeTour)?.name || "tour") : "tour";
+  const slug = String(startName).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 32) || "tour";
+  const filename = `alpine-tour-${today}-${slug}.gpx`;
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+
+  if (buttonEl) {
+    const labelEl = buttonEl.querySelector(".button-label");
+    if (labelEl) {
+      const original = labelEl.textContent;
+      labelEl.textContent = "Downloaded";
+      setTimeout(() => { labelEl.textContent = original; }, 1500);
+    }
+  }
+}
+
 function buildTourShareUrl(tour = null) {
   const activeTour = tourStateForActions(tour);
   if (!activeTour) return null;
@@ -7439,6 +7543,10 @@ function renderPlanResultActions(result = null) {
         <span class="button-icon" aria-hidden="true">⎘</span>
         <span class="button-label">Copy link</span>
       </button>
+      <a id="planExportGpx" class="plan-action plan-action-gpx" href="#" role="button">
+        <span class="button-icon" aria-hidden="true">⬇</span>
+        <span class="button-label">Export GPX</span>
+      </a>
       <button id="planClear" class="plan-action" type="button">Clear</button>
     </div>`;
 }
@@ -7473,6 +7581,13 @@ function handlePlanResultClick(e) {
   const copyBtn = target.closest("#planCopyLink");
   if (copyBtn && planResult.contains(copyBtn)) {
     void copyTourLink(copyBtn);
+    return;
+  }
+
+  const gpxBtn = target.closest("#planExportGpx");
+  if (gpxBtn && planResult.contains(gpxBtn)) {
+    e.preventDefault();
+    downloadTourGpx(gpxBtn);
     return;
   }
 

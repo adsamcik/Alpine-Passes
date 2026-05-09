@@ -3405,3 +3405,9 @@ input[type="range"]:disabled {
    add huge gaps. Tighten internal stacking inside the sub-card. */
 .planner-primary-card .start-row { gap: 6px; }
 .planner-primary-card .start-search-row { margin-top: 4px; }
+
+/* ===== iter-23 polish: GPX export action button ===== */
+.plan-result-actions .plan-action-gpx {
+  background: var(--bg-3);
+  border-color: var(--border);
+}

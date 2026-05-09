@@ -1001,9 +1001,21 @@ const fmtDuration = h => {
 };
 
 /* ───────────────────── live Swiss pass status ───────────────────── */
+/* CORS-bypassing public proxies for fetching status pages from third-party
+   feeds (alpen-paesse.ch, alpenpaesse.de, etc). Order matters: tries each
+   in sequence until one succeeds. Reliability tested 2026-05 with 3-proxy
+   sweep against both Swiss and German feeds:
+   - corsproxy.io   — 117KB on German feed, 163KB on Swiss feed (good)
+   - cors.lol       — 117KB on German feed, 162KB on Swiss feed (good)
+   - codetabs       — 162KB on Swiss feed, 1.4KB stub on German feed (works
+                      partially — kept as last resort because it's fastest
+                      when it does work)
+   - allorigins.win — fully CORS-blocked at present (removed — was always
+                      failing with no Access-Control-Allow-Origin header) */
 const PROXIES = [
+  url => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
+  url => `https://api.cors.lol/?url=${encodeURIComponent(url)}`,
   url => `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`,
-  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
 ];
 const STATUS_URL = "https://www.alpen-paesse.ch/en/";
 const STATUS_CACHE_KEY = "alps:status:v2";

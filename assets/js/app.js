@@ -777,11 +777,23 @@ function dominantClusterStatus(items) {
   return best || "unknown";
 }
 
-function poiClusterPebbleTargetCount(count, distinctCount) {
+const PEBBLE_GLYPH_STYLE_SCALE = 100;
+const PASS_CLUSTER_PEBBLE_STYLE = {
+  open: 1,
+  restricted: 2,
+  closed: 3,
+  unknown: 4,
+};
+
+function clusterPebbleTargetCount(count, distinctCount) {
   if (count >= 40) return 3;
   if (count >= 10) return 4;
   if (distinctCount <= 1) return 2;
   return Math.min(3, distinctCount);
+}
+
+function poiClusterPebbleTargetCount(count, distinctCount) {
+  return clusterPebbleTargetCount(count, distinctCount);
 }
 
 function poiClusterPebbleModel(items) {
@@ -822,6 +834,78 @@ function poiClusterPebbleModel(items) {
     pebbles.push({
       categoryIcon: dominant.categoryIcon,
       categoryCount: Math.max(1, Math.round(share * total)),
+      share,
+      share2: Math.sqrt(share),
+      duplicate: true,
+    });
+    duplicateIndex++;
+  }
+
+  return { count, pebbles };
+}
+
+function normalizedPassClusterStatus(state) {
+  return PASS_CLUSTER_PEBBLE_STYLE[state] ? state : "unknown";
+}
+
+function pebbleStyleForPassStatus(state) {
+  return PASS_CLUSTER_PEBBLE_STYLE[normalizedPassClusterStatus(state)];
+}
+
+function passClusterPebbleModel(items) {
+  const list = Array.isArray(items) ? items : [];
+  const buckets = new Map();
+  for (const item of list) {
+    const state = normalizedPassClusterStatus(statusDisplay(passStatus(item)).state || "unknown");
+    if (!buckets.has(state)) buckets.set(state, []);
+    buckets.get(state).push(item);
+  }
+  if (!buckets.size) buckets.set("unknown", []);
+
+  const ranked = Array.from(buckets, ([state, bucketItems]) => {
+    const status = bucketItems.length ? dominantClusterStatus(bucketItems) : state;
+    return {
+      status: normalizedPassClusterStatus(status),
+      bucketItems,
+      bucketCount: bucketItems.length,
+    };
+  }).sort((a, b) => (b.bucketCount - a.bucketCount) ||
+    (clusterStatusTieRank(b.status) - clusterStatusTieRank(a.status)) ||
+    a.status.localeCompare(b.status));
+
+  const count = list.length;
+  const total = Math.max(1, count);
+  const targetCount = clusterPebbleTargetCount(count, ranked.length);
+  const pebbles = ranked.slice(0, targetCount).map(entry => {
+    const share = Math.max(0.01, entry.bucketCount / total);
+    return {
+      iconId: "pass-generic",
+      status: entry.status,
+      style: pebbleStyleForPassStatus(entry.status),
+      bucketCount: entry.bucketCount,
+      share,
+      share2: Math.sqrt(share),
+    };
+  });
+
+  const dominant = pebbles[0] || {
+    iconId: "pass-generic",
+    status: "unknown",
+    style: pebbleStyleForPassStatus("unknown"),
+    bucketCount: Math.max(1, count),
+    share: 1,
+    share2: 1,
+  };
+  let duplicateIndex = 0;
+  while (pebbles.length < targetCount) {
+    const rawShare = dominant.share * Math.max(0.28, 0.58 - duplicateIndex * 0.10);
+    const maxDuplicateShare = pebbles.length > 1 ? pebbles[pebbles.length - 1].share * 0.92 : rawShare;
+    const share = Math.max(0.08, Math.min(rawShare, maxDuplicateShare));
+    pebbles.push({
+      iconId: dominant.iconId,
+      status: dominant.status,
+      style: dominant.style,
+      bucketCount: Math.max(1, Math.round(share * total)),
       share,
       share2: Math.sqrt(share),
       duplicate: true,
@@ -1637,14 +1721,15 @@ function prngFromHash(hash) {
   };
 }
 
-function packedGlyphForUiIcon(id) {
+function packedGlyphForUiIcon(id, style = 0) {
   const cell = UI_ATLAS_CELLS[id] || UI_ATLAS_CELLS["poi-generic"];
   const col = Math.max(0, Math.min(4, Number(cell[0]) || 0));
   const row = Math.max(0, Math.min(4, Number(cell[1]) || 0));
-  return col * 10 + row + 1;
+  const styleCode = Math.max(0, Math.min(4, Number(style) || 0));
+  return styleCode * PEBBLE_GLYPH_STYLE_SCALE + col * 10 + row + 1;
 }
 
-function poiClusterLayoutSize(model) {
+function clusterPebbleLayoutSize(model) {
   if (model.count >= 40 || model.pebbles.length >= 4) return 64;
   if (model.pebbles.length >= 3) return 60;
   return 56;
@@ -1688,7 +1773,7 @@ function fitPebbleLayout(pebbles) {
   }
 }
 
-function layoutPoiClusterPebbles(model, seed) {
+function layoutClusterPebbles(model, seed) {
   const pebblesIn = (model?.pebbles?.length ? model.pebbles : poiClusterPebbleModel([]).pebbles).slice(0, 4);
   const count = Number(model?.count) || 0;
   const n = Math.max(1, pebblesIn.length);
@@ -1702,15 +1787,20 @@ function layoutPoiClusterPebbles(model, seed) {
     const r = i === 0
       ? baseRadius
       : clampNumber(baseRadius * ratio, minRadius, secondaryMax);
+    const iconId = p.iconId || p.categoryIcon || "poi-generic";
+    const style = Math.max(0, Math.min(4, Number(p.style) || 0));
     return {
-      categoryIcon: p.categoryIcon,
+      categoryIcon: iconId,
+      iconId,
+      status: p.status,
+      style,
       share: p.share,
       share2: p.share2,
       cx: 0,
       cy: 0,
       r,
-      glyphAtlasRef: textureRefForUiIcon(p.categoryIcon, 0.62),
-      packedGlyph: packedGlyphForUiIcon(p.categoryIcon),
+      glyphAtlasRef: textureRefForUiIcon(iconId, 0.62),
+      packedGlyph: packedGlyphForUiIcon(iconId, style),
     };
   });
 
@@ -1730,7 +1820,7 @@ function layoutPoiClusterPebbles(model, seed) {
     pebbles[i].cy = pebbles[0].cy + Math.sin(angle) * dist;
   }
   fitPebbleLayout(pebbles);
-  const size = poiClusterLayoutSize({ count, pebbles });
+  const size = clusterPebbleLayoutSize({ count, pebbles });
 
   return {
     dominantIndex: 0,
@@ -1738,6 +1828,10 @@ function layoutPoiClusterPebbles(model, seed) {
     height: size,
     pebbles,
   };
+}
+
+function layoutPoiClusterPebbles(model, seed) {
+  return layoutClusterPebbles(model, seed);
 }
 
 function textureRefForPassSymbol(asset, scale = 1.0) {
@@ -2060,7 +2154,7 @@ class AlpineWebGLLayer {
 
   _createProgram(gl) {
     const vertexSource = `
-      precision mediump float;
+      precision highp float;
       attribute vec2 a_quad;
       attribute vec2 a_pos;
       attribute vec4 a_meta;
@@ -2103,7 +2197,7 @@ class AlpineWebGLLayer {
         v_quad = vec4(a_quad + 0.5, a_quad);
         v_meta = a_meta;
         v_state = vec4(u_time, a_hover, u_reduced_motion > 0.5 ? 1.0 : t_smooth, a_selected);
-        if (a_meta.z > 2.5 && a_meta.z < 3.5) {
+        if (a_meta.z > 1.5 && a_meta.z < 3.5) {
           v_fill = a_pebble0;
           v_stroke = a_pebble1;
           v_icon = a_pebble2;
@@ -2203,23 +2297,6 @@ class AlpineWebGLLayer {
         }
         return vec4(color, outer);
       }
-      vec4 clusterMarker() {
-        /* Clean circular cluster bubble — teal body with a thin white
-           ring for definition and a subtle inner gradient for depth.
-           No more rectangle-with-stacked-chips noise; the count label
-           rendered as a separate label-kind instance is the dominant
-           text in the centre. */
-        float d = length(v_local);
-        float aa = 0.010;
-        float alpha = 1.0 - smoothstep(0.50 - aa, 0.50 + aa, d);
-        if (alpha <= 0.0) discard;
-        float ring = smoothstep(0.43, 0.50, d);
-        vec3 inner = mix(v_fill.rgb, min(v_fill.rgb * 1.18, vec3(1.0)), (1.0 - v_uv.y) * 0.45);
-        inner = mix(inner * 0.92, inner, smoothstep(0.0, 0.30, d));
-        vec3 borderColor = vec3(1.0);
-        vec3 color = mix(inner, borderColor, ring * 0.68);
-        return vec4(color, alpha);
-      }
       float smoothMin(float a, float b, float k) {
         float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
         return mix(b, a, h) - k * h * (1.0 - h);
@@ -2228,11 +2305,42 @@ class AlpineWebGLLayer {
         if (pebble.z <= 0.001) return 1.0;
         return length(v_local - pebble.xy) - pebble.z;
       }
+      float packedPebbleGlyph(vec4 pebble) {
+        return floor(pebble.w + 0.5);
+      }
+      float pebbleStyle(vec4 pebble) {
+        if (pebble.z <= 0.001 || pebble.w <= 0.001) return 0.0;
+        return floor(packedPebbleGlyph(pebble) / ${PEBBLE_GLYPH_STYLE_SCALE}.0);
+      }
+      vec3 pebbleStyleColor(float style) {
+        if (style > 3.5) return vec3(0.847, 0.835, 0.812);
+        if (style > 2.5) return vec3(0.753, 0.345, 0.290);
+        if (style > 1.5) return vec3(0.910, 0.710, 0.278);
+        return vec3(0.957, 0.929, 0.878);
+      }
+      float pebbleFillWeight(vec4 pebble, float aa) {
+        if (pebble.z <= 0.001) return 0.0;
+        return (1.0 - smoothstep(-aa * 2.0, aa * 3.0, pebbleDistance(pebble))) * pebble.z;
+      }
+      vec3 pebblePileFillColor(vec4 pebble0, vec4 pebble1, vec4 pebble2, vec4 pebble3, float aa) {
+        float w0 = pebbleFillWeight(pebble0, aa);
+        float w1 = pebbleFillWeight(pebble1, aa);
+        float w2 = pebbleFillWeight(pebble2, aa);
+        float w3 = pebbleFillWeight(pebble3, aa);
+        float total = w0 + w1 + w2 + w3;
+        if (total <= 0.001) return pebbleStyleColor(0.0);
+        return (
+          pebbleStyleColor(pebbleStyle(pebble0)) * w0 +
+          pebbleStyleColor(pebbleStyle(pebble1)) * w1 +
+          pebbleStyleColor(pebbleStyle(pebble2)) * w2 +
+          pebbleStyleColor(pebbleStyle(pebble3)) * w3
+        ) / total;
+      }
       float pebbleGlyphMask(vec4 pebble) {
         if (pebble.z <= 0.001 || pebble.w <= 0.001) return 0.0;
         vec2 glyphLocal = (v_local - pebble.xy) / max(0.001, pebble.z * 1.46) + vec2(0.5);
         if (glyphLocal.x < 0.0 || glyphLocal.x > 1.0 || glyphLocal.y < 0.0 || glyphLocal.y > 1.0) return 0.0;
-        float glyphCode = floor(pebble.w + 0.5) - 1.0;
+        float glyphCode = mod(packedPebbleGlyph(pebble), ${PEBBLE_GLYPH_STYLE_SCALE}.0) - 1.0;
         if (glyphCode < 0.0) return 0.0;
         float sheet = floor(glyphCode / 100.0);
         if (sheet > 0.5) return 0.0;
@@ -2257,12 +2365,11 @@ class AlpineWebGLLayer {
         float alpha = 1.0 - smoothstep(0.0, aa * 1.45, d);
         if (alpha <= 0.0) discard;
 
-        vec3 cream = vec3(0.957, 0.929, 0.878);
         vec3 slate = vec3(0.133);
         float strokeWidth = 1.5 / minDim;
         float strokeMix = smoothstep(-strokeWidth - aa, -strokeWidth + aa, d);
         float topLight = smoothstep(-0.42, 0.46, v_local.y);
-        vec3 color = cream * mix(0.965, 1.035, topLight);
+        vec3 color = pebblePileFillColor(pebble0, pebble1, pebble2, pebble3, aa) * mix(0.965, 1.035, topLight);
         color = mix(color, slate, strokeMix * 0.92);
 
         float iconMask = max(
@@ -2304,7 +2411,6 @@ class AlpineWebGLLayer {
         float kind = v_meta.z;
         vec4 c;
         if (kind < 1.5) c = pinMarker();
-        else if (kind < 2.5) c = clusterMarker();
         else if (kind < 3.5) c = pebblePileMarker();
         else if (kind < 4.5) c = labelMarker();
         else c = previewChip();
@@ -2568,47 +2674,25 @@ class AlpineWebGLLayer {
       kind = isPoi ? ALPINE_GL_KIND.poiCluster : ALPINE_GL_KIND.passCluster;
       const clusterHover = (group.id === this._hoverTargetId) ? this._hoverAnim : 0;
 
-      if (isPoi) {
-        const pebbleModel = poiClusterPebbleModel(group.items);
-        const pebbleLayout = layoutPoiClusterPebbles(pebbleModel, group.id);
-        width = pebbleLayout.width;
-        height = pebbleLayout.height;
-        fill = ALPINE_GL_COLORS.poiCluster;
-        this._pushInstance(out, lng, lat, width, height, kind, flags, fill, fill, icon, 0, 0, clusterHover, bornAtSec, 0, pebbleLayout.pebbles);
+      const pebbleModel = isPoi ? poiClusterPebbleModel(group.items) : passClusterPebbleModel(group.items);
+      const pebbleLayout = isPoi ? layoutPoiClusterPebbles(pebbleModel, group.id) : layoutClusterPebbles(pebbleModel, group.id);
+      width = pebbleLayout.width;
+      height = pebbleLayout.height;
+      fill = isPoi ? ALPINE_GL_COLORS.poiCluster : ALPINE_GL_COLORS.passCluster;
+      this._pushInstance(out, lng, lat, width, height, kind, flags, fill, fill, icon, 0, 0, clusterHover, bornAtSec, 0, pebbleLayout.pebbles);
 
-        const countText = pebbleModel.count <= 99 ? String(pebbleModel.count) : "99+";
-        const countLabel = this._labelRef(countText, "cluster-pill");
-        if (countLabel) {
-          const dominantPebble = pebbleLayout.pebbles[pebbleLayout.dominantIndex] || pebbleLayout.pebbles[0];
-          const labelSize = 36;
-          const hoverScale = 1 + 0.12 * clusterHover;
-          const offsetX = (dominantPebble.cx * width + dominantPebble.r * width * 0.66) * hoverScale;
-          const offsetY = (dominantPebble.cy * height + dominantPebble.r * height * 0.66) * hoverScale;
-          this._pushInstance(out, lng, lat, labelSize, labelSize, ALPINE_GL_KIND.label, 0,
-            ALPINE_GL_COLORS.dark, ALPINE_GL_COLORS.dark, countLabel, offsetX, offsetY, clusterHover, bornAtSec, 0);
-        }
-        this._pickItems.push({ type: "cluster", kind: group.kind, id: group.id, group, lng, lat, radius: Math.max(width, height) * 0.62 });
-        return;
-      }
-
-      /* Pass clusters keep the legacy round bubble and centered count label. */
-      const size = group.items.length >= 80 ? 50
-        : group.items.length >= 25 ? 46
-        : 42;
-      width = size;
-      height = size;
-      fill = ALPINE_GL_COLORS[dominantClusterStatus(group.items)] || ALPINE_GL_COLORS.passCluster;
-      this._pushInstance(out, lng, lat, width, height, kind, flags, fill, fill, icon, 0, 0, clusterHover, bornAtSec, 0);
-      const countLabel = this._labelRef(String(group.items.length), "cluster-pass");
+      const countText = pebbleModel.count <= 99 ? String(pebbleModel.count) : "99+";
+      const countLabel = this._labelRef(countText, "cluster-pill");
       if (countLabel) {
-        /* Slightly oversize the label quad so canvas anti-aliasing has
-           pixels to work with at all DPRs; the actual visible text fits
-           within ~70% of this. */
-        const labelSize = group.items.length >= 100 ? 34 : 30;
+        const dominantPebble = pebbleLayout.pebbles[pebbleLayout.dominantIndex] || pebbleLayout.pebbles[0];
+        const labelSize = 36;
+        const hoverScale = 1 + 0.12 * clusterHover;
+        const offsetX = (dominantPebble.cx * width + dominantPebble.r * width * 0.66) * hoverScale;
+        const offsetY = (dominantPebble.cy * height + dominantPebble.r * height * 0.66) * hoverScale;
         this._pushInstance(out, lng, lat, labelSize, labelSize, ALPINE_GL_KIND.label, 0,
-          ALPINE_GL_COLORS.dark, ALPINE_GL_COLORS.dark, countLabel, 0, 0, 0, bornAtSec, 0);
+          ALPINE_GL_COLORS.dark, ALPINE_GL_COLORS.dark, countLabel, offsetX, offsetY, clusterHover, bornAtSec, 0);
       }
-      this._pickItems.push({ type: "cluster", kind: group.kind, id: group.id, group, lng, lat, radius: width * 0.55 });
+      this._pickItems.push({ type: "cluster", kind: group.kind, id: group.id, group, lng, lat, radius: Math.max(width, height) * 0.62 });
       return;
     } else if (isPoi) {
       const plannable = isPlannablePoi(group.item);

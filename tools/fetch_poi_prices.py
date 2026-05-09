@@ -223,7 +223,7 @@ def fetch_wikidata_price_chf(qid: str) -> tuple[float, str] | None:
 
 
 # ─────────────────────────── main loop ────────────────────────────────
-def refresh(*, dry_run: bool = False) -> int:
+def refresh(*, dry_run: bool = False, bootstrap: bool = False) -> int:
     if not any(path.exists() for path, _ in POI_SOURCES):
         print("[refresh] No POI source files found; aborting.", file=sys.stderr)
         return 1
@@ -243,8 +243,18 @@ def refresh(*, dry_run: bool = False) -> int:
 
     by_name = {p.get("n"): p for p in pois if p.get("n")}
 
-    stats = {"updated": 0, "preserved_manual": 0, "preserved_failure": 0, "skipped_no_entry": 0}
+    stats = {
+        "updated": 0,
+        "preserved_manual": 0,
+        "preserved_failure": 0,
+        "skipped_no_entry": 0,
+        "bootstrap_added": 0,
+        "bootstrap_no_qid": 0,
+        "bootstrap_no_price": 0,
+        "bootstrap_error": 0,
+    }
 
+    # ── Pass 1: refresh existing wikidata-tagged entries ──────────────────
     for name, entry in list(entries.items()):
         kind = entry.get("source_kind")
         if kind != "wikidata":
@@ -282,9 +292,55 @@ def refresh(*, dry_run: bool = False) -> int:
             print(f"[refresh] Wikidata fetch failed for {name!r}: {e}", file=sys.stderr)
             stats["preserved_failure"] += 1
 
+    # ── Pass 2 (opt-in): bootstrap new entries from Wikidata for POIs ─────
+    # not yet in the cache. Only commits an entry when Wikidata returns a
+    # real CHF-denominated price; misses are intentionally not persisted
+    # to keep the cache lean. Runs ONLY when --bootstrap is passed because
+    # it makes one Wikidata round-trip per uncached POI (≈600 POIs after
+    # the multi-country expansion ⇒ ~8 min) — too slow for the weekly
+    # cron, but a useful one-shot operation when adding new countries.
+    if bootstrap:
+        existing_names = set(entries.keys())
+        uncached = [p for p in pois if p.get("n") and p["n"] not in existing_names]
+        print(
+            f"[refresh] Bootstrap pass: {len(uncached)} POIs without cache entries; "
+            f"querying Wikidata P2284 (CHF only)."
+        )
+        for i, poi in enumerate(uncached, 1):
+            name = poi["n"]
+            wiki_lang = poi.get("wl") or "en"
+            wiki_title = poi.get("wt") or ""
+            try:
+                qid = resolve_wikidata_qid(wiki_lang, wiki_title)
+                time.sleep(INTER_REQUEST_DELAY_SEC)
+                if not qid:
+                    stats["bootstrap_no_qid"] += 1
+                    continue
+                res = fetch_wikidata_price_chf(qid)
+                time.sleep(INTER_REQUEST_DELAY_SEC)
+                if not res:
+                    stats["bootstrap_no_price"] += 1
+                    continue
+                amount, source_url = res
+                entries[name] = {
+                    "kind": "paid",
+                    "from_adult_chf": round(amount, 2),
+                    "as_of": str(dt.date.today().year),
+                    "source_url": source_url,
+                    "source_kind": "wikidata",
+                    "verified_at": dt.date.today().isoformat(),
+                }
+                stats["bootstrap_added"] += 1
+                print(f"[bootstrap] {i}/{len(uncached)} +{name}: CHF {amount:.2f}")
+            except Exception as e:
+                print(f"[refresh] Bootstrap failed for {name!r}: {e}", file=sys.stderr)
+                stats["bootstrap_error"] += 1
+
     print(
         "[refresh] Done — updated={updated} preserved_manual={preserved_manual} "
-        "preserved_failure={preserved_failure}".format(**stats)
+        "preserved_failure={preserved_failure} "
+        "bootstrap_added={bootstrap_added} bootstrap_no_qid={bootstrap_no_qid} "
+        "bootstrap_no_price={bootstrap_no_price} bootstrap_error={bootstrap_error}".format(**stats)
     )
 
     if dry_run:
@@ -303,8 +359,18 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Run the refresh logic but do not write the cache file.",
     )
+    parser.add_argument(
+        "--bootstrap",
+        action="store_true",
+        help=(
+            "Also query Wikidata for every POI not yet in the cache and "
+            "create entries for the ones with a CHF P2284 price. Slow "
+            "(~1s per POI, ~8 min for the full Alpine dataset) — run on "
+            "demand when adding new POI files; not enabled in CI by default."
+        ),
+    )
     args = parser.parse_args(argv)
-    return refresh(dry_run=args.dry_run)
+    return refresh(dry_run=args.dry_run, bootstrap=args.bootstrap)
 
 
 if __name__ == "__main__":

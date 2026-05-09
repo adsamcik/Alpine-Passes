@@ -20,6 +20,7 @@ on:
       - "assets/js/swiss-pois.js"
       - "assets/js/french-pois.js"
       - "assets/js/italy-pois.js"
+      - "assets/js/austrian-pois.js"
       - "tools/fetch_poi_prices.py"
       - ".github/workflows/refresh-poi-prices.yml"
 

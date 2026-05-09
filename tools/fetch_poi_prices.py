@@ -45,9 +45,10 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parent.parent
 # Per-country POI files. Add new files here as countries are added.
 POI_SOURCES: list[tuple[Path, str]] = [
-    (REPO_ROOT / "assets" / "js" / "swiss-pois.js",  "SWISS_POIS"),
-    (REPO_ROOT / "assets" / "js" / "french-pois.js", "FRENCH_POIS"),
-    (REPO_ROOT / "assets" / "js" / "italy-pois.js",  "ITALY_POIS"),
+    (REPO_ROOT / "assets" / "js" / "swiss-pois.js",    "SWISS_POIS"),
+    (REPO_ROOT / "assets" / "js" / "french-pois.js",   "FRENCH_POIS"),
+    (REPO_ROOT / "assets" / "js" / "italy-pois.js",    "ITALY_POIS"),
+    (REPO_ROOT / "assets" / "js" / "austrian-pois.js", "AUSTRIAN_POIS"),
 ]
 CACHE_FILE = REPO_ROOT / "assets" / "data" / "poi-prices.json"
 

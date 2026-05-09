@@ -1632,6 +1632,10 @@ function addCircleLayer(layer) {
 const ALPINE_GL_LAYER_ID = "alpine-overlay";
 const ALPINE_GL_STRIDE = 39;
 const ALPINE_GL_KIND = { pass: 0, poi: 1, passCluster: 2, poiCluster: 3, label: 4, preview: 5 };
+const ALPINE_GL_ENTRANCE_SECONDS = 0.32;
+const ALPINE_GL_PEBBLE_POP_SECONDS = 0.20;
+const ALPINE_GL_PEBBLE_STAGGER_SECONDS = 0.12;
+const ALPINE_GL_PEBBLE_ENTRANCE_SECONDS = 0.65;
 const ALPINE_GL_LABEL_COLS = 16;
 const ALPINE_GL_LABEL_ROWS = 16;
 const ALPINE_GL_LABEL_CELL = 64;
@@ -1989,6 +1993,19 @@ class AlpineWebGLLayer {
     };
   }
 
+  // Returns transition/unfuse progress for rendered child clusters during cluster split/merge movement animations; full old-cluster pebble flyout is intentionally deferred.
+  _clusterSplitProgress(group, now = performance.now()) {
+    if (!group || group.type !== "cluster" || !this._animations.size) return 0;
+    let progress = 0;
+    for (const item of group.items || []) {
+      const anim = this._animations.get(this._itemAnimationKey(group.kind, item));
+      if (!anim) continue;
+      const t = Math.min(1, Math.max(0, (now - anim.startMs) / this._animationMs));
+      if (t < 1) progress = Math.max(progress, 1 - t);
+    }
+    return progress;
+  }
+
   pickAt(point) {
     if (!this._map || !point) return null;
     for (let i = this._pickItems.length - 1; i >= 0; i--) {
@@ -2079,7 +2096,7 @@ class AlpineWebGLLayer {
     if (!this._reducedMotion && this._featureState.size > 0) {
       const _nowSec = performance.now() / 1000;
       for (const s of this._featureState.values()) {
-        if (_nowSec - s.bornAt >= 0 && _nowSec - s.bornAt < 0.32) {
+        if (_nowSec - s.bornAt >= 0 && _nowSec - s.bornAt < ALPINE_GL_PEBBLE_ENTRANCE_SECONDS) {
           this._map?.triggerRepaint();
           break;
         }
@@ -2186,17 +2203,19 @@ class AlpineWebGLLayer {
         vec4 clip = u_matrix * vec4(a_pos, 0.0, 1.0);
         vec2 ndc = clip.xy / clip.w;
         float elapsed = max(0.0, u_now - a_entrance);
-        float t_entrance = clamp(elapsed / 0.32, 0.0, 1.0);
+        float t_entrance = clamp(elapsed / ${ALPINE_GL_ENTRANCE_SECONDS}, 0.0, 1.0);
         float t_smooth = smoothstep(0.0, 1.0, t_entrance);
         float overshoot = 1.0 + 0.06 * (1.0 - abs(2.0 * t_smooth - 1.0));
-        float entranceScale = u_reduced_motion > 0.5 ? 1.0 : (t_smooth * overshoot);
-        vec2 size = vec2(a_meta.x, a_meta.y) * mix(1.0, 1.12, a_hover) * entranceScale;
+        float isPebbleCluster = step(1.5, a_meta.z) * (1.0 - step(3.5, a_meta.z));
+        float entranceScale = u_reduced_motion > 0.5 ? 1.0 : mix(t_smooth * overshoot, 1.0, isPebbleCluster);
+        float hoverScale = mix(1.12, 1.06, isPebbleCluster);
+        vec2 size = vec2(a_meta.x, a_meta.y) * mix(1.0, hoverScale, a_hover) * entranceScale;
         vec2 pxOffset = a_quad * size + a_offset;
         vec2 ndcOffset = (pxOffset * u_dpr) / (u_viewport * 0.5);
         gl_Position = vec4((ndc + ndcOffset) * clip.w, clip.z, clip.w);
         v_quad = vec4(a_quad + 0.5, a_quad);
         v_meta = a_meta;
-        v_state = vec4(u_time, a_hover, u_reduced_motion > 0.5 ? 1.0 : t_smooth, a_selected);
+        v_state = vec4(u_time, a_hover, u_reduced_motion > 0.5 ? ${ALPINE_GL_PEBBLE_ENTRANCE_SECONDS} : elapsed, a_selected);
         if (a_meta.z > 1.5 && a_meta.z < 3.5) {
           v_fill = a_pebble0;
           v_stroke = a_pebble1;
@@ -2226,7 +2245,7 @@ class AlpineWebGLLayer {
       #define v_local v_quad.zw
       #define v_time v_state.x
       #define v_hover v_state.y
-      #define v_entrance_alpha v_state.z
+      #define v_entrance_elapsed v_state.z
       #define v_selected v_state.w
       uniform float u_pulse_clock;
       const float PI = 3.14159265359;
@@ -2301,6 +2320,29 @@ class AlpineWebGLLayer {
         float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
         return mix(b, a, h) - k * h * (1.0 - h);
       }
+      float entranceAlphaFromElapsed(float elapsed) {
+        return smoothstep(0.0, 1.0, clamp(elapsed / ${ALPINE_GL_ENTRANCE_SECONDS}, 0.0, 1.0));
+      }
+      float easeOutBack(float t) {
+        float x = t - 1.0;
+        float c1 = 1.15;
+        float c3 = c1 + 1.0;
+        return 1.0 + c3 * x * x * x + c1 * x * x;
+      }
+      float pebblePopProgress(float order) {
+        float t = clamp((v_entrance_elapsed - order * ${ALPINE_GL_PEBBLE_STAGGER_SECONDS}) / ${ALPINE_GL_PEBBLE_POP_SECONDS}, 0.0, 1.0);
+        return clamp(easeOutBack(t), 0.0, 1.06);
+      }
+      vec4 animatedPebble(vec4 pebble, float order) {
+        if (pebble.z <= 0.001) return pebble;
+        pebble.z *= pebblePopProgress(order);
+        return pebble;
+      }
+      float pebbleFusionK() {
+        float clusterEntranceT = clamp(v_entrance_elapsed / ${ALPINE_GL_PEBBLE_ENTRANCE_SECONDS}, 0.0, 1.0);
+        float entranceK = mix(0.024, 0.060, smoothstep(0.0, 0.4, clusterEntranceT));
+        return mix(entranceK, 0.006, clamp(v_selected, 0.0, 1.0));
+      }
       float pebbleDistance(vec4 pebble) {
         if (pebble.z <= 0.001) return 1.0;
         return length(v_local - pebble.xy) - pebble.z;
@@ -2351,14 +2393,15 @@ class AlpineWebGLLayer {
         return texture2D(u_uiTex, iconUv).a * chamber;
       }
       vec4 pebblePileMarker() {
-        vec4 pebble0 = v_fill;
-        vec4 pebble1 = v_stroke;
-        vec4 pebble2 = v_icon;
-        vec4 pebble3 = v_pebble3;
+        vec4 pebble0 = animatedPebble(v_fill, 0.0);
+        vec4 pebble1 = animatedPebble(v_stroke, 1.0);
+        vec4 pebble2 = animatedPebble(v_icon, 2.0);
+        vec4 pebble3 = animatedPebble(v_pebble3, 3.0);
+        float fusionK = pebbleFusionK();
         float d = pebbleDistance(pebble0);
-        d = smoothMin(d, pebbleDistance(pebble1), 0.060);
-        d = smoothMin(d, pebbleDistance(pebble2), 0.060);
-        d = smoothMin(d, pebbleDistance(pebble3), 0.060);
+        d = smoothMin(d, pebbleDistance(pebble1), fusionK);
+        d = smoothMin(d, pebbleDistance(pebble2), fusionK);
+        d = smoothMin(d, pebbleDistance(pebble3), fusionK);
 
         float minDim = max(1.0, min(v_meta.x, v_meta.y));
         float aa = max(1.0 / minDim, 0.010);
@@ -2414,15 +2457,16 @@ class AlpineWebGLLayer {
         else if (kind < 3.5) c = pebblePileMarker();
         else if (kind < 4.5) c = labelMarker();
         else c = previewChip();
-        /* Hover brightness boost — only for single pass/poi markers (kind < 2).
-           Clusters, labels and preview chips are unaffected. */
+        /* Hover brightness boost — leaf markers get the stronger lift;
+           pebble clusters get a subtler lift, labels/previews stay neutral. */
         float leafHover = v_hover * (1.0 - step(2.0, kind));
-        float clusterHover = v_hover * step(2.0, kind) * (1.0 - step(3.5, kind));
+        float clusterKind = step(2.0, kind) * (1.0 - step(3.5, kind));
+        float clusterHover = v_hover * clusterKind;
         c.rgb = clamp(c.rgb + 0.20 * leafHover + 0.12 * clusterHover, 0.0, 1.0);
-        // Entrance fade-in
-        c.a *= v_entrance_alpha;
+        // Clusters skip whole-instance fade because individual pebble radius pops are their entrance.
+        c.a *= mix(entranceAlphaFromElapsed(v_entrance_elapsed), 1.0, clusterKind);
         // Selected marker pulse — brightness/alpha boost for leaf markers only
-        if (v_selected > 0.5 && u_pulse_clock < 1.6) {
+        if (kind < 2.0 && v_selected > 0.5 && u_pulse_clock < 1.6) {
           float cycles = u_pulse_clock / 0.55;
           float fr = fract(cycles);
           float ringAlpha = cycles < 2.5 ? (1.0 - fr) * 0.55 : 0.20;
@@ -2679,18 +2723,21 @@ class AlpineWebGLLayer {
       width = pebbleLayout.width;
       height = pebbleLayout.height;
       fill = isPoi ? ALPINE_GL_COLORS.poiCluster : ALPINE_GL_COLORS.passCluster;
-      this._pushInstance(out, lng, lat, width, height, kind, flags, fill, fill, icon, 0, 0, clusterHover, bornAtSec, 0, pebbleLayout.pebbles);
+      const splitProgress = this._clusterSplitProgress(group, now);
+      this._pushInstance(out, lng, lat, width, height, kind, flags, fill, fill, icon, 0, 0, clusterHover, bornAtSec, splitProgress, pebbleLayout.pebbles);
 
       const countText = pebbleModel.count <= 99 ? String(pebbleModel.count) : "99+";
       const countLabel = this._labelRef(countText, "cluster-pill");
       if (countLabel) {
         const dominantPebble = pebbleLayout.pebbles[pebbleLayout.dominantIndex] || pebbleLayout.pebbles[0];
         const labelSize = 36;
-        const hoverScale = 1 + 0.12 * clusterHover;
-        const offsetX = (dominantPebble.cx * width + dominantPebble.r * width * 0.66) * hoverScale;
-        const offsetY = (dominantPebble.cy * height + dominantPebble.r * height * 0.66) * hoverScale;
+        const baseOffsetX = dominantPebble.cx * width + dominantPebble.r * width * 0.66;
+        const baseOffsetY = dominantPebble.cy * height + dominantPebble.r * height * 0.66;
+        const offsetLen = Math.hypot(baseOffsetX, baseOffsetY) || 1;
+        const offsetX = baseOffsetX + (baseOffsetX / offsetLen) * 2 * clusterHover;
+        const offsetY = baseOffsetY + (baseOffsetY / offsetLen) * 2 * clusterHover;
         this._pushInstance(out, lng, lat, labelSize, labelSize, ALPINE_GL_KIND.label, 0,
-          ALPINE_GL_COLORS.dark, ALPINE_GL_COLORS.dark, countLabel, offsetX, offsetY, clusterHover, bornAtSec, 0);
+          ALPINE_GL_COLORS.dark, ALPINE_GL_COLORS.dark, countLabel, offsetX, offsetY, 0, bornAtSec, 0);
       }
       this._pickItems.push({ type: "cluster", kind: group.kind, id: group.id, group, lng, lat, radius: Math.max(width, height) * 0.62 });
       return;

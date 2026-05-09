@@ -1580,7 +1580,8 @@ class AlpineWebGLLayer {
     this._hoverTargetId = null;
     this._hoverAnim = 0;
     this._lastFrameTs = 0;
-    this._featureState = new Map();   // featureId -> { bornAt (sec), lastSeenAt (ms), selectedAt (sec) }
+    this._featureState = new Map();   // featureId -> { bornAt (sec), lastSeenAt (ms), selectedAt (sec), lastGen (int) }
+    this._featureGen = 0;             // monotonically increments per _rebuildInstances call
     this._selectedId = null;
     this._hasLoadedOnce = false;
   }
@@ -1606,7 +1607,7 @@ class AlpineWebGLLayer {
     if (this._selectedId === id) return;
     this._selectedId = id;
     if (id) {
-      const s = this._featureState.get(id) || { bornAt: performance.now() / 1000, lastSeenAt: performance.now() };
+      const s = this._featureState.get(id) || { bornAt: performance.now() / 1000, lastSeenAt: performance.now(), lastGen: this._featureGen };
       s.selectedAt = performance.now() / 1000;
       this._featureState.set(id, s);
     }
@@ -2236,12 +2237,26 @@ class AlpineWebGLLayer {
     this._pickItems = [];
     this._labelEntries = [];
     this._labelKeys = new Map();
+    /* Generation bump — each rebuild is one generation. Features whose
+       state has lastGen === currentGen - 1 were visible in the previous
+       rebuild, so we keep their bornAt instead of re-staggering them.
+       This prevents markers from "blinking out and re-animating" when a
+       moveend/zoomend/resize fires long after the entrance settled. */
+    this._featureGen++;
     const _allGroups = [...this._groups, ...this._transientGroups];
     const _totalGroups = Math.max(1, _allGroups.length);
     let _rank = 0;
     for (const group of this._groups) this._pushGroupInstances(out, group, now, _rank++, _totalGroups);
     for (const group of this._transientGroups) this._pushGroupInstances(out, group, now, _rank++, _totalGroups);
     if (this._start) this._pushStartInstance(out, this._start);
+    /* Prune feature state that hasn't been touched in the last few
+       generations — bounds memory growth as clusters churn over time. */
+    if (this._featureState.size > 4096) {
+      const cutoff = this._featureGen - 8;
+      for (const [id, s] of this._featureState) {
+        if (s.lastGen < cutoff) this._featureState.delete(id);
+      }
+    }
     this._drawLabelAtlas();
     this._labelDirty = true;
     this._instanceCount = out.length / ALPINE_GL_STRIDE;
@@ -2265,12 +2280,18 @@ class AlpineWebGLLayer {
     const featureId = group.id;
     const stagWindowMs = this._hasLoadedOnce ? 120 : 240;
     const prevState = this._featureState.get(featureId);
-    const recentlyVisible = prevState && (now - prevState.lastSeenAt) < 500;
-    const bornAtSec = recentlyVisible
+    /* "Still here" if the feature was rendered in the immediately-
+       previous rebuild generation. Uses a generation counter rather than
+       a wall-clock window because rebuilds are bursty: continuous during
+       animations, then quiescent for arbitrarily long stretches. A time
+       window incorrectly treated long quiet periods as "feature dropped
+       out" and re-staggered the entrance. */
+    const stillHere = prevState && prevState.lastGen === this._featureGen - 1;
+    const bornAtSec = stillHere
       ? prevState.bornAt
       : (now + (rank / totalGroups) * stagWindowMs) / 1000;
     const selectedAt = prevState?.selectedAt || 0;
-    this._featureState.set(featureId, { bornAt: bornAtSec, lastSeenAt: now, selectedAt });
+    this._featureState.set(featureId, { bornAt: bornAtSec, lastSeenAt: now, selectedAt, lastGen: this._featureGen });
     const isSelected = featureId === this._selectedId ? 1 : 0;
     if (isCluster) {
       kind = isPoi ? ALPINE_GL_KIND.poiCluster : ALPINE_GL_KIND.passCluster;

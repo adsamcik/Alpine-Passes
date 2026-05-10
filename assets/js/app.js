@@ -5072,6 +5072,16 @@ timeSlider?.addEventListener("input", () => {
   if (timeLabel) timeLabel.textContent = v % 1 === 0 ? `${v} h` : `${v.toFixed(1)} h`;
   updateTimeTolHint();
 });
+/* Sync the slider labels to whatever value the browser restored on
+   reload. The HTML defaults to 200 km / 6 h, but Firefox/Chrome restore
+   sliders to the last user-set value without firing an `input` event,
+   so the labels would otherwise stay at the hardcoded defaults while
+   the slider thumb sat at the restored position. */
+if (distLabel && distSlider) distLabel.textContent = `${distSlider.value} km`;
+if (timeLabel && timeSlider) {
+  const v = +timeSlider.value;
+  timeLabel.textContent = v % 1 === 0 ? `${v} h` : `${v.toFixed(1)} h`;
+}
 for (const r of targetModeRadios) r.addEventListener("change", syncTargetMode);
 includePoisEl?.addEventListener("change", () => {
   if (poiPrefsEl) poiPrefsEl.hidden = !includePoisEl.checked || advancedModeEl.checked;

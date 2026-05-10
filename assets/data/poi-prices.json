@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "currency": "CHF",
-  "last_refreshed_at": "2026-05-10T19:35:29Z",
+  "last_refreshed_at": "2026-05-10T21:07:20Z",
   "_doc": "Cached starting-prices AND access metadata for POIs in assets/js/*-pois.js. Keyed by POI name (n field). Refreshed on deploy by tools/fetch_poi_prices.py + .github/workflows/refresh-poi-prices.yml. Manually-curated entries (source_kind=manual) are NEVER overwritten by the auto-refresher; only source_kind=wikidata price entries are updated. Optional access fields (url, car_status, parking, entrance, getting_there, operational) are read by app.js's loadPoiPrices to surface real-world parking + entrance info in the POI popup and to redirect 'Open in Google Maps' to the parking lat/lng rather than the POI's display coords for cable-car/car-free destinations.",
   "entries": {
     "Aareschlucht (Aare Gorge)": {
@@ -747,13 +747,6 @@
       "verified_at": "2025-12-01",
       "notes": "Sanctuary entry free; funicular from Locarno CHF 8 return."
     },
-    "Märjelensee": {
-      "kind": "free",
-      "source_url": "https://www.aletscharena.ch/en/",
-      "source_kind": "manual",
-      "verified_at": "2025-12-01",
-      "notes": "Hiking access free; Eggishorn cable car required to reach trail head."
-    },
     "Matterhorn": {
       "kind": "free",
       "source_url": "https://www.zermatt.ch/en/",
@@ -908,18 +901,25 @@
       "verified_at": "2025-12-01",
       "notes": "Punt Muragl–Muottas Muragl funicular return."
     },
+    "Murten / Morat — Medieval Walled Town": {
+      "kind": "free",
+      "source_url": "https://www.regionmurtensee.ch/en",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
+    "Märjelensee": {
+      "kind": "free",
+      "source_url": "https://www.aletscharena.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Hiking access free; Eggishorn cable car required to reach trail head."
+    },
     "Mürren": {
       "kind": "free",
       "source_url": "https://www.muerren.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
       "notes": "Village free; cable cars from Lauterbrunnen are paid (~CHF 16 return)."
-    },
-    "Murten / Morat — Medieval Walled Town": {
-      "kind": "free",
-      "source_url": "https://www.regionmurtensee.ch/en",
-      "source_kind": "manual",
-      "verified_at": "2025-12-01"
     },
     "Neuchâtel — Old Town & Lake": {
       "kind": "free",
@@ -1094,15 +1094,6 @@
       },
       "getting_there": "⚠️ Closed until summer 2026 for funicular reconstruction. When open: park at P2, 1-min walk to the Salzbergseilbahn valley station, ride the funicular to the mine entrance."
     },
-    "Säntis": {
-      "kind": "paid",
-      "from_adult_chf": 64,
-      "as_of": "2024",
-      "source_url": "https://www.saentisbahn.ch/en/",
-      "source_kind": "manual",
-      "verified_at": "2025-12-01",
-      "notes": "Schwägalp–Säntis cable car return."
-    },
     "Schafbergbahn – Steam Cogwheel Railway": {
       "source_kind": "manual",
       "verified_at": "2026-05-10",
@@ -1178,12 +1169,6 @@
       "source_kind": "manual",
       "verified_at": "2025-12-01"
     },
-    "Schöllenen Gorge & Devil's Bridge": {
-      "kind": "free",
-      "source_url": "https://www.andermatt.ch/en/",
-      "source_kind": "manual",
-      "verified_at": "2025-12-01"
-    },
     "Schynige Platte Railway": {
       "kind": "paid",
       "from_adult_chf": 72,
@@ -1192,6 +1177,12 @@
       "source_kind": "manual",
       "verified_at": "2025-12-01",
       "notes": "Wilderswil–Schynige Platte cogwheel return; summer-only."
+    },
+    "Schöllenen Gorge & Devil's Bridge": {
+      "kind": "free",
+      "source_url": "https://www.andermatt.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
     },
     "Seceda": {
       "source_kind": "manual",
@@ -1373,6 +1364,15 @@
       "source_kind": "manual",
       "verified_at": "2025-12-01"
     },
+    "Säntis": {
+      "kind": "paid",
+      "from_adult_chf": 64,
+      "as_of": "2024",
+      "source_url": "https://www.saentisbahn.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Schwägalp–Säntis cable car return."
+    },
     "Tamina Gorge (Taminaschlucht)": {
       "kind": "paid",
       "from_adult_chf": 12,
@@ -1458,15 +1458,6 @@
       "verified_at": "2025-12-01",
       "notes": "Zürich HB–Uetliberg train return; covered by ZVV day pass."
     },
-    "Valère Basilica": {
-      "kind": "paid",
-      "from_adult_chf": 5,
-      "as_of": "2024",
-      "source_url": "https://www.musees-valais.ch/en/musee-de-valere/",
-      "source_kind": "manual",
-      "verified_at": "2025-12-01",
-      "notes": "Basilica + History Museum combined; hilltop walk is free."
-    },
     "Vallée de Joux — Watchmaking Valley": {
       "kind": "free",
       "source_url": "https://www.myvalleedejoux.ch/en/",
@@ -1500,6 +1491,15 @@
         "transfer": "~3-hour hike, 9 km, +650 m elevation gain from Lac des Mesches"
       },
       "getting_there": "Drive D91 west of Tende to Lac des Mesches trailhead (free gravel lot, ~1,395 m); hike ~3 h / 9 km to Refuge des Merveilles. Guided tour mandatory in the core engravings zone."
+    },
+    "Valère Basilica": {
+      "kind": "paid",
+      "from_adult_chf": 5,
+      "as_of": "2024",
+      "source_url": "https://www.musees-valais.ch/en/musee-de-valere/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Basilica + History Museum combined; hilltop walk is free."
     },
     "Verzasca Dam (Contra Dam)": {
       "kind": "free",

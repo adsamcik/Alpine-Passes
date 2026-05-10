@@ -2,7 +2,7 @@
   "schema_version": 1,
   "currency": "CHF",
   "last_refreshed_at": "2026-05-09T17:55:15Z",
-  "_doc": "Cached starting-prices for POIs in assets/js/swiss-pois.js. Keyed by POI name (n field). Refreshed on deploy by tools/fetch_poi_prices.py + .github/workflows/refresh-poi-prices.yml. Manually-curated entries (source_kind=manual) are NEVER overwritten by the auto-refresher; only source_kind=wikidata entries are updated. The committed JSON is the persistent fallback when live fetching fails.",
+  "_doc": "Cached starting-prices AND access metadata for POIs in assets/js/*-pois.js. Keyed by POI name (n field). Refreshed on deploy by tools/fetch_poi_prices.py + .github/workflows/refresh-poi-prices.yml. Manually-curated entries (source_kind=manual) are NEVER overwritten by the auto-refresher; only source_kind=wikidata price entries are updated. Optional access fields (url, car_status, parking, entrance, getting_there, operational) are read by app.js's loadPoiPrices to surface real-world parking + entrance info in the POI popup and to redirect 'Open in Google Maps' to the parking lat/lng rather than the POI's display coords for cable-car/car-free destinations.",
   "entries": {
     "Aareschlucht (Aare Gorge)": {
       "kind": "paid",
@@ -29,6 +29,35 @@
       "source_kind": "manual",
       "verified_at": "2025-12-01"
     },
+    "Aiguille du Midi": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "kind": "paid",
+      "from_adult_chf": 79,
+      "as_of": "2026",
+      "source_url": "https://www.chamonet.com/summer-passes/",
+      "notes": "Cable-car return ticket €83 adult (summer 2026) ≈ CHF 79. Pre-book a boarding number online.",
+      "url": "https://www.montblancnaturalresort.com/en/aiguille-du-midi",
+      "car_status": "park-lower-station",
+      "parking": {
+        "la": 45.91646,
+        "lo": 6.87058,
+        "name": "Parking Centre Ville – Grépon (Chamonix)",
+        "cost": "~€2.40/hr",
+        "currency": "EUR",
+        "spaces": 800,
+        "url": "https://www.chamonet.com/parking",
+        "notes": "Largest outdoor lot in Chamonix (800 spaces summer / 500 winter). Height limit 2.2 m. EV charging on-site. Address: 200 Chemin à Batioret.",
+        "confidence": "low"
+      },
+      "entrance": {
+        "la": 45.91835,
+        "lo": 6.86964,
+        "name": "Aiguille du Midi cable-car valley station (Place de l'Aiguille du Midi)",
+        "transfer": "~210 m, 3-min walk north-northeast from Grépon parking"
+      },
+      "getting_there": "Park at Grépon outdoor lot in Chamonix (800 spaces); 3-min walk to the cable-car valley station (1,035 m); two-stage cable car rises 2,807 m to 3,842 m in ~20 min. Pre-book online."
+    },
     "Albula Railway": {
       "kind": "paid",
       "from_adult_chf": 38,
@@ -37,6 +66,33 @@
       "source_kind": "manual",
       "verified_at": "2025-12-01",
       "notes": "Chur–St. Moritz one-way; covered by Swiss Travel Pass."
+    },
+    "Aletsch Glacier": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "kind": "varies",
+      "source_url": "https://www.aletscharena.ch/en/",
+      "notes": "Cable-car ticket varies by gateway (Bettmeralp / Riederalp / Fiescheralp).",
+      "url": "https://www.aletscharena.ch/en/",
+      "car_status": "gateway-parking",
+      "parking": {
+        "la": 46.37116,
+        "lo": 8.07652,
+        "name": "Bettmeralp Talstation P+R (Betten valley station)",
+        "cost": "CHF 10/day (est.)",
+        "currency": "CHF",
+        "spaces": null,
+        "url": "https://www.aletscharena.ch/en/",
+        "notes": "Parking at the cable-car base in Betten. Bettmeralp village is car-free. Alternatives: Mörel (→ Riederalp) or Fiesch (→ Fiescheralp/Eggishorn 2,869 m, highest viewpoint).",
+        "confidence": "low"
+      },
+      "entrance": {
+        "la": 46.37116,
+        "lo": 8.07652,
+        "name": "Bettmeralp Talstation – cable car to Bettmeralp",
+        "transfer": "Cable car from Betten to car-free Bettmeralp (1,931 m), then Bettmerhorn gondola to 2,647 m glacier viewpoint"
+      },
+      "getting_there": "Park at Bettmeralp Talstation in Betten; cable car to car-free Bettmeralp (1,931 m); Bettmerhorn gondola to 2,647 m for panoramic glacier views (Europe's longest, UNESCO)."
     },
     "Andermatt": {
       "kind": "free",
@@ -204,7 +260,27 @@
       "source_url": "https://www.ebenalp.ch/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Wasserauen–Ebenalp cable car return; gasthaus payment separate."
+      "notes": "Wasserauen–Ebenalp cable car return; gasthaus payment separate.",
+      "url": "https://www.ebenalp.ch/en/",
+      "car_status": "park-lower-station",
+      "parking": {
+        "la": 47.28499,
+        "lo": 9.42869,
+        "name": "Wasserauen parking (Ebenalp cable car base)",
+        "cost": "CHF 5/day (est., coin/app)",
+        "currency": "CHF",
+        "spaces": null,
+        "url": "https://www.ebenalp.ch/en/information",
+        "notes": "Coin-operated (CHF/EUR coins) or local parking app. 2-min walk from Wasserauen railway station (Appenzeller Bahnen S23).",
+        "confidence": "low"
+      },
+      "entrance": {
+        "la": 47.28499,
+        "lo": 9.42869,
+        "name": "Wasserauen – Ebenalp cable car valley station",
+        "transfer": "Cable car (every 15 min, ~5 min) to Ebenalp (1,640 m), then 15-min hike through Wildkirchli cave to Berggasthaus Äscher"
+      },
+      "getting_there": "Park at Wasserauen; 5-min cable car to Ebenalp (1,640 m); hike 15 min through the ancient Wildkirchli cave to iconic Berggasthaus Äscher — Switzerland's most-photographed cliffside inn."
     },
     "Eggishorn": {
       "kind": "paid",
@@ -214,6 +290,35 @@
       "source_kind": "manual",
       "verified_at": "2025-12-01",
       "notes": "Fiesch–Fiescheralp–Eggishorn combined return."
+    },
+    "Eisriesenwelt Ice Cave": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "kind": "paid",
+      "from_adult_chf": 43,
+      "as_of": "2025",
+      "source_url": "https://www.eisriesenwelt.at/en/plan-your-visit/tickets",
+      "notes": "Combi ticket (cable car + cave) €45 cash / €41 online ≈ CHF 43.",
+      "url": "https://www.eisriesenwelt.at/en/plan-your-visit/arrival",
+      "car_status": "park-lower-station",
+      "parking": {
+        "la": 47.5068,
+        "lo": 13.1883,
+        "name": "Eisriesenwelt Visitor Centre Car Park (~1,600 m)",
+        "cost": "free",
+        "currency": "EUR",
+        "spaces": null,
+        "url": "https://www.eisriesenwelt.at/en/plan-your-visit/arrival",
+        "notes": "Reached via a 5 km mountain road (toll-free) from Werfen — gradient up to 21%. Caravans prohibited; motorhomes not recommended. Shuttle bus from Werfen station available in peak season.",
+        "confidence": "medium"
+      },
+      "entrance": {
+        "la": 47.50294,
+        "lo": 13.19025,
+        "name": "Eisriesenwelt Cave Entrance (1,656 m)",
+        "transfer": "3-min cable car from visitor centre + 15–20-min alpine trail to cave entrance"
+      },
+      "getting_there": "Drive to Werfen, then 5 km up the mountain road to the visitor centre (free parking). 3-min cable car + 15-min walk to the cave. Combi ticket €41 online / €45 cash. Open May 1 – Oct 26."
     },
     "Emmentaler Schaukäserei (Affoltern)": {
       "kind": "free",
@@ -335,6 +440,30 @@
       "verified_at": "2025-12-01",
       "notes": "Outdoor castle area free; restaurant separate."
     },
+    "Hallstatt": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "url": "https://www.hallstatt.net/parken-in-hallstatt/pkw/",
+      "car_status": "gateway-parking",
+      "parking": {
+        "la": 47.561,
+        "lo": 13.652,
+        "name": "Parkplatz P1 – Hallstatt Ortsende (near Kalvarienbergkirche)",
+        "cost": "€5/1 hr · €10/3–4 hr · €15/7–12 hr · €20/day",
+        "currency": "EUR",
+        "spaces": null,
+        "url": "https://www.hallstatt.net/parken-in-hallstatt/pkw/",
+        "notes": "P1 is year-round and the only lot with a shuttle bus to hotels in the centre. P2 (near Salzbergseilbahn, seasonal) is closer to Salzwelten. Historic centre is sealed by automatic barriers — no through-traffic.",
+        "confidence": "medium"
+      },
+      "entrance": {
+        "la": 47.5622,
+        "lo": 13.6493,
+        "name": "Hallstatt Marktplatz (village centre)",
+        "transfer": "20-min walk from P1; or shuttle bus from P1 to accommodation (daily 09:00–19:00, year-round)"
+      },
+      "getting_there": "Drive to gated P1/P2 at the village edge (centre is car-free); walk ~20 min or take the shuttle from P1. Centre is sealed by automatic barriers."
+    },
     "Hallwyl Castle (Wasserschloss)": {
       "kind": "paid",
       "from_adult_chf": 15,
@@ -361,6 +490,35 @@
       "verified_at": "2025-12-01",
       "notes": "Interlaken–Harder Kulm funicular return."
     },
+    "Hohensalzburg Fortress": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "kind": "paid",
+      "from_adult_chf": 18,
+      "as_of": "2025",
+      "source_url": "https://www.festung-hohensalzburg.at/en/your-visit/tickets",
+      "notes": "All-inclusive ticket (with funicular) €19.20 adult ≈ CHF 18.",
+      "url": "https://www.festung-hohensalzburg.at/en/",
+      "car_status": "gateway-parking",
+      "parking": {
+        "la": 47.7985,
+        "lo": 13.042,
+        "name": "Altstadt Garage / Parkgarage Mönchsberg (Salzburg Old Town)",
+        "cost": "~€3–5/hr (city garage)",
+        "currency": "EUR",
+        "spaces": null,
+        "url": "https://www.festung-hohensalzburg.at/en/your-visit/contact-directions",
+        "notes": "Salzburg Altstadt is a pedestrian zone — no car access to the fortress hill. Nearest garages: Altstadt (under Mönchsberg cliff) and Mirabell. Walk 10–20 min to Festungsgasse funicular base.",
+        "confidence": "low"
+      },
+      "entrance": {
+        "la": 47.79644,
+        "lo": 13.04604,
+        "name": "Festungsbahn Lower Station – Festungsgasse (Salzburg)",
+        "transfer": "1-min funicular (every 10 min, 55 pax/car); or 30-min footpath up Festungsberg"
+      },
+      "getting_there": "Park in an Altstadt garage (old town is pedestrian-only); walk 10–20 min to Festungsgasse; take the Festungsbahn funicular (1 min) to the fortress. All-inclusive ticket €19.20."
+    },
     "Iseltwald": {
       "kind": "free",
       "source_url": "https://www.iseltwald.ch/",
@@ -375,7 +533,56 @@
       "source_url": "https://www.jungfrau.ch/en-gb/jungfraujoch-top-of-europe/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Interlaken Ost return; cheaper Good Morning ticket and seasonal discounts available."
+      "notes": "Interlaken Ost return; cheaper Good Morning ticket and seasonal discounts available.",
+      "url": "https://www.jungfrau.ch/en-gb/jungfraujoch-top-of-europe/",
+      "car_status": "park-lower-station",
+      "parking": {
+        "la": 46.6239,
+        "lo": 8.0464,
+        "name": "Grindelwald Terminal car park",
+        "cost": "CHF 12/day (est.)",
+        "currency": "CHF",
+        "spaces": 1032,
+        "url": "https://www.jungfrau.ch/en-gb/grindelwald-terminal/",
+        "notes": "1,032-space multi-storey at Grindelwald Terminal (Grundstrasse 54). Eiger Express departure hub. Alternative: Lauterbrunnen village (~CHF 5–8/day) + Wengernalp Railway + Jungfrau Railway.",
+        "confidence": "low"
+      },
+      "entrance": {
+        "la": 46.6239,
+        "lo": 8.0464,
+        "name": "Grindelwald Terminal – Eiger Express tricable gondola",
+        "transfer": "Eiger Express gondola to Eigergletscher (15 min), then Jungfrau Railway cogwheel through Eiger–Mönch tunnel to Jungfraujoch (30 min)"
+      },
+      "getting_there": "Park at Grindelwald Terminal (1,032 spaces); board the Eiger Express gondola (15 min) to Eigergletscher; transfer to the Jungfrau cogwheel railway for the 30-min tunnel climb."
+    },
+    "Kaiser-Franz-Josefs-Höhe": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "kind": "paid",
+      "from_adult_chf": 44,
+      "as_of": "2026",
+      "source_url": "https://www.grossglockner.at/en/for-your-visit/prices-opening-times",
+      "notes": "Großglockner High Alpine Road car day toll €46.50 (2026) ≈ CHF 44. After 18:00 €36.50; E-car €40. Road open late Apr – late Oct.",
+      "url": "https://www.grossglockner.at/en/for-your-visit/prices-opening-times",
+      "car_status": "summer-pass",
+      "parking": {
+        "la": 47.0754,
+        "lo": 12.7511,
+        "name": "Kaiser-Franz-Josefs-Höhe Summit Car Park (2,369 m)",
+        "cost": "included in road toll (€46.50/car/day, 2026)",
+        "currency": "EUR",
+        "spaces": null,
+        "url": "https://www.grossglockner.at/en/for-your-visit/how-to-get-here",
+        "notes": "Toll booths: Ferleiten (Salzburg/N) or Heiligenblut (Carinthia/S). Parking is free once the toll is paid. The parking IS the destination — no further transfer needed.",
+        "confidence": "high"
+      },
+      "entrance": {
+        "la": 47.0754,
+        "lo": 12.7511,
+        "name": "Kaiser-Franz-Josefs-Höhe Visitor Centre & Glacier Overlook (2,369 m)",
+        "transfer": "Drive directly — parking at destination"
+      },
+      "getting_there": "Pay €46.50 toll at Ferleiten (N) or Heiligenblut (S). Drive the 48 km scenic Großglockner High Alpine Road to the summit car park. Open late Apr – late Oct."
     },
     "Klein Matterhorn – Matterhorn Glacier Paradise": {
       "kind": "paid",
@@ -384,7 +591,27 @@
       "source_url": "https://www.matterhornparadise.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Zermatt–Matterhorn Glacier Paradise return."
+      "notes": "Zermatt–Matterhorn Glacier Paradise return.",
+      "url": "https://www.matterhornparadise.ch/en/",
+      "car_status": "gateway-parking",
+      "parking": {
+        "la": 46.06972,
+        "lo": 7.7825,
+        "name": "Matterhorn Terminal Täsch (P+R)",
+        "cost": "CHF 16/day",
+        "currency": "CHF",
+        "spaces": 2100,
+        "url": "https://www.matterhornterminal.ch/",
+        "notes": "Covered multi-storey garage. Required because Zermatt is car-free. Open-air lots also available in Täsch at lower rates (~CHF 8/day). Pre-book in peak season.",
+        "confidence": "medium"
+      },
+      "entrance": {
+        "la": 46.02389,
+        "lo": 7.74861,
+        "name": "Zermatt – Matterhorn Glacier Paradise valley station",
+        "transfer": "Shuttle train Täsch → Zermatt every 20 min (12 min) + ~10-min walk to cable-car valley station"
+      },
+      "getting_there": "Park Matterhorn Terminal Täsch (CHF 16/day, 2,100 covered spaces); 12-min shuttle train to car-free Zermatt; 10-min walk to Matterhorn Glacier Paradise cable car."
     },
     "Klöntalersee": {
       "kind": "free",
@@ -404,6 +631,35 @@
       "source_url": "https://www.valdanniviers.ch/en/lac-de-moiry",
       "source_kind": "manual",
       "verified_at": "2025-12-01"
+    },
+    "Lago di Braies (Pragser Wildsee)": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "kind": "paid",
+      "from_adult_chf": 36,
+      "as_of": "2023",
+      "source_url": "https://www.pragsparking.com/en",
+      "notes": "P4 parking €38/day (2023 ref) ≈ CHF 36. Includes a meal voucher.",
+      "url": "https://www.pragsparking.com/en",
+      "car_status": "shuttle",
+      "parking": {
+        "la": 46.6939,
+        "lo": 12.0824,
+        "name": "Parcheggio P4 Lago di Braies",
+        "cost": "~€38/day (2023 ref; book online)",
+        "currency": "EUR",
+        "spaces": 400,
+        "url": "https://www.pragsparking.com/en",
+        "notes": "Online booking MANDATORY in peak season (1 Jul–15 Sep, 09:00–16:00). 9 free spaces for EU disability-permit holders. Off-peak: park freely without booking. Alternative: free bus 442 from Villabassa.",
+        "confidence": "medium"
+      },
+      "entrance": {
+        "la": 46.69472,
+        "lo": 12.08444,
+        "name": "Lago di Braies / Pragser Wildsee shoreline",
+        "transfer": "Walk ~5 min south from P4 to the lake shore and Hotel Pragser Wildsee"
+      },
+      "getting_there": "Peak season (1 Jul–15 Sep, 09:00–16:00): road closed — book P4 online in advance or take bus 442 from Villabassa. Off-peak: drive directly to P4 (~€38/day)."
     },
     "Lake Lucerne Paddle Steamers": {
       "kind": "paid",
@@ -491,12 +747,77 @@
       "verified_at": "2025-12-01",
       "notes": "Sanctuary entry free; funicular from Locarno CHF 8 return."
     },
+    "Märjelensee": {
+      "kind": "free",
+      "source_url": "https://www.aletscharena.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Hiking access free; Eggishorn cable car required to reach trail head."
+    },
     "Matterhorn": {
       "kind": "free",
       "source_url": "https://www.zermatt.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
       "notes": "Mountain itself; viewing from Zermatt is free, lifts to high viewpoints are not."
+    },
+    "Mer de Glace & Montenvers Railway": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "kind": "paid",
+      "from_adult_chf": 30,
+      "as_of": "2026",
+      "source_url": "https://en.chamonix.com/activites-en-famille/mer-de-glace-et-train-du-montenvers",
+      "notes": "Train-only return €31.50 adult; full package (train + cable car + ice cave + exhibitions) €49.70 (2026).",
+      "url": "https://en.chamonix.com/activites-en-famille/mer-de-glace-et-train-du-montenvers",
+      "car_status": "park-lower-station",
+      "parking": {
+        "la": 45.92362,
+        "lo": 6.87584,
+        "name": "Parking du Biolay (free) / fallback: Parking du Mont Blanc (underground, 239 spaces)",
+        "cost": "Biolay: free; Mont Blanc underground: ~€2.40/hr",
+        "currency": "EUR",
+        "spaces": null,
+        "url": "https://www.chamonet.com/parking",
+        "notes": "Biolay is the nearest free surface lot on Avenue Cachat le Géant, ~120 m from the Montenvers railway departure. Fills quickly. Fallback: Parking du Mont Blanc underground (~350 m).",
+        "confidence": "medium"
+      },
+      "entrance": {
+        "la": 45.92262,
+        "lo": 6.87532,
+        "name": "Chamonix-Montenvers rack railway valley station (Place de la Mer de Glace)",
+        "transfer": "~120 m walk from Biolay lot; ~350 m from Parking du Mont Blanc"
+      },
+      "getting_there": "Park at Biolay (free) or Parking du Mont Blanc on Avenue du Mont Blanc; 2–4-min walk to the Montenvers rack railway station; 20-min cog ride to Montenvers (1,913 m); gondola descends to the Mer de Glace ice cave."
+    },
+    "Mont Blanc": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "kind": "paid",
+      "from_adult_chf": 79,
+      "as_of": "2026",
+      "source_url": "https://www.montblancnaturalresort.com/en/aiguille-du-midi",
+      "notes": "Mont Blanc summit (4,806 m) is climber-only. Recommended public viewpoint = Aiguille du Midi (3,842 m). Cable-car return €83 adult ≈ CHF 79.",
+      "url": "https://www.montblancnaturalresort.com/en/aiguille-du-midi",
+      "car_status": "park-lower-station",
+      "parking": {
+        "la": 45.91646,
+        "lo": 6.87058,
+        "name": "Parking Centre Ville – Grépon (Chamonix)",
+        "cost": "~€2.40/hr",
+        "currency": "EUR",
+        "spaces": 800,
+        "url": "https://www.chamonet.com/parking",
+        "notes": "Same routing as Aiguille du Midi. Mont Blanc itself is foot/technical-climb only — the Aiguille du Midi is the definitive public viewing platform.",
+        "confidence": "low"
+      },
+      "entrance": {
+        "la": 45.91835,
+        "lo": 6.86964,
+        "name": "Aiguille du Midi cable-car valley station — gateway to Mont Blanc viewpoint",
+        "transfer": "~210 m walk from Grépon parking; cable car 20 min to summit viewpoint"
+      },
+      "getting_there": "Mont Blanc (4,806 m) is climber-only; the recommended public viewpoint is the Aiguille du Midi (3,842 m). Park at Grépon, 3-min walk to cable car, ride 20 min to summit. Bring warm layers."
     },
     "Mont Fort": {
       "kind": "paid",
@@ -587,25 +908,18 @@
       "verified_at": "2025-12-01",
       "notes": "Punt Muragl–Muottas Muragl funicular return."
     },
-    "Murten / Morat — Medieval Walled Town": {
-      "kind": "free",
-      "source_url": "https://www.regionmurtensee.ch/en",
-      "source_kind": "manual",
-      "verified_at": "2025-12-01"
-    },
-    "Märjelensee": {
-      "kind": "free",
-      "source_url": "https://www.aletscharena.ch/en/",
-      "source_kind": "manual",
-      "verified_at": "2025-12-01",
-      "notes": "Hiking access free; Eggishorn cable car required to reach trail head."
-    },
     "Mürren": {
       "kind": "free",
       "source_url": "https://www.muerren.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
       "notes": "Village free; cable cars from Lauterbrunnen are paid (~CHF 16 return)."
+    },
+    "Murten / Morat — Medieval Walled Town": {
+      "kind": "free",
+      "source_url": "https://www.regionmurtensee.ch/en",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
     },
     "Neuchâtel — Old Town & Lake": {
       "kind": "free",
@@ -620,7 +934,27 @@
       "source_url": "https://www.oeschinensee.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Kandersteg–Oeschinen gondola return; lake itself is free if hiked up."
+      "notes": "Kandersteg–Oeschinen gondola return; lake itself is free if hiked up.",
+      "url": "https://www.oeschinensee.ch/en/",
+      "car_status": "park-lower-station",
+      "parking": {
+        "la": 46.4962,
+        "lo": 7.6759,
+        "name": "Oeschinensee Cable Car valley station parking (Kandersteg)",
+        "cost": "CHF 8/day (est.)",
+        "currency": "CHF",
+        "spaces": null,
+        "url": "https://www.oeschinensee.ch/en/anreise/",
+        "notes": "Open from 06:00. Max vehicle 5 m × 2 m. 8 × 11 kW EV chargers in P2. Fills by midday on summer weekends — arrive early. Campers use Schützenhaus / Sunnbüel.",
+        "confidence": "low"
+      },
+      "entrance": {
+        "la": 46.4962,
+        "lo": 7.6759,
+        "name": "Kandersteg – Oeschinensee Cable Car valley station",
+        "transfer": "Gondola (~5 min) + 25–30-min walk to lake shore at 1,578 m; electric taxi available in summer"
+      },
+      "getting_there": "Park at the Oeschinensee gondola station in Kandersteg; ride the gondola (~5 min); walk 25–30 min to the UNESCO-listed lake shore at 1,578 m."
     },
     "Old City of Bern": {
       "kind": "free",
@@ -735,6 +1069,64 @@
       "source_kind": "manual",
       "verified_at": "2025-12-01"
     },
+    "Salzwelten Hallstatt – World's Oldest Salt Mine": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "operational": false,
+      "url": "https://www.salzwelten.at/en/hallstatt/",
+      "car_status": "park-lower-station",
+      "parking": {
+        "la": 47.5628,
+        "lo": 13.655,
+        "name": "Parkplatz P2 – near Salzbergseilbahn Talstation (Hallstatt-Lahn)",
+        "cost": "€5/1 hr · €15/7–12 hr · €20/day",
+        "currency": "EUR",
+        "spaces": null,
+        "url": "https://www.hallstatt.net/parken-in-hallstatt/pkw/",
+        "notes": "⚠️ CLOSED since 1 September 2025 for funicular reconstruction; reopening expected summer 2026. Alternative: daily shuttle bus from Hallstatt to Salzwelten Altaussee mine. P2 is seasonal (spring–autumn).",
+        "confidence": "medium"
+      },
+      "entrance": {
+        "la": 47.56175,
+        "lo": 13.65528,
+        "name": "Salzwelten Hallstatt – Bergstation Salt Mine Entrance (~850 m)",
+        "transfer": "Standseilbahn (funicular) from Hallstatt-Lahn — CURRENTLY UNDER RECONSTRUCTION"
+      },
+      "getting_there": "⚠️ Closed until summer 2026 for funicular reconstruction. When open: park at P2, 1-min walk to the Salzbergseilbahn valley station, ride the funicular to the mine entrance."
+    },
+    "Säntis": {
+      "kind": "paid",
+      "from_adult_chf": 64,
+      "as_of": "2024",
+      "source_url": "https://www.saentisbahn.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Schwägalp–Säntis cable car return."
+    },
+    "Schafbergbahn – Steam Cogwheel Railway": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "url": "https://www.schafbergbahn.at/en/schafbergbahn/",
+      "car_status": "park-lower-station",
+      "parking": {
+        "la": 47.7392,
+        "lo": 13.4471,
+        "name": "St. Wolfgang Municipal Car Park (near Schafbergbahn ErlebnisQuartier)",
+        "cost": "~€5–8/day",
+        "currency": "EUR",
+        "spaces": null,
+        "url": "https://www.schafbergbahn.at/en/schafbergbahn/arrival/",
+        "notes": "Municipal lots in St. Wolfgang am Wolfgangsee, walking distance to the ErlebnisQuartier valley station. Railway runs daily 25 Apr – 1 Nov 2026.",
+        "confidence": "low"
+      },
+      "entrance": {
+        "la": 47.7392,
+        "lo": 13.4471,
+        "name": "Schafbergbahn ErlebnisQuartier Valley Station (St. Wolfgang, 542 m)",
+        "transfer": "35-min steam cogwheel rack railway to Schafbergspitze (1,732 m); optional Schafbergalm mid-station (1,363 m, 30 min)"
+      },
+      "getting_there": "Drive to St. Wolfgang am Wolfgangsee; park near the ErlebnisQuartier valley station. Board the historic steam rack railway for a 35-min climb to the summit. Runs Apr 25 – Nov 1."
+    },
     "Schaffhausen & Munot Fortress": {
       "kind": "free",
       "source_url": "https://www.munot.ch/en/",
@@ -748,7 +1140,27 @@
       "source_url": "https://schilthorn.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Stechelberg–Schilthorn cable car return."
+      "notes": "Stechelberg–Schilthorn cable car return.",
+      "url": "https://www.schilthorn.ch/en/",
+      "car_status": "park-lower-station",
+      "parking": {
+        "la": 46.5497,
+        "lo": 7.9003,
+        "name": "Stechelberg – Schilthornbahn valley station parking",
+        "cost": "free",
+        "currency": "CHF",
+        "spaces": null,
+        "url": null,
+        "notes": "Free outdoor parking at the end of the Lauterbrunnen Valley road. Overflows on busy summer days — alternative paid parking in Lauterbrunnen village + postbus.",
+        "confidence": "medium"
+      },
+      "entrance": {
+        "la": 46.5497,
+        "lo": 7.9003,
+        "name": "Stechelberg – Schilthornbahn valley station",
+        "transfer": "Stechelberg–Mürren cable car (world's steepest 159.4%, Dec 2024) to car-free Mürren, then cable car via Birg to Schilthorn (~45 min total)"
+      },
+      "getting_there": "Drive to Stechelberg (free parking, end of the valley road); board the world's steepest cable car to car-free Mürren; change cable car via Birg for the final ascent to Piz Gloria at 2,970 m."
     },
     "Schloss Spiez (Spiez Castle)": {
       "kind": "paid",
@@ -766,6 +1178,12 @@
       "source_kind": "manual",
       "verified_at": "2025-12-01"
     },
+    "Schöllenen Gorge & Devil's Bridge": {
+      "kind": "free",
+      "source_url": "https://www.andermatt.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01"
+    },
     "Schynige Platte Railway": {
       "kind": "paid",
       "from_adult_chf": 72,
@@ -775,17 +1193,117 @@
       "verified_at": "2025-12-01",
       "notes": "Wilderswil–Schynige Platte cogwheel return; summer-only."
     },
-    "Schöllenen Gorge & Devil's Bridge": {
-      "kind": "free",
-      "source_url": "https://www.andermatt.ch/en/",
+    "Seceda": {
       "source_kind": "manual",
-      "verified_at": "2025-12-01"
+      "verified_at": "2026-05-10",
+      "kind": "paid",
+      "from_adult_chf": 70,
+      "as_of": "2026",
+      "source_url": "https://www.seceda.it/en/",
+      "notes": "Adult return Ortisei → Seceda €74 (2026, confirmed seceda.it) ≈ CHF 70.",
+      "url": "https://www.seceda.it/en/",
+      "car_status": "park-lower-station",
+      "parking": {
+        "la": 46.5762,
+        "lo": 11.6726,
+        "name": "Ortisei village parking near Talstation Seceda",
+        "cost": "~€2/hr (municipal lots)",
+        "currency": "EUR",
+        "spaces": null,
+        "url": "https://www.ortisei.it/",
+        "notes": "Multiple public car parks in Ortisei (St. Ulrich) near the gondola valley station. Gondola: 2-stage Ortisei → Furnes → Seceda ridge. Dogs €7, bikes €7.",
+        "confidence": "low"
+      },
+      "entrance": {
+        "la": 46.60054,
+        "lo": 11.72607,
+        "name": "Seceda upper gondola station / ridge viewpoint (2,518 m)",
+        "transfer": "2-stage gondola: Ortisei → Furnes (~12 min) + Furnes → Seceda (~13 min)"
+      },
+      "getting_there": "Drive to Ortisei (Val Gardena); park near the gondola valley station; 2-stage cable car to Seceda ridge. Adult return €74 (2026)."
     },
     "Seerenbach Falls & Walensee": {
       "kind": "free",
       "source_url": "https://www.heidiland.com/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01"
+    },
+    "Seiser Alm (Alpe di Siusi)": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "url": "https://www.seiseralm.it/en/info-service/mobility/seiser-alm-aerial-cableway-summer.html",
+      "car_status": "park-lower-station",
+      "parking": {
+        "la": 46.5387,
+        "lo": 11.5491,
+        "name": "Parkplatz Seis-Seiser Alm Bahn (Schlernstraße 39, Seis am Schlern)",
+        "cost": "free (outdoor); paid (underground)",
+        "currency": "EUR",
+        "spaces": null,
+        "url": "https://www.seiseralm.it/en/info-service/mobility/seiser-alm-aerial-cableway-summer.html",
+        "notes": "Large outdoor lot is FREE; underground garages charge a fee. 3 EV charging stations. Road to the plateau is CLOSED 09:00–17:00 to non-residents while the cable car runs (May–Nov).",
+        "confidence": "high"
+      },
+      "entrance": {
+        "la": 46.5274,
+        "lo": 11.6267,
+        "name": "Compatsch (Seiser Alm gondola top station, ~1,850 m)",
+        "transfer": "Seiser Alm Aerial Cableway ~15 min from Seis am Schlern (peak 08:00–19:00, summer 22 May – 2 Nov)"
+      },
+      "getting_there": "Park free at Seis am Schlern gondola station (Schlernstraße 39, outdoor). Road to Seiser Alm plateau is closed 09:00–17:00 for non-residents — use the gondola (~15 min)."
+    },
+    "Sirmione": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "url": "https://www.comune.sirmione.bs.it/",
+      "car_status": "gateway-parking",
+      "parking": {
+        "la": 45.4948,
+        "lo": 10.6052,
+        "name": "Parcheggio Sirmione Centro / P+R (Via Colombare area)",
+        "cost": "~€2–3/hr; ~€15/day flat (peak)",
+        "currency": "EUR",
+        "spaces": 600,
+        "url": "https://www.comune.sirmione.bs.it/",
+        "notes": "Multiple parking zones at the peninsula entrance, outside the ZTL: P1 (Via Brescia — closest, highest cost), P2 (Via Colombare — main paid lot), free lots further out. ZTL cameras control access to the historic centre.",
+        "confidence": "medium"
+      },
+      "entrance": {
+        "la": 45.49194,
+        "lo": 10.60833,
+        "name": "Scaligero Castle gate / ZTL boundary (old town entrance)",
+        "transfer": "Walk 5–10 min from P+R through the castle gate into the car-free peninsula"
+      },
+      "getting_there": "Drive to Sirmione and park on Via Colombare / Via Brescia (outside the ZTL). The historic peninsula is car-free; walk 5–10 min through the castle gate."
+    },
+    "Skyway Monte Bianco": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "kind": "paid",
+      "from_adult_chf": 57,
+      "as_of": "2025",
+      "source_url": "https://www.skywaymontebianco.com/en/",
+      "notes": "Cable-car round-trip ≈ €55–65 (2025 estimate) ≈ CHF 57.",
+      "url": "https://www.skywaymontebianco.com/en/",
+      "car_status": "park-lower-station",
+      "parking": {
+        "la": 45.8155,
+        "lo": 6.957,
+        "name": "Parcheggio Pontal d'Entrèves (Skyway base station)",
+        "cost": "~€5–10/day (est.)",
+        "currency": "EUR",
+        "spaces": null,
+        "url": "https://www.skywaymontebianco.com/en/",
+        "notes": "Parking adjacent to the cable-car base in Pontal d'Entrèves (Courmayeur, Aosta Valley). Cabins rotate 360°; 80 passengers/cabin; base 1,300 m → Pavillon 2,173 m → Pointe Helbronner 3,466 m.",
+        "confidence": "low"
+      },
+      "entrance": {
+        "la": 45.81583,
+        "lo": 6.95639,
+        "name": "Skyway Monte Bianco base station, Pontal d'Entrèves (1,300 m)",
+        "transfer": "Cable car: ~6 min to Pavillon (2,173 m); +7 min to Pointe Helbronner (3,466 m)"
+      },
+      "getting_there": "Drive to Pontal d'Entrèves near Courmayeur (Aosta Valley); park at the cable-car base; take Skyway up to Pavillon (2,173 m) or onward to Pointe Helbronner (3,466 m)."
     },
     "Soglio": {
       "kind": "free",
@@ -855,15 +1373,6 @@
       "source_kind": "manual",
       "verified_at": "2025-12-01"
     },
-    "Säntis": {
-      "kind": "paid",
-      "from_adult_chf": 64,
-      "as_of": "2024",
-      "source_url": "https://www.saentisbahn.ch/en/",
-      "source_kind": "manual",
-      "verified_at": "2025-12-01",
-      "notes": "Schwägalp–Säntis cable car return."
-    },
     "Tamina Gorge (Taminaschlucht)": {
       "kind": "paid",
       "from_adult_chf": 12,
@@ -894,6 +1403,35 @@
       "verified_at": "2025-12-01",
       "notes": "Hilltop ruins free to walk; closed Nov–Mar."
     },
+    "Tre Cime di Lavaredo": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "kind": "paid",
+      "from_adult_chf": 28,
+      "as_of": "2025",
+      "source_url": "https://www.rifugioauronzo.it/en/",
+      "notes": "Toll road SP49 from Misurina ≈ €30/car ≈ CHF 28. May–October only.",
+      "url": "https://www.rifugioauronzo.it/en/",
+      "car_status": "summer-pass",
+      "parking": {
+        "la": 46.6073,
+        "lo": 12.3188,
+        "name": "Parcheggio Rifugio Auronzo (2,320 m)",
+        "cost": "~€30/car (toll road SP49 from Misurina)",
+        "currency": "EUR",
+        "spaces": 900,
+        "url": "https://www.rifugioauronzo.it/en/",
+        "notes": "Pay toll at Misurina barrier on entry. Open end of May–October. Direct at trailhead; main Tre Cime circuit ~10 km / 3 h from here. Winter access on foot/snowshoe only.",
+        "confidence": "medium"
+      },
+      "entrance": {
+        "la": 46.6073,
+        "lo": 12.3188,
+        "name": "Rifugio Auronzo trailhead (2,320 m)",
+        "transfer": "Walk <1 min from parking to trailhead; main circuit ~10 km, 3 hr"
+      },
+      "getting_there": "Drive from Misurina up toll road SP49; pay ~€30/car at the barrier; park at Rifugio Auronzo (2,320 m), the main trailhead. Open May–October only."
+    },
     "Trift Bridge (Triftbrücke)": {
       "kind": "paid",
       "from_adult_chf": 32,
@@ -920,13 +1458,6 @@
       "verified_at": "2025-12-01",
       "notes": "Zürich HB–Uetliberg train return; covered by ZVV day pass."
     },
-    "Vallée de Joux — Watchmaking Valley": {
-      "kind": "free",
-      "source_url": "https://www.myvalleedejoux.ch/en/",
-      "source_kind": "manual",
-      "verified_at": "2025-12-01",
-      "notes": "Valley access free; Espace Horloger CHF 12."
-    },
     "Valère Basilica": {
       "kind": "paid",
       "from_adult_chf": 5,
@@ -936,6 +1467,40 @@
       "verified_at": "2025-12-01",
       "notes": "Basilica + History Museum combined; hilltop walk is free."
     },
+    "Vallée de Joux — Watchmaking Valley": {
+      "kind": "free",
+      "source_url": "https://www.myvalleedejoux.ch/en/",
+      "source_kind": "manual",
+      "verified_at": "2025-12-01",
+      "notes": "Valley access free; Espace Horloger CHF 12."
+    },
+    "Vallée des Merveilles": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "kind": "varies",
+      "source_url": "https://www.vallee-merveilles.com/",
+      "notes": "Trailhead access is free; the core engravings zone in Mercantour NP requires a licensed guide (groups capped at 15).",
+      "url": "https://www.mercantour-parcnational.fr/en/",
+      "car_status": "no-car",
+      "parking": {
+        "la": 44.07052,
+        "lo": 7.52423,
+        "name": "Parking Lac des Mesches (trailhead, D91 Mesches, Tende)",
+        "cost": "free (historically)",
+        "currency": "EUR",
+        "spaces": null,
+        "url": "https://www.mercantour-parcnational.fr/en/",
+        "notes": "Gravel trailhead parking at the end of D91 in Mesches hamlet (Tende, ~1,395 m). Seasonal (~June–October). Casterino (~1,540 m, narrower road) is a shorter alternative.",
+        "confidence": "low"
+      },
+      "entrance": {
+        "la": 44.07611,
+        "lo": 7.43833,
+        "name": "Refuge des Merveilles / Vallée des Merveilles engravings zone",
+        "transfer": "~3-hour hike, 9 km, +650 m elevation gain from Lac des Mesches"
+      },
+      "getting_there": "Drive D91 west of Tende to Lac des Mesches trailhead (free gravel lot, ~1,395 m); hike ~3 h / 9 km to Refuge des Merveilles. Guided tour mandatory in the core engravings zone."
+    },
     "Verzasca Dam (Contra Dam)": {
       "kind": "free",
       "source_url": "https://www.tenero-contra.ch/en/",
@@ -943,12 +1508,65 @@
       "verified_at": "2025-12-01",
       "notes": "Free public viewing; bungee jump from operator separate."
     },
+    "Villa del Balbianello": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "kind": "paid",
+      "from_adult_chf": 14,
+      "as_of": "2025",
+      "source_url": "https://www.fondoambiente.it/villa-del-balbianello-eng",
+      "notes": "FAI: Garden/Park only €15 (≈ CHF 14); Villa guided tour + Garden €25.",
+      "url": "https://www.fondoambiente.it/villa-del-balbianello-eng",
+      "car_status": "no-car",
+      "parking": {
+        "la": 45.97,
+        "lo": 9.2115,
+        "name": "Parcheggio Lido di Lenno / Tremezzina (lakefront)",
+        "cost": "free or low-cost municipal",
+        "currency": "EUR",
+        "spaces": 50,
+        "url": "https://www.fondoambiente.it/villa-del-balbianello-eng",
+        "notes": "Park in Tremezzina (formerly Lenno) near Lido di Lenno. Limited spaces — arrive early. NO public car access to the villa. Two routes: taxi boat from Lido di Lenno (~10 min, Bellagio Boat Service, fee) OR walk 1 km / ~25 min uphill from Lenno.",
+        "confidence": "high"
+      },
+      "entrance": {
+        "la": 45.97528,
+        "lo": 9.20611,
+        "name": "Villa del Balbianello (Dosso d'Avedo promontory, Lake Como)",
+        "transfer": "Taxi boat from Lido di Lenno ~10 min OR walk 1 km uphill from Lenno (~25 min)"
+      },
+      "getting_there": "Drive to Tremezzina (Lenno); park at Lido di Lenno (~50 spaces). Reach the villa by taxi boat (~10 min, fee) or walk 1 km uphill from Lenno (~25 min). FAI booking: villadelbalbianello.it."
+    },
     "Zermatt": {
       "kind": "free",
       "source_url": "https://www.zermatt.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
       "notes": "Car-free village free to enter; cable cars and Gornergrat extra."
+    },
+    "Zugspitze": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "url": "https://www.zugspitze.at/en/",
+      "car_status": "park-lower-station",
+      "parking": {
+        "la": 47.4264,
+        "lo": 10.9431,
+        "name": "Obermoos Car Park – Tiroler Zugspitzbahn Valley Station (Ehrwald, 1,225 m)",
+        "cost": "~€5–7/day",
+        "currency": "EUR",
+        "spaces": null,
+        "url": "https://www.zugspitze.at/en/",
+        "notes": "Parking at Obermoos is at the AUSTRIAN-side cable-car valley station in Ehrwald, Tyrol. The German-side approach (Eibsee or Bavarian rack railway from Garmisch) is separate.",
+        "confidence": "low"
+      },
+      "entrance": {
+        "la": 47.42111,
+        "lo": 10.98528,
+        "name": "Zugspitze Summit – Tiroler Zugspitzbahn Top Station (2,950 m)",
+        "transfer": "10-min cable car from Obermoos/Ehrwald valley station (3.6 km, 100-person cabin)"
+      },
+      "getting_there": "Drive to Ehrwald (Obermoos) in Tyrol; park at the valley station; 10-min Austrian-side cable car to the summit (2,950 m). Distinct from German-side routes."
     },
     "Zürich Old Town & Grossmünster": {
       "kind": "free",

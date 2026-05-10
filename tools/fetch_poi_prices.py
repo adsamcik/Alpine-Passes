@@ -8,6 +8,14 @@ value from Wikidata's price property (P2284). Entries tagged
 ``source_kind: "manual"`` are NEVER overwritten — they are the
 human-curated baseline.
 
+The cache also carries optional access-metadata fields per entry — `url`,
+`car_status`, `parking`, `entrance`, `getting_there`, `operational` — which
+the front-end uses to render real-world parking + entrance info in the POI
+popup. This refresher does NOT touch any of those fields; they are kept
+strictly manual and only ever rewritten by intentional human edits or the
+session-state apply-pilot script in `.copilot/...`. The price-claim refresh
+path leaves all sibling fields untouched.
+
 Critical safety guarantees (preserve persistent fallback data):
 
 * If parsing the POI source file fails, the script aborts without writing.

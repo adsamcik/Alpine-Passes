@@ -313,6 +313,15 @@ const POIS = POI_RAW.map((d, i) => ({
   priceAsOf:         null,
   priceSourceUrl:    null,
   priceNotes:        null,
+  /* Access metadata (filled in async by loadPoiPrices()). Surfaces real-world
+     parking + entrance info in the POI popup so users know where to park
+     when the POI is up a cable car or behind a P+R / shuttle / toll road. */
+  officialUrl:    null,        // canonical official site (separate from priceSourceUrl)
+  carStatus:      null,        // "direct" | "park-lower-station" | "gateway-parking" | "shuttle" | "summer-pass" | "no-car"
+  parking:        null,        // { la, lo, name, cost, currency, spaces, url, notes, confidence }
+  poiEntrance:    null,        // { la, lo, name, transfer }
+  gettingThere:   null,        // human explainer for the popup
+  operational:    true,        // false = permanently/long-term closed (renovation etc.)
 }));
 const POI_BY_ID = new Map(POIS.map(p => [p.id, p]));
 /* Hard-filter to POIs the OSRM road router can actually reach.  Anything
@@ -322,23 +331,44 @@ const PLANNABLE_POIS = POIS.filter(p => p.poiAccess.includes("car"));
 const PLANNABLE_POI_IDS = new Set(PLANNABLE_POIS.map(p => p.id));
 function isPlannablePoi(p) { return p?.isPoi && PLANNABLE_POI_IDS.has(p.id); }
 
-/* ─────────────────────── POI starting-prices ───────────────────────
+/* ─────────────────────── POI starting-prices & access metadata ─────────────
    Loaded from `assets/data/poi-prices.json` (committed cache refreshed
    on deploy via tools/fetch_poi_prices.py + the refresh-poi-prices
    GitHub Actions workflow). The committed JSON is the persistent
-   fallback so we always have *some* price data even if the live fetch
+   fallback so we always have *some* data even if the live fetch
    fails. Each entry is keyed by the POI's raw `n` field (kept on
    `poi.rawName` after normalisation). The fetch is best-effort: a
-   missing or unreachable cache simply leaves POIs without prices.
+   missing or unreachable cache simply leaves POIs without enrichment.
 
-   Schema of each entry:
+   Schema of each entry — ALL FIELDS OPTIONAL:
+     ── Price (existing) ──
      kind            "paid" | "free" | "varies" | "donation"
      from_adult_chf  number — only when kind === "paid"
      as_of           year string for context (e.g. "2024")
-     source_url      official source URL
+     source_url      official source URL for the price claim
      source_kind     "manual" | "wikidata"  (refresher only updates wikidata)
      verified_at     YYYY-MM-DD
-     notes           optional free-text
+     notes           optional free-text on the price
+
+     ── Access (NEW) ──
+     url             canonical official website (distinct from source_url)
+     car_status      "direct" | "park-lower-station" | "gateway-parking"
+                     | "shuttle" | "summer-pass" | "no-car"
+     parking         { la, lo, name, cost, currency, spaces, url, notes,
+                       confidence } — recommended parking for car visitors
+     entrance        { la, lo, name, transfer } — the actual visitor entrance
+                     (cable-car valley station, ticket office, trailhead) when
+                     it differs from the POI's display coords
+     getting_there   human explainer (≤220 chars) shown in the popup
+     operational     false marks a long-term closure (renovation etc.);
+                     defaults to true when omitted
+
+   The popup uses the access fields to render a "Getting there" block, a
+   "🅿️ Park: …" line with a direct Google-Maps-to-parking link, an
+   "Official site ↗" link, and a closure warning when operational === false.
+   Tour planning still uses the POI's own la/lo for OSRM routing — the
+   parking lat/lng is *informational* for now, surfaced as a direct external
+   link rather than entangled with the internal route solver.
 */
 async function loadPoiPrices() {
   try {
@@ -356,6 +386,13 @@ async function loadPoiPrices() {
       p.priceAsOf        = e.as_of || null;
       p.priceSourceUrl   = e.source_url || null;
       p.priceNotes       = e.notes || null;
+      /* Access metadata — optional fields. Missing fields silently no-op. */
+      p.officialUrl  = e.url || null;
+      p.carStatus    = e.car_status || null;
+      p.parking      = (e.parking && typeof e.parking === "object") ? e.parking : null;
+      p.poiEntrance  = (e.entrance && typeof e.entrance === "object") ? e.entrance : null;
+      p.gettingThere = e.getting_there || null;
+      p.operational  = e.operational === false ? false : true;
       matched++;
     });
     if (matched > 0 && typeof renderPoiList === "function") {
@@ -393,6 +430,59 @@ function poiPriceLong(poi) {
         : null;
     default: return null;
   }
+}
+
+/* Human label for the car_status enum from poi-prices.json. */
+const POI_CAR_STATUS_LABELS = {
+  "direct":             "Drive direct",
+  "park-lower-station": "Park & cable car",
+  "gateway-parking":    "Park & walk (car-free zone)",
+  "shuttle":            "Shuttle required",
+  "summer-pass":        "Toll road · seasonal",
+  "no-car":             "No car access",
+};
+function poiCarStatusLabel(s) { return POI_CAR_STATUS_LABELS[s] || ""; }
+
+/* Build the "Getting there" / parking block for the POI popup. Returns an
+   empty string if the POI has no enriched access metadata. */
+function poiAccessHtml(poi) {
+  if (!poi) return "";
+  const parts = [];
+
+  /* Operational status — only render if explicitly false. */
+  if (poi.operational === false) {
+    const closure = poi.parking?.notes || "Temporarily closed — check the official site.";
+    parts.push(`<div class="popup-meta tight poi-closed-line"><strong>⚠️ Currently closed:</strong> ${escapeHtml(closure.split(".")[0] + ".")}</div>`);
+  }
+
+  /* car_status chip + "Getting there" sentence. */
+  if (poi.carStatus && poi.carStatus !== "direct") {
+    const chip = `<span class="poi-car-status-chip" data-status="${escapeHtml(poi.carStatus)}">${escapeHtml(poiCarStatusLabel(poi.carStatus))}</span>`;
+    parts.push(`<div class="popup-meta tight poi-car-status-line">${chip}${
+      poi.gettingThere ? ` <span class="poi-getting-there">${escapeHtml(poi.gettingThere)}</span>` : ""
+    }</div>`);
+  } else if (poi.gettingThere) {
+    parts.push(`<div class="popup-meta tight poi-getting-there-line"><strong>Getting there:</strong> ${escapeHtml(poi.gettingThere)}</div>`);
+  }
+
+  /* Parking block. */
+  if (poi.parking && Number.isFinite(poi.parking.la) && Number.isFinite(poi.parking.lo)) {
+    const pk = poi.parking;
+    const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${pk.la},${pk.lo}&travelmode=driving`;
+    const bits = [];
+    if (pk.cost) bits.push(escapeHtml(pk.cost));
+    if (Number.isFinite(pk.spaces) && pk.spaces > 0) bits.push(`${pk.spaces} spaces`);
+    const meta = bits.length ? ` <span class="poi-parking-meta">· ${bits.join(" · ")}</span>` : "";
+    const opLink = pk.url ? ` <a class="poi-parking-source" href="${escapeHtml(pk.url)}" target="_blank" rel="noopener">operator ↗</a>` : "";
+    parts.push(`<div class="popup-meta tight poi-parking-line"><strong>🅿️ Park:</strong> ${escapeHtml(pk.name || "Recommended parking")}${meta} <a class="poi-parking-link" href="${escapeHtml(mapsUrl)}" target="_blank" rel="noopener">drive ↗</a>${opLink}</div>`);
+  }
+
+  /* Official site link (only when distinct from the price source). */
+  if (poi.officialUrl && poi.officialUrl !== poi.priceSourceUrl) {
+    parts.push(`<div class="popup-meta tight poi-official-line"><a class="popup-link" href="${escapeHtml(poi.officialUrl)}" target="_blank" rel="noopener">Official site ↗</a></div>`);
+  }
+
+  return parts.join("");
 }
 
 /* Static taxonomy used by the POI picker filter dropdowns. */
@@ -4775,6 +4865,7 @@ function buildPoiPopupHtml(poi) {
         <div class="popup-meta tight"><strong>Access:</strong> ${accessLine || "—"}</div>
         <div class="popup-meta tight"><strong>Season:</strong> ${seasonLine || "—"}</div>
         ${priceHtml}
+        ${poiAccessHtml(poi)}
       </div>
       <footer class="popup-foot">
         <a class="popup-link" href="${wikiHref}" target="_blank" rel="noopener">Wikipedia ↗</a>

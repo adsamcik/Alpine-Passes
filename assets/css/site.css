@@ -3506,3 +3506,148 @@ input[type="range"]:disabled {
   padding: 2px 6px;
   flex: 0 0 auto;
 }
+
+/* ===== popup polish: POI popup design + UX fixes ===== */
+/* Issues addressed (from user screenshot of Ruinaulta POI popup):
+   1. MapLibre native zoom controls (+/−) at top-left rendered through the
+      popup's hero image when the popup landed near the corner.
+   2. Theme chips wrapped to 2-3 ragged lines with inconsistent visual
+      weight against the description body.
+   3. Head row crammed title + multi-word category chip side-by-side,
+      forcing the title to wrap awkwardly on narrower popups.
+   4. Footer 'Add to selected route' button felt heavy compared to the
+      Wikipedia link pair-mate. */
+
+/* 1. Hide map zoom + style picker while a popup is open — they'd
+   otherwise show through the popup hero. The mobile sheet already
+   slides the layer-control out the same way; extend to the top-left
+   group on all screen sizes. */
+[data-popup-open="true"] .maplibregl-ctrl-top-left .maplibregl-ctrl-group,
+[data-popup-open="true"] .maplibregl-ctrl-top-right .maplibregl-ctrl-group {
+  transition: opacity 200ms linear, transform 200ms cubic-bezier(.2, .7, .2, 1);
+  opacity: 0;
+  transform: scale(0.94) translateY(-2px);
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-popup-open="true"] .maplibregl-ctrl-top-left .maplibregl-ctrl-group,
+  [data-popup-open="true"] .maplibregl-ctrl-top-right .maplibregl-ctrl-group {
+    transition: opacity 80ms linear;
+    transform: none;
+  }
+}
+
+/* 2. POI head: title gets full width on its own line, category chip
+   moves under it as a small inline badge. Removes the title-vs-chip
+   horizontal squeeze. */
+.poi-popup .popup-head {
+  padding: 12px 14px 6px;
+}
+.poi-popup .popup-head-row {
+  display: block; /* was flex space-between */
+}
+.poi-popup .popup-title {
+  font-size: 17px;
+  letter-spacing: -0.005em;
+  line-height: 1.2;
+  margin: 0 0 6px;
+}
+.poi-popup .poi-cat-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px 3px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 999px;
+  /* Subtle accent-tinted pill instead of the full purple block — reads
+     as 'metadata' rather than competing with the title. */
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 26%, transparent);
+}
+.poi-popup .poi-cat-badge .poi-cat-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+.poi-popup .popup-head .popup-meta {
+  font-size: 11.5px;
+  color: var(--fg-soft, var(--fg-dim));
+  margin-top: 6px;
+  letter-spacing: 0.005em;
+}
+
+/* 3. Theme chips: tighter, more uniform, secondary visual weight so
+   they don't compete with the description above them. */
+.poi-popup .poi-theme-chips {
+  gap: 5px 5px;
+  margin: 8px 0 10px;
+}
+.poi-popup .poi-theme-chip {
+  font-size: 10.5px;
+  padding: 2.5px 8px;
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--fg-soft, var(--fg-dim));
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  letter-spacing: 0.01em;
+  font-weight: 500;
+  white-space: nowrap;
+  line-height: 1.35;
+}
+
+/* 4. Section divider before access/season/price block — subtle hairline
+   so the field-like info reads as a distinct group from the prose. */
+.poi-popup .popup-body .popup-meta.tight:first-of-type {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+.poi-popup .popup-body .popup-meta.tight strong {
+  display: inline-block;
+  min-width: 56px;
+  color: var(--fg-soft, var(--fg-dim));
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 10px;
+}
+
+/* 5. Footer polish — Wikipedia link gets a tiny pill style so the two
+   actions feel like a balanced pair instead of "link vs button". */
+.poi-popup .popup-foot {
+  padding: 12px 14px 13px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  margin-top: 4px;
+}
+.poi-popup .popup-foot .popup-link {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+  padding: 6px 10px;
+  border-radius: 8px;
+  transition: background-color 0.15s ease;
+}
+.poi-popup .popup-foot .popup-link:hover {
+  background: rgba(84, 209, 255, 0.08);
+}
+
+/* 6. Price source link reads tertiary — accent but lighter weight so the
+   actual price value stays the eye-catcher. */
+.poi-popup .poi-price-source {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--accent);
+  text-decoration: none;
+}
+.poi-popup .poi-price-source:hover {
+  text-decoration: underline;
+}
+.poi-popup .poi-price-note {
+  font-size: 11px;
+  color: var(--fg-soft, var(--fg-dim));
+  font-style: italic;
+  margin-top: 3px;
+  line-height: 1.4;
+}

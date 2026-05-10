@@ -1620,7 +1620,6 @@ const map = new maplibregl.Map({
   preserveDrawingBuffer: true,
 });
 window.alpineMap = map;
-map.getCanvas().classList.add("alpine-overlay-canvas");
 
 map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-left");
 updateMapInfo(defaultBaseLayerName);
@@ -1662,80 +1661,6 @@ const PASS_LAYER_STATUS_LABELS = {
 function allPassStatusFilterSet() {
   return new Set([...PASS_LAYER_STATUS_KEYS, "estimated"]);
 }
-const LAYER_MODE_STORAGE_KEY = "alpine.layerMode.v1";
-const LAYER_MODE_PRIOR_STORAGE_KEY = "alpine.layerMode.priorMode";
-const LAYER_MODE_LOCKED_STORAGE_KEY = "alpine.layerMode.locked";
-const LAYER_MODE_IDS = ["survey", "plan", "explore"];
-const LAYER_MODE_DEFINITIONS = {
-  survey: {
-    id: "survey",
-    icon: "🗺",
-    label: "Survey",
-    description: "What's drivable now?",
-    basemap: "Liberty vector",
-    passOverlayVisible: true,
-    passStatuses: ["open", "restricted", "unknown", "estimated"],
-    passQualityMin: 0.2,
-    poiLayerVisible: false,
-    poiThemePreset: "",
-    poiQualityMin: 0.6,
-    poiPlannableOnly: false,
-    soloFocus: false,
-  },
-  plan: {
-    id: "plan",
-    icon: "🧭",
-    label: "Plan",
-    description: "Build a tour",
-    basemap: "Liberty vector",
-    passOverlayVisible: true,
-    passStatuses: ["open", "restricted", "closed", "unknown", "estimated"],
-    passQualityMin: 0.6,
-    poiLayerVisible: true,
-    poiThemePreset: "",
-    poiQualityMin: 0.6,
-    poiPlannableOnly: true,
-    soloFocus: true,
-  },
-  explore: {
-    id: "explore",
-    icon: "📷",
-    label: "Explore",
-    description: "Discover scenic content",
-    basemap: "Positron vector",
-    passOverlayVisible: false,
-    passStatuses: ["open", "restricted", "closed", "unknown", "estimated"],
-    passQualityMin: 0.8,
-    poiLayerVisible: true,
-    poiThemePreset: "photo",
-    poiQualityMin: 0.8,
-    poiPlannableOnly: false,
-    soloFocus: false,
-  },
-};
-function readLayerModeStorage(key, fallback = "") {
-  try {
-    return window.localStorage?.getItem(key) || fallback;
-  } catch (_) {
-    return fallback;
-  }
-}
-function writeLayerModeStorage(key, value) {
-  try {
-    if (value === "" || value == null) window.localStorage?.removeItem(key);
-    else window.localStorage?.setItem(key, String(value));
-  } catch (_) {}
-}
-function sanitizeLayerModeId(modeId, fallback = "survey") {
-  return LAYER_MODE_IDS.includes(modeId) ? modeId : fallback;
-}
-const LayerMode = {
-  current: sanitizeLayerModeId(readLayerModeStorage(LAYER_MODE_STORAGE_KEY, "survey")),
-  prior: sanitizeLayerModeId(readLayerModeStorage(LAYER_MODE_PRIOR_STORAGE_KEY, ""), ""),
-  locked: readLayerModeStorage(LAYER_MODE_LOCKED_STORAGE_KEY, "false") === "true",
-  customized: false,
-};
-window.LayerMode = LayerMode;
 const POI_LAYER_PRESET_IDS = ["photo", "family", "cultural", "hidden", "wine"];
 const POI_LAYER_PRESET_LABELS = {
   photo: "Photo",
@@ -1757,180 +1682,6 @@ const layerControlState = {
 };
 let layerControlInstance = null;
 let conditionsStripInstance = null;
-let applyingLayerModePreset = false;
-let layerModeGhostTimer = null;
-let layerModeToastTimer = null;
-let layerModeToastEl = null;
-
-function layerModeDefinition(modeId = LayerMode.current) {
-  return LAYER_MODE_DEFINITIONS[sanitizeLayerModeId(modeId)];
-}
-
-function setLayerModePrior(modeId) {
-  const prior = LAYER_MODE_IDS.includes(modeId) ? modeId : "";
-  LayerMode.prior = prior;
-  writeLayerModeStorage(LAYER_MODE_PRIOR_STORAGE_KEY, prior);
-}
-
-function prefersReducedLayerModeMotion() {
-  return !!window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-}
-
-function showLayerModeGhost(modeId) {
-  if (prefersReducedLayerModeMotion()) return;
-  const container = map.getContainer();
-  container.querySelectorAll(".alpine-layer-mode-ghost").forEach(el => el.remove());
-  clearTimeout(layerModeGhostTimer);
-  const def = layerModeDefinition(modeId);
-  const ghost = document.createElement("div");
-  ghost.className = "alpine-layer-mode-ghost";
-  ghost.textContent = `${def.icon} ${def.label} mode`;
-  ghost.setAttribute("aria-hidden", "true");
-  container.appendChild(ghost);
-  requestAnimationFrame(() => ghost.classList.add("is-visible"));
-  layerModeGhostTimer = setTimeout(() => {
-    ghost.classList.remove("is-visible");
-    setTimeout(() => ghost.remove(), 180);
-  }, 600);
-}
-
-function runLayerModeTransition(modeId) {
-  if (prefersReducedLayerModeMotion()) return;
-  const canvas = map.getCanvas?.();
-  canvas?.classList.add("is-layer-mode-dipping");
-  setTimeout(() => canvas?.classList.remove("is-layer-mode-dipping"), 300);
-  showLayerModeGhost(modeId);
-}
-
-function showLayerModeToast(message) {
-  if (!layerModeToastEl) {
-    layerModeToastEl = document.createElement("div");
-    layerModeToastEl.className = "alpine-map-toast";
-    layerModeToastEl.setAttribute("role", "status");
-    layerModeToastEl.setAttribute("aria-live", "polite");
-    map.getContainer().appendChild(layerModeToastEl);
-  }
-  layerModeToastEl.textContent = message;
-  layerModeToastEl.classList.add("is-visible");
-  clearTimeout(layerModeToastTimer);
-  layerModeToastTimer = setTimeout(() => {
-    layerModeToastEl?.classList.remove("is-visible");
-  }, 1400);
-}
-
-function markLayerModeCustomized() {
-  if (applyingLayerModePreset || LayerMode.customized) return;
-  LayerMode.customized = true;
-  refreshLayerControlUI();
-}
-
-function applyLayerModeBasemap(name, { initial = false } = {}) {
-  const next = VECTOR_BASEMAPS.find(b => b.name === name);
-  if (!next) return;
-  if (!initial) {
-    setBaseMapByName(next.name);
-    return;
-  }
-  const changed = currentBaseLayerName !== next.name;
-  currentBaseLayerName = next.name;
-  updateMapInfo(currentBaseLayerName);
-  if (changed) {
-    map.setStyle(next.style);
-    map.once("idle", restoreMapLayers);
-  }
-}
-
-function applyLayerModeDefaults(modeId, { initial = false, animate = false, persist = true } = {}) {
-  const def = layerModeDefinition(modeId);
-  applyingLayerModePreset = true;
-  try {
-    LayerMode.current = def.id;
-    LayerMode.customized = false;
-    if (persist) writeLayerModeStorage(LAYER_MODE_STORAGE_KEY, def.id);
-    layerControlState.passOverlayVisible = !!def.passOverlayVisible;
-    layerControlState.passStatuses = new Set(def.passStatuses);
-    layerControlState.passStatusLatch = "";
-    layerControlState.passQualityMin = Number(def.passQualityMin) || 0;
-    poiLayerVisible = !!def.poiLayerVisible;
-    layerControlState.poiFamilies = new Set(POI_FAMILY_KEYS);
-    layerControlState.poiThemePreset = def.poiThemePreset || "";
-    layerControlState.poiQualityMin = Number(def.poiQualityMin) || 0;
-    layerControlState.poiPlannableOnly = !!def.poiPlannableOnly;
-    layerControlState.soloFocus = !!def.soloFocus && plannedRouteActive;
-    applyLayerModeBasemap(def.basemap, { initial });
-    if (!initial) {
-      alpineOverlayLayer.setSoloFocus(layerControlState.soloFocus);
-      map.getContainer().classList.toggle("pass-stack-solo-focus", layerControlState.soloFocus);
-    }
-  } finally {
-    applyingLayerModePreset = false;
-  }
-  if (!initial) {
-    if (animate) runLayerModeTransition(def.id);
-    notifyLayerFiltersChanged({ passes: true, pois: true });
-  }
-}
-
-function notifyInitialLayerModePresetApplied() {
-  let notified = false;
-  const notifyOnce = () => {
-    if (notified) return;
-    notified = true;
-    setTimeout(() => notifyLayerFiltersChanged({ passes: true, pois: true }), 0);
-  };
-  if (typeof map.loaded === "function" && map.loaded()) {
-    notifyOnce();
-  } else if (typeof map.once === "function") {
-    map.once("load", notifyOnce);
-    map.once("idle", notifyOnce);
-  } else {
-    notifyOnce();
-  }
-}
-
-function setLayerModeLocked(locked) {
-  LayerMode.locked = !!locked;
-  writeLayerModeStorage(LAYER_MODE_LOCKED_STORAGE_KEY, LayerMode.locked ? "true" : "false");
-  refreshLayerControlUI();
-  showLayerModeToast(LayerMode.locked ? "Mode locked" : "Mode unlocked");
-}
-
-function setPlannedRouteActive(next) {
-  const active = !!next;
-  if (plannedRouteActive === active) return;
-  plannedRouteActive = active;
-  if (active) {
-    if (LayerMode.current === "plan") setLayerSoloFocus(true);
-    if (LayerMode.locked) {
-      showLayerModeToast("Mode locked");
-      refreshLayerControlUI();
-      return;
-    }
-    if (LayerMode.current !== "plan") {
-      setLayerModePrior(LayerMode.current);
-      applyLayerModeDefaults("plan", { animate: true });
-    }
-    return;
-  }
-  setLayerSoloFocus(false);
-  if (LayerMode.locked) {
-    setLayerModePrior("");
-    showLayerModeToast("Mode locked");
-    refreshLayerControlUI();
-    return;
-  }
-  if (LayerMode.current === "plan" && LayerMode.prior) {
-    const restoreMode = sanitizeLayerModeId(LayerMode.prior, "survey");
-    setLayerModePrior("");
-    applyLayerModeDefaults(restoreMode, { animate: true });
-    return;
-  }
-  setLayerModePrior("");
-  refreshLayerControlUI();
-}
-
-applyLayerModeDefaults(LayerMode.current, { initial: true });
-notifyInitialLayerModePresetApplied();
 
 function passLayerControlQualityLabel() {
   const stars = Math.round(layerControlState.passQualityMin * 5);
@@ -4454,7 +4205,6 @@ class AlpineConditionsStrip {
       e.stopPropagation();
       const statusBtn = e.target.closest("[data-condition-status]");
       if (statusBtn && this._root.contains(statusBtn)) {
-        markLayerModeCustomized();
         setLayerPassStatusLatch(statusBtn.dataset.conditionStatus);
         return;
       }
@@ -4595,31 +4345,12 @@ class AlpineLayerControl {
         <button type="button" class="pass-stack-close" data-action="close-drawer" aria-label="Close layer drawer">×</button>
       </div>
       <div class="pass-stack-drawer-body">
-        ${this._modeSectionHtml()}
         ${this._basemapSectionHtml()}
         ${this._passesSectionHtml()}
         ${this._sightsSectionHtml()}
         ${this._tourSectionHtml()}
       </div>`;
     return drawer;
-  }
-
-  _modeSectionHtml() {
-    const chips = LAYER_MODE_IDS.map(id => {
-      const mode = layerModeDefinition(id);
-      return `<div class="pass-stack-mode-item" data-layer-mode-item="${escapeHtml(id)}">
-        <button type="button" class="pass-stack-theme pass-stack-mode-chip" data-layer-mode="${escapeHtml(id)}" aria-pressed="false">
-          <span class="pass-stack-mode-name"><span aria-hidden="true">${escapeHtml(mode.icon)}</span><span>${escapeHtml(mode.label)}</span></span>
-          <small>${escapeHtml(mode.description)}</small>
-        </button>
-        <button type="button" class="pass-stack-mode-lock" data-layer-mode-lock="${escapeHtml(id)}" aria-label="Lock mode" title="Lock mode">🔓</button>
-        <button type="button" class="pass-stack-mode-custom" data-layer-mode-reset="${escapeHtml(id)}" title="Restore ${escapeHtml(mode.label)} defaults">Customized</button>
-      </div>`;
-    }).join("");
-    return `<section class="pass-stack-section pass-stack-mode-section">
-      <div class="pass-stack-section-title"><span>Mode</span><small>Preset starting point</small></div>
-      <div class="pass-stack-mode-row">${chips}</div>
-    </section>`;
   }
 
   _basemapSectionHtml() {
@@ -4715,32 +4446,13 @@ class AlpineLayerControl {
         this._setDrawerOpen(false);
         return;
       }
-      const resetBtn = e.target.closest("[data-layer-mode-reset]");
-      if (resetBtn) {
-        applyLayerModeDefaults(LayerMode.current, { animate: true });
-        return;
-      }
-      const lockBtn = e.target.closest("[data-layer-mode-lock]");
-      if (lockBtn) {
-        setLayerModeLocked(!LayerMode.locked);
-        return;
-      }
-      const modeBtn = e.target.closest("[data-layer-mode]");
-      if (modeBtn) {
-        const modeId = modeBtn.dataset.layerMode;
-        if (modeId === LayerMode.current && !LayerMode.customized) return;
-        applyLayerModeDefaults(modeId, { animate: true });
-        return;
-      }
       const basemapBtn = e.target.closest("[data-basemap]");
       if (basemapBtn) {
-        if (basemapBtn.dataset.basemap !== currentBaseLayerName) markLayerModeCustomized();
         setBaseMapByName(basemapBtn.dataset.basemap);
         return;
       }
       const statusBtn = e.target.closest("[data-pass-status]");
       if (statusBtn) {
-        markLayerModeCustomized();
         const key = statusBtn.dataset.passStatus;
         layerControlState.passStatusLatch = "";
         if (layerControlState.passStatuses.has(key)) layerControlState.passStatuses.delete(key);
@@ -4750,7 +4462,6 @@ class AlpineLayerControl {
       }
       const familyBtn = e.target.closest("[data-poi-family]");
       if (familyBtn) {
-        markLayerModeCustomized();
         const key = familyBtn.dataset.poiFamily;
         if (layerControlState.poiFamilies.has(key)) layerControlState.poiFamilies.delete(key);
         else layerControlState.poiFamilies.add(key);
@@ -4759,7 +4470,6 @@ class AlpineLayerControl {
       }
       const presetBtn = e.target.closest("[data-poi-preset]");
       if (presetBtn) {
-        markLayerModeCustomized();
         const id = presetBtn.dataset.poiPreset;
         layerControlState.poiThemePreset = layerControlState.poiThemePreset === id ? "" : id;
         notifyLayerFiltersChanged({ pois: true });
@@ -4767,28 +4477,22 @@ class AlpineLayerControl {
     });
     this._drawer.addEventListener("input", e => {
       if (e.target.matches("[data-pass-quality]")) {
-        markLayerModeCustomized();
         layerControlState.passQualityMin = (Number(e.target.value) || 0) / 5;
         notifyLayerFiltersChanged({ passes: true });
       } else if (e.target.matches("[data-poi-quality]")) {
-        markLayerModeCustomized();
         layerControlState.poiQualityMin = (Number(e.target.value) || 0) / 5;
         notifyLayerFiltersChanged({ pois: true });
       }
     });
     this._drawer.addEventListener("change", e => {
       if (e.target.matches("[data-pass-overlay]")) {
-        markLayerModeCustomized();
         setPassOverlayVisible(e.target.checked);
       } else if (e.target.matches("#mapPoiToggle")) {
-        markLayerModeCustomized();
         setPoiLayerVisible(e.target.checked);
       } else if (e.target.matches("[data-poi-plannable]")) {
-        markLayerModeCustomized();
         layerControlState.poiPlannableOnly = !!e.target.checked;
         notifyLayerFiltersChanged({ pois: true });
       } else if (e.target.matches("[data-solo-focus]")) {
-        markLayerModeCustomized();
         setLayerSoloFocus(e.target.checked);
       }
     });
@@ -4802,16 +4506,12 @@ class AlpineLayerControl {
       this._root.classList.toggle("is-strip-open");
       this.refresh();
     } else if (action === "cycle-map") {
-      markLayerModeCustomized();
       cycleBaseMap();
     } else if (action === "toggle-passes") {
-      markLayerModeCustomized();
       setPassOverlayVisible(!layerControlState.passOverlayVisible);
     } else if (action === "toggle-sights") {
-      markLayerModeCustomized();
       setPoiLayerVisible(!poiLayerVisible);
     } else if (action === "toggle-tour") {
-      markLayerModeCustomized();
       setLayerSoloFocus(!layerControlState.soloFocus);
     } else if (action === "open-drawer") {
       this._setDrawerOpen(true);
@@ -4851,30 +4551,6 @@ class AlpineLayerControl {
     this._root.classList.toggle("is-drawer-open", this._drawerOpen);
     this._drawer.classList.toggle("is-open", this._drawerOpen);
     this._drawer.setAttribute("aria-hidden", String(!this._drawerOpen));
-
-    this._drawer.querySelectorAll("[data-layer-mode-item]").forEach(item => {
-      const active = item.dataset.layerModeItem === LayerMode.current;
-      item.classList.toggle("is-active", active);
-      item.classList.toggle("is-customized", active && LayerMode.customized);
-      item.classList.toggle("is-locked", active && LayerMode.locked);
-    });
-    this._drawer.querySelectorAll("[data-layer-mode]").forEach(btn => {
-      const active = btn.dataset.layerMode === LayerMode.current;
-      btn.classList.toggle("is-active", active);
-      btn.setAttribute("aria-pressed", String(active));
-      btn.setAttribute("title", active ? "Restore mode defaults" : `Switch to ${layerModeDefinition(btn.dataset.layerMode).label} mode`);
-    });
-    this._drawer.querySelectorAll("[data-layer-mode-lock]").forEach(btn => {
-      const active = btn.dataset.layerModeLock === LayerMode.current;
-      btn.hidden = !active;
-      btn.textContent = LayerMode.locked ? "🔒" : "🔓";
-      btn.classList.toggle("is-locked", LayerMode.locked);
-      btn.setAttribute("aria-label", LayerMode.locked ? "Unlock mode auto-switch" : "Lock mode auto-switch");
-      btn.setAttribute("title", LayerMode.locked ? "Unlock mode" : "Lock mode");
-    });
-    this._drawer.querySelectorAll("[data-layer-mode-reset]").forEach(btn => {
-      btn.hidden = !(btn.dataset.layerModeReset === LayerMode.current && LayerMode.customized);
-    });
 
     this._drawer.querySelectorAll("[data-basemap]").forEach(btn => {
       const active = btn.dataset.basemap === currentBaseLayerName;
@@ -6461,17 +6137,14 @@ function clearPlannedTour() {
   }
   setPlannedTourIds([]);
   plannedStart = null;
+  plannedRouteActive = false;
+  setLayerSoloFocus(false);
   plannedRouteCoords = null;
   plannedRouteGeometry = null;
   if (typeof window !== "undefined") window.plannedRouteGeometry = null;
   plannedRouteFallback = false;
   plannedRouteAlternatives = [];
   activeRouteAlternativeIndex = 0;
-  if (typeof setPlannedRouteActive === "function") setPlannedRouteActive(false);
-  else {
-    plannedRouteActive = false;
-    if (typeof setLayerSoloFocus === "function") setLayerSoloFocus(false);
-  }
   clearLeisureOverlays();
   if (activePopup) { activePopup.remove(); activePopup = null; }
   updatePlannedTourLayers();
@@ -9818,6 +9491,12 @@ function buildPlannedRouteGeometry(routeCoords, tourStops, meta = {}) {
 function drawPlannedTour(start, tourStops, latlngs, meta = {}) {
   setPlannedTourIds(tourStops.map(p => p.id));
   plannedStart = start;
+  plannedRouteActive = true;
+  refreshLayerControlUI();
+
+  if (tourStops.some(p => p.isPoi) && !poiLayerVisible) {
+    setPoiLayerVisible(true);
+  }
 
   let routeCoords;
   let fallback = false;
@@ -9833,10 +9512,6 @@ function drawPlannedTour(start, tourStops, latlngs, meta = {}) {
   plannedRouteGeometry = buildPlannedRouteGeometry(routeCoords, tourStops, { ...meta, start });
   if (typeof window !== "undefined") window.plannedRouteGeometry = plannedRouteGeometry;
   plannedRouteFallback = fallback;
-  setPlannedRouteActive(true);
-  if (tourStops.some(p => p.isPoi) && !poiLayerVisible) {
-    setPoiLayerVisible(true);
-  }
   updateMapSources();
   updatePlannedTourLayers(routeCoords, fallback);
   drawLeisureOverlays(meta.leisureOverlays || {});

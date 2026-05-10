@@ -2335,7 +2335,20 @@ class AlpineWebGLLayer {
         color = mix(color, v_fill.rgb, tailInner * 0.45);
         vec4 icon = fetchIconAt(v_uv - vec2(0.0, 0.12), v_icon.w);
         bool glyphIcon = v_icon.x < 0.5;
-        vec3 iconColor = (glyphIcon || v_meta.z < 0.5 || v_meta.z > 4.5) ? vec3(1.0) : mix(icon.rgb, vec3(1.0), 0.18);
+        /* Sheet 0 (UI atlas) holds two kinds of icons stacked into one
+           texture: the status icons in the top row (open/restricted/etc.)
+           which must render as a clean white mask on the pin's status
+           color, and the POI category icons in the lower rows (mountain,
+           lake, castle, …) which carry their own designed colors and
+           should render with that color preserved. v_icon.z is the
+           cell's V coord; the top row sits high (>0.78) in a 5x6 grid
+           while POI rows are at 0.667 and below, so the threshold
+           cleanly separates the two. Pass-symbol sheets (sheet 1/2)
+           keep their existing colored treatment via the same branch. */
+        bool isStatusGlyph = glyphIcon && v_icon.z > 0.78;
+        vec3 iconColor = (isStatusGlyph || v_meta.z < 0.5 || v_meta.z > 4.5)
+          ? vec3(1.0)
+          : mix(icon.rgb, vec3(1.0), 0.18);
         color = mix(color, iconColor, icon.a * inner);
         if (flagSet(v_meta.w, 1.0)) {
           float a = atan(v_local.y, v_local.x) + PI;

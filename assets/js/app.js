@@ -973,6 +973,7 @@ function updatePassMarkerIcon(p) {
 function refreshProjectedStatuses({ updateMarkers = false } = {}) {
   const tripDate = currentTripDate();
   PASSES.forEach(p => { p._displayStatus = projectedStatusForPass(p, tripDate); });
+  refreshConditionsStrip();
   if (!updateMarkers) return;
   updateMapSources();
   if (typeof syncMarkerVisibility === "function") syncMarkerVisibility();
@@ -1557,6 +1558,9 @@ const PASS_LAYER_STATUS_LABELS = {
   unknown: "Unknown",
   estimated: "Estimated",
 };
+function allPassStatusFilterSet() {
+  return new Set([...PASS_LAYER_STATUS_KEYS, "estimated"]);
+}
 const POI_LAYER_PRESET_IDS = ["photo", "family", "cultural", "hidden", "wine"];
 const POI_LAYER_PRESET_LABELS = {
   photo: "Photo",
@@ -1567,7 +1571,8 @@ const POI_LAYER_PRESET_LABELS = {
 };
 const layerControlState = {
   passOverlayVisible: true,
-  passStatuses: new Set([...PASS_LAYER_STATUS_KEYS, "estimated"]),
+  passStatuses: allPassStatusFilterSet(),
+  passStatusLatch: "",
   passQualityMin: 0,
   poiFamilies: new Set(POI_FAMILY_KEYS),
   poiThemePreset: "",
@@ -1576,6 +1581,7 @@ const layerControlState = {
   soloFocus: false,
 };
 let layerControlInstance = null;
+let conditionsStripInstance = null;
 
 function passLayerControlQualityLabel() {
   const stars = Math.round(layerControlState.passQualityMin * 5);
@@ -1627,6 +1633,20 @@ function refreshLayerControlUI() {
   layerControlInstance?.refresh?.();
 }
 
+function refreshConditionsStrip() {
+  conditionsStripInstance?.refresh?.();
+}
+
+function setLayerPassStatusLatch(state) {
+  const key = PASS_LAYER_STATUS_KEYS.includes(state) ? state : "";
+  const nextLatch = layerControlState.passStatusLatch === key ? "" : key;
+  layerControlState.passStatusLatch = nextLatch;
+  layerControlState.passStatuses = nextLatch
+    ? new Set([nextLatch, "estimated"])
+    : allPassStatusFilterSet();
+  notifyLayerFiltersChanged({ passes: true });
+}
+
 function notifyLayerFiltersChanged({ passes = false, pois = false } = {}) {
   updateMapSources();
   scheduleAlpineOverlayLayout();
@@ -1639,6 +1659,7 @@ function notifyLayerFiltersChanged({ passes = false, pois = false } = {}) {
     renderAdvancedPoiPicker?.();
   }
   refreshLayerControlUI();
+  refreshConditionsStrip();
 }
 
 function setPassOverlayVisible(visible) {
@@ -3377,6 +3398,7 @@ function deconflictClusterOverlap(groups, zoom) {
 }
 
 function scheduleAlpineOverlayLayout() {
+  refreshConditionsStrip();
   if (overlayLayoutScheduled) return;
   overlayLayoutScheduled = true;
   requestAnimationFrame(layoutAlpineOverlay);
@@ -3970,6 +3992,122 @@ function layerControlToggleHtml({ label, description = "", checked = false, inpu
   </label>`;
 }
 
+const CONDITIONS_STRIP_STATUSES = [
+  { key: "open", label: "open", glyph: "🟢" },
+  { key: "restricted", label: "restricted", glyph: "🟡" },
+  { key: "closed", label: "closed", glyph: "🔴" },
+];
+
+class AlpineConditionsStrip {
+  addTo(mapInstance) {
+    this._map = mapInstance || map;
+    const el = document.createElement("div");
+    el.className = "alpine-conditions-strip";
+    el.setAttribute("role", "group");
+    el.setAttribute("aria-label", "Pass conditions and trip date");
+    el.innerHTML = this._html();
+    this._root = el;
+    this._map.getContainer().appendChild(el);
+    this._bind();
+    this.refresh();
+    return this;
+  }
+
+  remove() {
+    this._root?.remove();
+    if (conditionsStripInstance === this) conditionsStripInstance = null;
+  }
+
+  _html() {
+    const statusHtml = CONDITIONS_STRIP_STATUSES.map((status, index) => `
+      ${index ? '<span class="conditions-sep" aria-hidden="true">·</span>' : ""}
+      <button type="button" class="conditions-chip conditions-status status-${escapeHtml(status.key)}" data-condition-status="${escapeHtml(status.key)}" aria-pressed="false">
+        <span class="conditions-emoji" aria-hidden="true">${escapeHtml(status.glyph)}</span>
+        <span class="conditions-dot" aria-hidden="true"></span>
+        <span class="conditions-count" data-condition-count="${escapeHtml(status.key)}">0</span>
+        <span class="conditions-status-label">${escapeHtml(status.label)}</span>
+      </button>`).join("");
+    return `${statusHtml}
+      <span class="conditions-sep" aria-hidden="true">·</span>
+      <button type="button" class="conditions-chip conditions-date" data-condition-date aria-label="Choose trip date">
+        <span class="conditions-date-icon" aria-hidden="true">☀</span>
+        <span class="conditions-date-label" data-condition-date-label>Today</span>
+      </button>`;
+  }
+
+  _bind() {
+    ["dblclick", "mousedown", "touchstart", "wheel"].forEach(type => {
+      this._root.addEventListener(type, e => e.stopPropagation(), { passive: true });
+    });
+    this._root.addEventListener("click", e => {
+      e.stopPropagation();
+      const statusBtn = e.target.closest("[data-condition-status]");
+      if (statusBtn && this._root.contains(statusBtn)) {
+        setLayerPassStatusLatch(statusBtn.dataset.conditionStatus);
+        return;
+      }
+      const dateBtn = e.target.closest("[data-condition-date]");
+      if (dateBtn && this._root.contains(dateBtn)) this._openDatePicker();
+    });
+  }
+
+  _filteredPasses() {
+    return passUiReady
+      ? PASSES.filter(passesAllFilters)
+      : PASSES.filter(passesLayerControlFilter);
+  }
+
+  _counts() {
+    const counts = { open: 0, restricted: 0, closed: 0 };
+    for (const pass of this._filteredPasses()) {
+      const state = statusDisplay(passStatus(pass)).state || "unknown";
+      if (Object.prototype.hasOwnProperty.call(counts, state)) counts[state] += 1;
+    }
+    return counts;
+  }
+
+  _dateLabel() {
+    const tripDate = currentTripDate();
+    return daysBetweenDates(todayLocalDate(), tripDate) === 0 ? "Today" : formatTripDate(tripDate);
+  }
+
+  _openDatePicker() {
+    if (!planDateEl) return;
+    try {
+      if (typeof planDateEl.showPicker === "function") {
+        planDateEl.showPicker();
+        return;
+      }
+    } catch (_) {}
+    try {
+      planDateEl.focus({ preventScroll: true });
+    } catch (_) {
+      planDateEl.focus?.();
+    }
+    try { planDateEl.click(); } catch (_) {}
+  }
+
+  refresh() {
+    if (!this._root) return;
+    const counts = this._counts();
+    for (const status of CONDITIONS_STRIP_STATUSES) {
+      const btn = this._root.querySelector(`[data-condition-status="${status.key}"]`);
+      if (!btn) continue;
+      const count = counts[status.key] || 0;
+      const active = layerControlState.passStatusLatch === status.key;
+      btn.classList.toggle("is-active", active);
+      btn.setAttribute("aria-pressed", String(active));
+      btn.setAttribute("aria-label", `${count} ${status.label} passes${active ? " selected" : ""}`);
+      const countEl = btn.querySelector("[data-condition-count]");
+      if (countEl) countEl.textContent = String(count);
+    }
+    const dateLabel = this._dateLabel();
+    const dateEl = this._root.querySelector("[data-condition-date-label]");
+    if (dateEl) dateEl.textContent = dateLabel;
+    this._root.querySelector("[data-condition-date]")?.setAttribute("aria-label", `Trip date ${dateLabel}; choose date`);
+  }
+}
+
 class AlpineLayerControl {
   onAdd(mapInstance) {
     this._map = mapInstance || map;
@@ -4154,6 +4292,7 @@ class AlpineLayerControl {
       const statusBtn = e.target.closest("[data-pass-status]");
       if (statusBtn) {
         const key = statusBtn.dataset.passStatus;
+        layerControlState.passStatusLatch = "";
         if (layerControlState.passStatuses.has(key)) layerControlState.passStatuses.delete(key);
         else layerControlState.passStatuses.add(key);
         notifyLayerFiltersChanged({ passes: true });
@@ -4299,6 +4438,7 @@ class AlpineLayerControl {
 }
 
 map.addControl(new AlpineLayerControl(), "top-right");
+conditionsStripInstance = new AlpineConditionsStrip().addTo(map);
 function restoreMapLayers() {
   requestMapLayerRestore();
 }
@@ -5601,6 +5741,7 @@ updateTimeTolHint();
 planDateEl?.addEventListener("change", () => {
   updateTripDateHint();
   refreshProjectedStatuses({ updateMarkers: true });
+  refreshConditionsStrip();
   if (!planResult.classList.contains("empty")) {
     clearPlannedTour();
     planResult.innerHTML = `<div class="warn">Trip date changed to ${escapeHtml(formatTripDate(currentTripDate()))}. Run the planner again to optimize against the updated pass expectations.</div>`;

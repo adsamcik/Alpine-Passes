@@ -3474,3 +3474,35 @@ input[type="range"]:disabled {
   color: #0b0e10;
   border-color: var(--accent);
 }
+
+/* ===== layout fix: pass-list status chip overflow ===== */
+/* The pass-list rows recently moved from a small corner status dot to a
+   labelled status pill ('~Open', '~Closed', etc.). The pill was placed
+   inside .pass-list-icon-wrap which had a fixed 42x42 size — the pill
+   overflowed horizontally into the next grid column and visually
+   collided with the elevation text in the meta row.
+   Stack the icon and chip vertically inside an auto-sized wrap so the
+   pill sits cleanly beneath its sprite icon. */
+.pass-list-icon-wrap {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  width: auto;
+  height: auto;
+  flex: 0 0 auto;
+}
+.pass-list-icon-wrap .pass-art-icon {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+}
+.pass-list-icon-wrap .status-chip {
+  /* Slightly compact under the sprite — the row meta line still spells
+     out the same status with full detail, so the chip is a fast visual
+     cue, not a redundant label. */
+  font-size: 10.5px;
+  padding: 2px 6px;
+  flex: 0 0 auto;
+}

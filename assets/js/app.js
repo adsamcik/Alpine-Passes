@@ -430,6 +430,33 @@ const POI_CATEGORY_ICON = {
   "wine-region":         "poi-wine-region",
   "special-experience":  "poi-special-experience",
 };
+const POI_FAMILY_OF_CATEGORY = {
+  "mountain-summit": "nature",
+  "alpine-lake": "nature",
+  "waterfall-gorge": "nature",
+  "glacier": "nature",
+  "national-park": "nature",
+  "viewpoint-panorama": "nature",
+  "geology-cave": "nature",
+  "old-town": "heritage",
+  "castle-fortress": "heritage",
+  "monastery-church": "heritage",
+  "village": "heritage",
+  "scenic-railway": "engineered",
+  "bridge-engineering": "engineered",
+  "funicular": "engineered",
+  "spa-wellness": "indulgence",
+  "museum-cultural": "indulgence",
+  "wine-region": "indulgence",
+  "special-experience": "indulgence",
+};
+const POI_FAMILY_LABELS = {
+  nature: "Nature",
+  heritage: "Heritage",
+  engineered: "Engineered",
+  indulgence: "Indulgence",
+};
+const POI_FAMILY_KEYS = Object.keys(POI_FAMILY_LABELS);
 function poiCategoryLabel(cat) { return POI_CATEGORY_LABELS[cat] || cat || "POI"; }
 function poiCategoryIconId(cat) { return POI_CATEGORY_ICON[cat] || "poi-generic"; }
 
@@ -1522,6 +1549,120 @@ let passUiReady = false;
 let poiUiReady = false;
 let mapLayerRestoreQueued = false;
 
+const PASS_LAYER_STATUS_KEYS = ["open", "restricted", "closed", "unknown"];
+const PASS_LAYER_STATUS_LABELS = {
+  open: "Open",
+  restricted: "Restricted",
+  closed: "Closed",
+  unknown: "Unknown",
+  estimated: "Estimated",
+};
+const POI_LAYER_PRESET_IDS = ["photo", "family", "cultural", "hidden", "wine"];
+const POI_LAYER_PRESET_LABELS = {
+  photo: "Photo",
+  family: "Family",
+  cultural: "Cultural",
+  hidden: "Hidden",
+  wine: "Wine",
+};
+const layerControlState = {
+  passOverlayVisible: true,
+  passStatuses: new Set([...PASS_LAYER_STATUS_KEYS, "estimated"]),
+  passQualityMin: 0,
+  poiFamilies: new Set(POI_FAMILY_KEYS),
+  poiThemePreset: "",
+  poiQualityMin: 0.6,
+  poiPlannableOnly: false,
+  soloFocus: false,
+};
+let layerControlInstance = null;
+
+function passLayerControlQualityLabel() {
+  const stars = Math.round(layerControlState.passQualityMin * 5);
+  return stars <= 0 ? "All passes" : `★ ${stars}+`;
+}
+
+function poiLayerControlQualityLabel() {
+  const stars = Math.round(layerControlState.poiQualityMin * 5);
+  return stars <= 0 ? "All sights" : `★ ${stars}+`;
+}
+
+function layerPoiPresetDefinition(id) {
+  if (!id) return null;
+  try {
+    return POI_PRESETS?.[id] || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function passesLayerControlFilter(p) {
+  const view = statusDisplay(passStatus(p));
+  if (!layerControlState.passStatuses.has(view.state || "unknown")) return false;
+  if (view.estimated && !layerControlState.passStatuses.has("estimated")) return false;
+  const threshold = Number(layerControlState.passQualityMin) || 0;
+  if (threshold > 0 && (p.quality || 0) < threshold) return false;
+  return true;
+}
+
+function poiLayerControlFilter(p) {
+  const family = POI_FAMILY_OF_CATEGORY[p.poiCategory] || "";
+  if (family && !layerControlState.poiFamilies.has(family)) return false;
+  if (layerControlState.poiPlannableOnly && !isPlannablePoi(p)) return false;
+
+  const preset = layerPoiPresetDefinition(layerControlState.poiThemePreset);
+  const presetCats = Array.isArray(preset?.cats) ? preset.cats : [];
+  const presetThemes = Array.isArray(preset?.themes) ? preset.themes : [];
+  if (presetCats.length && !presetCats.includes(p.poiCategory)) return false;
+  if (presetThemes.length && !(p.poiThemes || []).some(t => presetThemes.includes(t))) return false;
+
+  const sliderMin = Number(layerControlState.poiQualityMin) || 0;
+  const presetMin = Number.isFinite(preset?.minScore) ? preset.minScore / 10 : 0;
+  const threshold = Math.max(sliderMin, presetMin);
+  if (threshold > 0 && (p.quality || 0) < threshold) return false;
+  return true;
+}
+
+function refreshLayerControlUI() {
+  layerControlInstance?.refresh?.();
+}
+
+function notifyLayerFiltersChanged({ passes = false, pois = false } = {}) {
+  updateMapSources();
+  scheduleAlpineOverlayLayout();
+  if (passes) {
+    renderList();
+    renderAdvancedPicker();
+  }
+  if (pois) {
+    renderPoiList();
+    renderAdvancedPoiPicker?.();
+  }
+  refreshLayerControlUI();
+}
+
+function setPassOverlayVisible(visible) {
+  const next = !!visible;
+  if (layerControlState.passOverlayVisible === next) {
+    refreshLayerControlUI();
+    return;
+  }
+  layerControlState.passOverlayVisible = next;
+  notifyLayerFiltersChanged({ passes: true });
+}
+
+function setLayerSoloFocus(visible) {
+  const next = !!visible && plannedRouteActive;
+  if (layerControlState.soloFocus === next) {
+    refreshLayerControlUI();
+    return;
+  }
+  layerControlState.soloFocus = next;
+  alpineOverlayLayer.setSoloFocus(next);
+  map.getContainer().classList.toggle("pass-stack-solo-focus", next);
+  refreshLayerControlUI();
+}
+
 function statusColorExpression() {
   return [
     "match", ["get", "state"],
@@ -1579,6 +1720,7 @@ function featureCollection(items, mapper) {
 }
 
 function currentPassMapFeatures() {
+  if (!layerControlState.passOverlayVisible) return EMPTY_FEATURE_COLLECTION;
   const items = passUiReady ? PASSES.filter(passesAllFilters) : PASSES;
   return featureCollection(items, passFeature);
 }
@@ -1661,6 +1803,7 @@ const ALPINE_GL_PASS_ATLAS_ROWS = 5;
 const ALPINE_GL_FLAG_ESTIMATED = 1;
 const ALPINE_GL_FLAG_DIM = 2;
 const ALPINE_GL_FLAG_SIMPLE_CIRCLE = 4;
+const ALPINE_GL_FLAG_SOLO_DIM = 8;
 const ALPINE_GL_PASS_ART_SCALE = 1.1;
 const ALPINE_GL_COLORS = {
   markerPurple:[0.545, 0.424, 0.925, 1],
@@ -1910,6 +2053,7 @@ class AlpineWebGLLayer {
     this._featureGen = 0;             // monotonically increments per _rebuildInstances call
     this._selectedId = null;
     this._hasLoadedOnce = false;
+    this._soloFocusOn = false;
   }
 
   setGroups(groups, start = null) {
@@ -1939,6 +2083,24 @@ class AlpineWebGLLayer {
     }
     this._dirty = true;
     this._map?.triggerRepaint();
+  }
+
+  setSoloFocus(on) {
+    const next = !!on;
+    if (this._soloFocusOn === next) return;
+    this._soloFocusOn = next;
+    this._rebuildInstances(performance.now());
+    this._dirty = true;
+    this._labelDirty = true;
+    this._map?.triggerRepaint();
+  }
+
+  _soloFocusDimFlags(group) {
+    if (!this._soloFocusOn || !plannedRouteActive) return 0;
+    const hasRouteItem = group?.type === "cluster"
+      ? (group.items || []).some(item => plannedBadgeNumber(item))
+      : !!plannedBadgeNumber(group?.item);
+    return hasRouteItem ? 0 : ALPINE_GL_FLAG_SOLO_DIM;
   }
 
   _prepareGroupAnimations(oldGroups, newGroups) {
@@ -2510,6 +2672,8 @@ class AlpineWebGLLayer {
         c.rgb = clamp(c.rgb + 0.20 * leafHover + 0.12 * clusterHover, 0.0, 1.0);
         // Clusters skip whole-instance fade because individual pebble radius pops are their entrance.
         c.a *= mix(entranceAlphaFromElapsed(v_entrance_elapsed), 1.0, clusterKind);
+        // Keep this literal in sync with ALPINE_GL_FLAG_SOLO_DIM.
+        if (flagSet(v_meta.w, 8.0)) c.a *= 0.60;
         // Selected marker pulse — brightness/alpha boost for leaf markers only
         if (kind < 2.0 && v_selected > 0.5 && u_pulse_clock < 1.6) {
           float cycles = u_pulse_clock / 0.55;
@@ -2733,7 +2897,8 @@ class AlpineWebGLLayer {
   _pushGroupInstances(out, group, now = performance.now(), rank = 0, totalGroups = 1) {
     const isCluster = group.type === "cluster";
     const isPoi = group.kind === "poi";
-    let kind, width, height, flags = 0, fill, stroke = ALPINE_GL_COLORS.white, icon = { sheet: -1, u: 0, v: 0, scale: 0 };
+    const soloDimFlags = this._soloFocusDimFlags(group);
+    let kind, width, height, flags = soloDimFlags, fill, stroke = ALPINE_GL_COLORS.white, icon = { sheet: -1, u: 0, v: 0, scale: 0 };
     let lng = group.lng;
     let lat = group.lat;
     if (!isCluster && group.item) {
@@ -2781,7 +2946,7 @@ class AlpineWebGLLayer {
         const offsetLen = Math.hypot(baseOffsetX, baseOffsetY) || 1;
         const offsetX = baseOffsetX + (baseOffsetX / offsetLen) * 2 * clusterHover;
         const offsetY = baseOffsetY + (baseOffsetY / offsetLen) * 2 * clusterHover;
-        this._pushInstance(out, lng, lat, labelSize, labelSize, ALPINE_GL_KIND.label, 0,
+        this._pushInstance(out, lng, lat, labelSize, labelSize, ALPINE_GL_KIND.label, soloDimFlags,
           ALPINE_GL_COLORS.dark, ALPINE_GL_COLORS.dark, countLabel, offsetX, offsetY, 0, bornAtSec, 0);
       }
       this._pickItems.push({ type: "cluster", kind: group.kind, id: group.id, group, lng, lat, radius: Math.max(width, height) * 0.62 });
@@ -2791,7 +2956,7 @@ class AlpineWebGLLayer {
       kind = ALPINE_GL_KIND.poi;
       width = 36;
       height = 44;
-      flags = plannable ? 0 : ALPINE_GL_FLAG_DIM;
+      flags = (plannable ? 0 : ALPINE_GL_FLAG_DIM) | soloDimFlags;
       fill = plannable ? ALPINE_GL_COLORS.markerPurple : ALPINE_GL_COLORS.poiDim;
       icon = textureRefForUiIcon(poiCategoryIconId(group.item.poiCategory), 0.62);
       const poiHover = (group.item?.id === this._hoverTargetId) ? this._hoverAnim : 0;
@@ -2801,7 +2966,7 @@ class AlpineWebGLLayer {
            (positive offsetY = up; head sits in the upper portion of the
            quad with vertical center at offsetY = height * 0.42 + ~head/2)
            so the category glyph stays the dominant visual. */
-        this._pushInstance(out, lng, lat, 14, 14, ALPINE_GL_KIND.preview, 0,
+        this._pushInstance(out, lng, lat, 14, 14, ALPINE_GL_KIND.preview, soloDimFlags,
           [0.055, 0.078, 0.118, 0.94], stroke, textureRefForUiIcon("not-by-car", 0.82),
           width * 0.42, height * 0.42 - height * 0.18, 0, bornAtSec, 0);
       }
@@ -2810,7 +2975,7 @@ class AlpineWebGLLayer {
       const view = statusDisplay(passStatus(group.item));
       width = 36;
       height = 36;
-      flags = ALPINE_GL_FLAG_SIMPLE_CIRCLE | (view.estimated ? ALPINE_GL_FLAG_ESTIMATED : 0);
+      flags = ALPINE_GL_FLAG_SIMPLE_CIRCLE | (view.estimated ? ALPINE_GL_FLAG_ESTIMATED : 0) | soloDimFlags;
       fill = ALPINE_GL_COLORS.markerPurple;
       icon = textureRefForPassSymbol(group.item.symbolIconAsset, ALPINE_GL_PASS_ART_SCALE) ||
              textureRefForUiIcon("pass-generic", 0.62);
@@ -3011,6 +3176,7 @@ function worldPxToLngLat(x, y, zoom) {
 }
 
 function overlayPassItems() {
+  if (!layerControlState.passOverlayVisible) return [];
   return passUiReady ? PASSES.filter(passesAllFilters) : PASSES;
 }
 
@@ -3719,10 +3885,11 @@ function openPoiPopup(poi, lngLat = [poi.lon, poi.lat]) {
 }
 
 function setPoiLayerVisible(visible) {
-  poiLayerVisible = visible;
+  poiLayerVisible = !!visible;
   updateMapSources();
   layoutAlpineOverlay();
   renderPoiList();
+  refreshLayerControlUI();
 }
 
 let _styleSwapOverlay = null;
@@ -3774,31 +3941,361 @@ function performMapStyleSwap(nextStyle) {
   });
 }
 
+function baseMapShortName(name) {
+  return String(name || "").replace(/\s*vector\s*$/i, "");
+}
+
+function setBaseMapByName(name) {
+  const next = VECTOR_BASEMAPS.find(b => b.name === name);
+  if (!next) return;
+  const changed = currentBaseLayerName !== next.name;
+  currentBaseLayerName = next.name;
+  updateMapInfo(currentBaseLayerName);
+  if (changed) performMapStyleSwap(next.style);
+  refreshLayerControlUI();
+}
+
+function cycleBaseMap() {
+  const currentIndex = Math.max(0, VECTOR_BASEMAPS.findIndex(b => b.name === currentBaseLayerName));
+  const next = VECTOR_BASEMAPS[(currentIndex + 1) % VECTOR_BASEMAPS.length];
+  setBaseMapByName(next.name);
+}
+
+function layerControlToggleHtml({ label, description = "", checked = false, inputAttrs = "", disabled = false }) {
+  const attrs = `${checked ? " checked" : ""}${inputAttrs ? ` ${inputAttrs}` : ""}${disabled ? ' disabled aria-disabled="true"' : ""}`;
+  return `<label class="pass-stack-switch${disabled ? " is-disabled" : ""}">
+    <input type="checkbox"${attrs}>
+    <span class="pass-stack-switch-ui" aria-hidden="true"></span>
+    <span><strong>${escapeHtml(label)}</strong>${description ? `<em>${escapeHtml(description)}</em>` : ""}</span>
+  </label>`;
+}
+
 class AlpineLayerControl {
-  onAdd() {
+  onAdd(mapInstance) {
+    this._map = mapInstance || map;
+    this._drawerOpen = false;
     const el = document.createElement("div");
-    el.className = "maplibregl-ctrl maplibregl-ctrl-group alpine-layer-control";
-    const styleOptions = VECTOR_BASEMAPS.map(({ name }) =>
-      `<option value="${escapeHtml(name)}"${name === currentBaseLayerName ? " selected" : ""}>${escapeHtml(name)}</option>`
-    ).join("");
-    el.innerHTML = `
-      <label><span>Map style</span><select aria-label="Map style">${styleOptions}</select></label>
-      <label class="check"><input type="checkbox" checked><span>Sights / POIs</span></label>`;
-    const select = el.querySelector("select");
-    const poiToggle = el.querySelector('input[type="checkbox"]');
-    poiToggle.id = "mapPoiToggle";
+    el.className = "maplibregl-ctrl maplibregl-ctrl-group alpine-layer-control pass-stack-control";
+    el.innerHTML = this._controlHtml();
+    this._root = el;
+    this._drawer = this._buildDrawer();
+    this._map.getContainer().appendChild(this._drawer);
+    this._bindRoot();
+    this._bindDrawer();
+    layerControlInstance = this;
+    const poiToggle = this._drawer.querySelector("#mapPoiToggle");
     window.mapPoiToggle = poiToggle;
-    select.addEventListener("change", () => {
-      const next = VECTOR_BASEMAPS.find(b => b.name === select.value);
-      if (!next) return;
-      currentBaseLayerName = next.name;
-      updateMapInfo(currentBaseLayerName);
-      performMapStyleSwap(next.style);
-    });
-    poiToggle.addEventListener("change", () => setPoiLayerVisible(poiToggle.checked));
+    this.refresh();
     return el;
   }
-  onRemove() {}
+
+  onRemove() {
+    this._drawer?.remove();
+    this._root?.remove();
+    if (layerControlInstance === this) layerControlInstance = null;
+  }
+
+  _controlHtml() {
+    return `
+      <button type="button" class="pass-stack-main" data-action="strip-toggle" aria-label="Layers" aria-expanded="false" aria-controls="passStackStrip" title="Layers">
+        <span class="pass-stack-glyph" aria-hidden="true"><span></span><span></span><span></span></span>
+      </button>
+      <span class="pass-stack-tooltip" role="tooltip">Layers</span>
+      <div class="pass-stack-strip" id="passStackStrip" role="group" aria-label="Layer quick controls">
+        <button type="button" class="pass-stack-tile" data-action="cycle-map">
+          <span class="pass-stack-tile-icon" aria-hidden="true">◇</span>
+          <span>Map</span>
+          <small data-current-basemap>${escapeHtml(baseMapShortName(currentBaseLayerName))}</small>
+        </button>
+        <button type="button" class="pass-stack-tile" data-action="toggle-passes" aria-pressed="true">
+          <span class="pass-stack-tile-icon" aria-hidden="true">△</span>
+          <span>Passes</span>
+          <small>markers</small>
+        </button>
+        <button type="button" class="pass-stack-tile" data-action="toggle-sights" aria-pressed="true">
+          <span class="pass-stack-tile-icon" aria-hidden="true">✦</span>
+          <span>Sights</span>
+          <small>POIs</small>
+        </button>
+        <button type="button" class="pass-stack-tile" data-action="toggle-tour" aria-pressed="false" hidden>
+          <span class="pass-stack-tile-icon" aria-hidden="true">↬</span>
+          <span>Tour</span>
+          <small>focus</small>
+        </button>
+        <button type="button" class="pass-stack-tile" data-action="open-drawer" aria-expanded="false" aria-controls="passStackDrawer">
+          <span class="pass-stack-tile-icon" aria-hidden="true">⋯</span>
+          <span>More</span>
+          <small>filters</small>
+        </button>
+      </div>`;
+  }
+
+  _buildDrawer() {
+    const drawer = document.createElement("aside");
+    drawer.id = "passStackDrawer";
+    drawer.className = "pass-stack-drawer";
+    drawer.setAttribute("aria-label", "Map layers and filters");
+    drawer.setAttribute("aria-hidden", "true");
+    drawer.innerHTML = `
+      <div class="pass-stack-drawer-head">
+        <div>
+          <p class="pass-stack-kicker">Pass Stack</p>
+          <h2>Map layers</h2>
+        </div>
+        <button type="button" class="pass-stack-close" data-action="close-drawer" aria-label="Close layer drawer">×</button>
+      </div>
+      <div class="pass-stack-drawer-body">
+        ${this._basemapSectionHtml()}
+        ${this._passesSectionHtml()}
+        ${this._sightsSectionHtml()}
+        ${this._tourSectionHtml()}
+      </div>`;
+    return drawer;
+  }
+
+  _basemapSectionHtml() {
+    const cards = VECTOR_BASEMAPS.map((base, index) => `
+      <button type="button" class="pass-stack-map-card" data-basemap="${escapeHtml(base.name)}" aria-pressed="false">
+        <span class="pass-stack-map-thumb thumb-${index}" aria-hidden="true"></span>
+        <span>${escapeHtml(baseMapShortName(base.name))}</span>
+      </button>`).join("");
+    return `<section class="pass-stack-section">
+      <div class="pass-stack-section-title"><span>Basemap</span><small>OpenFreeMap vectors</small></div>
+      <div class="pass-stack-map-grid">${cards}</div>
+      <div class="pass-stack-toggle-grid">
+        ${layerControlToggleHtml({ label: "Globe view", description: "Preview only (disabled)", inputAttrs: "data-inert-toggle", disabled: true })}
+        ${layerControlToggleHtml({ label: "Labels", description: "Always on for now", checked: true, inputAttrs: "data-inert-toggle", disabled: true })}
+      </div>
+    </section>`;
+  }
+
+  _passesSectionHtml() {
+    const statuses = [...PASS_LAYER_STATUS_KEYS, "estimated"].map(key => `
+      <button type="button" class="pass-stack-pill status-${escapeHtml(key)}" data-pass-status="${escapeHtml(key)}" aria-pressed="true">
+        ${escapeHtml(PASS_LAYER_STATUS_LABELS[key] || key)}
+      </button>`).join("");
+    return `<section class="pass-stack-section">
+      <div class="pass-stack-section-title"><span>Passes</span><small>Road status + quality</small></div>
+      ${layerControlToggleHtml({ label: "Show pass overlays", description: "Markers and clusters", checked: true, inputAttrs: "data-pass-overlay" })}
+      <div class="pass-stack-pill-row">${statuses}</div>
+      <label class="pass-stack-range">
+        <span>Pass quality <output data-pass-quality-label>${escapeHtml(passLayerControlQualityLabel())}</output></span>
+        <input type="range" min="0" max="5" step="1" value="0" data-pass-quality>
+      </label>
+      ${layerControlToggleHtml({ label: "Symbolic icons", description: "Preview only (disabled)", checked: true, inputAttrs: "data-inert-toggle", disabled: true })}
+    </section>`;
+  }
+
+  _sightsSectionHtml() {
+    const families = POI_FAMILY_KEYS.map(key => `
+      <button type="button" class="pass-stack-pebble" data-poi-family="${escapeHtml(key)}" aria-pressed="true">
+        ${escapeHtml(POI_FAMILY_LABELS[key])}
+      </button>`).join("");
+    const presets = POI_LAYER_PRESET_IDS.map(id => `
+      <button type="button" class="pass-stack-theme" data-poi-preset="${escapeHtml(id)}" aria-pressed="false">
+        ${escapeHtml(POI_LAYER_PRESET_LABELS[id])}
+      </button>`).join("");
+    return `<section class="pass-stack-section">
+      <div class="pass-stack-section-title"><span>Sights</span><small>Families + themes</small></div>
+      ${layerControlToggleHtml({ label: "Show sights / POIs", description: "Uses the map POI layer", checked: true, inputAttrs: 'id="mapPoiToggle"' })}
+      <div class="pass-stack-subtitle">Families</div>
+      <div class="pass-stack-pebble-row">${families}</div>
+      <div class="pass-stack-subtitle">Theme</div>
+      <div class="pass-stack-theme-row">${presets}</div>
+      <label class="pass-stack-range">
+        <span>Minimum quality <output data-poi-quality-label>${escapeHtml(poiLayerControlQualityLabel())}</output></span>
+        <input type="range" min="0" max="5" step="1" value="3" data-poi-quality>
+      </label>
+      ${layerControlToggleHtml({ label: "Plannable only", description: "Reachable by car", inputAttrs: "data-poi-plannable" })}
+    </section>`;
+  }
+
+  _tourSectionHtml() {
+    return `<section class="pass-stack-section pass-stack-tour-section" data-tour-section hidden>
+      <div class="pass-stack-section-title"><span>Tour</span><small>Route context</small></div>
+      <div class="pass-stack-locked-list">
+        <div><span>Route line</span><strong>Locked</strong></div>
+        <div><span>Selected stops</span><strong>Locked</strong></div>
+      </div>
+      ${layerControlToggleHtml({ label: "Solo focus", description: "Dim non-route map items", inputAttrs: "data-solo-focus" })}
+    </section>`;
+  }
+
+  _bindRoot() {
+    this._root.addEventListener("click", e => {
+      e.stopPropagation();
+      const btn = e.target.closest("[data-action]");
+      if (!btn || !this._root.contains(btn)) return;
+      this._handleAction(btn.dataset.action);
+    });
+    this._root.addEventListener("keydown", e => {
+      if (e.key !== "Escape") return;
+      this._setDrawerOpen(false);
+      this._root.classList.remove("is-strip-open");
+      this.refresh();
+    });
+  }
+
+  _bindDrawer() {
+    ["click", "dblclick", "mousedown", "touchstart", "wheel"].forEach(type => {
+      this._drawer.addEventListener(type, e => e.stopPropagation(), { passive: true });
+    });
+    this._drawer.addEventListener("click", e => {
+      const actionBtn = e.target.closest("[data-action]");
+      if (actionBtn?.dataset.action === "close-drawer") {
+        this._setDrawerOpen(false);
+        return;
+      }
+      const basemapBtn = e.target.closest("[data-basemap]");
+      if (basemapBtn) {
+        setBaseMapByName(basemapBtn.dataset.basemap);
+        return;
+      }
+      const statusBtn = e.target.closest("[data-pass-status]");
+      if (statusBtn) {
+        const key = statusBtn.dataset.passStatus;
+        if (layerControlState.passStatuses.has(key)) layerControlState.passStatuses.delete(key);
+        else layerControlState.passStatuses.add(key);
+        notifyLayerFiltersChanged({ passes: true });
+        return;
+      }
+      const familyBtn = e.target.closest("[data-poi-family]");
+      if (familyBtn) {
+        const key = familyBtn.dataset.poiFamily;
+        if (layerControlState.poiFamilies.has(key)) layerControlState.poiFamilies.delete(key);
+        else layerControlState.poiFamilies.add(key);
+        notifyLayerFiltersChanged({ pois: true });
+        return;
+      }
+      const presetBtn = e.target.closest("[data-poi-preset]");
+      if (presetBtn) {
+        const id = presetBtn.dataset.poiPreset;
+        layerControlState.poiThemePreset = layerControlState.poiThemePreset === id ? "" : id;
+        notifyLayerFiltersChanged({ pois: true });
+      }
+    });
+    this._drawer.addEventListener("input", e => {
+      if (e.target.matches("[data-pass-quality]")) {
+        layerControlState.passQualityMin = (Number(e.target.value) || 0) / 5;
+        notifyLayerFiltersChanged({ passes: true });
+      } else if (e.target.matches("[data-poi-quality]")) {
+        layerControlState.poiQualityMin = (Number(e.target.value) || 0) / 5;
+        notifyLayerFiltersChanged({ pois: true });
+      }
+    });
+    this._drawer.addEventListener("change", e => {
+      if (e.target.matches("[data-pass-overlay]")) {
+        setPassOverlayVisible(e.target.checked);
+      } else if (e.target.matches("#mapPoiToggle")) {
+        setPoiLayerVisible(e.target.checked);
+      } else if (e.target.matches("[data-poi-plannable]")) {
+        layerControlState.poiPlannableOnly = !!e.target.checked;
+        notifyLayerFiltersChanged({ pois: true });
+      } else if (e.target.matches("[data-solo-focus]")) {
+        setLayerSoloFocus(e.target.checked);
+      }
+    });
+    this._drawer.addEventListener("keydown", e => {
+      if (e.key === "Escape") this._setDrawerOpen(false);
+    });
+  }
+
+  _handleAction(action) {
+    if (action === "strip-toggle") {
+      this._root.classList.toggle("is-strip-open");
+      this.refresh();
+    } else if (action === "cycle-map") {
+      cycleBaseMap();
+    } else if (action === "toggle-passes") {
+      setPassOverlayVisible(!layerControlState.passOverlayVisible);
+    } else if (action === "toggle-sights") {
+      setPoiLayerVisible(!poiLayerVisible);
+    } else if (action === "toggle-tour") {
+      setLayerSoloFocus(!layerControlState.soloFocus);
+    } else if (action === "open-drawer") {
+      this._setDrawerOpen(true);
+    }
+  }
+
+  _setDrawerOpen(open) {
+    this._drawerOpen = !!open;
+    this.refresh();
+  }
+
+  _setTileState(action, active) {
+    const tile = this._root?.querySelector(`[data-action="${action}"]`);
+    if (!tile) return;
+    tile.classList.toggle("is-active", !!active);
+    tile.setAttribute("aria-pressed", String(!!active));
+  }
+
+  refresh() {
+    if (!this._root || !this._drawer) return;
+    const stripOpen = this._root.classList.contains("is-strip-open");
+    this._root.querySelector(".pass-stack-main")?.setAttribute("aria-expanded", String(stripOpen));
+    this._root.querySelector("[data-current-basemap]").textContent = baseMapShortName(currentBaseLayerName);
+    const mapTile = this._root.querySelector('[data-action="cycle-map"]');
+    mapTile?.classList.remove("is-active");
+    mapTile?.removeAttribute("aria-pressed");
+    this._setTileState("toggle-passes", layerControlState.passOverlayVisible);
+    this._setTileState("toggle-sights", poiLayerVisible);
+    this._setTileState("toggle-tour", plannedRouteActive && layerControlState.soloFocus);
+    this._setTileState("open-drawer", this._drawerOpen);
+
+    const tourTile = this._root.querySelector('[data-action="toggle-tour"]');
+    if (tourTile) tourTile.hidden = !plannedRouteActive;
+    const moreTile = this._root.querySelector('[data-action="open-drawer"]');
+    moreTile?.setAttribute("aria-expanded", String(this._drawerOpen));
+
+    this._root.classList.toggle("is-drawer-open", this._drawerOpen);
+    this._drawer.classList.toggle("is-open", this._drawerOpen);
+    this._drawer.setAttribute("aria-hidden", String(!this._drawerOpen));
+
+    this._drawer.querySelectorAll("[data-basemap]").forEach(btn => {
+      const active = btn.dataset.basemap === currentBaseLayerName;
+      btn.classList.toggle("is-active", active);
+      btn.setAttribute("aria-pressed", String(active));
+    });
+    const passOverlay = this._drawer.querySelector("[data-pass-overlay]");
+    if (passOverlay) passOverlay.checked = layerControlState.passOverlayVisible;
+    this._drawer.querySelectorAll("[data-pass-status]").forEach(btn => {
+      const active = layerControlState.passStatuses.has(btn.dataset.passStatus);
+      btn.classList.toggle("is-active", active);
+      btn.setAttribute("aria-pressed", String(active));
+    });
+    const passQuality = this._drawer.querySelector("[data-pass-quality]");
+    if (passQuality) passQuality.value = String(Math.round(layerControlState.passQualityMin * 5));
+    const passQualityLabel = this._drawer.querySelector("[data-pass-quality-label]");
+    if (passQualityLabel) passQualityLabel.textContent = passLayerControlQualityLabel();
+
+    const poiToggle = this._drawer.querySelector("#mapPoiToggle");
+    if (poiToggle) poiToggle.checked = poiLayerVisible;
+    this._drawer.querySelectorAll("[data-poi-family]").forEach(btn => {
+      const active = layerControlState.poiFamilies.has(btn.dataset.poiFamily);
+      btn.classList.toggle("is-active", active);
+      btn.setAttribute("aria-pressed", String(active));
+    });
+    this._drawer.querySelectorAll("[data-poi-preset]").forEach(btn => {
+      const active = layerControlState.poiThemePreset === btn.dataset.poiPreset;
+      btn.classList.toggle("is-active", active);
+      btn.setAttribute("aria-pressed", String(active));
+    });
+    const poiQuality = this._drawer.querySelector("[data-poi-quality]");
+    if (poiQuality) poiQuality.value = String(Math.round(layerControlState.poiQualityMin * 5));
+    const poiQualityLabel = this._drawer.querySelector("[data-poi-quality-label]");
+    if (poiQualityLabel) poiQualityLabel.textContent = poiLayerControlQualityLabel();
+    const poiPlannable = this._drawer.querySelector("[data-poi-plannable]");
+    if (poiPlannable) poiPlannable.checked = layerControlState.poiPlannableOnly;
+
+    this._drawer.querySelectorAll("[data-tour-section]").forEach(section => {
+      section.hidden = !plannedRouteActive;
+    });
+    const soloFocus = this._drawer.querySelector("[data-solo-focus]");
+    if (soloFocus) {
+      soloFocus.checked = plannedRouteActive && layerControlState.soloFocus;
+      soloFocus.disabled = !plannedRouteActive;
+    }
+  }
 }
 
 map.addControl(new AlpineLayerControl(), "top-right");
@@ -5324,6 +5821,7 @@ function clearPlannedTour() {
   setPlannedTourIds([]);
   plannedStart = null;
   plannedRouteActive = false;
+  setLayerSoloFocus(false);
   plannedRouteCoords = null;
   plannedRouteGeometry = null;
   if (typeof window !== "undefined") window.plannedRouteGeometry = null;
@@ -5333,6 +5831,7 @@ function clearPlannedTour() {
   if (activePopup) { activePopup.remove(); activePopup = null; }
   updatePlannedTourLayers();
   updateMapSources();
+  refreshLayerControlUI();
 }
 
 window.setPlannedStart = function(start) {
@@ -8258,6 +8757,7 @@ function drawPlannedTour(start, tourStops, latlngs, meta = {}) {
   setPlannedTourIds(tourStops.map(p => p.id));
   plannedStart = start;
   plannedRouteActive = true;
+  refreshLayerControlUI();
 
   if (tourStops.some(p => p.isPoi) && !poiLayerVisible) {
     setPoiLayerVisible(true);
@@ -8320,7 +8820,7 @@ function passesNotableFilter(p) {
   return !showNotableOnlyEl.checked || isNotablePass(p);
 }
 function passesAllFilters(p) {
-  return passesOpenFilter(p) && passesNotableFilter(p);
+  return passesLayerControlFilter(p) && passesOpenFilter(p) && passesNotableFilter(p);
 }
 function compareBySelectedSort(a, b, sort, start) {
   if (sort === "name") return a.name.localeCompare(b.name);
@@ -8500,6 +9000,7 @@ function poiInViewport(p) {
   return mapBoundsContainsPoint(p);
 }
 function poiPassesAllFilters(p) {
+  if (!poiLayerControlFilter(p)) return false;
   if (poiPlannableOnlyEl?.checked && !isPlannablePoi(p)) return false;
   if (poiTopOnlyEl?.checked && (p.quality || 0) < 0.8) return false;
   const cat = poiCatFilterEl?.value || "";

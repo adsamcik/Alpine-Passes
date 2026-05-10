@@ -58,6 +58,30 @@
       },
       "getting_there": "Park at Grépon outdoor lot in Chamonix (800 spaces); 3-min walk to the cable-car valley station (1,035 m); two-stage cable car rises 2,807 m to 3,842 m in ~20 min. Pre-book online."
     },
+    "Aiguille Rouge": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "url": "https://www.lesarcs.com/",
+      "car_status": "park-lower-station",
+      "parking": {
+        "la": 45.567,
+        "lo": 6.829,
+        "name": "Parking Arc 2000 (outdoor resort surface lot)",
+        "cost": "~€18/day (est.)",
+        "currency": "EUR",
+        "spaces": 250,
+        "url": "https://www.lesarcs.com/",
+        "notes": "Expensive resort surface parking at Arc 2000 (~2000 m). Rate estimated. Alternative: free P+R at Bourg-Saint-Maurice rail station → funicular to Arc 1600 (€6 each way, 7 min) → free intra-resort shuttle bus to Arc 2000.",
+        "confidence": "low"
+      },
+      "entrance": {
+        "la": 45.565,
+        "lo": 6.83,
+        "name": "Varet gondola base — Arc 2000 (summer access to Aiguille Rouge)",
+        "transfer": "200 m walk from car park; Varet gondola to ~2,770 m, then Aiguille Rouge cable car to 3,227 m summit"
+      },
+      "getting_there": "From Bourg-Saint-Maurice: D87E10 (~14 km) to Arc 2000 (expensive parking). Varet gondola + Aiguille Rouge cable car to 3,227 m. Alt: BSM funicular → Arc 1600 → free inter-resort bus to Arc 2000."
+    },
     "Albula Railway": {
       "kind": "paid",
       "from_adult_chf": 38,
@@ -93,6 +117,30 @@
         "transfer": "Cable car from Betten to car-free Bettmeralp (1,931 m), then Bettmerhorn gondola to 2,647 m glacier viewpoint"
       },
       "getting_there": "Park at Bettmeralp Talstation in Betten; cable car to car-free Bettmeralp (1,931 m); Bettmerhorn gondola to 2,647 m for panoramic glacier views (Europe's longest, UNESCO)."
+    },
+    "Aletschwald (Aletsch Forest)": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "url": "https://www.aletscharena.ch/en/",
+      "car_status": "gateway-parking",
+      "parking": {
+        "la": 46.3569,
+        "lo": 8.0361,
+        "name": "Mörel — Riederalp Bergbahn P+R",
+        "cost": "CHF 10/day (est.)",
+        "currency": "CHF",
+        "spaces": null,
+        "url": "https://www.aletscharena.ch/en/planning-booking/travel-mobility/",
+        "notes": "Parking at the Mörel gondola valley station for Riederalp West/Mitte (confirmed by Aletsch Arena: 'parking facilities in Mörel right next to the valley station'). Riederalp, Bettmeralp, and Fiescheralp are car-free.",
+        "confidence": "low"
+      },
+      "entrance": {
+        "la": 46.3569,
+        "lo": 8.0361,
+        "name": "Mörel — Riederalp gondola valley station (800 m)",
+        "transfer": "Gondola to car-free Riederalp (8 min, 1,930 m); 20–30-min hike south into the UNESCO Aletschwald primeval forest along the glacier's northern moraine"
+      },
+      "getting_there": "Park at Mörel Riederalp P+R (CHF 10/day est.); 8-min gondola to car-free Riederalp; 30-min hike into the UNESCO Aletschwald primeval forest flanking Europe's longest glacier."
     },
     "Andermatt": {
       "kind": "free",
@@ -135,6 +183,59 @@
       "verified_at": "2025-12-01",
       "notes": "Cathedral and old town free; Pfalz tower CHF 6."
     },
+    "Bellagio": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "url": "https://www.bellagiolakecomo.com",
+      "car_status": "gateway-parking",
+      "parking": {
+        "la": 45.9771,
+        "lo": 9.2529,
+        "name": "Parcheggio San Giovanni (Via Valassina / village entrance)",
+        "cost": "~€2.50/hr (est.)",
+        "currency": "EUR",
+        "spaces": 80,
+        "url": null,
+        "notes": "Very limited parking at southern village entrance. Fills by 09:00 in peak summer. A small additional lot exists at Loppia (north end). Strongly recommended alternative: car-ferry from Varenna (€4.60 pp + €4/car, ~10 min) or passenger ferry from Como (~1 h). navigazionelaghi.it.",
+        "confidence": "low"
+      },
+      "entrance": {
+        "la": 45.986,
+        "lo": 9.2619,
+        "name": "Piazza Mazzini / Bellagio ferry pier",
+        "transfer": "~10-min walk from fringe parking; or Navigazione Laghi ferry from Varenna/Como/Lecco/Menaggio"
+      },
+      "getting_there": "Drive to San Giovanni fringe lot (very limited, fills fast); better: car-ferry from Varenna (~10 min, €4.60 pp + €4/car) or passenger ferry from Como (~1 h). navigazionelaghi.it."
+    },
+    "Bergamo Alta (Città Alta)": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "kind": "paid",
+      "from_adult_chf": 2,
+      "as_of": "2024",
+      "source_url": "https://www.atb.bergamo.it/en/",
+      "notes": "ATB funicular ticket €1.70 single (75 min) ≈ CHF 2; 24-hr pass €3.50.",
+      "url": "https://www.visitbergamo.net/en/",
+      "car_status": "park-lower-station",
+      "parking": {
+        "la": 45.701,
+        "lo": 9.6651,
+        "name": "Città Bassa — parking near funicular lower station",
+        "cost": "~€1.50/hr (est.)",
+        "currency": "EUR",
+        "spaces": null,
+        "url": "https://www.atb.bergamo.it/en/",
+        "notes": "ZTL bars non-residents from driving into Città Alta. Park in Bergamo Bassa (blue-zone street parking or covered lot near the funicular lower station at Viale Vittorio Emanuele II / Via Sudorno). ATB funicular (Linea fun.c) is included in standard ATB transit pass.",
+        "confidence": "medium"
+      },
+      "entrance": {
+        "la": 45.703,
+        "lo": 9.6651,
+        "name": "Città Alta — Piazza Mercato delle Scarpe (funicular upper station)",
+        "transfer": "ATB funicular (~4 min); ticket €1.70 single (75 min)"
+      },
+      "getting_there": "Park in Bergamo Bassa near funicular lower station (ZTL bars non-residents from Città Alta). ATB funicular €1.70 single (75 min) or 24-hr pass €3.50."
+    },
     "Bernina Express": {
       "kind": "paid",
       "from_adult_chf": 84,
@@ -161,6 +262,35 @@
       "source_kind": "manual",
       "verified_at": "2025-12-01",
       "notes": "Three-hour adult thermal ticket."
+    },
+    "Borromean Islands": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "kind": "paid",
+      "from_adult_chf": 21,
+      "as_of": "2024",
+      "source_url": "https://www.isoleborromee.it/en/",
+      "notes": "Adult entry: Isola Bella €22 ≈ CHF 21; Isola Madre €19; combined ticket €34.",
+      "url": "https://www.isoleborromee.it/en/",
+      "car_status": "no-car",
+      "parking": {
+        "la": 45.884,
+        "lo": 8.529,
+        "name": "Stresa lakefront / town parking (Via Duchessa di Genova)",
+        "cost": "~€1.50–2/hr (est.)",
+        "currency": "EUR",
+        "spaces": null,
+        "url": "https://www.navigazionelaghi.it/en/",
+        "notes": "Paid street parking and small lots along Stresa's lakefront and town centre. Stresa rail station is ~500 m from the main ferry dock. Alternative ferry embarkation from Baveno or Verbania/Pallanza. NO car access whatsoever to the islands.",
+        "confidence": "low"
+      },
+      "entrance": {
+        "la": 45.9042,
+        "lo": 8.5194,
+        "name": "Isola Bella boat landing (Navigazione Laghi ferry from Stresa)",
+        "transfer": "Navigazione Laghi ferry from Stresa main dock or Carciano (~5 min to Isola Bella)"
+      },
+      "getting_there": "Drive or train to Stresa; park near the lakefront. Navigazione Laghi ferry to Isola Bella (~5 min). Adult entry: Isola Bella €22, Isola Madre €19, combined €34. No cars on islands."
     },
     "Brienzer Rothorn": {
       "kind": "paid",
@@ -229,7 +359,27 @@
       "as_of": "2024",
       "source_url": "https://www.chillon.ch/en/",
       "source_kind": "manual",
-      "verified_at": "2025-12-01"
+      "verified_at": "2025-12-01",
+      "url": "https://www.chillon.ch/en/",
+      "car_status": "direct",
+      "parking": {
+        "la": 46.4154,
+        "lo": 6.9259,
+        "name": "Parking Château de Chillon — north of castle (Av. de Chillon 21)",
+        "cost": "free (est.)",
+        "currency": "CHF",
+        "spaces": 150,
+        "url": "https://www.chillon.ch/en/",
+        "notes": "Dedicated visitor lot north of the island fortress, signed from the N9 / Route Cantonale lakeside road between Montreux (3 km NW) and Villeneuve (2 km SE). 50 m to castle bridge. Walkable from Montreux (45 min lakeside) or regional train to Veytaux-Chillon (4 min from Montreux). Castle admission CHF 14 (2024).",
+        "confidence": "low"
+      },
+      "entrance": {
+        "la": 46.4148,
+        "lo": 6.9278,
+        "name": "Château de Chillon — main entrance bridge",
+        "transfer": "~50 m walk from north car park across the access bridge onto the island fortress"
+      },
+      "getting_there": "Drive to Château de Chillon on Lake Geneva; park in the castle's own lot north of the fortress (free est., Av. de Chillon 21, Veytaux); 50 m walk to the medieval island castle entrance."
     },
     "Crans-Montana": {
       "kind": "free",
@@ -243,6 +393,54 @@
       "source_url": "https://www.j3l.ch/en/Z11091/creux-du-van",
       "source_kind": "manual",
       "verified_at": "2025-12-01"
+    },
+    "Dachstein Krippenstein & 5fingers Platform": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "url": "https://www.dachstein-krippenstein.at/en/",
+      "car_status": "park-lower-station",
+      "parking": {
+        "la": 47.558,
+        "lo": 13.684,
+        "name": "Talstation Dachstein-Krippenstein-Seilbahn (Obertraun)",
+        "cost": "free (est.)",
+        "currency": "EUR",
+        "spaces": null,
+        "url": "https://www.dachstein-krippenstein.at/en/visitor-information/arrival.html",
+        "notes": "Valley station in Obertraun village (~511 m) on the SE shore of Lake Hallstatt. Free parking at/near the valley station. A1 Regau exit → B145; train station 'Dachsteinhöhlen' on the Salzkammergutbahn, then bus to valley station.",
+        "confidence": "low"
+      },
+      "entrance": {
+        "la": 47.558,
+        "lo": 13.684,
+        "name": "Dachstein-Krippenstein-Seilbahn valley station (Obertraun)",
+        "transfer": "Two-stage cable car (Obertraun ~511 m → Schönbergalm → Krippenstein plateau 2,108 m), ~15 min total; 5fingers and Dachstein Giant Ice Cave from plateau"
+      },
+      "getting_there": "Drive to Obertraun (SE Lake Hallstatt, B166); park at Krippenstein cable-car valley station (est. free). Two-stage cable car (~15 min) to Krippenstein (2,108 m) with 5fingers viewpoint and Dachstein Ice Cave."
+    },
+    "Dachstein Sky Walk & Glacier": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "url": "https://www.derdachstein.at/en/",
+      "car_status": "park-lower-station",
+      "parking": {
+        "la": 47.404,
+        "lo": 13.671,
+        "name": "Talstation Dachstein-Gletscherbahn (Ramsau am Dachstein)",
+        "cost": "free (est.)",
+        "currency": "EUR",
+        "spaces": null,
+        "url": "https://www.derdachstein.at/en/",
+        "notes": "Valley station in Ramsau am Dachstein (Styria), ~1,750 m. Parking appears free per multiple travel sources (not explicitly confirmed on official site). 2026 season: 9 May – 8 Nov, daily 08:00–17:20. Gondola spots MUST be pre-booked online. Ice Palace, suspension bridge, Stairway to Nothingness open 09:00–16:15.",
+        "confidence": "low"
+      },
+      "entrance": {
+        "la": 47.404,
+        "lo": 13.671,
+        "name": "Dachstein Südwandbahn valley station (Talstation Ramsau)",
+        "transfer": "Cable car ~8–10 min to glacier plateau (2,700 m); Sky Walk platform adjacent to mountain station"
+      },
+      "getting_there": "Drive to Ramsau am Dachstein (Styria); park at valley station (~1,750 m, est. free). Südwandbahn cable car (~8 min) to Sky Walk & glacier at 2,700 m. Mandatory gondola pre-booking online in summer."
     },
     "Diavolezza": {
       "kind": "paid",
@@ -393,6 +591,30 @@
       "source_kind": "manual",
       "verified_at": "2025-12-01"
     },
+    "Gorges du Verdon": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "url": "https://www.parcduverdon.fr/en/",
+      "car_status": "direct",
+      "parking": {
+        "la": 43.7642,
+        "lo": 6.3598,
+        "name": "Parking Village — La Palud-sur-Verdon (D952)",
+        "cost": "free",
+        "currency": "EUR",
+        "spaces": 80,
+        "url": "https://www.parcduverdon.fr/en/",
+        "notes": "Free open-air village parking at the main gateway hub for the gorge. Tourist office + cafés + trailhead access. Drive D23 Route des Crêtes east to viewpoints. Peak summer weekends may see overflow meadow parking ~€2–3/vehicle.",
+        "confidence": "medium"
+      },
+      "entrance": {
+        "la": 43.753,
+        "lo": 6.371,
+        "name": "Belvédère du Trescaire — north-rim viewpoint (D23, Route des Crêtes)",
+        "transfer": "~5 km drive east of La Palud along D23 to roadside layby"
+      },
+      "getting_there": "From Castellane: D952 west (~25 km) to La Palud-sur-Verdon (free village parking); D23 Route des Crêtes east along the north rim to Belvédère du Trescaire and other belvederes."
+    },
     "Gornergrat": {
       "kind": "paid",
       "from_adult_chf": 132,
@@ -400,7 +622,27 @@
       "source_url": "https://www.gornergrat.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Zermatt–Gornergrat cogwheel return."
+      "notes": "Zermatt–Gornergrat cogwheel return.",
+      "url": "https://www.gornergrat.ch/en/",
+      "car_status": "gateway-parking",
+      "parking": {
+        "la": 46.06972,
+        "lo": 7.7825,
+        "name": "Matterhorn Terminal Täsch (P+R)",
+        "cost": "CHF 16/day",
+        "currency": "CHF",
+        "spaces": 2100,
+        "url": "https://www.matterhornterminal.ch/",
+        "notes": "Same covered garage as Klein Matterhorn (Zermatt is car-free). Open-air lots in Täsch ~CHF 8/day. MGB shuttle train every 20 min, 12-min ride to Zermatt; GGB cogwheel station is inside Zermatt, ~5-min walk from the shuttle arrival platform.",
+        "confidence": "high"
+      },
+      "entrance": {
+        "la": 46.0237,
+        "lo": 7.7487,
+        "name": "Zermatt — Gornergratbahn (GGB) cogwheel station (1,605 m)",
+        "transfer": "Täsch → Zermatt shuttle (12 min) + 5-min walk to GGB; cogwheel 33 min to Gornergrat (3,089 m)"
+      },
+      "getting_there": "Park Matterhorn Terminal Täsch (CHF 16/day, 2,100 covered spaces); 12-min shuttle to car-free Zermatt; 5-min walk to Gornergratbahn; 33-min cogwheel to Gornergrat (3,089 m) for the Matterhorn panorama."
     },
     "Grimentz": {
       "kind": "free",
@@ -464,6 +706,30 @@
       },
       "getting_there": "Drive to gated P1/P2 at the village edge (centre is car-free); walk ~20 min or take the shuttle from P1. Centre is sealed by automatic barriers."
     },
+    "Hallstätter See (Lake Hallstatt)": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "url": "https://hallstatt.net/parken-in-hallstatt/pkw/",
+      "car_status": "gateway-parking",
+      "parking": {
+        "la": 47.561,
+        "lo": 13.652,
+        "name": "Parkplatz P1 Hallstatt (near Kalvarienbergkirche)",
+        "cost": "€5/1 hr · €15/7–12 hr · €20/day",
+        "currency": "EUR",
+        "spaces": null,
+        "url": "https://hallstatt.net/parken-in-hallstatt/pkw/",
+        "notes": "Year-round, automated barriers; pay at kiosk (cash, Maestro, Visa, Mastercard). Village centre is barriered off — no through access. P2 (near Salzwelten) open spring–autumn only; Salzwelten + skywalk currently closed for reconstruction until summer 2026. No advance booking for day visitors.",
+        "confidence": "high"
+      },
+      "entrance": {
+        "la": 47.5626,
+        "lo": 13.6491,
+        "name": "Hallstatt Marktplatz — lakeshore promenade (Seestraße)",
+        "transfer": "~20-min walk north along road from P1; shuttle bus P1 → hotels for overnight guests only"
+      },
+      "getting_there": "Park at P1 (€20/day) outside the gated village; 20-min walk to lakeshore promenade. Day spots fill fast and cannot be pre-booked."
+    },
     "Hallwyl Castle (Wasserschloss)": {
       "kind": "paid",
       "from_adult_chf": 15,
@@ -489,6 +755,30 @@
       "source_kind": "manual",
       "verified_at": "2025-12-01",
       "notes": "Interlaken–Harder Kulm funicular return."
+    },
+    "Hintertuxer Gletscher": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "url": "https://www.hintertuxergletscher.at/en/",
+      "car_status": "park-lower-station",
+      "parking": {
+        "la": 47.083,
+        "lo": 11.659,
+        "name": "Talstation Hintertux — underground car park",
+        "cost": "~€5–6/day (est.)",
+        "currency": "EUR",
+        "spaces": null,
+        "url": "https://www.hintertuxergletscher.at/en/",
+        "notes": "Underground car park at the valley station (1,500 m, end of Tuxertal, Zillertal). Barrier-free access to glacier cable cars. Paid parking; exact rate not publicly listed. Road dead-ends here — no alternative parking.",
+        "confidence": "low"
+      },
+      "entrance": {
+        "la": 47.083,
+        "lo": 11.659,
+        "name": "Hintertux Gletscherbahn valley station (1,500 m)",
+        "transfer": "Gletscherbus 1 from valley station to Sommerbergalm (2,100 m); Gletscherbus 2/3 to 3,250 m; total ~20 min. Year-round."
+      },
+      "getting_there": "Drive to end of Tuxertal (B173, Zillertal); park in underground garage at Hintertux valley station (1,500 m, ~€5–6/day est.). Gletscherbus cable cars rise to 3,250 m. Year-round glacier; book tickets online."
     },
     "Hohensalzburg Fortress": {
       "source_kind": "manual",
@@ -584,6 +874,30 @@
       },
       "getting_there": "Pay €46.50 toll at Ferleiten (N) or Heiligenblut (S). Drive the 48 km scenic Großglockner High Alpine Road to the summit car park. Open late Apr – late Oct."
     },
+    "Kitzsteinhorn Glacier (Top of Salzburg)": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "url": "https://www.kitzsteinhorn.at/en/",
+      "car_status": "park-lower-station",
+      "parking": {
+        "la": 47.22923,
+        "lo": 12.72663,
+        "name": "Gletscherjet 1 / Panoramabahn valley station — Kaprun",
+        "cost": "free",
+        "currency": "EUR",
+        "spaces": null,
+        "url": "https://www.kitzsteinhorn.at/en/service/information/arrival-parking",
+        "notes": "FREE parking confirmed on official kitzsteinhorn.at arrivals page. EV charging stations on site. GPS confirmed by operator. Address: Kesselfallstraße 60, 5710 Kaprun. Second valley station (MK Maiskogelbahn/3K K-onnection) at Kitzsteinhornplatz 1a also has free parking but is not open year-round. Postbus 660 from Zell am See serves the valley station.",
+        "confidence": "high"
+      },
+      "entrance": {
+        "la": 47.22923,
+        "lo": 12.72663,
+        "name": "Kitzsteinhorn Gletscherjet 1 cable-car valley station (Kaprun, 911 m)",
+        "transfer": "Gletscherjet 1 funitel + Panoramabahn to Alpincenter (2,450 m), then further lifts to 3,029 m Top of Salzburg. Open year-round."
+      },
+      "getting_there": "Drive to Kaprun (Salzburg, A10 → B311); FREE parking + EV charging at Gletscherjet 1 valley station (911 m). Cable cars to 3,029 m Top of Salzburg. Open year-round; Postbus 660 from Zell am See also serves."
+    },
     "Klein Matterhorn – Matterhorn Glacier Paradise": {
       "kind": "paid",
       "from_adult_chf": 120,
@@ -632,6 +946,30 @@
       "source_kind": "manual",
       "verified_at": "2025-12-01"
     },
+    "Lac de Sainte-Croix": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "url": "https://www.stecroixduverdon-tourisme.fr/",
+      "car_status": "gateway-parking",
+      "parking": {
+        "la": 43.779,
+        "lo": 6.1405,
+        "name": "Parking Plage — Sainte-Croix-du-Verdon village",
+        "cost": "~€5/day (Jul–Aug, est.)",
+        "currency": "EUR",
+        "spaces": 80,
+        "url": "https://www.stecroixduverdon-tourisme.fr/",
+        "notes": "Seasonal paid parking (Jul–Aug, est.); may be free in shoulder season. Small village lot above the lake shore; kayak and SUP rentals at the beach below. Better-equipped kayak hub is at Pont du Galetas (~12 km east) — also paid in summer.",
+        "confidence": "low"
+      },
+      "entrance": {
+        "la": 43.776,
+        "lo": 6.1405,
+        "name": "Plage de Sainte-Croix-du-Verdon — village beach & kayak launch",
+        "transfer": "3-min walk downhill from parking"
+      },
+      "getting_there": "From Moustiers-Sainte-Marie: D952/D111 (~8 km) to Sainte-Croix-du-Verdon. Seasonal paid parking near beach (~€5/day est.); kayaks at the lakeside. Larger hub: Pont du Galetas."
+    },
     "Lago di Braies (Pragser Wildsee)": {
       "source_kind": "manual",
       "verified_at": "2026-05-10",
@@ -660,6 +998,54 @@
         "transfer": "Walk ~5 min south from P4 to the lake shore and Hotel Pragser Wildsee"
       },
       "getting_there": "Peak season (1 Jul–15 Sep, 09:00–16:00): road closed — book P4 online in advance or take bus 442 from Villabassa. Off-peak: drive directly to P4 (~€38/day)."
+    },
+    "Lago di Sorapis": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "url": "https://www.dolomiti.org/en/cortina/",
+      "car_status": "gateway-parking",
+      "parking": {
+        "la": 46.5489,
+        "lo": 12.2444,
+        "name": "Passo Tre Croci / Rifugio Tre Croci roadside (1,809 m)",
+        "cost": "free or low fee (unconfirmed)",
+        "currency": "EUR",
+        "spaces": 80,
+        "url": null,
+        "notes": "Roadside parking at Passo Tre Croci on SS48 (Cortina–Auronzo di Cadore). Very popular Jul–Aug; lot fills by 08:00–09:00 — arrive early or take the Cortina bus to the pass. No vehicle access beyond the road. Entire route to lake is foot-only.",
+        "confidence": "medium"
+      },
+      "entrance": {
+        "la": 46.5206,
+        "lo": 12.2233,
+        "name": "Lago di Sorapiss (1,923 m) / Rifugio Alfonso Vandelli",
+        "transfer": "foot-only — CAI trail 215 (~8 km one-way, ~3.5–4 h ascent, moderate-strenuous)"
+      },
+      "getting_there": "Drive SS48 (Cortina–Auronzo) to Passo Tre Croci (1,809 m); park near Rifugio Tre Croci. Hike CAI 215 (~3.5–4 h, 8 km one-way) to the lake at 1,923 m. Lot fills by 09:00 in peak season."
+    },
+    "Lake Annecy": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "url": "https://www.annecy.fr/se-deplacer/stationnement",
+      "car_status": "gateway-parking",
+      "parking": {
+        "la": 45.8998,
+        "lo": 6.1257,
+        "name": "Parking de Bonlieu (Vieille Ville — underground)",
+        "cost": "~€1.80/hr",
+        "currency": "EUR",
+        "spaces": 800,
+        "url": "https://www.annecy.fr/se-deplacer/stationnement",
+        "notes": "Large underground parking under the Bonlieu cultural centre, ~200 m from old-town canals and Jardins de l'Europe lakefront. Rate estimated. Surface blue-zone metered spots nearby. Very busy July–August.",
+        "confidence": "medium"
+      },
+      "entrance": {
+        "la": 45.8975,
+        "lo": 6.1295,
+        "name": "Jardins de l'Europe / Quai des Vieilles-Prisons (old-town lakefront)",
+        "transfer": "5-min walk north from parking via Rue Jean-Jaurès"
+      },
+      "getting_there": "Via A41 → exit Annecy-Centre; follow Vieille Ville / Lac signs. Park at Parking de Bonlieu (~€1.80/h); 5-min walk to old-town canals and Jardins de l'Europe lakefront."
     },
     "Lake Lucerne Paddle Steamers": {
       "kind": "paid",
@@ -703,6 +1089,35 @@
       "verified_at": "2025-12-01",
       "notes": "Public terraced paths are free; wine tastings extra."
     },
+    "Le Brévent": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "kind": "paid",
+      "from_adult_chf": 41,
+      "as_of": "2026",
+      "source_url": "https://www.chamonix.com/planpraz-brevent,82,en.html",
+      "notes": "Cable-car adult return €43 (2026) ≈ CHF 41; child €36.60; family €133.40.",
+      "url": "https://www.chamonix.com/planpraz-brevent,82,en.html",
+      "car_status": "park-lower-station",
+      "parking": {
+        "la": 45.9228,
+        "lo": 6.862,
+        "name": "Parking du Brévent (Chamonix)",
+        "cost": "~€2.50/hr",
+        "currency": "EUR",
+        "spaces": 120,
+        "url": "https://chamonix.fr/se-deplacer/stationnement/",
+        "notes": "Small paid lot at 29 Rue Henriette d'Angeville, immediately at the cable car. Rate estimated. Fills by 09:00 in peak summer. Overflow: P+R Centre-Ville / Grépon with free Mulet shuttle bus (line 04, every 30 min). EV charging at Parking Mont-Blanc and Centre-Ville.",
+        "confidence": "low"
+      },
+      "entrance": {
+        "la": 45.92404,
+        "lo": 6.86317,
+        "name": "Téléphérique du Brévent — base station (29 Rue Henriette d'Angeville)",
+        "transfer": "2-min walk from Parking du Brévent; two-stage cable car: Planpraz 2,000 m → Le Brévent 2,525 m"
+      },
+      "getting_there": "Via A40 'Autoroute Blanche' → Chamonix; park at Parking du Brévent (~€2.50/h est.) adjacent to cable car, or P+R Centre-Ville for long stays. Adult return €43."
+    },
     "Lenzburg Castle": {
       "kind": "paid",
       "from_adult_chf": 16,
@@ -738,7 +1153,27 @@
       "kind": "free",
       "source_url": "https://www.luzern.com/en/",
       "source_kind": "manual",
-      "verified_at": "2025-12-01"
+      "verified_at": "2025-12-01",
+      "url": "https://www.luzern.com/en/",
+      "car_status": "direct",
+      "parking": {
+        "la": 47.0485,
+        "lo": 8.2998,
+        "name": "Parkhaus Altstadt Luzern (Baselstrasse 4)",
+        "cost": "CHF 2/hr (est.)",
+        "currency": "CHF",
+        "spaces": 600,
+        "url": "https://www.luzern.com/en/",
+        "notes": "Primary Old Town garage, 24h, ~600 spaces, ~400 m south of the Kapellbrücke. Alternative: Parkhaus Kantonalbank (Pilatusstrasse 2, ~570 spaces, CHF 2.50/hr est.). Old town core is mostly pedestrianised. Train to Luzern HB is a 5-min walk from the bridge.",
+        "confidence": "medium"
+      },
+      "entrance": {
+        "la": 47.0517,
+        "lo": 8.3075,
+        "name": "Kapellbrücke (Chapel Bridge) — Kapellplatz south end",
+        "transfer": "~5-min walk north-east from Altstadt garage to the 14th-century covered wooden bridge"
+      },
+      "getting_there": "Park in Parkhaus Altstadt, Lucerne (CHF 2/hr est.); 5-min walk to the 14th-century Kapellbrücke and Lucerne's medieval Old Town."
     },
     "Madonna del Sasso": {
       "kind": "free",
@@ -753,6 +1188,30 @@
       "source_kind": "manual",
       "verified_at": "2025-12-01",
       "notes": "Hiking access free; Eggishorn cable car required to reach trail head."
+    },
+    "Marmolada": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "url": "https://www.funiviemarmolada.com/en/",
+      "car_status": "park-lower-station",
+      "parking": {
+        "la": 46.4375,
+        "lo": 11.864,
+        "name": "Malga Ciapela cable car base parking (1,450 m)",
+        "cost": "free",
+        "currency": "EUR",
+        "spaces": null,
+        "url": "https://www.funiviemarmolada.com/en/",
+        "notes": "Large free open-air car park at Malga Ciapela (Rocca Pietore municipality), at the base of the 3-stage Funivia Marmolada gondola. Via SS203 / SP641 from Agordo/Caprile (Belluno/Veneto side). Summer season: 12 Jun – 27 Sep 2026.",
+        "confidence": "medium"
+      },
+      "entrance": {
+        "la": 46.432,
+        "lo": 11.854,
+        "name": "Punta Rocca cable-car summit station (3,265 m)",
+        "transfer": "3-stage Funivia Marmolada: Malga Ciapela → Coston d'Antermoja (2,350 m) → Serauta (2,950 m) → Punta Rocca (3,265 m); ~12 min total"
+      },
+      "getting_there": "Drive SS203/SP641 to Malga Ciapela (1,450 m, Rocca Pietore). Free parking at cable car base. 3-stage gondola to Punta Rocca (3,265 m) in ~12 min. Summer Jun–Sep."
     },
     "Matterhorn": {
       "kind": "free",
@@ -879,7 +1338,27 @@
       "source_url": "https://www.pilatus.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Cogwheel-only return from Alpnachstad; Golden Round Trip from Lucerne ~CHF 109."
+      "notes": "Cogwheel-only return from Alpnachstad; Golden Round Trip from Lucerne ~CHF 109.",
+      "url": "https://www.pilatus.ch/en/",
+      "car_status": "park-lower-station",
+      "parking": {
+        "la": 46.9712,
+        "lo": 8.2808,
+        "name": "Parkplatz Alpnachstad — Pilatusbahn valley station",
+        "cost": "free (est.)",
+        "currency": "CHF",
+        "spaces": 300,
+        "url": "https://www.pilatus.ch/en/",
+        "notes": "Free surface lot adjacent to the world's steepest cogwheel (440 m). Cogwheel late May–mid-Nov only; year-round alternative is the cable car from Kriens (~CHF 5/day at Krienseregg, bus No. 1 from Lucerne).",
+        "confidence": "low"
+      },
+      "entrance": {
+        "la": 46.9712,
+        "lo": 8.2808,
+        "name": "Alpnachstad — Pilatusbahn cogwheel valley station (440 m)",
+        "transfer": "Adjacent parking; world's steepest cogwheel (48% max grade) 30 min to Pilatus Kulm (2,073 m)"
+      },
+      "getting_there": "Drive to Alpnachstad (free parking adjacent to station); board world's steepest cogwheel (48%, May–Nov) 30 min to Pilatus Kulm (2,073 m). Year-round alternative: cable car from Kriens."
     },
     "Mount Rigi (Rigi Kulm)": {
       "kind": "paid",
@@ -888,7 +1367,27 @@
       "source_url": "https://www.rigi.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Day pass covering all Rigi mountain railways and cable cars."
+      "notes": "Day pass covering all Rigi mountain railways and cable cars.",
+      "url": "https://www.rigi.ch/en/",
+      "car_status": "park-lower-station",
+      "parking": {
+        "la": 47.0168,
+        "lo": 8.4833,
+        "name": "Parkplatz Vitznau — Vitznau-Rigi-Bahn",
+        "cost": "CHF 10/day (est.)",
+        "currency": "CHF",
+        "spaces": null,
+        "url": "https://www.rigi.ch/en/",
+        "notes": "Municipal lot in Vitznau on Lake Lucerne's south shore, next to Europe's first mountain rack railway (1871). Faster from Zurich/A4: Arth-Goldau P+R + alternate cogwheel — both lines reach the summit.",
+        "confidence": "low"
+      },
+      "entrance": {
+        "la": 47.0164,
+        "lo": 8.4836,
+        "name": "Vitznau — Vitznau-Rigi-Bahn cogwheel valley station (434 m)",
+        "transfer": "~100 m walk from parking; cogwheel 35 min to Rigi Kulm (1,797 m)"
+      },
+      "getting_there": "Park in Vitznau (CHF 10/day est.) at Europe's first mountain railway (1871); 35-min cogwheel to Rigi Kulm (1,797 m) with views over Lakes Lucerne, Zug, and Zürich."
     },
     "Mount Titlis (Engelberg)": {
       "kind": "paid",
@@ -897,7 +1396,27 @@
       "source_url": "https://www.titlis.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Engelberg–Titlis cable car return."
+      "notes": "Engelberg–Titlis cable car return.",
+      "url": "https://www.titlis.ch/en/",
+      "car_status": "park-lower-station",
+      "parking": {
+        "la": 46.8197,
+        "lo": 8.4098,
+        "name": "Titlisbahnen / Gemeindeparkhaus Engelberg",
+        "cost": "CHF 15/day (est.)",
+        "currency": "CHF",
+        "spaces": null,
+        "url": "https://www.engelberg.ch/en/",
+        "notes": "Multi-level covered parking in Engelberg, ~200 m from Titlisbahnen valley station. A2 motorway: exit Stans-Süd. ~30 min from Lucerne / 1 h from Zurich.",
+        "confidence": "medium"
+      },
+      "entrance": {
+        "la": 46.8197,
+        "lo": 8.4098,
+        "name": "Engelberg — Titlisbahnen valley station (1,002 m)",
+        "transfer": "~200 m walk; 4-stage cable car (35 min) to Klein Titlis (3,028 m) including the world's first rotating gondola 'Rotair'"
+      },
+      "getting_there": "Park in Engelberg (CHF 15/day est.); 4-stage cable car (35 min) to Klein Titlis (3,028 m), including the world's first rotating gondola 'Rotair'. Open year-round."
     },
     "Muottas Muragl": {
       "kind": "paid",
@@ -969,6 +1488,54 @@
       "source_url": "https://olympics.com/museum/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01"
+    },
+    "Orta San Giulio": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "url": "https://www.distrettolaghi.it/en/territorio/orta-san-giulio/",
+      "car_status": "direct",
+      "parking": {
+        "la": 45.7975,
+        "lo": 8.4182,
+        "name": "Parcheggio Piazza Motta (lakeside, below ZTL historic centre)",
+        "cost": "~€2/hr (est.)",
+        "currency": "EUR",
+        "spaces": 150,
+        "url": null,
+        "notes": "Main lakeside car park at Piazza Motta, outside the ZTL pedestrian historic core. Free lots above town on Via Panoramica. Short walk to the waterfront. Public rowboats ('barcaioli') to Isola San Giulio (~300 m, ~2 min, ~€3 pp return).",
+        "confidence": "low"
+      },
+      "entrance": {
+        "la": 45.797,
+        "lo": 8.418,
+        "name": "Piazza Motta waterfront / village boat pier",
+        "transfer": "foot from parking; rowboat (~2 min, ~€3 pp return) to Isola San Giulio"
+      },
+      "getting_there": "Drive to Orta San Giulio; park in Piazza Motta lakeside lot (~€2/hr) or free lots above town. Walk to waterfront. Boatmen row visitors to Isola San Giulio (~300 m, ~€3 pp)."
+    },
+    "Pale di San Martino": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "url": "https://www.sanmartino.com/en/",
+      "car_status": "park-lower-station",
+      "parking": {
+        "la": 46.2597,
+        "lo": 11.7966,
+        "name": "San Martino di Castrozza — Colverde gondola base (1,444 m)",
+        "cost": "varies (paid + free village lots)",
+        "currency": "EUR",
+        "spaces": null,
+        "url": "https://www.sanmartino.com/en/",
+        "notes": "Paid and free parking throughout San Martino di Castrozza. Colverde gondola base at south end of village. Two-stage ascent: Colverde gondola → Col Verde (2,162 m), then Rosetta cable car → Rifugio Rosetta (2,743 m). Estimated adult return ~€20–25 (low confidence).",
+        "confidence": "low"
+      },
+      "entrance": {
+        "la": 46.27,
+        "lo": 11.8618,
+        "name": "Rifugio Rosetta (2,743 m) / Col Verde plateau",
+        "transfer": "Colverde gondola → Col Verde (2,162 m) + Rosetta cable car → 2,743 m; ~20 min combined"
+      },
+      "getting_there": "Drive SP347/SS50 to San Martino di Castrozza (1,444 m); park in village. Colverde gondola to Col Verde (2,162 m); Rosetta cable car to Rifugio Rosetta (2,743 m). Gateway to the massif."
     },
     "Piz Nair": {
       "kind": "paid",
@@ -1053,6 +1620,30 @@
       "source_kind": "manual",
       "verified_at": "2025-12-01",
       "notes": "Village is car-free and free to enter; lifts and Allalin extra."
+    },
+    "Sacro Monte di Varallo": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "url": "https://www.sacromontedivarallo.it/",
+      "car_status": "park-lower-station",
+      "parking": {
+        "la": 45.8136,
+        "lo": 8.2584,
+        "name": "Parking near funicular lower station — Via Scarognini, Varallo",
+        "cost": "free/low (unconfirmed)",
+        "currency": "EUR",
+        "spaces": null,
+        "url": null,
+        "notes": "Street parking and small lots near the funicular lower station in Varallo Sesia. Limited roadside parking also accessible by road directly to the Sacro Monte (Via Sacro Monte). Funicular return ~€3–4 (unverified). Sacro Monte sits 600 m a.s.l., 150 m above the town. UNESCO World Heritage (2003).",
+        "confidence": "low"
+      },
+      "entrance": {
+        "la": 45.8186,
+        "lo": 8.2547,
+        "name": "Sacro Monte di Varallo (600 m) — basilica + 45 chapels",
+        "transfer": "funicular from Varallo town (~5 min); or scenic pilgrim path on foot (~20 min)"
+      },
+      "getting_there": "Drive to Varallo Sesia (Valsesia); park near funicular lower station in town. Funicular (~5 min, ~€3–4 return) or foot path to Sacro Monte (600 m). UNESCO heritage site."
     },
     "Saint John Abbey, Müstair": {
       "kind": "paid",
@@ -1351,6 +1942,30 @@
       "source_url": "https://www.tourismus.steinamrhein.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01"
+    },
+    "Stubaier Gletscher (3210 m)": {
+      "source_kind": "manual",
+      "verified_at": "2026-05-10",
+      "url": "https://www.stubaier-gletscher.com/en/",
+      "car_status": "park-lower-station",
+      "parking": {
+        "la": 47.073,
+        "lo": 11.15,
+        "name": "Talstation Mutterberg — Stubaier Gletscherbahn",
+        "cost": "~€6/day (est.)",
+        "currency": "EUR",
+        "spaces": null,
+        "url": "https://www.stubaier-gletscher.com/en/",
+        "notes": "Valley station at ~1,750 m at the top of Stubaital, ~35 km south of Innsbruck. Large open-air parking at Mutterberg. Paid parking; exact rate not publicly listed. Road dead-ends here. Stubaiexpress bus from Innsbruck/Neustift also serves the valley station.",
+        "confidence": "low"
+      },
+      "entrance": {
+        "la": 47.073,
+        "lo": 11.15,
+        "name": "Stubaier Gletscherbahn valley station (Talstation Mutterberg, ~1,750 m)",
+        "transfer": "Multi-stage gondola from Mutterberg to the glacier (3,210 m); ~20–25 min total. Panorama platform at summit."
+      },
+      "getting_there": "Drive up Stubaital (B183) to road-end at Mutterberg (~1,750 m), 35 km south of Innsbruck. Park at Stubaier Gletscherbahn valley station (paid, ~€6/day est.). Cable car to 3,210 m. Stubaiexpress bus from Innsbruck also serves."
     },
     "Swiss Museum of Transport (Verkehrshaus)": {
       "kind": "paid",

@@ -14,6 +14,12 @@ const ALPS_POLYGON = [
   [8.65, 45.05], [8.40, 44.40], [8.05, 44.05], [7.55, 43.70],
   [6.65, 43.65],
 ];
+// Leisure flag literal must match exported LEISURE_PLANNER_FLAG_KEY in assets/js/leisure/index.js.
+function isLeisurePlannerEnabled() {
+  try { return localStorage.getItem("alpine.planner.leisure.v1") === "1"; } catch { return false; }
+}
+if (typeof window !== "undefined") window.isLeisurePlannerEnabled = isLeisurePlannerEnabled;
+
 function pointInAlps(lon, lat) {
   let inside = false;
   const poly = ALPS_POLYGON;
@@ -1538,6 +1544,8 @@ const PASS_SOURCE_ID = "alpine-passes";
 const POI_SOURCE_ID = "swiss-pois";
 const ROUTE_SOURCE_ID = "planned-route";
 const START_SOURCE_ID = "planned-start";
+const LEISURE_ZONE_SOURCE_ID = "leisure-zones";
+const LEISURE_POINT_SOURCE_ID = "leisure-points";
 const EMPTY_FEATURE_COLLECTION = { type: "FeatureCollection", features: [] };
 let mapLayersReady = false;
 let poiLayerVisible = true;
@@ -1549,6 +1557,8 @@ let _popupTitleSeq = 0;
 let passUiReady = false;
 let poiUiReady = false;
 let mapLayerRestoreQueued = false;
+let plannedLeisureOverlayData = { zones: EMPTY_FEATURE_COLLECTION, points: EMPTY_FEATURE_COLLECTION };
+let plannedLeisureOverlayFocus = new Map();
 
 const PASS_LAYER_STATUS_KEYS = ["open", "restricted", "closed", "unknown"];
 const PASS_LAYER_STATUS_LABELS = {
@@ -1800,11 +1810,17 @@ function updateMapSources() {
   setSourceData(PASS_SOURCE_ID, currentPassMapFeatures());
   setSourceData(POI_SOURCE_ID, currentPoiMapFeatures());
   updatePlannedTourLayers();
+  updateLeisureOverlaySources();
   scheduleAlpineOverlayRender();
 }
 
-function addCircleLayer(layer) {
-  if (!map.getLayer(layer.id)) map.addLayer(layer);
+function addLayerWithSource(layer, beforeId) {
+  if (map.getLayer(layer.id)) return;
+  if (beforeId && map.getLayer(beforeId)) {
+    map.addLayer(layer, beforeId);
+    return;
+  }
+  map.addLayer(layer);
 }
 
 const ALPINE_GL_LAYER_ID = "alpine-overlay";
@@ -3490,22 +3506,21 @@ function setupMapLayers() {
   if (!map.getSource(START_SOURCE_ID)) {
     map.addSource(START_SOURCE_ID, { type: "geojson", data: EMPTY_FEATURE_COLLECTION });
   }
-
-  addCircleLayer({
+  addLayerWithSource({
     id: "planned-route-shadow",
     type: "line",
     source: ROUTE_SOURCE_ID,
     paint: { "line-color": "#000", "line-width": 11, "line-opacity": 0.45, "line-blur": 1 },
     layout: { "line-cap": "round", "line-join": "round" },
   });
-  addCircleLayer({
+  addLayerWithSource({
     id: "planned-route-halo",
     type: "line",
     source: ROUTE_SOURCE_ID,
     paint: { "line-color": "#fff", "line-width": 7, "line-opacity": 0.9 },
     layout: { "line-cap": "round", "line-join": "round" },
   });
-  addCircleLayer({
+  addLayerWithSource({
     id: "planned-route-core",
     type: "line",
     source: ROUTE_SOURCE_ID,
@@ -3521,9 +3536,66 @@ function setupMapLayers() {
     },
     layout: { "line-cap": "round", "line-join": "round" },
   });
-
   if (!map.getLayer(ALPINE_GL_LAYER_ID)) {
     map.addLayer(alpineOverlayLayer);
+  }
+  try {
+    if (!map.getSource(LEISURE_ZONE_SOURCE_ID)) {
+      map.addSource(LEISURE_ZONE_SOURCE_ID, { type: "geojson", data: EMPTY_FEATURE_COLLECTION });
+    }
+    if (!map.getSource(LEISURE_POINT_SOURCE_ID)) {
+      map.addSource(LEISURE_POINT_SOURCE_ID, { type: "geojson", data: EMPTY_FEATURE_COLLECTION });
+    }
+    addLayerWithSource({
+      id: "leisure-zone-fill",
+      type: "fill",
+      source: LEISURE_ZONE_SOURCE_ID,
+      paint: { "fill-color": "#3ddc84", "fill-opacity": 0.18 },
+    }, "planned-route-shadow");
+    addLayerWithSource({
+      id: "leisure-zone-outline",
+      type: "line",
+      source: LEISURE_ZONE_SOURCE_ID,
+      paint: { "line-color": "#62e09a", "line-width": 2, "line-opacity": 0.75 },
+    }, "planned-route-shadow");
+    addLayerWithSource({
+      id: "leisure-corridor-points",
+      type: "circle",
+      source: LEISURE_POINT_SOURCE_ID,
+      filter: ["any", ["==", ["get", "kind"], "corridor-auto"], ["==", ["get", "kind"], "corridor-suggestion"]],
+      paint: {
+        "circle-radius": ["case", ["==", ["get", "kind"], "corridor-auto"], 7, 5],
+        "circle-color": ["case", ["==", ["get", "kind"], "corridor-auto"], "#8cebd6", "#ffd166"],
+        "circle-stroke-color": "#0e1418",
+        "circle-stroke-width": 2,
+      },
+    }, ALPINE_GL_LAYER_ID);
+    addLayerWithSource({
+      id: "leisure-break-points",
+      type: "circle",
+      source: LEISURE_POINT_SOURCE_ID,
+      filter: ["==", ["get", "kind"], "break"],
+      paint: {
+        "circle-radius": 9,
+        "circle-color": "#f59e0b",
+        "circle-stroke-color": "#0e1418",
+        "circle-stroke-width": 2,
+      },
+    }, ALPINE_GL_LAYER_ID);
+    addLayerWithSource({
+      id: "leisure-point-labels",
+      type: "symbol",
+      source: LEISURE_POINT_SOURCE_ID,
+      layout: {
+        "text-field": ["get", "label"],
+        "text-size": 12,
+        "text-anchor": "center",
+        "text-allow-overlap": true,
+      },
+      paint: { "text-color": "#0e1418", "text-halo-color": "#ffffff", "text-halo-width": 1 },
+    }, ALPINE_GL_LAYER_ID);
+  } catch (e) {
+    console.warn("leisure overlays disabled", e);
   }
 
   mapLayersReady = true;
@@ -5061,9 +5133,12 @@ const POI_PRESETS = {
 const activePresetIds = new Set();
 const planRunBtn = document.getElementById("planRun");
 const planResult = document.getElementById("planResult");
+const leisureFlagWrap = document.getElementById("leisureFlagWrap");
+const leisureFlagEl = document.getElementById("leisureFlag");
 const planPickBtn= document.getElementById("planPick");
 const planLocateBtn = document.getElementById("planLocate");
 const planStartSearchEl = document.getElementById("planStartSearch");
+const planEndSearchEl = document.getElementById("planEndSearch");
 const planStartSearchBtn = document.getElementById("planStartSearchBtn");
 const planStartSearchResultsEl = document.getElementById("planStartSearchResults");
 const advancedModeEl = document.getElementById("planAdvanced");
@@ -5758,6 +5833,16 @@ planStartTimeEl?.addEventListener("change", () => {
   }
 });
 planRunBtn.addEventListener("click", () => planTour());
+syncLeisureFlagControl();
+leisureFlagEl?.addEventListener("change", () => setLeisurePlannerFlag(!!leisureFlagEl.checked));
+planEndSearchEl?.addEventListener("input", persistLeisureEndNodeInput);
+planEndSearchEl?.addEventListener("change", persistLeisureEndNodeInput);
+planEndSearchEl?.addEventListener("keydown", e => {
+  if (e.key !== "Enter") return;
+  e.preventDefault();
+  persistLeisureEndNodeInput();
+  if (isLeisurePlannerEnabled()) planTour();
+});
 advancedModeEl.addEventListener("change", syncAdvancedMode);
 advancedPassSearchEl.addEventListener("input", renderAdvancedPicker);
 advancedPassPickerEl.addEventListener("change", e => {
@@ -5969,6 +6054,7 @@ function clearPlannedTour() {
   plannedRouteFallback = false;
   plannedRouteAlternatives = [];
   activeRouteAlternativeIndex = 0;
+  clearLeisureOverlays();
   if (activePopup) { activePopup.remove(); activePopup = null; }
   updatePlannedTourLayers();
   updateMapSources();
@@ -6224,6 +6310,7 @@ async function osrmRoute(coordsStr, options = {}) {
     return out;
   });
 }
+if (typeof window !== "undefined") window.osrmRoute = osrmRoute;
 
 /* Asymmetric Held-Karp DP for tours where each pass can be:
      • traversed A→B  (enter side A, exit side B)
@@ -7414,16 +7501,170 @@ function setPlannedRouteAlternatives(alternatives, activeIndex = 0) {
 function activateRouteAlternative(index) {
   const alt = plannedRouteAlternatives[index];
   if (!alt) return;
-  activeRouteAlternativeIndex = index;
-  showPlanResult({
-    ...alt.result,
-    routeAlternativeIndex: index,
-    routeAlternatives: routeAlternativeSummaries(),
-  });
-  drawPlannedTour(alt.draw.start, alt.draw.tourStops, alt.draw.latlngs, alt.draw.meta);
+  const render = () => {
+    activeRouteAlternativeIndex = index;
+    showPlanResult({
+      ...alt.result,
+      routeAlternativeIndex: index,
+      routeAlternatives: routeAlternativeSummaries(),
+    });
+    drawPlannedTour(alt.draw.start, alt.draw.tourStops, alt.draw.latlngs, alt.draw.meta);
+  };
+  try {
+    const maybeReady = typeof alt.ensurePhase4 === "function" ? alt.ensurePhase4() : null;
+    if (maybeReady && typeof maybeReady.then === "function") {
+      showPlanResult({ loading: true, advanced: Boolean(alt.result?.advanced) });
+      maybeReady.then(render).catch((error) => {
+        console.warn("leisure alternative enrichment failed", error);
+        render();
+      });
+      return;
+    }
+  } catch (error) {
+    console.warn("leisure alternative enrichment failed", error);
+  }
+  render();
+}
+
+let leisurePlannerModulePromise = null;
+function loadLeisurePlannerModule() {
+  leisurePlannerModulePromise ??= import("./leisure/index.js");
+  return leisurePlannerModulePromise;
+}
+function resetLeisurePlannerModuleHandle() {
+  leisurePlannerModulePromise = null;
+}
+function syncLeisureFlagControl() {
+  let debug = false;
+  try { debug = localStorage.getItem("alpine.debug") === "1"; } catch { debug = false; }
+  if (leisureFlagWrap && leisureFlagEl) {
+    leisureFlagWrap.hidden = !debug;
+    leisureFlagEl.checked = isLeisurePlannerEnabled();
+  }
+  syncLeisureEndSearchVisibility(debug);
+}
+function setLeisurePlannerFlag(enabled) {
+  try {
+    if (enabled) localStorage.setItem("alpine.planner.leisure.v1", "1");
+    else localStorage.removeItem("alpine.planner.leisure.v1");
+  } catch { /* private mode */ }
+  resetLeisurePlannerModuleHandle();
+  syncLeisureFlagControl();
+  if (enabled) loadLeisurePlannerModule().catch(e => console.warn("leisure planner preload failed", e));
+}
+function leisureForbiddenPassIds(openOnly) {
+  if (!openOnly) return [];
+  return PASSES.filter(p => !plannerStatusAllowsPass(p, true)).map(p => p.id);
+}
+function currentLeisureEndNodeOverride(leisureModule = null) {
+  const key = leisureModule?.LEISURE_PLANNER_END_NODE_KEY || "alpine.planner.endNode";
+  const input = typeof planEndSearchEl !== "undefined" ? planEndSearchEl : null;
+  if (input && input.value.trim()) return input.value;
+  try {
+    const value = localStorage.getItem(key);
+    return value && value.trim() ? value : null;
+  } catch { return null; }
+}
+function syncLeisureEndSearchVisibility(debug = false) {
+  const input = typeof planEndSearchEl !== "undefined" ? planEndSearchEl : null;
+  if (!input) return;
+  const visible = debug || isLeisurePlannerEnabled();
+  input.hidden = !visible;
+  input.setAttribute("aria-hidden", visible ? "false" : "true");
+  if (visible && !input.value) {
+    try { input.value = localStorage.getItem("alpine.planner.endNode") || ""; } catch {}
+  }
+}
+function persistLeisureEndNodeInput() {
+  const input = typeof planEndSearchEl !== "undefined" ? planEndSearchEl : null;
+  if (!input) return;
+  try {
+    const raw = input.value;
+    if (raw) localStorage.setItem("alpine.planner.endNode", raw);
+    else localStorage.removeItem("alpine.planner.endNode");
+  } catch { /* private mode */ }
+}
+function buildLeisureUiOptions({ advanced = false, start = currentStart(), leisureModule = null } = {}) {
+  const openOnly = advanced ? false : !!openOnlyEl.checked;
+  const includePois = !advanced && !!includePoisEl?.checked;
+  const endNode = currentLeisureEndNodeOverride(leisureModule);
+  return {
+    start,
+    ...(endNode ? { endNode } : {}),
+    targetMode: planTargetMode(),
+    targetValue: planTargetValue(),
+    targetTol: planTargetTolerance(),
+    openOnly,
+    forbiddenPassIds: advanced ? [] : leisureForbiddenPassIds(openOnly),
+    tripDate: currentTripDate(),
+    startTime: typeof currentTripDateTime === "function" ? currentTripDateTime() : null,
+    stopsConfig: currentStopsConfig(),
+    themes: includePois ? [...allowedPoiThemes] : [],
+    personas: includePois ? [...activePresetIds] : [],
+    includePois,
+    budgetTier: "normal",
+    withChild: activePresetIds.has("family"),
+    poiPrefs: includePois ? {
+      minScore: poiMinScoreVal(),
+      maxCount: poiMaxCountVal(),
+      cats: [...allowedPoiCategories],
+      themes: [...allowedPoiThemes],
+      preset: activePresetIds.size > 0 ? [...activePresetIds] : null,
+    } : null,
+    osrmRoute: (typeof window !== "undefined" && window.osrmRoute) || osrmRoute,
+  };
+}
+function showLeisurePlannerFailure(reason) {
+  setPlannedRouteAlternatives([]);
+  showPlanResult({ error: `Leisure planner could not produce a tour: ${reason || "unknown reason"}` });
+}
+async function runLeisurePlanner({ advanced = false } = {}) {
+  clearPlannedTour();
+  const start = currentStart();
+  if (!start) { showPlanResult({ error: "Pick a start point." }); return; }
+  const selected = advanced ? selectedAdvancedStops() : [];
+  if (advanced && selected.length === 0) {
+    showPlanResult({ error: "Select at least one pass or sight for advanced planning." });
+    return;
+  }
+  if (advanced && selected.length > ADVANCED_MAX_STOPS) {
+    showPlanResult({ error: `Select no more than ${ADVANCED_MAX_STOPS} stops at once.` });
+    return;
+  }
+
+  setPlannerBusy(advanced ? "Optimizing…" : "Planning…");
+  showPlanResult({ loading: true, advanced });
+  try {
+    const module = await loadLeisurePlannerModule();
+    const options = buildLeisureUiOptions({ advanced, start, leisureModule: module });
+    const result = advanced
+      ? await module.leisurePlanSelected(options, selected)
+      : await module.leisurePlanAuto(options);
+    if (!result || result.status === "infeasible" || result.error) {
+      showLeisurePlannerFailure(result?.reason || result?.error || result?.diagnostics?.reason);
+      return;
+    }
+    if (Array.isArray(result._routeAlternatives)) {
+      setPlannedRouteAlternatives(result._routeAlternatives);
+      activateRouteAlternative(0);
+      return;
+    }
+    // Defensive path for future UI-shaped leisure results that omit route alternative wrappers.
+    setPlannedRouteAlternatives([]);
+    showPlanResult(result);
+    drawPlannedTour(result.start, result.tourStops || [], result._latlngs || null, result._drawMeta || {});
+  } catch (error) {
+    showLeisurePlannerFailure(error?.message || String(error));
+  } finally {
+    resetPlanButton();
+  }
 }
 
 async function planSelectedTour() {
+  if (isLeisurePlannerEnabled()) {
+    await runLeisurePlanner({ advanced: true });
+    return;
+  }
   clearPlannedTour();
   const start = currentStart();
   if (!start) { showPlanResult({ error: "Pick a start point." }); return; }
@@ -7579,6 +7820,10 @@ async function planSelectedTour() {
 }
 
 async function planTour() {
+  if (isLeisurePlannerEnabled()) {
+    await runLeisurePlanner({ advanced: !!advancedModeEl.checked });
+    return;
+  }
   if (advancedModeEl.checked) {
     await planSelectedTour();
     return;
@@ -8571,6 +8816,32 @@ function refreshPlanResultActions(tour = null) {
   }
 }
 
+function replanWithLeisurePoi(poiId) {
+  if (!poiId || !isLeisurePlannerEnabled()) return;
+  if (!POI_BY_ID.has(poiId)) {
+    showPlanWarning("That optional sight is not available in the advanced picker yet.");
+    return;
+  }
+  toggleSelectedPoi(poiId, true);
+  if (!selectedPoiIds.has(poiId)) return;
+  if (advancedModeEl && !advancedModeEl.checked) {
+    advancedModeEl.checked = true;
+    syncAdvancedMode();
+  }
+  void runLeisurePlanner({ advanced: true });
+}
+
+function focusLeisureOverlay(id) {
+  if (!id) return;
+  const target = plannedLeisureOverlayFocus.get(id);
+  if (!target || !Number.isFinite(target.lat) || !Number.isFinite(target.lon)) return;
+  try {
+    const zoom = Math.max(typeof map.getZoom === "function" ? map.getZoom() : 0, 10);
+    if (typeof map.easeTo === "function") map.easeTo({ center: [target.lon, target.lat], zoom, duration: 450 });
+    else if (typeof map.flyTo === "function") map.flyTo({ center: [target.lon, target.lat], zoom });
+  } catch { /* map may be mocked or unavailable */ }
+}
+
 let planResultClickHandlerBound = false;
 
 function handlePlanResultClick(e) {
@@ -8609,6 +8880,18 @@ function handlePlanResultClick(e) {
     return;
   }
 
+  const leisurePoiBtn = target.closest("[data-leisure-add-poi]");
+  if (leisurePoiBtn && planResult.contains(leisurePoiBtn)) {
+    replanWithLeisurePoi(leisurePoiBtn.dataset.leisureAddPoi);
+    return;
+  }
+
+  const leisureFocusBtn = target.closest("[data-leisure-focus]");
+  if (leisureFocusBtn && planResult.contains(leisureFocusBtn)) {
+    focusLeisureOverlay(leisureFocusBtn.dataset.leisureFocus);
+    return;
+  }
+
   const altBtn = target.closest("[data-route-alt]");
   if (!altBtn || !planResult.contains(altBtn)) return;
   activateRouteAlternative(Number(altBtn.dataset.routeAlt));
@@ -8633,6 +8916,101 @@ function scrollPlanResultIntoView() {
   });
 }
 
+function renderLeisureIntentBlock(intent) {
+  if (!intent?.topPersona) return "";
+  const secondary = intent.ambiguous
+    ? (intent.topPersonas || []).find((persona) => persona && persona !== intent.topPersona)
+    : "";
+  return `<div class="leisure-intent-row"><span class="leisure-intent-chip">Day type: ${escapeHtml(intent.topPersona)}</span>${
+    secondary ? ` <span class="leisure-persona-alt">or try the ${escapeHtml(secondary)} version</span>` : ""
+  }</div>`;
+}
+
+function renderLeisureCorridorBlock(corridor) {
+  if (!corridor) return "";
+  const auto = Array.isArray(corridor.autoInclude) ? corridor.autoInclude : [];
+  const suggestions = Array.isArray(corridor.suggestions) ? corridor.suggestions : [];
+  if (auto.length === 0 && suggestions.length === 0) return "";
+  const autoHtml = auto.slice(0, 4).map((item) =>
+    `<span class="leisure-corridor-pill auto" title="${escapeHtml(item.reason || "")}">✓ ${escapeHtml(leisureItemName(item))}</span>`
+  ).join("");
+  const suggestionHtml = suggestions.slice(0, 6).map((item) => {
+    const id = item.poiId || item.id || "";
+    const name = escapeHtml(leisureItemName(item));
+    const detour = `<span>${Math.round(Number(item.detourMin) || 0)} min</span>`;
+    const isSelectable = id && POI_BY_ID.has(id) && (typeof PLANNABLE_POI_IDS === "undefined" || PLANNABLE_POI_IDS.has(id));
+    return isSelectable
+      ? `<button type="button" class="leisure-corridor-pill suggest" data-leisure-add-poi="${escapeHtml(id)}" title="${escapeHtml(item.reason || "Add this optional sight")}">+ ${name}${detour}</button>`
+      : `<span class="leisure-corridor-pill suggest" title="${escapeHtml(item.reason || "")}">${name}${detour}</span>`;
+  }).join("");
+  return `<div class="leisure-corridor-card">
+    <strong>Optional sights along the way</strong>
+    <div class="leisure-corridor-list">${autoHtml}${suggestionHtml}</div>
+  </div>`;
+}
+
+function renderLeisureLunchBlock(zones) {
+  if (!Array.isArray(zones) || zones.length === 0) return "";
+  const items = zones.slice(0, 2).map((zone, index) => {
+    const label = zone.vibeTag ? zone.vibeTag.replace(/-/g, " ") : "lunch zone";
+    const time = formatLeisureWindow(zone.tArriveMin, zone.tArriveMax);
+    return `<button type="button" class="leisure-zone-polygon" data-leisure-focus="${escapeHtml(zone.id || `lunch-${index}`)}">
+      <span>Lunch ${index + 1}: ${escapeHtml(label)}</span><strong>${escapeHtml(time)}</strong>
+    </button>`;
+  }).join("");
+  return `<div class="popup-meta tight leisure-lunch-zones"><strong>Lunch zones</strong><div class="leisure-zone-list">${items}</div></div>`;
+}
+
+function renderLeisureBreaksBlock(breaks) {
+  if (!Array.isArray(breaks) || breaks.length === 0) return "";
+  const badges = breaks.slice(0, 4).map((br) =>
+    `<button type="button" class="leisure-break-badge" data-leisure-focus="${escapeHtml(br.id || "")}" title="${escapeHtml(br.reason || "")}">
+      ${escapeHtml(breakIcon(br.type))} ${escapeHtml(formatLeisureTime(br.tStart))}<span>${escapeHtml(br.type || "break")}</span>
+    </button>`
+  ).join("");
+  return `<div class="popup-meta tight leisure-breaks"><strong>Suggested breaks</strong><div class="leisure-break-list">${badges}</div></div>`;
+}
+
+function leisureItemName(item) {
+  return item?.name || item?.poiName || item?.passName || item?.id || item?.poiId || "Sight";
+}
+
+function formatLeisureWindow(start, end) {
+  const a = formatLeisureTime(start);
+  const b = formatLeisureTime(end);
+  return a && b ? `${a}–${b}` : (a || b || "midday");
+}
+
+function formatLeisureTime(value) {
+  const date = value instanceof Date ? value : value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return "";
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+function breakIcon(type) {
+  if (type === "coffee") return "☕";
+  if (type === "toilet" || type === "fuel") return "🚻";
+  if (type === "viewpoint") return "📷";
+  return "☕";
+}
+
+function isOpenRouteResult(r) {
+  if (!r?.endNode) return false;
+  const startId = r.start?.id ? String(r.start.id) : "";
+  const endId = typeof r.endNode === "string" ? r.endNode : r.endNode?.id;
+  return !!endId && (!startId || String(endId) !== startId);
+}
+
+function endNodeDisplayName(endNode) {
+  if (!endNode) return "";
+  if (typeof endNode === "object") return endNode.name || endNode.displayName || "End";
+  const id = String(endNode);
+  const presetKey = id.replace(/^j-/, "");
+  if (PRESET_STARTS[presetKey]?.name) return PRESET_STARTS[presetKey].name;
+  return POI_BY_ID.get(id)?.name || PASS_BY_ID.get(id)?.name ||
+    id.replace(/^(?:j|p)-/, "").replace(/[:-]/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+}
+
 function showPlanResult(r) {
   planResult.classList.remove("empty");
   planResult.classList.remove("pr-in");
@@ -8652,6 +9030,9 @@ function showPlanResult(r) {
   const stopList = stops.map((p, i) => {
     const t = (r.modes || [])[i];
     const weather = ` <span class="tour-stop-weather" data-weather-stop="${i}" hidden></span>`;
+    if (p.isEndpoint || p.kind === "start" || p.kind === "end" || p.kind === "junction") {
+      return `<span class="tour-stop endpoint-stop">${escapeHtml(p.name || p.displayName || "Endpoint")}${weather}</span>`;
+    }
     if (p.isPoi) {
       const dwell = p.visitDwellSec ? ` <span class="dwell-badge" title="Typical visit time">${(p.visitDwellSec / 3600).toFixed(1)}h</span>` : "";
       return `<span class="tour-stop poi-stop">${poiCategoryIcon(p.poiCategory, "poi-stop-glyph")} ${escapeHtml(p.name)}${dwell}${weather}</span>`;
@@ -8661,7 +9042,7 @@ function showPlanResult(r) {
       : ``;
     return `<span class="tour-stop pass-stop">${escapeHtml(p.name)}${modeBadge}${qualityStarsCompact(p.quality)}${weather}</span>`;
   }).join(arrow);
-  const passOnly = stops.filter(p => !p.isPoi);
+  const passOnly = stops.filter(p => p.kind === "pass");
   const avgQ = passOnly.length
     ? passOnly.reduce((s, p) => s + (p.quality || 0), 0) / passOnly.length
     : 0;
@@ -8767,15 +9148,26 @@ function showPlanResult(r) {
   const statChips = renderTourStatChips(r);
   const statsBlock = statChips || `<div class="stats">${statsLine}</div>`;
   const startName = cleanStartName(r.start.displayName || r.start.name);
+  const resultHeading = isOpenRouteResult(r)
+    ? `${startName} → ${endNodeDisplayName(r.endNode)} · ${stops.length} stop${stops.length === 1 ? "" : "s"}`
+    : `${title} from ${startName}`;
+  const leisureIntentBlock = renderLeisureIntentBlock(r.intent);
+  const leisureCorridorBlock = renderLeisureCorridorBlock(r.corridor);
+  const leisureLunchBlock = renderLeisureLunchBlock(r.lunchZones);
+  const leisureBreaksBlock = renderLeisureBreaksBlock(r.breaks);
   const scenicStopsBlock = renderScenicStopsBlock(r.scenicStops);
   const routeAlternativesBlock = renderRouteAlternativesBlock(r);
   const tripDateLine = r.tripDate
     ? `<div class="popup-meta tight projection${daysBetweenDates(todayLocalDate(), r.tripDate) > 0 ? " guess" : ""}">Trip date: ${escapeHtml(formatTripDate(r.tripDate))} · projected pass states; guesses are marked “Likely” / “guess”.</div>`
     : "";
   planResult.innerHTML = `
-    <h3>${escapeHtml(title)} from ${escapeHtml(startName)}</h3>
+    <h3>${escapeHtml(resultHeading)}</h3>
     <div class="tour-passes">${stopList}</div>
     ${statsBlock}
+    ${leisureIntentBlock}
+    ${leisureCorridorBlock}
+    ${leisureLunchBlock}
+    ${leisureBreaksBlock}
     ${implicitPassBlock}
     ${candidatePoolBlock}
     ${breaksBlock}
@@ -8794,6 +9186,117 @@ function showPlanResult(r) {
   planResult.classList.add("pr-in");
   Array.from(planResult.children).forEach((el, i) => el.style.setProperty("--i", i));
   scrollPlanResultIntoView();
+}
+
+function clearLeisureOverlays() {
+  plannedLeisureOverlayData = { zones: EMPTY_FEATURE_COLLECTION, points: EMPTY_FEATURE_COLLECTION };
+  plannedLeisureOverlayFocus = new Map();
+  updateLeisureOverlaySources();
+}
+
+function updateLeisureOverlaySources() {
+  if (!mapLayersReady || !map || typeof map.getSource !== "function") return;
+  safeSetSourceData(LEISURE_ZONE_SOURCE_ID, plannedLeisureOverlayData.zones);
+  safeSetSourceData(LEISURE_POINT_SOURCE_ID, plannedLeisureOverlayData.points);
+}
+
+function safeSetSourceData(sourceId, data) {
+  try {
+    const source = map.getSource(sourceId);
+    if (source && typeof source.setData === "function") source.setData(data);
+  } catch { /* map may be mocked during tests */ }
+}
+
+function drawLeisureOverlays(overlays = {}) {
+  const zoneFeatures = [];
+  const pointFeatures = [];
+  const focus = new Map();
+  for (const [index, zone] of (overlays.lunchZones || []).entries()) {
+    const id = zone.id || `lunch-${index}`;
+    const ring = polygonRing(zone.polygon);
+    if (ring.length >= 4) {
+      zoneFeatures.push({
+        type: "Feature",
+        id,
+        geometry: { type: "Polygon", coordinates: [ring] },
+        properties: { id, kind: "lunch-zone", label: formatLeisureWindow(zone.tArriveMin, zone.tArriveMax), vibe: zone.vibeTag || "" },
+      });
+    }
+    const centroid = pointFromPair(zone.centroid);
+    if (centroid) {
+      pointFeatures.push(leisurePointFeature(id, "lunch-label", centroid.lat, centroid.lon, {
+        label: formatLeisureWindow(zone.tArriveMin, zone.tArriveMax) || "Lunch",
+        name: zone.vibeTag || "Lunch zone",
+      }));
+      focus.set(id, centroid);
+    }
+  }
+  for (const br of overlays.breaks || []) {
+    const point = pointFromBreak(br);
+    if (!point) continue;
+    const id = br.id || `break-${pointFeatures.length}`;
+    pointFeatures.push(leisurePointFeature(id, "break", point.lat, point.lon, {
+      label: breakIcon(br.type),
+      name: br.poiCandidate?.name || br.type || "Break",
+      reason: br.reason || "",
+      time: formatLeisureTime(br.tStart),
+      type: br.type || "break",
+    }));
+    focus.set(id, point);
+  }
+  for (const item of overlays.corridorAutoInclude || []) addCorridorFeature(pointFeatures, focus, item, "corridor-auto", "✓");
+  for (const item of overlays.corridorSuggestions || []) addCorridorFeature(pointFeatures, focus, item, "corridor-suggestion", "+");
+  plannedLeisureOverlayData = {
+    zones: { type: "FeatureCollection", features: zoneFeatures },
+    points: { type: "FeatureCollection", features: pointFeatures },
+  };
+  plannedLeisureOverlayFocus = focus;
+  updateLeisureOverlaySources();
+}
+
+function addCorridorFeature(features, focus, item, kind, label) {
+  const lat = Number(item?.lat), lon = Number(item?.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+  const id = `${kind}:${item.poiId || item.id || features.length}`;
+  features.push(leisurePointFeature(id, kind, lat, lon, {
+    label,
+    name: leisureItemName(item),
+    reason: item.reason || "",
+    detourMin: Math.round(Number(item.detourMin) || 0),
+  }));
+  focus.set(id, { lat, lon });
+}
+
+function leisurePointFeature(id, kind, lat, lon, properties = {}) {
+  return {
+    type: "Feature",
+    id,
+    geometry: { type: "Point", coordinates: [lon, lat] },
+    properties: { id, kind, ...properties },
+  };
+}
+
+function polygonRing(polygon) {
+  const ring = (Array.isArray(polygon) ? polygon : [])
+    .map(pointFromPair)
+    .filter(Boolean)
+    .map((p) => [p.lon, p.lat]);
+  if (ring.length >= 3) {
+    const first = ring[0], last = ring[ring.length - 1];
+    if (Math.abs(first[0] - last[0]) > 1e-9 || Math.abs(first[1] - last[1]) > 1e-9) ring.push([...first]);
+  }
+  return ring;
+}
+
+function pointFromPair(pair) {
+  if (!pair) return null;
+  const lat = Number(Array.isArray(pair) ? pair[0] : pair.lat);
+  const lon = Number(Array.isArray(pair) ? pair[1] : pair.lon ?? pair.lng);
+  return Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : null;
+}
+
+function pointFromBreak(br) {
+  return pointFromPair(br) || pointFromPair(br?.poiCandidate);
 }
 
 function updatePlannedTourLayers(routeCoords = plannedRouteCoords, fallback = plannedRouteFallback) {
@@ -8856,7 +9359,7 @@ function buildPlannedRouteGeometry(routeCoords, tourStops, meta = {}) {
     .map(({ item, tourIndex }) => {
       const isPoi = !!item.isPoi;
       let stopMin = 0;
-      if (!isPoi) {
+      if (!isPoi && item.kind === "pass") {
         const plannedMin = passStopMins[passStopIdx++];
         stopMin = Number.isFinite(plannedMin) ? plannedMin : intelligentPassStopMin(item, cfg.passStopMin || 0);
       }
@@ -8920,6 +9423,7 @@ function drawPlannedTour(start, tourStops, latlngs, meta = {}) {
   plannedRouteFallback = fallback;
   updateMapSources();
   updatePlannedTourLayers(routeCoords, fallback);
+  drawLeisureOverlays(meta.leisureOverlays || {});
   refreshPlanResultActions(plannedRouteGeometry);
   fitLngLatPairs(routeCoords, fallback ? 0.15 : 0.10);
   hydratePlanWeather();

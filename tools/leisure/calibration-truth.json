@@ -1,0 +1,30 @@
+{
+  "heroes": [
+    "Stelvio",
+    "Stilfser Joch",
+    "Furkapass",
+    "Grimselpass",
+    "Sustenpass",
+    "Bernina",
+    "Klausenpass",
+    "Gotthardpass",
+    "Großglockner",
+    "Sella",
+    "Pordoi",
+    "Gavia",
+    "Mortirolo",
+    "Splügen",
+    "Spluga",
+    "Maloja",
+    "Julier",
+    "Albula",
+    "Iseran",
+    "Galibier",
+    "Izoard",
+    "Bonette"
+  ],
+  "thresholds": {
+    "spearman": 0.65,
+    "heroQuartile": 0.5
+  }
+}

@@ -738,6 +738,33 @@ select option:checked {
 .route-alt-btn.active strong {
   color: var(--accent);
 }
+.leisure-intent-row { margin: 6px 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.leisure-intent-chip,
+.leisure-persona-alt {
+  border-radius: 999px; border: 1px solid rgba(140,235,214,.34);
+  background: rgba(140,235,214,.11); color: #d8fff7; padding: 3px 8px; font-size: 11px;
+}
+.leisure-corridor-card {
+  margin: 8px 0; padding: 9px; border-radius: 12px;
+  border: 1px solid rgba(255,209,102,.26); background: rgba(255,209,102,.08);
+}
+.leisure-corridor-card strong { display: block; margin-bottom: 6px; color: #ffe6a3; }
+.leisure-corridor-list,
+.leisure-zone-list,
+.leisure-break-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.leisure-corridor-pill,
+.leisure-zone-polygon,
+.leisure-break-badge {
+  border: 1px solid var(--border); border-radius: 999px; background: rgba(255,255,255,.055);
+  color: var(--fg); padding: 4px 8px; font-size: 11px; cursor: pointer;
+}
+.leisure-corridor-pill.auto { cursor: default; border-color: rgba(140,235,214,.35); color: #d8fff7; }
+.leisure-corridor-pill.suggest:not(button) { cursor: default; }
+.leisure-corridor-pill.suggest span,
+.leisure-break-badge span { margin-left: 4px; color: var(--fg-dim); }
+.leisure-zone-polygon { border-color: rgba(98,224,154,.38); background: rgba(98,224,154,.10); }
+.leisure-zone-polygon strong { margin-left: 5px; color: #b8ffd3; }
+.leisure-break-badge { border-color: rgba(245,158,11,.40); background: rgba(245,158,11,.11); }
 .loading-row {
   display: flex; align-items: center; gap: 10px;
   color: var(--fg);
@@ -3463,6 +3490,12 @@ input[type="range"]:disabled {
 .start-search-row > #planPick .button-icon {
   width: 18px;
   height: 18px;
+}
+.start-search-row > #planStartSearch { grid-column: 3; }
+.start-search-row > #planStartSearchBtn { grid-column: 4; }
+.start-search-row > #planEndSearch:not([hidden]) {
+  grid-column: 3 / 5;
+  grid-row: 2;
 }
 /* Search button shrinks at narrow widths handled by the existing
    1100px media query; nothing new needed here. */

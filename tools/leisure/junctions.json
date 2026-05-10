@@ -1,0 +1,17 @@
+[
+  { "id": "j-chur", "name": "Chur", "lat": 46.8508, "lon": 9.5320 },
+  { "id": "j-andermatt", "name": "Andermatt", "lat": 46.6357, "lon": 8.5939 },
+  { "id": "j-thusis", "name": "Thusis", "lat": 46.6982, "lon": 9.4396 },
+  { "id": "j-brig", "name": "Brig", "lat": 46.3167, "lon": 7.9833 },
+  { "id": "j-domodossola", "name": "Domodossola", "lat": 46.1165, "lon": 8.2931 },
+  { "id": "j-bellinzona", "name": "Bellinzona", "lat": 46.1946, "lon": 9.0244 },
+  { "id": "j-bormio", "name": "Bormio", "lat": 46.4676, "lon": 10.3705 },
+  { "id": "j-trafoi", "name": "Trafoi", "lat": 46.5506, "lon": 10.5092 },
+  { "id": "j-cortina", "name": "Cortina d'Ampezzo", "lat": 46.5405, "lon": 12.1357 },
+  { "id": "j-bolzano", "name": "Bolzano / Bozen", "lat": 46.4983, "lon": 11.3548 },
+  { "id": "j-innsbruck", "name": "Innsbruck", "lat": 47.2692, "lon": 11.4041 },
+  { "id": "j-bourg-saint-maurice", "name": "Bourg-Saint-Maurice", "lat": 45.6171, "lon": 6.7694 },
+  { "id": "j-modane", "name": "Modane", "lat": 45.2003, "lon": 6.6687 },
+  { "id": "j-sion", "name": "Sion", "lat": 46.2331, "lon": 7.3606 },
+  { "id": "j-martigny", "name": "Martigny", "lat": 46.1022, "lon": 7.0731 }
+]

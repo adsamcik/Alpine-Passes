@@ -1,0 +1,16 @@
+{
+  "name": "leisure-core",
+  "type": "module",
+  "description": "Rust/WASM core for the Alpine Passes leisure-first planner",
+  "version": "0.1.0",
+  "files": [
+    "leisure_core_bg.wasm",
+    "leisure_core.js",
+    "leisure_core.d.ts"
+  ],
+  "main": "leisure_core.js",
+  "types": "leisure_core.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

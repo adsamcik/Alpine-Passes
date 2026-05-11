@@ -1,0 +1,12 @@
+# Ignore everything by default
+*
+
+# Allowlist the wasm-pack outputs that ship as static assets
+!.gitignore
+!README.md
+!leisure_core.js
+!leisure_core_bg.js
+!leisure_core.d.ts
+!leisure_core_bg.wasm
+!leisure_core_bg.wasm.d.ts
+!package.json

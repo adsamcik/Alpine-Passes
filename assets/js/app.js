@@ -14,7 +14,7 @@ const ALPS_POLYGON = [
   [8.65, 45.05], [8.40, 44.40], [8.05, 44.05], [7.55, 43.70],
   [6.65, 43.65],
 ];
-// Leisure flag literal must match exported LEISURE_PLANNER_FLAG_KEY in assets/js/leisure/index.js.
+// Leisure flag literal must match exported LEISURE_PLANNER_FLAG_KEY in assets/js/leisure/wasm-shim.js.
 function isLeisurePlannerEnabled() {
   try { return localStorage.getItem("alpine.planner.leisure.v1") === "1"; } catch { return false; }
 }
@@ -7919,6 +7919,10 @@ function setPlannedRouteAlternatives(alternatives, activeIndex = 0) {
 function activateRouteAlternative(index) {
   const alt = plannedRouteAlternatives[index];
   if (!alt) return;
+  if (alt?.result?.wasmUnavailable) {
+    showWasmUnavailableBanner(alt.result.routeWarning);
+    return;
+  }
   const render = () => {
     activeRouteAlternativeIndex = index;
     showPlanResult({
@@ -7946,7 +7950,7 @@ function activateRouteAlternative(index) {
 
 let leisurePlannerModulePromise = null;
 function loadLeisurePlannerModule() {
-  leisurePlannerModulePromise ??= import("./leisure/index.js");
+  leisurePlannerModulePromise ??= import("./leisure/wasm-shim.js");
   return leisurePlannerModulePromise;
 }
 function resetLeisurePlannerModuleHandle() {
@@ -8036,6 +8040,23 @@ function showLeisurePlannerFailure(reason) {
   setPlannedRouteAlternatives([]);
   showPlanResult({ error: `Leisure planner could not produce a tour: ${reason || "unknown reason"}` });
 }
+function showWasmUnavailableBanner(detail = "") {
+  setPlannedRouteAlternatives([]);
+  clearPlannedTour();
+  planResult.classList.remove("empty");
+  planResult.classList.remove("pr-in");
+  planResult.removeAttribute("aria-busy");
+  const detailHtml = detail
+    ? `<div class="popup-meta tight">${escapeHtml(detail)}</div>`
+    : "";
+  planResult.innerHTML = `
+    <div id="leisureWasmUnavailableBanner" class="warn" role="alert" aria-live="assertive" style="border-left: 4px solid #b7791f; background: #fff8dc; color: #3f2a00; padding: 0.75rem 1rem;">
+      <button type="button" class="banner-dismiss" aria-label="Dismiss WebAssembly required banner" data-action="dismiss-wasm-banner">×</button>
+      <strong>WebAssembly required.</strong> This planner requires WebAssembly, which is not supported or has been blocked in your browser. Try a different browser or check your security settings.
+      ${detailHtml}
+      <a href="https://webassembly.org/" target="_blank" rel="noreferrer" aria-label="Learn more about WebAssembly browser support">Learn more</a>
+    </div>`;
+}
 async function runLeisurePlanner({ advanced = false } = {}) {
   clearPlannedTour();
   const start = currentStart();
@@ -8058,6 +8079,10 @@ async function runLeisurePlanner({ advanced = false } = {}) {
     const result = advanced
       ? await module.leisurePlanSelected(options, selected)
       : await module.leisurePlanAuto(options);
+    if (result?.wasmUnavailable) {
+      showWasmUnavailableBanner(result.routeWarning);
+      return;
+    }
     if (!result || result.status === "infeasible" || result.error) {
       showLeisurePlannerFailure(result?.reason || result?.error || result?.diagnostics?.reason);
       return;
@@ -9295,6 +9320,13 @@ function handlePlanResultClick(e) {
       return;
     }
     mapsLink.href = mapsUrl;
+    return;
+  }
+
+  const dismissWasmBanner = target.closest('[data-action="dismiss-wasm-banner"]');
+  if (dismissWasmBanner && planResult.contains(dismissWasmBanner)) {
+    e.preventDefault();
+    dismissWasmBanner.closest("#leisureWasmUnavailableBanner")?.remove();
     return;
   }
 

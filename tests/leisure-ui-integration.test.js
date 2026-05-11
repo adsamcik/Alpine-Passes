@@ -72,6 +72,23 @@ test("showPlanResult renders leisure sections without throwing", () => {
   assert.match(sandbox.planResult.innerHTML, /Day type: Photographer/);
 });
 
+
+test("showWasmUnavailableBanner renders accessible dismiss and help controls", () => {
+  const source = fs.readFileSync(path.join(repoRoot, "assets", "js", "app.js"), "utf8");
+  const snippet = sourceBetween(source, "function showWasmUnavailableBanner", "async function runLeisurePlanner");
+  const sandbox = showPlanSandbox();
+  sandbox.setPlannedRouteAlternatives = () => {};
+  sandbox.clearPlannedTour = () => {};
+
+  vm.runInNewContext(`${snippet}
+showWasmUnavailableBanner("mock detail");`, sandbox, { filename: "assets/js/app.js" });
+
+  assert.match(sandbox.planResult.innerHTML, /aria-label="Dismiss WebAssembly required banner"/);
+  assert.match(sandbox.planResult.innerHTML, /data-action="dismiss-wasm-banner"/);
+  assert.match(sandbox.planResult.innerHTML, /href="https:\/\/webassembly\.org\/"/);
+  assert.doesNotMatch(sandbox.planResult.innerHTML, /href="#"/);
+});
+
 test("leisure flag false path remains gated before legacy planner", async () => {
   const [{ isLeisurePlannerEnabled }, source] = await Promise.all([
     apiModule,

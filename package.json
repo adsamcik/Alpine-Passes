@@ -1,6 +1,9 @@
 {
   "private": true,
   "scripts": {
-    "test": "node --test"
+    "build:wasm": "node tools/leisure/build-wasm.mjs",
+    "test": "node --test",
+    "check:wasm-size": "node tools/leisure/check-wasm-size.mjs",
+    "postbuild:wasm": "node tools/leisure/check-wasm-size.mjs"
   }
 }

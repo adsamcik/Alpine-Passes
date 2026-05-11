@@ -64,3 +64,11 @@ round*-*.png
 __pycache__/
 *.pyc
 *.pyo
+
+# Rust / WASM build output
+target/
+pkg/
+
+# Local validation artifacts
+/validation/
+/tools/leisure/validation/

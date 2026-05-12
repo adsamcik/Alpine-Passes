@@ -21,23 +21,6 @@ export function leisure_core_version() {
 }
 
 /**
- * @param {any} value
- */
-export function validateGraphJson(value) {
-    try {
-        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-        wasm.validateGraphJson(retptr, addHeapObject(value));
-        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
-        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
-        if (r1) {
-            throw takeObject(r0);
-        }
-    } finally {
-        wasm.__wbindgen_add_to_stack_pointer(16);
-    }
-}
-
-/**
  * @param {number} graph_handle
  * @returns {any}
  */
@@ -133,33 +116,6 @@ export function wasm_infer_intent(entities_value, options_value) {
     try {
         const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
         wasm.wasm_infer_intent(retptr, addHeapObject(entities_value), addHeapObject(options_value));
-        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
-        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
-        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
-        if (r2) {
-            throw takeObject(r1);
-        }
-        return takeObject(r0);
-    } finally {
-        wasm.__wbindgen_add_to_stack_pointer(16);
-    }
-}
-
-/**
- * @param {number} graph_handle
- * @param {string} from
- * @param {string} to
- * @param {any} options_value
- * @returns {any}
- */
-export function wasm_leisure_astar(graph_handle, from, to, options_value) {
-    try {
-        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-        const ptr0 = passStringToWasm0(from, wasm.__wbindgen_export, wasm.__wbindgen_export2);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(to, wasm.__wbindgen_export, wasm.__wbindgen_export2);
-        const len1 = WASM_VECTOR_LEN;
-        wasm.wasm_leisure_astar(retptr, graph_handle, ptr0, len0, ptr1, len1, addHeapObject(options_value));
         var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
         var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
         var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
@@ -320,46 +276,6 @@ export function wasm_surface_intent_pois(tour_value, candidates_value, intent_va
     try {
         const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
         wasm.wasm_surface_intent_pois(retptr, addHeapObject(tour_value), addHeapObject(candidates_value), addHeapObject(intent_value), addHeapObject(options_value));
-        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
-        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
-        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
-        if (r2) {
-            throw takeObject(r1);
-        }
-        return takeObject(r0);
-    } finally {
-        wasm.__wbindgen_add_to_stack_pointer(16);
-    }
-}
-
-/**
- * @param {any} entity_value
- * @returns {any}
- */
-export function wasm_tags_from_entity(entity_value) {
-    try {
-        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-        wasm.wasm_tags_from_entity(retptr, addHeapObject(entity_value));
-        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
-        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
-        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
-        if (r2) {
-            throw takeObject(r1);
-        }
-        return takeObject(r0);
-    } finally {
-        wasm.__wbindgen_add_to_stack_pointer(16);
-    }
-}
-
-/**
- * @param {any} target_value
- * @returns {any}
- */
-export function wasm_tags_from_target(target_value) {
-    try {
-        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-        wasm.wasm_tags_from_target(retptr, addHeapObject(target_value));
         var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
         var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
         var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);

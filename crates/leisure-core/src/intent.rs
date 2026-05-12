@@ -26,7 +26,6 @@ const PERSONAS: [&str; 8] = [
     "SlowTourer",
 ];
 const EVIDENCE_SCALE: f64 = 0.55;
-const UPDATE_ETA: f64 = 0.3;
 const AMBIGUOUS_ENTROPY: f64 = 1.5;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -86,12 +85,6 @@ pub struct IntentState {
 pub struct IntentHistory {
     pub past_intent: Option<IntentDistribution>,
     pub past_dismissed_tags: BTreeMap<String, usize>,
-}
-
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct IntentObservation {
-    pub kind: String,
-    pub target: IntentTarget,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -265,40 +258,6 @@ pub fn infer_intent(state: IntentState) -> IntentDistribution {
             Some(&history.past_dismissed_tags),
         ),
     )
-}
-
-/// Updates an existing intent distribution from a pin/dismiss observation.
-pub fn update_intent(
-    prev_intent: &IntentDistribution,
-    observation: IntentObservation,
-) -> IntentDistribution {
-    let tags = tags_from_target(&observation.target);
-    let mut probabilities = probabilities_from_prior(Some(prev_intent));
-    let direction = if observation.kind == "dismiss" || observation.kind == "rejectSuggestion" {
-        -1.0
-    } else {
-        1.0
-    };
-    if !tags.is_empty() {
-        let weights = persona_tags();
-        probabilities = normalize_probabilities(
-            PERSONAS
-                .iter()
-                .enumerate()
-                .map(|(index, persona)| {
-                    let match_score = dot(weights.get(*persona).unwrap_or(&BTreeMap::new()), &tags);
-                    probabilities[index] * (direction * UPDATE_ETA * match_score).exp()
-                })
-                .collect(),
-        );
-    }
-    let mut dismissed = dismissed_tags_from(Some(prev_intent), None);
-    if observation.kind == "dismiss" {
-        for tag in tags {
-            *dismissed.entry(tag).or_default() += 1;
-        }
-    }
-    build_intent(probabilities, dismissed)
 }
 
 /// Surfaces primary and serendipitous POIs for an intent distribution.

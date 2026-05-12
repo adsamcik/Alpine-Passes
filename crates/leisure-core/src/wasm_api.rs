@@ -4,14 +4,13 @@
 //! JavaScript shim can preserve the legacy public API while keeping Rust-owned
 //! graph and ear-decomposition state behind small numeric handles.
 
-use crate::astar::{leisure_astar, AStarOptions, AStarResult, AStarStatus, CostMode};
 use crate::breaks::{detect_breaks, BreakOptions, BreakPoiInput};
 use crate::corridor::{suggest_corridor, CorridorMode, CorridorOptions};
 use crate::ears::{decompose_ears, Ear, EarDecomposition, EarKind};
 use crate::graph::{edge_key, LeisureGraph};
 use crate::intent::{
-    infer_intent, surface_intent_pois, tags_from_entity, tags_from_target, IntentDistribution,
-    IntentEntity, IntentHistory, IntentState, IntentTarget, SurfaceIntentOptions,
+    infer_intent, surface_intent_pois, IntentDistribution, IntentEntity, IntentHistory,
+    IntentState, SurfaceIntentOptions,
 };
 use crate::lunch::{find_lunch_area, LunchOptions, LunchPolicy};
 use crate::optimizer::{
@@ -77,24 +76,24 @@ fn require_handle_kind(
     }
 }
 
-/// Storage for WASM-exported graph handles.
-///
-/// The vector grows monotonically; freed slots are tombstoned (`None`) but
-/// not recycled. This is acceptable for the typical SPA pattern of loading
-/// one graph per page-load, but for long-lived sessions with many graph
-/// reloads, the spine memory will grow ~8 bytes per stale handle. Recycling
-/// or generation-counter handles can be added later if needed.
+// Storage for WASM-exported graph handles.
+//
+// The vector grows monotonically; freed slots are tombstoned (`None`) but
+// not recycled. This is acceptable for the typical SPA pattern of loading
+// one graph per page-load, but for long-lived sessions with many graph
+// reloads, the spine memory will grow ~8 bytes per stale handle. Recycling
+// or generation-counter handles can be added later if needed.
 thread_local! {
     static GRAPHS: RefCell<Vec<Option<LeisureGraph>>> = const { RefCell::new(Vec::new()) };
 }
 
-/// Storage for WASM-exported ear-decomposition handles.
-///
-/// The vector grows monotonically; freed slots are tombstoned (`None`) but
-/// not recycled. This is acceptable for the typical SPA pattern of loading
-/// one graph per page-load, but for long-lived sessions with many graph
-/// reloads, the spine memory will grow ~8 bytes per stale handle. Recycling
-/// or generation-counter handles can be added later if needed.
+// Storage for WASM-exported ear-decomposition handles.
+//
+// The vector grows monotonically; freed slots are tombstoned (`None`) but
+// not recycled. This is acceptable for the typical SPA pattern of loading
+// one graph per page-load, but for long-lived sessions with many graph
+// reloads, the spine memory will grow ~8 bytes per stale handle. Recycling
+// or generation-counter handles can be added later if needed.
 thread_local! {
     static EARS: RefCell<Vec<Option<EarDecomposition>>> = const { RefCell::new(Vec::new()) };
 }
@@ -103,7 +102,8 @@ thread_local! {
 pub fn wasm_load_graph(graph_data: JsValue) -> Result<JsValue, JsValue> {
     wasm_boundary(|| {
         let data: GraphData = if let Some(json) = graph_data.as_string() {
-            serde_json::from_str(&json).map_err(|error| format!("failed to parse graph JSON: {error}"))?
+            serde_json::from_str(&json)
+                .map_err(|error| format!("failed to parse graph JSON: {error}"))?
         } else {
             parse_js(graph_data, "graph")?
         };
@@ -196,22 +196,6 @@ pub fn wasm_leisure_plan_open(
 }
 
 #[wasm_bindgen]
-pub fn wasm_leisure_astar(
-    graph_handle: u32,
-    from: &str,
-    to: &str,
-    options_value: JsValue,
-) -> Result<JsValue, JsValue> {
-    wasm_boundary(|| {
-        with_graph(graph_handle, |graph| {
-            let options = parse_astar_options(graph, options_value)?;
-            let result = leisure_astar(graph, &NodeId::from(from), &NodeId::from(to), &options);
-            Ok(to_wasm_astar_result(graph, &result))
-        })
-    })
-}
-
-#[wasm_bindgen]
 pub fn wasm_suggest_corridor(
     graph_handle: u32,
     tour_value: JsValue,
@@ -290,22 +274,6 @@ pub fn wasm_surface_intent_pois(
             intent.as_ref(),
             options,
         ))
-    })
-}
-
-#[wasm_bindgen]
-pub fn wasm_tags_from_entity(entity_value: JsValue) -> Result<JsValue, JsValue> {
-    wasm_boundary(|| {
-        let entity: IntentEntity = parse_js(entity_value, "entity")?;
-        Ok(tags_from_entity(&entity))
-    })
-}
-
-#[wasm_bindgen]
-pub fn wasm_tags_from_target(target_value: JsValue) -> Result<JsValue, JsValue> {
-    wasm_boundary(|| {
-        let target: IntentTarget = parse_js(target_value, "target")?;
-        Ok(tags_from_target(&target))
     })
 }
 
@@ -557,49 +525,6 @@ fn to_wasm_ear(graph: &LeisureGraph, ear: &Ear) -> WasmEar {
     }
 }
 
-#[derive(Clone, Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct WasmAStarResult {
-    status: String,
-    path: Vec<String>,
-    nodes: Vec<String>,
-    edges: Vec<String>,
-    total_leisure_cost: f64,
-    total_distance_m: f64,
-    total_distance_km: f64,
-    total_duration_s: f64,
-    retraced_edge_count: usize,
-}
-
-fn to_wasm_astar_result(graph: &LeisureGraph, result: &AStarResult) -> WasmAStarResult {
-    let path = result
-        .path
-        .iter()
-        .map(ToString::to_string)
-        .collect::<Vec<_>>();
-    WasmAStarResult {
-        status: match result.status {
-            AStarStatus::Ok => "ok",
-            AStarStatus::Unreachable => "unreachable",
-            AStarStatus::BudgetExhausted => "budget-exhausted",
-        }
-        .to_owned(),
-        nodes: path.clone(),
-        path,
-        edges: result
-            .edges
-            .iter()
-            .filter_map(|index| graph.edges.get(*index))
-            .map(|edge| edge.canonical_id())
-            .collect(),
-        total_leisure_cost: result.total_leisure_cost,
-        total_distance_m: result.total_distance_m,
-        total_distance_km: result.total_distance_m / 1000.0,
-        total_duration_s: result.total_duration_s,
-        retraced_edge_count: result.retraced_edge_count,
-    }
-}
-
 #[derive(Clone, Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct PlanOptionsInput {
@@ -698,98 +623,6 @@ impl PlanPointInput {
 
 #[derive(Clone, Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct AStarOptionsInput {
-    cost_mode: Option<String>,
-    mode: Option<String>,
-    budget: Option<Value>,
-    max_distance_m: Option<f64>,
-    max_distance_km: Option<f64>,
-    max_duration_s: Option<f64>,
-    max_leisure_cost: Option<f64>,
-    forbidden_edges: Option<Value>,
-    forbidden_nodes: Option<Value>,
-    used_edges: Option<Value>,
-    used_edges_penalty: Option<f64>,
-    used_edge_penalty: Option<f64>,
-    bidirectional: Option<bool>,
-}
-
-fn parse_astar_options(graph: &LeisureGraph, value: JsValue) -> Result<AStarOptions, String> {
-    let input: AStarOptionsInput = parse_js_or_default(value, "astar options")?;
-    let cost_mode = parse_cost_mode(
-        input
-            .cost_mode
-            .as_deref()
-            .or(input.mode.as_deref())
-            .unwrap_or("leisure"),
-    );
-    let mut options = AStarOptions {
-        cost_mode,
-        forbidden_edges: edge_indices_from_optional_value(graph, input.forbidden_edges.as_ref()),
-        forbidden_nodes: strings_from_optional_value(input.forbidden_nodes.as_ref())
-            .into_iter()
-            .map(NodeId::from)
-            .collect(),
-        used_edges: edge_indices_from_optional_value(graph, input.used_edges.as_ref()),
-        used_edges_penalty: input
-            .used_edges_penalty
-            .or(input.used_edge_penalty)
-            .filter(|value| value.is_finite())
-            .unwrap_or(1.0)
-            .max(1.0),
-        bidirectional: input.bidirectional.unwrap_or(true),
-        budget_cost: None,
-    };
-    options.budget_cost = astar_budget(cost_mode, &input);
-    Ok(options)
-}
-
-fn parse_cost_mode(value: &str) -> CostMode {
-    match value {
-        "distance" => CostMode::Distance,
-        "duration" => CostMode::Duration,
-        _ => CostMode::Leisure,
-    }
-}
-
-fn astar_budget(mode: CostMode, input: &AStarOptionsInput) -> Option<f64> {
-    if let Some(value) = input.budget.as_ref().and_then(number_from_value) {
-        return Some(value);
-    }
-    if let Some(object) = input.budget.as_ref().and_then(Value::as_object) {
-        return match mode {
-            CostMode::Distance => {
-                object
-                    .get("distanceM")
-                    .and_then(number_from_value)
-                    .or_else(|| {
-                        object
-                            .get("distanceKm")
-                            .and_then(number_from_value)
-                            .map(|km| km * 1000.0)
-                    })
-            }
-            CostMode::Duration => object.get("durationS").and_then(number_from_value),
-            CostMode::Leisure => object.get("leisureCost").and_then(number_from_value),
-        };
-    }
-    match mode {
-        CostMode::Distance => input
-            .max_distance_m
-            .filter(|value| value.is_finite())
-            .or_else(|| {
-                input
-                    .max_distance_km
-                    .filter(|value| value.is_finite())
-                    .map(|km| km * 1000.0)
-            }),
-        CostMode::Duration => input.max_duration_s.filter(|value| value.is_finite()),
-        CostMode::Leisure => input.max_leisure_cost.filter(|value| value.is_finite()),
-    }
-}
-
-#[derive(Clone, Debug, Default, Deserialize)]
-#[serde(rename_all = "camelCase")]
 struct CorridorOptionsInput {
     buffer_km: Option<f64>,
     auto_include_max_detour_min: Option<f64>,
@@ -844,6 +677,7 @@ fn parse_corridor_options(value: JsValue) -> Result<CorridorOptions, String> {
 #[serde(rename_all = "camelCase")]
 struct LunchOptionsInput {
     start_time: Option<String>,
+    tz_offset_minutes: Option<i32>,
     persona: Option<String>,
     lunch_policy: Option<Value>,
     narrative_mode: Option<bool>,
@@ -855,6 +689,9 @@ fn parse_lunch_options(value: JsValue) -> Result<LunchOptions, String> {
     let mut options = LunchOptions::default();
     if let Some(value) = input.start_time.filter(|value| !value.trim().is_empty()) {
         options.start_time = value;
+    }
+    if let Some(value) = input.tz_offset_minutes {
+        options.tz_offset_minutes = value;
     }
     if let Some(value) = input.persona.filter(|value| !value.trim().is_empty()) {
         options.persona = value;
@@ -892,6 +729,7 @@ fn parse_lunch_policy(value: &Value) -> LunchPolicy {
 #[serde(rename_all = "camelCase")]
 struct BreakOptionsInput {
     start_time: Option<String>,
+    tz_offset_minutes: Option<i32>,
     persona: Option<String>,
     weather: Option<String>,
     tour_packed: Option<bool>,
@@ -905,6 +743,9 @@ fn parse_break_options(value: JsValue) -> Result<BreakOptions, String> {
     let mut options = BreakOptions::default();
     if let Some(value) = input.start_time.filter(|value| !value.trim().is_empty()) {
         options.start_time = value;
+    }
+    if let Some(value) = input.tz_offset_minutes {
+        options.tz_offset_minutes = value;
     }
     if let Some(value) = input.persona.filter(|value| !value.trim().is_empty()) {
         options.persona = value;

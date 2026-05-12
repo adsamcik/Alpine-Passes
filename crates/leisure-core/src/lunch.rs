@@ -4,7 +4,7 @@
 //! lunch hunger curve, filters food POIs near the route, clusters them into
 //! lunch zones, and returns browser-friendly serializable output.
 
-use crate::graph::{haversine_m, LeisureGraph};
+use crate::graph::{dedupe_indices_by_haversine, haversine_m, LeisureGraph};
 use crate::optimizer::PublicTour;
 use crate::types::{Edge, EdgeKind, Node, NodeKind};
 use serde::Serialize;
@@ -24,6 +24,12 @@ const EPS: f64 = 1e-9;
 #[derive(Clone, Debug, PartialEq)]
 pub struct LunchOptions {
     pub start_time: String,
+    /// Minutes east of UTC used to match browser `Date.setHours()` local-time semantics.
+    ///
+    /// NOTE: tz_offset_minutes is plumbed by the JS shim from `-new Date().getTimezoneOffset()`.
+    /// wasm-shim.js must inject this into LunchOptions / BreakOptions JSON to match JS
+    /// Date.setHours() local-time semantics.
+    pub tz_offset_minutes: i32,
     pub persona: String,
     pub lunch_policy: LunchPolicy,
     pub narrative_mode: bool,
@@ -34,6 +40,7 @@ impl Default for LunchOptions {
     fn default() -> Self {
         Self {
             start_time: "2026-06-15T08:00:00.000Z".to_owned(),
+            tz_offset_minutes: 0,
             persona: "normal".to_owned(),
             lunch_policy: LunchPolicy::Auto,
             narrative_mode: true,
@@ -194,6 +201,7 @@ struct NearestPoint<'a> {
 struct SimpleTime {
     date: String,
     seconds_of_day: i64,
+    offset_minutes: i32,
 }
 
 /// Finds lunch areas near the tour route.
@@ -206,13 +214,13 @@ pub fn find_lunch_area(
 }
 
 /// JS-parity alias for `planLunchZone`.
-pub fn plan_lunch_zone(
+pub(crate) fn plan_lunch_zone(
     graph: &LeisureGraph,
     tour: &PublicTour,
     options: LunchOptions,
 ) -> LunchSuggestion {
     let opts = normalize_options(options);
-    let profile = build_profile(graph, tour, &opts.start_time);
+    let profile = build_profile(graph, tour, &opts.start_time, opts.tz_offset_minutes);
     if profile.total_duration_s <= 0.0 {
         return LunchSuggestion::default();
     }
@@ -317,8 +325,13 @@ fn normalize_options(mut options: LunchOptions) -> LunchOptions {
     options
 }
 
-fn build_profile(graph: &LeisureGraph, tour: &PublicTour, start_time: &str) -> Profile {
-    let start_time = SimpleTime::parse(start_time);
+fn build_profile(
+    graph: &LeisureGraph,
+    tour: &PublicTour,
+    start_time: &str,
+    tz_offset_minutes: i32,
+) -> Profile {
+    let start_time = SimpleTime::parse(start_time, tz_offset_minutes);
     let edges = route_edges(graph, tour);
     let mut vertices = Vec::new();
     let mut segments = Vec::new();
@@ -503,11 +516,11 @@ fn build_hunger_curve(profile: &Profile, opts: &LunchOptions) -> Vec<CurveSample
 }
 
 fn hunger_at(profile: &Profile, opts: &LunchOptions, t_sec: f64) -> CurveSample {
-    let minutes_of_day = profile.start_time.minutes_at(t_sec);
+    let local_total_min = profile.start_time.minutes_at(t_sec);
     let (ideal_h, ideal_m) = persona_ideal(&opts.persona);
-    let ideal_min = ideal_h as f64 * 60.0 + ideal_m as f64;
+    let ideal_min = ideal_h as i64 * 60 + ideal_m as i64;
     let sigma_min = if opts.persona == "foodie" { 45.0 } else { 30.0 };
-    let delta_min = minutes_of_day as f64 - ideal_min;
+    let delta_min = (local_total_min - ideal_min) as f64;
     let ideal_score = (-0.5 * (delta_min / sigma_min).powi(2)).exp();
     let pressure = clamp01((t_sec / 3600.0 - 4.0) / 2.0) * 0.55;
     let post_effort = if recently_after_big_pass(profile, t_sec) {
@@ -1105,22 +1118,18 @@ fn expanded_line(edge: &Edge, from: &RoutePoint, to: &RoutePoint) -> Vec<RoutePo
         });
     }
     raw.push(to.clone());
-    let mut filtered: Vec<RoutePoint> = Vec::new();
-    for point in raw {
-        if !has_coord(point.lat, point.lon) {
-            continue;
-        }
-        if filtered.last().map_or(true, |last| {
-            haversine_m(last.lat, last.lon, point.lat, point.lon) > 1.0
-        }) {
-            filtered.push(point);
-        }
-    }
-    if filtered.len() < 2 {
-        vec![from.clone(), to.clone()]
-    } else {
-        filtered
-    }
+    let raw_vec: Vec<RoutePoint> = raw
+        .into_iter()
+        .filter(|point| has_coord(point.lat, point.lon))
+        .collect();
+    let coords = raw_vec
+        .iter()
+        .map(|point| (point.lat, point.lon))
+        .collect::<Vec<_>>();
+    dedupe_indices_by_haversine(&coords)
+        .into_iter()
+        .map(|index| raw_vec[index].clone())
+        .collect()
 }
 
 fn compare_zones(a: &ZoneInternal, b: &ZoneInternal) -> Ordering {
@@ -1419,7 +1428,7 @@ fn hm_from_iso(value: &str) -> String {
 }
 
 impl SimpleTime {
-    fn parse(value: &str) -> Self {
+    fn parse(value: &str, offset_minutes: i32) -> Self {
         let date = value.get(0..10).unwrap_or("2026-06-15").to_owned();
         let time = value.split('T').nth(1).unwrap_or("08:00:00");
         let mut parts = time.split(':');
@@ -1439,6 +1448,7 @@ impl SimpleTime {
         Self {
             date,
             seconds_of_day: (hour * 3600 + minute * 60 + second).rem_euclid(86_400),
+            offset_minutes,
         }
     }
 
@@ -1457,9 +1467,80 @@ impl SimpleTime {
         format!("{date}T{hour:02}:{minute:02}:{second:02}.000Z")
     }
 
-    fn minutes_at(&self, offset_s: f64) -> i32 {
+    fn minutes_at(&self, offset_s: f64) -> i64 {
         let total = (self.seconds_of_day as f64 + offset_s).round() as i64;
-        (total.rem_euclid(86_400) / 60) as i32
+        total / 60 + self.offset_minutes as i64
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hunger_curve_uses_local_timezone_offset_for_ideal_time() {
+        let start_time = SimpleTime::parse("2026-06-15T08:00:00.000Z", 120);
+        let (ideal_h, ideal_m) = persona_ideal("normal");
+        let delta_min = start_time.minutes_at(0.0) - (ideal_h as i64 * 60 + ideal_m as i64);
+
+        assert_eq!(start_time.minutes_at(0.0), 10 * 60);
+        assert_eq!(delta_min, -150);
+    }
+
+    #[test]
+    fn hunger_curve_handles_tour_crossing_local_midnight() {
+        let start_time = SimpleTime::parse("2026-06-15T22:00:00.000Z", 120);
+
+        assert_eq!(
+            start_time.minutes_at(0.0),
+            1440,
+            "local time at t=0 should be 1440 (next-day midnight)"
+        );
+        assert_eq!(
+            start_time.minutes_at(43_200.0),
+            1440 + 720,
+            "12h later should be 36:00 absolute"
+        );
+    }
+
+    #[test]
+    fn expanded_line_uses_raw_prev_dedup_matching_js() {
+        let from = route_point("from", 0.0, 0.0);
+        let to = route_point("to", 0.0, 0.0000099);
+        let edge = Edge {
+            id: Some("from->to".to_owned()),
+            from: "from".into(),
+            to: "to".into(),
+            kind: EdgeKind::Connector,
+            distance_m: 1.1,
+            duration_s: 1.0,
+            leisure_cost: 1.0,
+            pass_id: None,
+            side: None,
+            scenic_score: None,
+            season: None,
+            road_class: None,
+            is_highway: None,
+            geometry: vec![[0.0, 0.0000054]],
+            source: None,
+        };
+
+        let result = expanded_line(&edge, &from, &to);
+
+        assert_eq!(result.len(), 1, "Should match JS: keep only 'from'");
+        assert_eq!(result[0].id, "from");
+    }
+
+    fn route_point(id: &str, lat: f64, lon: f64) -> RoutePoint {
+        RoutePoint {
+            id: id.to_owned(),
+            name: id.to_owned(),
+            lat,
+            lon,
+            elev: None,
+            s_m: 0.0,
+            t_sec: 0.0,
+        }
     }
 }
 

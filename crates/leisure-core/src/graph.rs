@@ -564,6 +564,23 @@ pub fn haversine_m(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
     2.0 * EARTH_RADIUS_M * h.sqrt().min(1.0).asin()
 }
 
+/// Returns indices into `points` to keep after deduping consecutive points
+/// whose haversine distance to the raw previous point is at most 1 meter.
+pub(crate) fn dedupe_indices_by_haversine(points: &[(f64, f64)]) -> Vec<usize> {
+    let mut keep = Vec::with_capacity(points.len());
+    for (index, (lat, lon)) in points.iter().enumerate() {
+        if index == 0 {
+            keep.push(index);
+            continue;
+        }
+        let (prev_lat, prev_lon) = points[index - 1];
+        if haversine_m(prev_lat, prev_lon, *lat, *lon) > 1.0 {
+            keep.push(index);
+        }
+    }
+    keep
+}
+
 fn compare_nearest(left: &(NodeId, f64), right: &(NodeId, f64)) -> Ordering {
     left.1
         .partial_cmp(&right.1)

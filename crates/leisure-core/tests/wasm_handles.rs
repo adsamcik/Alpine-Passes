@@ -110,3 +110,14 @@ fn multiple_load_after_free_allocates_new_slot() {
     let _ = __wasm_handle_test_free_graph(third);
     let _ = __wasm_handle_test_free_graph(fourth);
 }
+
+#[test]
+fn wasm_load_graph_object_branch_gap_is_documented() {
+    // The browser shim has a compatibility fallback that retries wasm_load_graph
+    // with a parsed object when an older bundle rejects string input. Native
+    // cargo tests cannot construct a real JsValue, so this covers the same
+    // GraphData-owned path used after serde-wasm-bindgen object deserialization.
+    // Follow-up: add wasm-bindgen-test coverage for the production JsValue branch.
+    let graph = load_graph_handle();
+    assert_ne!(graph, u32::MAX, "graph handle should be valid");
+}

@@ -323,7 +323,7 @@ pub fn plan_leisure_tour(
 /// Returns `PlanStatus::Infeasible` for invalid inputs, missing or
 /// unreachable starts/endpoints, invalid budgets, or must-visits that
 /// cannot be materialized within a closed-loop budget.
-pub fn plan_leisure_tour_advanced(
+pub(crate) fn plan_leisure_tour_advanced(
     graph: &LeisureGraph,
     ears: &EarDecomposition,
     must_visit_ids: &[String],
@@ -682,9 +682,6 @@ struct MaterializedRoute {
     total_leisure_cost: f64,
     total_distance_m: f64,
     total_duration_s: f64,
-    failed_leg: Option<AStarResult>,
-    failed_from: Option<NodeId>,
-    failed_to: Option<NodeId>,
 }
 
 #[derive(Clone, Debug, Default, Serialize)]
@@ -716,10 +713,6 @@ struct InternalTour {
     path: Vec<NodeId>,
     score: f64,
     duration_s: f64,
-    #[allow(dead_code)]
-    status: Option<String>,
-    #[allow(dead_code)]
-    reason: Option<String>,
 }
 
 struct Env<'a> {
@@ -1716,14 +1709,7 @@ fn evaluate_route(env: &mut Env<'_>, route: &[Candidate]) -> InternalTour {
     nodes.push(env.end.point.node_id.clone());
     let baseline = materialize_route(env, &nodes, false, 0.0);
     if !baseline.ok {
-        let failed = failed_tour(
-            env,
-            route,
-            signature,
-            baseline.failed_leg.as_ref(),
-            baseline.failed_from.as_ref(),
-            baseline.failed_to.as_ref(),
-        );
+        let failed = failed_tour(env, route, signature);
         env.route_cache
             .remember(failed.signature.clone(), failed.clone());
         return failed;
@@ -1794,8 +1780,6 @@ fn evaluate_route(env: &mut Env<'_>, route: &[Candidate]) -> InternalTour {
         path: materialized.path_nodes,
         score: round(score, 3),
         duration_s: round(materialized.total_duration_s, 3),
-        status: None,
-        reason: None,
     };
     env.route_cache
         .remember(tour.signature.clone(), tour.clone());
@@ -1833,9 +1817,6 @@ fn materialize_route(
                 total_leisure_cost,
                 total_distance_m,
                 total_duration_s,
-                failed_leg: Some(options.budget),
-                failed_from: Some(pair[0].clone()),
-                failed_to: Some(pair[1].clone()),
             };
         }
         let mut leg = options.budget;
@@ -1873,9 +1854,6 @@ fn materialize_route(
         total_leisure_cost,
         total_distance_m,
         total_duration_s,
-        failed_leg: None,
-        failed_from: None,
-        failed_to: None,
     }
 }
 
@@ -1993,30 +1971,12 @@ fn leisure_leg_between(
     result
 }
 
-fn failed_tour(
-    env: &Env<'_>,
-    route: &[Candidate],
-    signature: String,
-    leg: Option<&AStarResult>,
-    from_id: Option<&NodeId>,
-    to_id: Option<&NodeId>,
-) -> InternalTour {
-    let reason = format!(
-        "unreachable-leg:{}->{}",
-        from_id.map(NodeId::as_str).unwrap_or(""),
-        to_id.map(NodeId::as_str).unwrap_or("")
-    );
+fn failed_tour(env: &Env<'_>, route: &[Candidate], signature: String) -> InternalTour {
     InternalTour {
         feasible: false,
         route: route.to_vec(),
         signature,
         end_node: env.end.point.node_id.clone(),
-        status: Some(format!(
-            "{:?}",
-            leg.map(|leg| leg.status)
-                .unwrap_or(AStarStatus::Unreachable)
-        )),
-        reason: Some(reason),
         stops: public_stops(&env.start, route, &env.end),
         edges: Vec::new(),
         total_leisure_cost: 0.0,

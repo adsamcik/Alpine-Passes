@@ -24,6 +24,12 @@ const EPS: f64 = 1e-9;
 #[derive(Clone, Debug, PartialEq)]
 pub struct BreakOptions {
     pub start_time: String,
+    /// Minutes east of UTC used to match browser `Date.getHours()` local-time semantics.
+    ///
+    /// NOTE: tz_offset_minutes is plumbed by the JS shim from `-new Date().getTimezoneOffset()`.
+    /// wasm-shim.js must inject this into LunchOptions / BreakOptions JSON to match JS
+    /// Date.setHours() local-time semantics.
+    pub tz_offset_minutes: i32,
     pub persona: String,
     pub weather: Option<String>,
     pub tour_packed: bool,
@@ -38,6 +44,7 @@ impl Default for BreakOptions {
     fn default() -> Self {
         Self {
             start_time: DEFAULT_START.to_owned(),
+            tz_offset_minutes: 0,
             persona: "default".to_owned(),
             weather: None,
             tour_packed: false,
@@ -194,6 +201,7 @@ struct ScoredCandidate {
 struct SimpleTime {
     date: String,
     seconds_of_day: i64,
+    offset_minutes: i32,
 }
 
 /// Suggests break stops and returns only the break list.
@@ -221,7 +229,7 @@ pub fn detect_breaks(
         packed: options.tour_packed,
         suppressed_reason: options.tour_packed.then(|| "tour-packed".to_owned()),
     };
-    let start_time = SimpleTime::parse(&options.start_time);
+    let start_time = SimpleTime::parse(&options.start_time, options.tz_offset_minutes);
     let threshold = persona_threshold(&options.persona);
     let mut load_curve = Vec::new();
     let mut breaks = Vec::new();
@@ -247,8 +255,15 @@ pub fn detect_breaks(
             if is_high_pass_climax(graph, &chunk.edge) {
                 pending_decompression = true;
             }
-            let t = start_time.iso_at(next_drive_clock_s + schedule_extra_s);
-            let chunk_load = mental_load(&metrics, duration_s, &t, options.weather.as_deref());
+            let clock_s = next_drive_clock_s + schedule_extra_s;
+            let t = start_time.iso_at(clock_s);
+            let local_minutes = start_time.minutes_at(clock_s);
+            let chunk_load = mental_load(
+                &metrics,
+                duration_s,
+                local_minutes,
+                options.weather.as_deref(),
+            );
             load_total += chunk_load.total;
             load_boredom += chunk_load.boredom;
             load_effort += chunk_load.effort;
@@ -599,7 +614,7 @@ fn segment_chunks(graph: &LeisureGraph, segment: &Segment) -> Vec<Chunk> {
 fn mental_load(
     metrics: &SegmentMetrics,
     duration_s: f64,
-    t_iso: &str,
+    local_minutes: i32,
     weather: Option<&str>,
 ) -> Load {
     let duration_min = duration_s / 60.0;
@@ -610,7 +625,8 @@ fn mental_load(
     let effort =
         duration_min * metrics.curvature_density * (metrics.elev_gain_per_km - 30.0).max(0.0)
             / 100.0;
-    let total = boredom + effort + circadian_penalty(t_iso) + glare_penalty(t_iso, weather);
+    let total =
+        boredom + effort + circadian_penalty(local_minutes) + glare_penalty(local_minutes, weather);
     Load {
         boredom,
         effort,
@@ -618,17 +634,15 @@ fn mental_load(
     }
 }
 
-fn circadian_penalty(t_iso: &str) -> f64 {
-    let minutes = minutes_from_iso(t_iso);
+fn circadian_penalty(minutes: i32) -> f64 {
     triangular(minutes as f64, 14.0 * 60.0 + 30.0, 75.0, 0.4)
         + triangular(minutes as f64, 17.0 * 60.0, 60.0, 0.2)
 }
 
-fn glare_penalty(t_iso: &str, weather: Option<&str>) -> f64 {
+fn glare_penalty(minutes: i32, weather: Option<&str>) -> f64 {
     if weather != Some("sunny") {
         return 0.0;
     }
-    let minutes = minutes_from_iso(t_iso);
     let hour = minutes as f64 / 60.0;
     if !(9.0..17.0).contains(&hour) {
         0.3
@@ -1348,22 +1362,8 @@ fn round(value: f64, decimals: i32) -> f64 {
     (value * scale).round() / scale
 }
 
-fn minutes_from_iso(value: &str) -> i32 {
-    let time = value.split('T').nth(1).unwrap_or("00:00:00");
-    let mut parts = time.split(':');
-    let hour = parts
-        .next()
-        .and_then(|v| v.parse::<i32>().ok())
-        .unwrap_or(0);
-    let minute = parts
-        .next()
-        .and_then(|v| v.parse::<i32>().ok())
-        .unwrap_or(0);
-    hour * 60 + minute
-}
-
 impl SimpleTime {
-    fn parse(value: &str) -> Self {
+    fn parse(value: &str, offset_minutes: i32) -> Self {
         let source = if value.trim().is_empty() {
             DEFAULT_START
         } else {
@@ -1388,6 +1388,7 @@ impl SimpleTime {
         Self {
             date,
             seconds_of_day: (hour * 3600 + minute * 60 + second).rem_euclid(86_400),
+            offset_minutes,
         }
     }
 
@@ -1404,6 +1405,11 @@ impl SimpleTime {
             advance_iso_date(&self.date, day_offset)
         };
         format!("{date}T{hour:02}:{minute:02}:{second:02}.000Z")
+    }
+
+    fn minutes_at(&self, offset_s: f64) -> i32 {
+        let total = (self.seconds_of_day as f64 + offset_s).round() as i64;
+        ((total / 60) as i32 + self.offset_minutes).rem_euclid(24 * 60)
     }
 }
 

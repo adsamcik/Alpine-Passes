@@ -23,16 +23,12 @@ Complex inputs and outputs cross the boundary as JS values serialized through `s
 - `wasm_leisure_plan_auto(graphHandle, earsHandle, options)` — builds an automatic closed-loop or endpoint-aware leisure tour.
 - `wasm_leisure_plan_selected(graphHandle, earsHandle, mustVisit, options)` — plans a tour through explicit pass/POI ids.
 - `wasm_leisure_plan_open(graphHandle, earsHandle, startId, endId, options)` — plans an open route from one graph node to another.
-- `wasm_leisure_astar(graphHandle, from, to, options)` — runs budget-aware leisure/distance/duration A* and returns path, edge, and cost details.
 - `wasm_suggest_corridor(graphHandle, tour, options)` — scores along-route POIs for auto-inclusion and drawer suggestions.
 - `wasm_find_lunch_area(graphHandle, tour, options)` — finds lunch-zone candidates for the current tour and persona policy.
 - `wasm_suggest_breaks(graphHandle, tour, options)` — suggests rest/photo/food breaks along a tour.
 - `wasm_infer_intent(entities, options)` — infers an intent/persona distribution from selected stops, themes, history, and trip context.
 - `wasm_surface_intent_pois(tour, candidates, intent, options)` — ranks explicit POI candidates into primary and serendipity surfaces.
-- `wasm_tags_from_entity(entity)` — maps a selected entity into intent tags.
-- `wasm_tags_from_target(target)` — maps a target descriptor into intent tags.
 - `leisure_core_version()` — returns the crate version string (for example, `"0.1.0"`) for cache-busting and diagnostics.
-- `validateGraphJson(payload)` — validates a graph payload without loading it into a handle. Returns `undefined` when valid and throws an error string when invalid.
 - `wasm_free_graph(handle)` — releases a graph handle. The slot is tombstoned and the handle becomes invalid. Returns `true` if the handle was valid; `false` if already freed or out of range. Use when reloading graph data in a long-lived SPA.
 - `wasm_free_ears(handle)` — releases an ear-decomposition handle with the same semantics as `wasm_free_graph`.
 
@@ -81,9 +77,72 @@ WASM artifacts must stay within the static-asset budget:
 
 - Raw `leisure_core_bg.wasm`: ≤ 850 KB.
 - Brotli-compressed `.wasm`: ≤ 250 KB.
-- Current baseline: 807 KB raw / 234 KB brotli.
+- Current baseline: 841,645 bytes raw / 244,242 bytes brotli (~842 KB raw / ~244 KB brotli).
+
+The checked-in leisure graph (`assets\data\leisure-graph.v1.json`) is ~2.85 MB raw (2,989,132 bytes). It is served as a static JSON asset and should be gzip/brotli compressed at the edge; typical wire size is ~0.7-0.9 MB.
 
 `npm run build:wasm` runs the post-build size check; if that check is unavailable in a local environment, verify the raw and brotli sizes manually before committing regenerated artifacts.
+
+## Production Deployment
+
+### MIME types
+
+The static host MUST serve `.wasm` files with `Content-Type: application/wasm`. Modern CDNs (GitHub Pages, Cloudflare, Netlify, Vercel) do this by default. If you self-host:
+
+- Apache: add `AddType application/wasm .wasm` to `.htaccess`.
+- nginx: add `application/wasm wasm;` to `mime.types`.
+
+The shim has a fallback path (`WebAssembly.instantiate` instead of `instantiateStreaming`) for hosts that get this wrong, but it is slower.
+
+### Cache-Control
+
+The WASM artifact and JS glue are version-coupled (wasm-bindgen ABI is not stable across versions). Serve them with **either**:
+
+- `Cache-Control: public, max-age=300, must-revalidate` (short cache + revalidation), **or**
+- Content-hashed filenames (for example, `leisure_core_bg.<sha256>.wasm`) with `Cache-Control: public, max-age=31536000, immutable`.
+
+Currently the artifacts use static filenames, so the short-cache approach is recommended. GitHub Pages default is 10-minute caching, which is acceptable.
+
+The graph JSON (`assets\data\leisure-graph.v1.json`) can be cached longer (1 hour to 1 day) because the schema is versioned in the filename (`v1`).
+
+### Compression
+
+The graph JSON is ~2.85 MB uncompressed. Edge gzip/brotli compression typically reduces this to ~0.7-0.9 MB. Ensure your host's compression is enabled for `application/json` (default on GitHub Pages).
+
+The WASM binary is 841,645 bytes raw / 244,242 bytes brotli (~842 KB raw / ~244 KB brotli). `wasm-opt` strips unused symbols; further size optimization is dominated by the embedded ear / corridor / lunch / break / intent code.
+
+### Browser support
+
+Requires:
+
+- WebAssembly (Chrome 57+, Firefox 52+, Safari 11+, Edge 79+)
+- Dynamic `import()` (Chrome 63+, Firefox 67+, Safari 11+, Edge 79+; iOS Safari 14+ recommended for reliable dynamic import of glue JS)
+- `localStorage` (universal)
+
+Edge cases:
+
+- `file://` protocol: `fetch` of relative URLs may be blocked. The shim shows the WASM-unavailable banner gracefully.
+- Strict CSP: add `'wasm-unsafe-eval'` to `script-src` (or `default-src`).
+- Private browsing in some browsers: `localStorage` may throw on read; the flag check handles this with try/catch.
+
+### Monitoring
+
+The shim emits structured telemetry via `CustomEvent`. Listen on `window` for:
+
+- `leisure-wasm-error` — failure events (stage, errorName, errorMessage, timestamp)
+- `leisure-wasm-event` — success events (plan-completed, wasm-ready)
+
+Wire these to your team's telemetry pipeline (Sentry, Datadog, etc.) if available. The shim does NOT send beacons by default — it is opt-in via your listener.
+
+### Build reproducibility
+
+Pin in CI:
+
+- `cargo install wasm-bindgen-cli --version 0.2.121` (matches the Cargo dependency pin)
+- `wasm-pack` (any 0.x.y version)
+- `binaryen` via `npm install --no-save binaryen` (provides `wasm-opt`)
+
+Do not mix wasm-bindgen CLI and crate versions; the generated JS glue and `.wasm` ABI are version-coupled.
 
 ## Determinism
 

@@ -4,7 +4,7 @@
 //! deduplicated edge geometry, and ranks nearby POIs into auto-include,
 //! suggestion, and drawer tiers.
 
-use crate::graph::{haversine_m, LeisureGraph};
+use crate::graph::{dedupe_indices_by_haversine, haversine_m, LeisureGraph};
 use crate::optimizer::PublicTour;
 use crate::types::{Edge, EdgeKind, Node, NodeKind};
 use serde::Serialize;
@@ -602,22 +602,18 @@ fn expanded_line(edge: &Edge, from: &RoutePoint, to: &RoutePoint) -> Vec<RoutePo
         });
     }
     raw.push(to.clone());
-    let mut filtered: Vec<RoutePoint> = Vec::new();
-    for point in raw {
-        if !has_coord(point.lat, point.lon) {
-            continue;
-        }
-        let keep = filtered.last().map_or(true, |last| {
-            haversine_m(last.lat, last.lon, point.lat, point.lon) > 1.0
-        });
-        if keep {
-            filtered.push(point);
-        }
-    }
-    if filtered.len() < 2 {
-        return vec![from.clone(), to.clone()];
-    }
-    filtered
+    let raw_vec: Vec<RoutePoint> = raw
+        .into_iter()
+        .filter(|point| has_coord(point.lat, point.lon))
+        .collect();
+    let coords = raw_vec
+        .iter()
+        .map(|point| (point.lat, point.lon))
+        .collect::<Vec<_>>();
+    dedupe_indices_by_haversine(&coords)
+        .into_iter()
+        .map(|index| raw_vec[index].clone())
+        .collect()
 }
 
 fn edge_distance_km(edge: &Edge, from: &RoutePoint, to: &RoutePoint) -> f64 {
@@ -1133,5 +1129,46 @@ fn empty_result(
             buffer_km,
             mode: mode_label(mode).to_owned(),
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn expanded_line_uses_raw_prev_dedup_matching_js() {
+        let from = route_point("from", 0.0, 0.0);
+        let to = route_point("to", 0.0, 0.0000099);
+        let edge = Edge {
+            id: Some("from->to".to_owned()),
+            from: "from".into(),
+            to: "to".into(),
+            kind: EdgeKind::Connector,
+            distance_m: 1.1,
+            duration_s: 1.0,
+            leisure_cost: 1.0,
+            pass_id: None,
+            side: None,
+            scenic_score: None,
+            season: None,
+            geometry: vec![[0.0, 0.0000054]],
+            road_class: None,
+            is_highway: None,
+            source: None,
+        };
+
+        let result = expanded_line(&edge, &from, &to);
+
+        assert_eq!(result.len(), 1, "Should match JS: keep only 'from'");
+        assert_eq!(result[0].id, "from");
+    }
+
+    fn route_point(id: &str, lat: f64, lon: f64) -> RoutePoint {
+        RoutePoint {
+            id: id.to_owned(),
+            lat,
+            lon,
+        }
     }
 }

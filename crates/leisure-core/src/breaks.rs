@@ -1407,6 +1407,20 @@ impl SimpleTime {
         format!("{date}T{hour:02}:{minute:02}:{second:02}.000Z")
     }
 
+    /// Returns the local clock-minute-of-day in `[0, 1440)`.
+    ///
+    /// This deliberately wraps via `rem_euclid(24*60)` — UNLIKE
+    /// `lunch::SimpleTime::minutes_at` which returns absolute i64 minutes
+    /// since local-midnight-of-day-0.
+    ///
+    /// Rationale: JS counterpart `breaks.js:245` computes
+    /// `t.getHours()*60 + t.getMinutes()`, which is intrinsically
+    /// `[0, 1440)`. The break consumer (`circadian_penalty` +
+    /// `glare_penalty`) treats this as a 24h-cyclical clock value, so
+    /// wrapping is correct here.
+    ///
+    /// If you change this to absolute minutes, also update circadian
+    /// and glare penalty consumers to wrap explicitly.
     fn minutes_at(&self, offset_s: f64) -> i32 {
         let total = (self.seconds_of_day as f64 + offset_s).round() as i64;
         ((total / 60) as i32 + self.offset_minutes).rem_euclid(24 * 60)

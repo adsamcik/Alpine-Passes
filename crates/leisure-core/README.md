@@ -105,6 +105,25 @@ Currently the artifacts use static filenames, so the short-cache approach is rec
 
 The graph JSON (`assets\data\leisure-graph.v1.json`) can be cached longer (1 hour to 1 day) because the schema is versioned in the filename (`v1`).
 
+### CDN cache-bust caveats
+
+The `?v=<hash>` query string on the WASM URL relies on the CDN keying its
+cache by full URL (including query string). This works by default on:
+
+- GitHub Pages (default behavior)
+- Cloudflare (default behavior)
+- Fastly, CloudFront, Netlify, Vercel (default behavior)
+
+⚠️ Misconfigurations to avoid:
+- Cloudflare's "Ignore Query String" option on Cache Level (defeats cache-bust)
+- Some corporate proxies strip query strings on static assets
+- Aggressive CDN edge caches with very long TTLs (the hash only helps after
+  the TTL expires or on a hard reload)
+
+If your hosting platform doesn't include query strings in cache keys, you'll
+need to either content-hash the filename itself OR keep `Cache-Control:
+max-age` very short on the WASM file.
+
 ### Compression
 
 The graph JSON is ~2.85 MB uncompressed. Edge gzip/brotli compression typically reduces this to ~0.7-0.9 MB. Ensure your host's compression is enabled for `application/json` (default on GitHub Pages).

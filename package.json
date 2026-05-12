@@ -2,7 +2,8 @@
   "private": true,
   "scripts": {
     "build:wasm": "node tools/leisure/build-wasm.mjs",
-    "test": "node --test",
+    "test": "node tools/leisure/verify-wasm-hash.mjs && node --test",
+    "verify:wasm-hash": "node tools/leisure/verify-wasm-hash.mjs",
     "check:wasm-size": "node tools/leisure/check-wasm-size.mjs",
     "postbuild:wasm": "node tools/leisure/check-wasm-size.mjs"
   }

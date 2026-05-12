@@ -138,6 +138,13 @@ const ALPS_INPUT = ALPS_RAW.filter(d => pointInAlps(d.lo, d.la));
 if (ALPS_INPUT.length !== ALPS_RAW.length) {
   console.info(`Filtered ${ALPS_RAW.length - ALPS_INPUT.length} non-Alpine entries (kept ${ALPS_INPUT.length}/${ALPS_RAW.length}).`);
 }
+/* Japan passes are curated (not OSM-derived) and live outside the Alps polygon,
+   so they bypass pointInAlps() but share the ALPS_RAW schema and merge into the
+   same in-memory PASSES array as Alpine passes. */
+const JAPAN_PASSES_INPUT = ((typeof JAPAN_PASSES !== "undefined" && Array.isArray(JAPAN_PASSES))
+  ? JAPAN_PASSES
+  : []);
+const PASSES_RAW_INPUT = [...ALPS_INPUT, ...JAPAN_PASSES_INPUT];
 const PASS_CAMS_MAP = (typeof window !== "undefined" && window.PASS_CAMS) || {};
 function scenicPointFromRaw(raw, fallbackName = "Scenic stop", fallbackKind = "viewpoint") {
   if (!raw) return null;
@@ -172,7 +179,7 @@ function scenicPointFromRaw(raw, fallbackName = "Scenic stop", fallbackKind = "v
   };
 }
 
-const PASSES = ALPS_INPUT.map((d, i) => {
+const PASSES = PASSES_RAW_INPUT.map((d, i) => {
   const fullName = d.n;
   const parts = fullName.split(/\s*\/\s*|\s*-\s*/);
   const slug = swissSlug(fullName);

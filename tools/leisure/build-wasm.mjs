@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -53,6 +54,7 @@ runWasmOpt([...wasmOptFlags, "-o", wasmPath, wasmPath], "inherit");
 
 writeAllowlist();
 ensureWasmOptProducer();
+stampWasmContentHash();
 
 function writeAllowlist() {
   fs.writeFileSync(
@@ -80,6 +82,23 @@ function ensureWasmOptProducer() {
   if (bytes.includes(Buffer.from("wasm-opt"))) return;
 
   fs.appendFileSync(wasmPath, producerSection("wasm-opt", wasmOptVersion()));
+}
+
+function stampWasmContentHash() {
+  const wasmBytes = fs.readFileSync(wasmPath);
+  const hash = createHash("sha256").update(wasmBytes).digest("hex").slice(0, 12);
+  const shimPath = path.join(repoRoot, "assets", "js", "leisure", "wasm-shim.js");
+  const shim = fs.readFileSync(shimPath, "utf8");
+  const updated = shim.replace(
+    /const WASM_CONTENT_HASH = "[^"]*";/,
+    `const WASM_CONTENT_HASH = "${hash}";`,
+  );
+  if (shim === updated) {
+    console.warn("WASM_CONTENT_HASH placeholder not found in wasm-shim.js — skipping content-hash injection");
+    return;
+  }
+  fs.writeFileSync(shimPath, updated);
+  console.log(`Stamped WASM content hash: ${hash}`);
 }
 
 function wasmOptVersion() {

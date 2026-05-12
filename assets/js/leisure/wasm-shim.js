@@ -3,6 +3,10 @@ import { arrayFrom, breakPersonaFor, emptyCorridor, emptyPhase4Outputs, enrichBr
 export const LEISURE_PLANNER_FLAG_KEY = "alpine.planner.leisure.v1";
 export const LEISURE_PLANNER_END_NODE_KEY = "alpine.planner.endNode";
 const GRAPH_URL = new URL("../../data/leisure-graph.v1.json", import.meta.url).href;
+const FETCH_TIMEOUT_MS = 20_000;
+// Auto-updated by tools/leisure/build-wasm.mjs at build time. Used to
+// cache-bust the WASM binary against stale glue JS on deploys.
+const WASM_CONTENT_HASH = "85a2e4771698";
 
 let graphStatePromise = null;
 
@@ -55,15 +59,19 @@ export function isLeisurePlannerEnabled() {
  * @returns {Promise<UiPlanResult>} UI-shaped result for rendering and route alternatives.
  */
 export async function leisurePlanAuto(uiOptions = {}) {
+  const startedAt = Date.now();
   try {
     const state = await graphState();
-    const options = optimizerOptions(uiOptions, leisureEndNodeOverride());
-    const planned = options.endNode && typeof options.start === "string" && typeof options.endNode === "string"
+    const options = optionsForWasm(optimizerOptions(uiOptions, leisureEndNodeOverride()));
+    const mode = options.endNode && typeof options.start === "string" && typeof options.endNode === "string" ? "open" : "auto";
+    const planned = mode === "open"
       ? fromWasm(state.wasm.wasm_leisure_plan_open(state.graphHandle, state.earsHandle, options.start, options.endNode, options))
       : fromWasm(state.wasm.wasm_leisure_plan_auto(state.graphHandle, state.earsHandle, options));
-    return translatePlannerResult(planned, { graph: state.graph, uiOptions, advanced: false, phase4Outputs, defaultOsrmRoute: globalThis.window?.osrmRoute, wasmState: state });
+    const result = translatePlannerResult(planned, { graph: state.graph, uiOptions, advanced: false, phase4Outputs, defaultOsrmRoute: globalThis.window?.osrmRoute, wasmState: state });
+    reportShimEvent("plan-completed", { mode, durationMs: Date.now() - startedAt });
+    return result;
   } catch (error) {
-    return wasmFailureResult(error, uiOptions, false);
+    return wasmFailureResult(error, uiOptions, false, "plan");
   }
 }
 
@@ -77,38 +85,63 @@ export async function leisurePlanAuto(uiOptions = {}) {
  * @returns {Promise<UiPlanResult>} UI-shaped selected-tour result for rendering.
  */
 export async function leisurePlanSelected(uiOptions = {}, selectedStops = []) {
+  const startedAt = Date.now();
   try {
     const state = await graphState();
     const { graph } = state;
     const mustVisitIds = selectedStops.map((stop) => resolveSelectedStopId(stop, graph)).filter(Boolean);
     if (mustVisitIds.length === 0) return infeasibleResult("no-selected-stops", uiOptions, true, null, projectedOpenPassCount(graph, uiOptions));
-    const options = optimizerOptions({ ...uiOptions, openOnly: false, forbiddenPassIds: [] }, leisureEndNodeOverride());
+    const options = optionsForWasm(optimizerOptions({ ...uiOptions, openOnly: false, forbiddenPassIds: [] }, leisureEndNodeOverride()));
     const planned = fromWasm(state.wasm.wasm_leisure_plan_selected(state.graphHandle, state.earsHandle, mustVisitIds, options));
-    return translatePlannerResult(planned, { graph, uiOptions, advanced: true, phase4Outputs, defaultOsrmRoute: globalThis.window?.osrmRoute, wasmState: state });
+    const result = translatePlannerResult(planned, { graph, uiOptions, advanced: true, phase4Outputs, defaultOsrmRoute: globalThis.window?.osrmRoute, wasmState: state });
+    reportShimEvent("plan-completed", { mode: "selected", durationMs: Date.now() - startedAt });
+    return result;
   } catch (error) {
-    return wasmFailureResult(error, uiOptions, true);
+    return wasmFailureResult(error, uiOptions, true, "plan");
   }
 }
 
 function graphState() {
-  graphStatePromise ??= initializeGraphState();
+  if (!graphStatePromise) {
+    graphStatePromise = initializeGraphState();
+    const pending = graphStatePromise;
+    pending.catch((error) => {
+      if (graphStatePromise === pending) graphStatePromise = null;
+      reportShimErrorOnce("graph-state-init", error);
+    });
+  }
   return graphStatePromise;
 }
 
 let wasmReadyPromise = null;
 
-async function loadWasm() {
+function loadWasm() {
   if (!wasmReadyPromise) {
-    const wasm = await import("../../wasm/leisure-core/leisure_core.js");
-    try {
-      await wasm.default();
-    } catch (error) {
-      if (!isNodeWasmFetchError(error)) throw error;
-      const { readFile } = await import("node:fs/promises");
-      const bytes = await readFile(new URL("../../wasm/leisure-core/leisure_core_bg.wasm", import.meta.url));
-      await wasm.default({ module_or_path: bytes });
-    }
-    wasmReadyPromise = wasm;
+    wasmReadyPromise = (async () => {
+      try {
+        const wasm = await import("../../wasm/leisure-core/leisure_core.js");
+        const wasmUrl = new URL("../../wasm/leisure-core/leisure_core_bg.wasm", import.meta.url);
+        wasmUrl.searchParams.set("v", WASM_CONTENT_HASH);
+        try {
+          if (typeof globalThis.fetch !== "function") throw new Error("fetch unavailable");
+          const response = await fetchWithTimeout(wasmUrl.href);
+          if (!response.ok) throw new Error(`WASM fetch failed: ${response.status}`);
+          const bytes = await response.arrayBuffer();
+          await wasm.default({ module_or_path: bytes });
+        } catch (error) {
+          if (!isNodeWasmFetchError(error)) throw error;
+          const { readFile } = await import("node:fs/promises");
+          const bytes = await readFile(new URL("../../wasm/leisure-core/leisure_core_bg.wasm", import.meta.url));
+          await wasm.default({ module_or_path: bytes });
+        }
+        reportShimEvent("wasm-ready", { version: wasm.leisure_core_version?.() });
+        return wasm;
+      } catch (error) {
+        wasmReadyPromise = null;
+        reportShimErrorOnce("wasm-init", error);
+        throw error;
+      }
+    })();
   }
   return wasmReadyPromise;
 }
@@ -136,15 +169,68 @@ async function initializeGraphState() {
 async function loadGraphText(url) {
   if (typeof globalThis.fetch === "function") {
     try {
-      const response = await globalThis.fetch(url);
-      if (response.ok) return response.text();
+      const response = await fetchWithTimeout(url);
+      if (!response.ok) throw new Error(`Graph fetch failed: ${response.status} ${response.statusText}`);
+      return response.text();
     } catch (error) {
-      if (!isNodeWasmFetchError(error)) throw error;
+      if (!isNodeWasmFetchError(error)) {
+        reportShimError("graph-fetch", error);
+        throw error;
+      }
     }
   }
-  const { readFile } = await import("node:fs/promises");
-  const { fileURLToPath } = await import("node:url");
-  return readFile(fileURLToPath(url), "utf8");
+  try {
+    const { readFile } = await import("node:fs/promises");
+    const { fileURLToPath } = await import("node:url");
+    return readFile(fileURLToPath(url), "utf8");
+  } catch (error) {
+    reportShimError("graph-fetch", error);
+    throw error;
+  }
+}
+
+async function fetchWithTimeout(url, options = {}) {
+  if (typeof globalThis.AbortController !== "function") return globalThis.fetch(url, options);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    return await globalThis.fetch(url, { ...options, signal: controller.signal });
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      const filename = String(url).split("/").pop()?.split(/[?#]/)[0] || "resource";
+      throw new Error(`Network timeout after ${FETCH_TIMEOUT_MS / 1000}s while fetching ${filename}`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export async function releaseWasmShimResources() {
+  if (!graphStatePromise) return;
+  const pending = graphStatePromise;
+  graphStatePromise = null;
+  wasmReadyPromise = null;
+  try {
+    const state = await pending;
+    try {
+      if (state?.wasm && Number.isInteger(state.earsHandle)) state.wasm.wasm_free_ears(state.earsHandle);
+    } catch (error) {
+      reportShimError("wasm-free-ears", error);
+    }
+    try {
+      if (state?.wasm && Number.isInteger(state.graphHandle)) state.wasm.wasm_free_graph(state.graphHandle);
+    } catch (error) {
+      reportShimError("wasm-free-graph", error);
+    }
+  } catch {
+    /* graph state never resolved; nothing to free */
+  }
+}
+
+if (typeof globalThis.addEventListener === "function") {
+  globalThis.addEventListener("beforeunload", () => releaseWasmShimResources(), { once: true });
+  globalThis.addEventListener("pagehide", () => releaseWasmShimResources(), { once: true });
 }
 
 class LeisureGraphShim {
@@ -253,12 +339,14 @@ function phase4Outputs(graph, tour, tourStops, uiOptions = {}, wasmState = null)
     drawer: normalizeCorridorItems(corridorResult.drawer),
   };
   const lunchPersona = lunchPersonaFor(personas);
+  const tzOffsetMinutes = computeTzOffsetMinutes();
   const lunchResult = safePhase("lunch", () => fromWasm(wasm.wasm_find_lunch_area(graphHandle, tour, {
     startTime: startTimeIso,
     persona: lunchPersona,
     lunchPolicy: lunchPolicyFor(uiOptions.stopsConfig?.lunchBreak),
     narrativeMode: true,
     weather,
+    tzOffsetMinutes,
   })), { zones: [] });
   const breaksResult = safePhase("breaks", () => fromWasm(wasm.wasm_suggest_breaks(graphHandle, tour, {
     startTime: startTimeIso,
@@ -267,6 +355,7 @@ function phase4Outputs(graph, tour, tourStops, uiOptions = {}, wasmState = null)
     tourPacked: tourStops.length >= 8,
     corridorPois: corridor.suggestions,
     maxBreaksTotal: 4,
+    tzOffsetMinutes,
   })), { breaks: [] });
   const intentDistribution = safePhase("intent", () => fromWasm(wasm.wasm_infer_intent(tourStops, {
     themeChips: themes,
@@ -302,8 +391,8 @@ function phase4Outputs(graph, tour, tourStops, uiOptions = {}, wasmState = null)
 }
 
 
-function wasmFailureResult(error, uiOptions = {}, advanced = false) {
-  try { globalThis.console?.warn?.("leisure WASM planner failed", error); } catch {}
+function wasmFailureResult(error, uiOptions = {}, advanced = false, stage = "plan") {
+  reportShimErrorOnce(stage, error);
   const result = infeasibleResult("wasm-unavailable", uiOptions, advanced);
   const message = `WebAssembly is required for the leisure planner: ${errorMessage(error)}`;
   result.routeWarning = message;
@@ -318,6 +407,48 @@ function errorMessage(error) {
 
 function fromWasm(value) {
   return value;
+}
+
+function optionsForWasm(options) {
+  return { ...options };
+}
+
+function computeTzOffsetMinutes() {
+  try {
+    // JS returns minutes west of UTC; Rust planner wants minutes east of UTC.
+    return -new Date().getTimezoneOffset();
+  } catch {
+    return 0;
+  }
+}
+
+function reportShimError(stage, error) {
+  const payload = {
+    stage,
+    errorName: error?.name ?? "Error",
+    errorMessage: String(error?.message ?? error ?? "unknown"),
+    timestamp: Date.now(),
+  };
+  globalThis.console?.error?.("[leisure-wasm-shim]", payload);
+  try {
+    globalThis.dispatchEvent?.(new CustomEvent("leisure-wasm-error", { detail: payload }));
+  } catch { /* no-op */ }
+}
+
+function reportShimErrorOnce(stage, error) {
+  if (error?.__shimReported) return;
+  reportShimError(stage, error);
+  try {
+    if (error && (typeof error === "object" || typeof error === "function")) error.__shimReported = true;
+  } catch { /* non-extensible error objects can still be reported once per catcher */ }
+}
+
+function reportShimEvent(name, detail = {}) {
+  const payload = { name, ...detail, timestamp: Date.now() };
+  globalThis.console?.debug?.("[leisure-wasm-shim]", payload);
+  try {
+    globalThis.dispatchEvent?.(new CustomEvent("leisure-wasm-event", { detail: payload }));
+  } catch { /* no-op */ }
 }
 
 function isoString(value) {

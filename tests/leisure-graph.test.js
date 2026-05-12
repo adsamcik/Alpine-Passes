@@ -240,7 +240,10 @@ test("leisure graph reporting metrics are available for diagnostics", () => {
   console.log(`median connector kNearest outdegree: ${median([...connectorOutDegrees.values()])}`);
   console.log(`average out-and-back/traverse leisureCost ratio: ${round(mean(outAndBackRatios))}`);
   console.log(`mean scenicScore by kind: ${JSON.stringify(scenicByKind)}`);
-  assert.ok(true);
+  assert.ok(
+    outAndBackRatios.every((ratio) => Number.isFinite(ratio) && ratio > 1),
+    "every pass should have an out-and-back ratio > 1",
+  );
 });
 
 function buildRouteCoordMap() {

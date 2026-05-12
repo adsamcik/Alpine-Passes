@@ -19,6 +19,7 @@ for (const scenario of parityScenarios()) {
         scenario.run(wasmShim),
       ]);
       assert.deepStrictEqual(normalizeUiPlan(wasmResult, scenario), normalizeUiPlan(jsResult, scenario));
+      assertBreakIndexBounds(wasmResult, jsResult, scenario);
       assertReasonParity(wasmResult, jsResult, scenario);
       scenario.assert?.(wasmResult);
     } finally {
@@ -61,6 +62,11 @@ test("intent.topPersonas matches between WASM shim and JS reference", { timeout:
   }
 });
 
+// NOTE: wasm-shim.js contains a fallback retry that calls wasm_load_graph
+// with a parsed object after legacy bundles reject string input. The current
+// checked-in bundle accepts strings natively, and this test file intentionally
+// does not modify the production shim to force the retry. Follow-up: add a
+// wasm-bindgen-test or shim debug hook that exercises the JsValue-object branch.
 test("wasm-shim failure result marks WebAssembly as unavailable", async () => {
   const previousWarn = console.warn;
   console.warn = () => {};
@@ -104,6 +110,148 @@ test("wasm-shim phase4 returns empty outputs when wasm state is uninitialized", 
   assert.deepEqual(result.breaks, []);
   assert.deepEqual(result.intent, { topPersona: "", ambiguous: false, primary: [], serendipity: [], topPersonas: [] });
   assert.deepEqual(result._drawMeta.leisureOverlays, { lunchZones: [], breaks: [], corridorSuggestions: [], corridorAutoInclude: [] });
+});
+
+test("TZ matrix: lunch zone hunger curve shifts deterministically with tzOffsetMinutes", { timeout: 90_000 }, async () => {
+  const baseline = await runPlanWithMockTimezone(0);
+  const baseTime = baseline.lunchZones[0]?.tArriveMin;
+  assert.equal(baseTime, 720);
+
+  for (const offset of [120, -300, 840, -720]) {
+    const result = await runPlanWithMockTimezone(offset);
+    const shiftedTime = result.lunchZones[0]?.tArriveMin;
+    assert.equal(shiftedTime - baseTime, offset, `offset ${offset} should shift lunch arrival by ${offset} minutes`);
+  }
+});
+
+test("reportShimError dispatches leisure-wasm-error CustomEvent with structured detail", async () => {
+  const restoreEvents = installCustomEventTarget();
+  const previousError = console.error;
+  console.error = () => {};
+  const events = [];
+  const listener = (event) => events.push(event.detail);
+  globalThis.addEventListener("leisure-wasm-error", listener);
+
+  try {
+    const shim = await wasmShimWithFailingLoader();
+    await shim.leisurePlanAuto({}).catch(() => { /* expected only if the failure is not converted */ });
+    await Promise.resolve();
+
+    assert.ok(events.length > 0, "at least one leisure-wasm-error event should fire");
+    const ev = events[0];
+    assert.equal(typeof ev.stage, "string");
+    assert.equal(typeof ev.errorName, "string");
+    assert.equal(typeof ev.errorMessage, "string");
+    assert.equal(typeof ev.timestamp, "number");
+    assert.equal(ev.userAgent, undefined, "userAgent should not be in default payload");
+  } finally {
+    globalThis.removeEventListener("leisure-wasm-error", listener);
+    console.error = previousError;
+    restoreEvents();
+  }
+});
+
+test("reportShimEvent dispatches leisure-wasm-event on plan completion", async () => {
+  const restoreEvents = installCustomEventTarget();
+  const previousDebug = console.debug;
+  console.debug = () => {};
+  const events = [];
+  const listener = (event) => events.push(event.detail);
+  globalThis.addEventListener("leisure-wasm-event", listener);
+
+  try {
+    const shim = await wasmShimWithMockWasm();
+    await shim.leisurePlanAuto(uiOptions({ start: "j-start" }));
+    await Promise.resolve();
+
+    const completed = events.find((event) => event.name === "plan-completed");
+    assert.ok(completed, "plan-completed leisure-wasm-event should fire");
+    assert.equal(typeof completed.mode, "string");
+    assert.equal(typeof completed.durationMs, "number");
+    assert.equal(typeof completed.timestamp, "number");
+  } finally {
+    globalThis.removeEventListener("leisure-wasm-event", listener);
+    console.debug = previousDebug;
+    restoreEvents();
+  }
+});
+
+test("releaseWasmShimResources calls wasm_free_ears before wasm_free_graph, idempotent", async () => {
+  const freeOrder = [];
+  const shim = await wasmShimWithGraphStateOverride({
+    wasm: {
+      wasm_free_ears: () => { freeOrder.push("ears"); return true; },
+      wasm_free_graph: () => { freeOrder.push("graph"); return true; },
+    },
+    graphHandle: 1,
+    earsHandle: 2,
+  });
+
+  await shim.__graphStateForTest();
+  shim.releaseWasmShimResources();
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.deepStrictEqual(freeOrder, ["ears", "graph"]);
+
+  freeOrder.length = 0;
+  shim.releaseWasmShimResources();
+  await Promise.resolve();
+  assert.deepStrictEqual(freeOrder, []);
+});
+
+test("fetchWithTimeout aborts on slow networks with a clear error message", async () => {
+  const shim = await wasmShimFetchModule();
+  const previousFetch = globalThis.fetch;
+  globalThis.fetch = (_url, options = {}) => new Promise((_resolve, reject) => {
+    options.signal?.addEventListener("abort", () => {
+      const error = new Error("Aborted");
+      error.name = "AbortError";
+      reject(error);
+    }, { once: true });
+  });
+
+  try {
+    await assert.rejects(
+      shim.fetchWithTimeout("https://example.test/slow.json"),
+      /Network timeout after 0\.05s while fetching .*slow\.json/,
+    );
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+});
+
+test("graphStatePromise clears on rejection so subsequent calls retry", async () => {
+  let attempts = 0;
+  const shim = await wasmShimGraphStateModule(() => {
+    attempts += 1;
+    if (attempts === 1) throw new Error("mock graph blocked");
+    return JSON.stringify(minimalGraphData());
+  });
+
+  await assert.rejects(shim.__graphStateForTest(), /mock graph blocked/);
+  await Promise.resolve();
+  const state = await shim.__graphStateForTest();
+
+  assert.equal(attempts, 2);
+  assert.equal(state.graphHandle, 1);
+  assert.equal(state.earsHandle, 2);
+});
+
+test("JS expandedLine matches Rust raw-previous geometry dedup fixture", async () => {
+  const { expandedLine } = await corridorExpandedLineModule();
+  const from = { id: "from", lat: 0, lon: 0 };
+  const to = { id: "to", lat: 0, lon: 0.0000099 };
+  const edge = {
+    id: "from->to",
+    from: "from",
+    to: "to",
+    geometry: [[0, 0.0000054]],
+  };
+
+  const result = expandedLine(edge, from, to);
+
+  assert.equal(result.length, 1, "Should match Rust: keep only 'from'");
+  assert.equal(result[0].id, "from");
 });
 
 function parityScenarios() {
@@ -265,6 +413,31 @@ function defaultStopsConfig() {
     restInterval: 0,
     restDuration: 0,
   };
+}
+
+function assertBreakIndexBounds(wasmResult, jsResult, scenario = {}) {
+  if (!scenario.breaksNormalized) return;
+
+  const wasmIdxs = arrayFrom(wasmResult.breaks).map((item) => item?.atTourVertexIdx);
+  const jsIdxs = arrayFrom(jsResult.breaks).map((item) => item?.atTourVertexIdx);
+  assert.equal(wasmIdxs.length, jsIdxs.length, "break counts must match");
+  // Note: atTourVertexIdx is indexed into the underlying tour.path (with
+  // sentinels and full graph traversal), NOT tourStops. WASM and JS use
+  // different formulas (Rust: float interpolation rounded to 3dp; JS: integer
+  // .indexOf()), so the values legitimately differ on open routes. The break
+  // LOCATION (lat/lon via enrichBreakPoint) is unaffected. We assert only
+  // that both sides produce finite numbers and the same count; full value
+  // parity is covered by normalizeBreak deep-equal (which excludes this field).
+  assertBreakIndicesFinite(wasmIdxs, "wasm");
+  assertBreakIndicesFinite(jsIdxs, "js");
+}
+
+function assertBreakIndicesFinite(indices, label) {
+  for (const idx of indices) {
+    assert.equal(typeof idx === "number" && Number.isFinite(idx), true,
+      `${label} break idx ${idx} should be a finite number`);
+    assert.ok(idx >= 0, `${label} break idx ${idx} should be non-negative`);
+  }
 }
 
 function assertReasonParity(wasmResult, jsResult, scenario = {}) {
@@ -456,8 +629,7 @@ async function wasmShimPhase4Module() {
 }
 
 async function wasmShimWithFailingLoader() {
-  return wasmShimFromSource((source) => source
-    .replace("async function loadWasm() {", "async function loadWasm() { throw new Error(\"mock wasm blocked\");"));
+  return wasmShimFromSource((source) => injectLoadWasmImplementation(source, 'return Promise.reject(new Error("mock wasm blocked"));'));
 }
 
 async function wasmShimFromSource(transform) {
@@ -467,7 +639,41 @@ async function wasmShimFromSource(transform) {
   source = source.replace('from "./lib/ui-translation.js";', `from "${uiTranslationUrl}";`);
   source = source.replace('const GRAPH_URL = new URL("../../data/leisure-graph.v1.json", import.meta.url).href;', 'const GRAPH_URL = "about:blank";');
   source = transform(source);
+  source += `\n// test-import-nonce:${Date.now()}:${Math.random()}`;
   return import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
+}
+
+function injectLoadWasmImplementation(source, body) {
+  return source.replace(/(?:async\s+)?function loadWasm\(\) \{/, `function loadWasm() { ${body}`);
+}
+
+async function wasmShimWithMockWasm({ wasm = mockWasm(), graphText = () => JSON.stringify(minimalGraphData()) } = {}) {
+  const key = `__leisureWasmShimMock${Date.now()}${Math.random().toString(16).slice(2)}`;
+  globalThis[key] = { wasm, graphText };
+  return wasmShimFromSource((source) => injectLoadWasmImplementation(source, `return Promise.resolve(globalThis["${key}"].wasm);`)
+    .replace("async function loadGraphText(url) {", `async function loadGraphText(url) { return globalThis["${key}"].graphText();`));
+}
+
+async function wasmShimWithGraphStateOverride(state) {
+  const key = `__leisureWasmShimState${Date.now()}${Math.random().toString(16).slice(2)}`;
+  globalThis[key] = { state };
+  return wasmShimFromSource((source) => source
+    .replace("async function initializeGraphState() {", `async function initializeGraphState() { return globalThis["${key}"].state;`)
+    .replace("function graphState()", "export function __graphStateForTest()"));
+}
+
+async function wasmShimFetchModule() {
+  return wasmShimFromSource((source) => source
+    .replace("const FETCH_TIMEOUT_MS = 20_000;", "const FETCH_TIMEOUT_MS = 50;")
+    .replace("async function fetchWithTimeout", "export async function fetchWithTimeout"));
+}
+
+async function wasmShimGraphStateModule(graphText) {
+  const key = `__leisureWasmShimRetry${Date.now()}${Math.random().toString(16).slice(2)}`;
+  globalThis[key] = { wasm: mockWasm(), graphText };
+  return wasmShimFromSource((source) => injectLoadWasmImplementation(source, `return Promise.resolve(globalThis["${key}"].wasm);`)
+    .replace("async function loadGraphText(url) {", `async function loadGraphText(url) { return globalThis["${key}"].graphText();`)
+    .replace("function graphState()", "export function __graphStateForTest()"));
 }
 
 function minimalGraph() {
@@ -478,4 +684,97 @@ function minimalGraph() {
     passIdByNodeId: new Map(),
     passSidesFor: () => null,
   };
+}
+
+async function runPlanWithMockTimezone(offsetMinutes) {
+  const original = Date.prototype.getTimezoneOffset;
+  Date.prototype.getTimezoneOffset = () => -offsetMinutes;
+  try {
+    const shim = await wasmShimWithMockWasm({ wasm: mockWasm({ lunchOffsetFromOptions: true }) });
+    return await shim.leisurePlanAuto(uiOptions({ start: "j-start", stopsConfig: { ...defaultStopsConfig(), lunchBreak: "auto" } }));
+  } finally {
+    Date.prototype.getTimezoneOffset = original;
+  }
+}
+
+function mockWasm({ lunchOffsetFromOptions = false } = {}) {
+  return {
+    leisure_core_version: () => "test",
+    wasm_load_graph: () => 1,
+    wasm_decompose_ears: () => ({ handle: 2 }),
+    wasm_leisure_plan_auto: () => mockPlannedTour(),
+    wasm_leisure_plan_open: () => mockPlannedTour(),
+    wasm_leisure_plan_selected: () => mockPlannedTour(),
+    wasm_suggest_corridor: () => ({ autoInclude: [], suggestions: [], drawer: [] }),
+    wasm_find_lunch_area: (_graphHandle, _tour, options = {}) => ({
+      zones: [{
+        id: "lunch",
+        label: "Lunch",
+        tArriveMin: 720 + (lunchOffsetFromOptions ? Number(options.tzOffsetMinutes) || 0 : 0),
+        tArriveMax: 780 + (lunchOffsetFromOptions ? Number(options.tzOffsetMinutes) || 0 : 0),
+      }],
+    }),
+    wasm_suggest_breaks: () => ({ breaks: [] }),
+    wasm_infer_intent: () => ({ topPersona: "Balanced", ambiguous: false }),
+    wasm_surface_intent_pois: () => ({ primary: [], serendipity: [], diagnostics: {} }),
+  };
+}
+
+function mockPlannedTour() {
+  return {
+    status: "optimal",
+    primary: {
+      stops: [{ kind: "start", nodeId: "j-start" }],
+      path: [],
+      totalDistanceKm: 0,
+      totalDurationH: 0,
+      diagnostics: {},
+    },
+    alternatives: [],
+    diagnostics: {},
+  };
+}
+
+function minimalGraphData() {
+  return {
+    nodes: [{ id: "j-start", name: "Start", kind: "junction", lat: 46.8, lon: 8.2 }],
+    edges: [],
+  };
+}
+
+function installCustomEventTarget() {
+  const previous = {
+    addEventListener: globalThis.addEventListener,
+    removeEventListener: globalThis.removeEventListener,
+    dispatchEvent: globalThis.dispatchEvent,
+    CustomEvent: globalThis.CustomEvent,
+  };
+  const target = new EventTarget();
+  globalThis.addEventListener = target.addEventListener.bind(target);
+  globalThis.removeEventListener = target.removeEventListener.bind(target);
+  globalThis.dispatchEvent = target.dispatchEvent.bind(target);
+  if (typeof globalThis.CustomEvent !== "function") {
+    globalThis.CustomEvent = class CustomEvent extends Event {
+      constructor(type, init = {}) {
+        super(type);
+        this.detail = init.detail;
+      }
+    };
+  }
+  return () => {
+    globalThis.addEventListener = previous.addEventListener;
+    globalThis.removeEventListener = previous.removeEventListener;
+    globalThis.dispatchEvent = previous.dispatchEvent;
+    globalThis.CustomEvent = previous.CustomEvent;
+  };
+}
+
+async function corridorExpandedLineModule() {
+  const sourcePath = path.join(repoRoot, "assets", "js", "leisure", "corridor.js");
+  const graphUrl = pathToFileURL(path.join(repoRoot, "assets", "js", "leisure", "graph.js")).href;
+  let source = await fs.readFile(sourcePath, "utf8");
+  source = source.replace('from "./graph.js";', `from "${graphUrl}";`);
+  source = source.replace("function expandedLine(edge, from, to)", "export function expandedLine(edge, from, to)");
+  source += `\n// test-import-nonce:${Date.now()}:${Math.random()}`;
+  return import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
 }

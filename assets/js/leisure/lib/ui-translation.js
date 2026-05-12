@@ -12,8 +12,8 @@ import { resolvePassIdSet } from "./optimizer-planning.js";
 
 export const DEFAULT_K_ALTERNATIVES = 3;
 export const DEFAULT_TIME_BUDGET_MS = 1_000;
-export const MAX_OSRM_WAYPOINTS = 80;
-export const FALLBACK_SPEED_KMH = 45;
+const MAX_OSRM_WAYPOINTS = 80;
+const FALLBACK_SPEED_KMH = 45;
 export const AVG_SPEED_KMH = 55;
 export const APPROX_ROUTE_WARNING = "Could not fetch detailed route geometry; map line is approximate.";
 /**
@@ -254,7 +254,7 @@ export function projectedOpenPassCount(graph, uiOptions = {}) {
 /**
  * Return whether a pass is seasonally closed for the supplied trip date.
  */
-export function isSeasonallyClosedPass(pass, graph, tripDate) {
+function isSeasonallyClosedPass(pass, graph, tripDate) {
   const date = parseTripDate(tripDate);
   if (!date) return false;
   const month = date.getUTCMonth() + 1;
@@ -267,7 +267,7 @@ export function isSeasonallyClosedPass(pass, graph, tripDate) {
 /**
  * Parse a UI trip date into a Date, returning null for invalid input.
  */
-export function parseTripDate(value) {
+function parseTripDate(value) {
   if (!value) return null;
   const date = value instanceof Date ? value : new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
@@ -295,7 +295,7 @@ export function routePoints(tour, graph, start) {
 /**
  * Reduce long paths to the OSRM waypoint budget while preserving important nodes.
  */
-export function compressedPath(path, graph) {
+function compressedPath(path, graph) {
   if (path.length <= MAX_OSRM_WAYPOINTS) return path;
   const important = path.filter((nodeId, index) => {
     if (index === 0 || index === path.length - 1) return true;
@@ -308,7 +308,7 @@ export function compressedPath(path, graph) {
 /**
  * Derive a node path from optimizer edge ids.
  */
-export function pathFromEdges(edges = []) {
+function pathFromEdges(edges = []) {
   const path = [];
   for (const edgeId of edges) {
     const [from, to] = String(edgeId).split("->");
@@ -323,14 +323,14 @@ export function pathFromEdges(edges = []) {
 /**
  * Filter optimizer bookkeeping stops out of the UI stop list.
  */
-export function displayStops(tour) {
+function displayStops(tour) {
   return (tour.stops || []).filter((stop) => stop?.kind !== "start" && stop?.kind !== "end" && stop?.kind !== "return" && !stop?.returnToStart);
 }
 
 /**
  * Add start/end sentinels for open A-to-B tours.
  */
-export function openRouteTourStops(plannerStops, start, endNode, tour, graph) {
+function openRouteTourStops(plannerStops, start, endNode, tour, graph) {
   if (isClosedTour(tour)) return plannerStops;
   const stops = [];
   const startStop = endpointStop(start, "start");
@@ -344,7 +344,7 @@ export function openRouteTourStops(plannerStops, start, endNode, tour, graph) {
 /**
  * Build an endpoint stop from an end node id or point.
  */
-export function endpointStopForEndNode(endNode, graph) {
+function endpointStopForEndNode(endNode, graph) {
   if (!endNode) return null;
   if (typeof endNode === "string") {
     return endpointStop(graph.nodes.get(endNode) || { id: endNode, name: endNode }, "end");
@@ -355,7 +355,7 @@ export function endpointStopForEndNode(endNode, graph) {
 /**
  * Build a UI endpoint sentinel stop.
  */
-export function endpointStop(point, kind) {
+function endpointStop(point, kind) {
   if (!point) return null;
   return {
     id: point.id,
@@ -371,7 +371,7 @@ export function endpointStop(point, kind) {
 /**
  * Compare two UI stops by id or nearly equal coordinates.
  */
-export function sameStop(a, b) {
+function sameStop(a, b) {
   if (!a || !b) return false;
   if (a.id && b.id && String(a.id) === String(b.id)) return true;
   return Math.abs(Number(a.lat) - Number(b.lat)) < 1e-6 && Math.abs(Number(a.lon) - Number(b.lon)) < 1e-6;
@@ -380,7 +380,7 @@ export function sameStop(a, b) {
 /**
  * Map an optimizer stop into a UI pass/POI/point stop.
  */
-export function mapLeisureStop(stop, graph) {
+function mapLeisureStop(stop, graph) {
   if (stop.kind === "poi") return mapPoiStop(stop, graph);
   if (stop.kind === "pass" || stop.passId) return mapPassStop(stop, graph);
   return uiPoint(stop);
@@ -389,7 +389,7 @@ export function mapLeisureStop(stop, graph) {
 /**
  * Map a pass optimizer stop into a UI pass stop.
  */
-export function mapPassStop(stop, graph) {
+function mapPassStop(stop, graph) {
   const passId = stop.passId || stop.id;
   const sides = graph.passSidesFor(passId);
   const pass = sides?.pass || graph.nodes.get(passId) || stop;
@@ -419,7 +419,7 @@ export function mapPassStop(stop, graph) {
 /**
  * Map a POI optimizer stop into a UI POI stop.
  */
-export function mapPoiStop(stop, graph) {
+function mapPoiStop(stop, graph) {
   const node = graph.nodes.get(stop.nodeId || stop.id) || matchPoiByName(stop, graph) || stop;
   const dwell = Number(node.visitDwellSec ?? stop.visitDwellSec) || 0;
   const categories = node.categories || stop.categories || [];
@@ -443,7 +443,7 @@ export function mapPoiStop(stop, graph) {
 /**
  * Derive UI traversal modes for tour stops from a route path.
  */
-export function deriveModes(path, tourStops, graph) {
+function deriveModes(path, tourStops, graph) {
   return tourStops.map((stop, passIdx) => {
     if (stop.isPoi) return { passIdx, enterSide: 0, exitSide: 0, mode: "poi" };
     if (stop.isEndpoint || stop.kind === "start" || stop.kind === "end" || stop.kind === "junction") {
@@ -467,7 +467,7 @@ export function deriveModes(path, tourStops, graph) {
 /**
  * Find path-traversed passes that are not explicit optimizer stops.
  */
-export function implicitPassesFromPath(path, tourStops, graph) {
+function implicitPassesFromPath(path, tourStops, graph) {
   const explicit = new Set(tourStops.filter((stop) => !stop.isPoi).map((stop) => stop.id));
   const out = [];
   const seen = new Set();
@@ -484,7 +484,7 @@ export function implicitPassesFromPath(path, tourStops, graph) {
 /**
  * Approximate UI extra time for pass stops, lunch, and rest breaks.
  */
-export function computeExtrasApprox(tourStops, driveH, cfg = {}, uiOptions = {}) {
+function computeExtrasApprox(tourStops, driveH, cfg = {}, uiOptions = {}) {
   const passStops = tourStops.filter((stop) => stop.kind === "pass");
   const passStopMin = Math.max(0, Number(cfg.passStopMin) || 0);
   const passStopMins = passStops.map(() => passStopMin);
@@ -521,7 +521,7 @@ export function computeExtrasApprox(tourStops, driveH, cfg = {}, uiOptions = {})
 /**
  * Build approximate scenic/rest stops from pass stops and extra-time parts.
  */
-export function scenicStopsApprox(tourStops, modes, extrasParts) {
+function scenicStopsApprox(tourStops, modes, extrasParts) {
   let passIndex = 0;
   return tourStops.map((stop, order) => {
     if (stop.isPoi) return null;
@@ -551,7 +551,7 @@ export function scenicStopsApprox(tourStops, modes, extrasParts) {
 /**
  * Check whether a translated result fits the requested UI target tolerance.
  */
-export function isInRange(km, totalH, tour, uiOptions) {
+function isInRange(km, totalH, tour, uiOptions) {
   const mode = uiOptions.targetMode || (tour.budgetFit?.mode === "seconds" ? "time" : "distance");
   const target = positiveNumber(uiOptions.targetValue, NaN);
   const tol = Math.max(0.05, Number(uiOptions.targetTol ?? uiOptions.targetTolerance ?? 0.2) || 0.2);
@@ -574,7 +574,7 @@ export function resolveSelectedStopId(stop, graph) {
 /**
  * Find the nearest graph POI with the same normalized name as a UI stop.
  */
-export function matchPoiByName(stop, graph) {
+function matchPoiByName(stop, graph) {
   const name = normalizeName(stop?.name);
   if (!name) return null;
   let best = null;
@@ -621,7 +621,7 @@ export function infeasibleResult(reason, uiOptions, advanced, planned = null, to
 /**
  * Normalize an infeasible-result end-node value for the UI.
  */
-export function infeasibleEndNode(endNode) {
+function infeasibleEndNode(endNode) {
   if (typeof endNode === "string") return endNode;
   if (endNode && Number.isFinite(Number(endNode.lat)) && Number.isFinite(Number(endNode.lon ?? endNode.lng))) return normalizeEndNode(endNode);
   return null;
@@ -746,7 +746,7 @@ export function enrichBreakPoint(item, tour, graph) {
 /**
  * Normalize the UI start point shape expected by the optimizer.
  */
-export function optimizerPoint(point) {
+function optimizerPoint(point) {
   if (typeof point === "string") return point;
   return point;
 }
@@ -754,7 +754,7 @@ export function optimizerPoint(point) {
 /**
  * Normalize a UI end-node id or coordinate endpoint.
  */
-export function normalizeEndNode(endNode) {
+function normalizeEndNode(endNode) {
   if (typeof endNode === "string") {
     const trimmed = endNode.trim();
     return trimmed ? trimmed : null;
@@ -772,7 +772,7 @@ export function normalizeEndNode(endNode) {
 /**
  * Normalize a UI start value using graph/tour fallback coordinates.
  */
-export function normalizeStart(start, graph = null, tour = null) {
+function normalizeStart(start, graph = null, tour = null) {
   if (typeof start === "string") {
     const node = graph?.nodes?.get(start) || graph?.nodes?.get(tour?.stops?.[0]?.nodeId);
     return {
@@ -800,14 +800,14 @@ export function normalizeStart(start, graph = null, tour = null) {
 /**
  * Resolve the UI end-node value for a translated tour.
  */
-export function resultEndNode(tour, start) {
+function resultEndNode(tour, start) {
   return isClosedTour(tour) ? (start.id ?? tour?.endNode) : tour?.endNode;
 }
 
 /**
  * Return whether a tour ends at its start.
  */
-export function isClosedTour(tour) {
+function isClosedTour(tour) {
   const firstNodeId = tour?.stops?.[0]?.nodeId;
   return !tour?.endNode || tour.endNode === firstNodeId || (tour.stops || []).some((stop) => stop?.returnToStart);
 }
@@ -815,7 +815,7 @@ export function isClosedTour(tour) {
 /**
  * Copy a graph point into the UI point shape.
  */
-export function uiPoint(point) {
+function uiPoint(point) {
   return {
     id: point.id,
     name: point.name,
@@ -835,7 +835,7 @@ export function pointOf(point) {
 /**
  * Append a finite point when it is not a coordinate duplicate of the previous point.
  */
-export function pushPoint(points, point) {
+function pushPoint(points, point) {
   if (!Number.isFinite(point.lat) || !Number.isFinite(point.lon)) return;
   const prev = points[points.length - 1];
   if (prev && Math.abs(prev.lat - point.lat) < 1e-6 && Math.abs(prev.lon - point.lon) < 1e-6) return;
@@ -845,7 +845,7 @@ export function pushPoint(points, point) {
 /**
  * Normalize graph quality/scenic score values onto 0..1.
  */
-export function qualityOf(node) {
+function qualityOf(node) {
   const raw = node?.quality ?? node?.scenicScore ?? node?.score ?? 0;
   const value = Number(raw) || 0;
   return value > 1 ? Math.min(1, value / 10) : Math.max(0, value);
@@ -862,7 +862,7 @@ export function positiveNumber(value, fallback) {
 /**
  * Return a finite number or numeric fallback.
  */
-export function finiteOr(primary, fallback = 0) {
+function finiteOr(primary, fallback = 0) {
   const value = Number(primary);
   return Number.isFinite(value) ? value : (Number(fallback) || 0);
 }
@@ -870,7 +870,7 @@ export function finiteOr(primary, fallback = 0) {
 /**
  * Round an hour value to two decimals.
  */
-export function roundHours(value) {
+function roundHours(value) {
   return Math.round((Number(value) || 0) * 100) / 100;
 }
 
@@ -884,7 +884,7 @@ export function normalizeName(name) {
 /**
  * Sum Haversine distances across route points in kilometres.
  */
-export function haversineRouteKm(points) {
+function haversineRouteKm(points) {
   let total = 0;
   for (let i = 1; i < points.length; i += 1) total += haversineKm(points[i - 1], points[i]);
   return total;

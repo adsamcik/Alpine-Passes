@@ -89,6 +89,28 @@ showWasmUnavailableBanner("mock detail");`, sandbox, { filename: "assets/js/app.
   assert.doesNotMatch(sandbox.planResult.innerHTML, /href="#"/);
 });
 
+test("showWasmUnavailableBanner dismiss button removes the banner from DOM", () => {
+  const source = fs.readFileSync(path.join(repoRoot, "assets", "js", "app.js"), "utf8");
+  const snippet = sourceBetween(source, "function showWasmUnavailableBanner", "async function runLeisurePlanner");
+  const sandbox = showPlanSandbox();
+  sandbox.setPlannedRouteAlternatives = () => {};
+  sandbox.clearPlannedTour = () => {};
+
+  vm.runInNewContext(`${snippet}
+showWasmUnavailableBanner("mock detail");`, sandbox, { filename: "assets/js/app.js" });
+
+  assert.match(sandbox.planResult.innerHTML, /aria-label="Dismiss WebAssembly required banner"/);
+
+  const dismissBtn = sandbox.planResult.querySelector('[data-action="dismiss-wasm-banner"]');
+  dismissBtn.click();
+
+  assert.doesNotMatch(
+    sandbox.planResult.innerHTML,
+    /Dismiss WebAssembly required banner/,
+    "banner should be removed after dismiss click",
+  );
+});
+
 test("leisure flag false path remains gated before legacy planner", async () => {
   const [{ isLeisurePlannerEnabled }, source] = await Promise.all([
     apiModule,
@@ -125,14 +147,25 @@ function assertPhase4Shape(result) {
 
 function showPlanSandbox() {
   const classList = { add() {}, remove() {} };
-  return {
-    planResult: {
-      classList,
-      children: [],
-      innerHTML: "",
-      removeAttribute() {},
-      setAttribute() {},
+  const planResult = {
+    classList,
+    children: [],
+    innerHTML: "",
+    removeAttribute() {},
+    setAttribute() {},
+    contains(node) { return node?.owner === this; },
+    querySelector(selector) {
+      if (selector !== '[data-action="dismiss-wasm-banner"]' || !this.innerHTML.includes('data-action="dismiss-wasm-banner"')) return null;
+      return {
+        owner: this,
+        click: () => {
+          this.innerHTML = this.innerHTML.replace(/\s*<div id="leisureWasmUnavailableBanner"[\s\S]*?<\/div>/, "");
+        },
+      };
     },
+  };
+  return {
+    planResult,
     PRESET_STARTS: { chur: { name: "Chur" } },
     POI_BY_ID: new Map(),
     PASS_BY_ID: new Map(),

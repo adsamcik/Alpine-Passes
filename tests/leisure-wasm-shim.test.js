@@ -133,7 +133,7 @@ test("reportShimError dispatches leisure-wasm-error CustomEvent with structured 
   globalThis.addEventListener("leisure-wasm-error", listener);
 
   try {
-    const shim = await wasmShimWithFailingLoader();
+    const shim = await wasmShimWithFailingGraphState();
     await shim.leisurePlanAuto({}).catch(() => { /* expected only if the failure is not converted */ });
     await Promise.resolve();
 
@@ -144,6 +144,27 @@ test("reportShimError dispatches leisure-wasm-error CustomEvent with structured 
     assert.equal(typeof ev.errorMessage, "string");
     assert.equal(typeof ev.timestamp, "number");
     assert.equal(ev.userAgent, undefined, "userAgent should not be in default payload");
+  } finally {
+    globalThis.removeEventListener("leisure-wasm-error", listener);
+    console.error = previousError;
+    restoreEvents();
+  }
+});
+
+test("reportShimErrorOnce dispatches at most one CustomEvent for a single error object", async () => {
+  const restoreEvents = installCustomEventTarget();
+  const previousError = console.error;
+  console.error = () => {};
+  const events = [];
+  const listener = (event) => events.push(event.detail);
+  globalThis.addEventListener("leisure-wasm-error", listener);
+
+  try {
+    const shim = await wasmShimWithFailingLoader();
+    await shim.leisurePlanAuto({}).catch(() => { /* expected only if the failure is not converted */ });
+    await Promise.resolve();
+
+    assert.equal(events.length, 1, "single error should dispatch exactly one CustomEvent");
   } finally {
     globalThis.removeEventListener("leisure-wasm-error", listener);
     console.error = previousError;
@@ -199,6 +220,33 @@ test("releaseWasmShimResources calls wasm_free_ears before wasm_free_graph, idem
   assert.deepStrictEqual(freeOrder, []);
 });
 
+test("pagehide cleanup skips BFCache persisted pages and remains reusable", async () => {
+  const restoreEvents = installCustomEventTarget();
+  const freeOrder = [];
+  try {
+    const shim = await wasmShimWithGraphStateOverride({
+      wasm: {
+        wasm_free_ears: () => { freeOrder.push("ears"); return true; },
+        wasm_free_graph: () => { freeOrder.push("graph"); return true; },
+      },
+      graphHandle: 1,
+      earsHandle: 2,
+    });
+
+    await shim.__graphStateForTest();
+    globalThis.dispatchEvent(pagehideEvent(true));
+    await Promise.resolve();
+    assert.deepStrictEqual(freeOrder, [], "BFCache pagehide should not release resources");
+
+    globalThis.dispatchEvent(pagehideEvent(false));
+    await Promise.resolve();
+    await Promise.resolve();
+    assert.deepStrictEqual(freeOrder, ["ears", "graph"]);
+  } finally {
+    restoreEvents();
+  }
+});
+
 test("fetchWithTimeout aborts on slow networks with a clear error message", async () => {
   const shim = await wasmShimFetchModule();
   const previousFetch = globalThis.fetch;
@@ -211,13 +259,40 @@ test("fetchWithTimeout aborts on slow networks with a clear error message", asyn
   });
 
   try {
-    await assert.rejects(
-      shim.fetchWithTimeout("https://example.test/slow.json"),
-      /Network timeout after 0\.05s while fetching .*slow\.json/,
-    );
+    let error;
+    try {
+      await shim.fetchWithTimeout("https://example.test/slow.json");
+    } catch (caught) {
+      error = caught;
+    }
+    const msg = String(error?.message || "");
+    assert.match(msg, /^Network timeout after 0\.05s while fetching slow\.json$/,
+      "should strip URL to basename only");
+    assert.doesNotMatch(msg, /https?:\/\//, "should not include scheme in user-facing message");
+    assert.doesNotMatch(msg, /example\.test/, "should not include hostname");
   } finally {
     globalThis.fetch = previousFetch;
   }
+});
+
+test("isNodeWasmFetchError does not classify browser/jsdom fetch errors", async () => {
+  const shim = await wasmShimFetchClassifierModule();
+  const previousWindow = globalThis.window;
+  globalThis.window = {};
+  try {
+    const error = new Error("Network timeout after 20s while fetching leisure_core_bg.wasm");
+    assert.equal(shim.isNodeWasmFetchError(error), false);
+  } finally {
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
+  }
+});
+
+test.skip("rapid flag toggle does not allocate parallel WASM graphs (app-level race)", () => {
+  // TODO: app.js is currently a browser script with DOM/MapLibre side effects and
+  // no narrow import seam for setLeisurePlannerFlag/resetLeisurePlannerModuleHandle.
+  // Keep this skipped until an app harness can drive the real rapid off-to-on flag
+  // path without evaluating the full production UI.
 });
 
 test("graphStatePromise clears on rejection so subsequent calls retry", async () => {
@@ -632,6 +707,13 @@ async function wasmShimWithFailingLoader() {
   return wasmShimFromSource((source) => injectLoadWasmImplementation(source, 'return Promise.reject(new Error("mock wasm blocked"));'));
 }
 
+async function wasmShimWithFailingGraphState() {
+  const key = `__leisureWasmShimError${Date.now()}${Math.random().toString(16).slice(2)}`;
+  globalThis[key] = { error: new Error("mock graph state blocked") };
+  return wasmShimFromSource((source) => source
+    .replace("async function initializeGraphState() {", `async function initializeGraphState() { throw globalThis["${key}"].error;`));
+}
+
 async function wasmShimFromSource(transform) {
   const sourcePath = path.join(repoRoot, "assets", "js", "leisure", "wasm-shim.js");
   const uiTranslationUrl = pathToFileURL(path.join(repoRoot, "assets", "js", "leisure", "lib", "ui-translation.js")).href;
@@ -666,6 +748,11 @@ async function wasmShimFetchModule() {
   return wasmShimFromSource((source) => source
     .replace("const FETCH_TIMEOUT_MS = 20_000;", "const FETCH_TIMEOUT_MS = 50;")
     .replace("async function fetchWithTimeout", "export async function fetchWithTimeout"));
+}
+
+async function wasmShimFetchClassifierModule() {
+  return wasmShimFromSource((source) => source
+    .replace("function isNodeWasmFetchError", "export function isNodeWasmFetchError"));
 }
 
 async function wasmShimGraphStateModule(graphText) {
@@ -767,6 +854,12 @@ function installCustomEventTarget() {
     globalThis.dispatchEvent = previous.dispatchEvent;
     globalThis.CustomEvent = previous.CustomEvent;
   };
+}
+
+function pagehideEvent(persisted) {
+  const event = new Event("pagehide");
+  Object.defineProperty(event, "persisted", { value: persisted });
+  return event;
 }
 
 async function corridorExpandedLineModule() {

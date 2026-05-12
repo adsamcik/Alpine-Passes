@@ -7,6 +7,7 @@ const FETCH_TIMEOUT_MS = 20_000;
 // Auto-updated by tools/leisure/build-wasm.mjs at build time. Used to
 // cache-bust the WASM binary against stale glue JS on deploys.
 const WASM_CONTENT_HASH = "85a2e4771698";
+const SHIM_REPORTED = Symbol.for("alpine.leisure.shimReported");
 
 let graphStatePromise = null;
 
@@ -229,8 +230,11 @@ export async function releaseWasmShimResources() {
 }
 
 if (typeof globalThis.addEventListener === "function") {
-  globalThis.addEventListener("beforeunload", () => releaseWasmShimResources(), { once: true });
-  globalThis.addEventListener("pagehide", () => releaseWasmShimResources(), { once: true });
+  globalThis.addEventListener("beforeunload", () => releaseWasmShimResources());
+  globalThis.addEventListener("pagehide", (event) => {
+    if (event?.persisted) return;
+    releaseWasmShimResources();
+  });
 }
 
 class LeisureGraphShim {
@@ -313,7 +317,17 @@ function passIdFromSyntheticId(nodeId) {
 }
 
 function isNodeWasmFetchError(error) {
-  return typeof process !== "undefined" && /fetch|file|URL/i.test(String(error?.message || error));
+  const isGenuineNode = typeof process !== "undefined"
+    && typeof process.release?.name === "string"
+    && process.release.name === "node"
+    && typeof window === "undefined";
+  if (!isGenuineNode) return false;
+
+  const msg = String(error?.message || error || "");
+  const code = error?.cause?.code || error?.code;
+  return code === "ERR_INVALID_URL"
+    || code === "ERR_NETWORK"
+    || /fetch is not defined|fetch failed/i.test(msg);
 }
 
 function phase4Outputs(graph, tour, tourStops, uiOptions = {}, wasmState = null) {
@@ -436,11 +450,11 @@ function reportShimError(stage, error) {
 }
 
 function reportShimErrorOnce(stage, error) {
-  if (error?.__shimReported) return;
+  if (!error || error[SHIM_REPORTED]) return;
   reportShimError(stage, error);
   try {
-    if (error && (typeof error === "object" || typeof error === "function")) error.__shimReported = true;
-  } catch { /* non-extensible error objects can still be reported once per catcher */ }
+    error[SHIM_REPORTED] = true;
+  } catch { /* frozen error objects can still be reported once per catcher */ }
 }
 
 function reportShimEvent(name, detail = {}) {

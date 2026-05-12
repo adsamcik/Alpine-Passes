@@ -10,12 +10,12 @@ import { resolvePassIdSet } from "./optimizer-planning.js";
  * only exported helper that intentionally logs caught Phase 4 errors.
  */
 
-export const DEFAULT_K_ALTERNATIVES = 3;
-export const DEFAULT_TIME_BUDGET_MS = 1_000;
+const DEFAULT_K_ALTERNATIVES = 3;
+const DEFAULT_TIME_BUDGET_MS = 1_000;
 const MAX_OSRM_WAYPOINTS = 80;
 const FALLBACK_SPEED_KMH = 45;
-export const AVG_SPEED_KMH = 55;
-export const APPROX_ROUTE_WARNING = "Could not fetch detailed route geometry; map line is approximate.";
+const AVG_SPEED_KMH = 55;
+const APPROX_ROUTE_WARNING = "Could not fetch detailed route geometry; map line is approximate.";
 /**
  * Build optimizer options from UI options without reading UI/global state.
  */
@@ -202,7 +202,7 @@ function applyPhase4(result, drawMeta, phase4) {
 /**
  * Resolve detailed or approximate route geometry for a translated tour.
  */
-export async function routeForTour(tour, graph, start, uiOptions, defaultOsrmRoute = null) {
+async function routeForTour(tour, graph, start, uiOptions, defaultOsrmRoute = null) {
   const points = routePoints(tour, graph, start);
   const approximateRoute = () => {
     const geom = points.map((point) => [point.lon, point.lat]);
@@ -276,7 +276,7 @@ function parseTripDate(value) {
 /**
  * Build de-duplicated route points from a tour path.
  */
-export function routePoints(tour, graph, start) {
+function routePoints(tour, graph, start) {
   const path = compressedPath(tour.path || pathFromEdges(tour.edges), graph);
   const points = [pointOf(start)];
   for (const nodeId of path) {
@@ -828,7 +828,7 @@ function uiPoint(point) {
 /**
  * Extract numeric latitude/longitude from a UI or graph point.
  */
-export function pointOf(point) {
+function pointOf(point) {
   return { lat: Number(point?.lat), lon: Number(point?.lon ?? point?.lng) };
 }
 
@@ -854,7 +854,7 @@ function qualityOf(node) {
 /**
  * Return a positive number or fallback.
  */
-export function positiveNumber(value, fallback) {
+function positiveNumber(value, fallback) {
   const number = Number(value);
   return Number.isFinite(number) && number > 0 ? number : fallback;
 }
@@ -877,7 +877,7 @@ function roundHours(value) {
 /**
  * Normalize a display name for matching.
  */
-export function normalizeName(name) {
+function normalizeName(name) {
   return String(name || "").trim().toLowerCase().replace(/\s+/g, " ");
 }
 
@@ -893,7 +893,7 @@ function haversineRouteKm(points) {
 /**
  * Compute Haversine distance between two points in kilometres.
  */
-export function haversineKm(a, b) {
+function haversineKm(a, b) {
   if (!Number.isFinite(a.lat) || !Number.isFinite(a.lon) || !Number.isFinite(b.lat) || !Number.isFinite(b.lon)) return 0;
   const toRad = (deg) => deg * Math.PI / 180;
   const dLat = toRad(b.lat - a.lat);

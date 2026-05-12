@@ -5346,6 +5346,19 @@ const PRESET_STARTS = {
   chamonix:   { name: "Chamonix",                 lat: 45.9237, lon: 6.8694 },
   grenoble:   { name: "Grenoble",                 lat: 45.1885, lon: 5.7245 },
   munich:     { name: "Munich",                   lat: 48.1374, lon: 11.5755 },
+  /* Japan starting points (P4). Coordinates are city-centre / major rail terminal. */
+  tokyo:      { name: "Tokyo",                    lat: 35.6812, lon: 139.7671 },
+  kyoto:      { name: "Kyoto",                    lat: 34.9858, lon: 135.7588 },
+  osaka:      { name: "Osaka",                    lat: 34.7024, lon: 135.4959 },
+  sapporo:    { name: "Sapporo",                  lat: 43.0686, lon: 141.3508 },
+  fukuoka:    { name: "Fukuoka",                  lat: 33.5904, lon: 130.4017 },
+  naha:       { name: "Naha",                     lat: 26.2124, lon: 127.6809 },
+  hiroshima:  { name: "Hiroshima",                lat: 34.3853, lon: 132.4553 },
+  sendai:     { name: "Sendai",                   lat: 38.2604, lon: 140.8825 },
+  kanazawa:   { name: "Kanazawa",                 lat: 36.5780, lon: 136.6486 },
+  takayama:   { name: "Takayama",                 lat: 36.1404, lon: 137.2531 },
+  nagasaki:   { name: "Nagasaki",                 lat: 32.7503, lon: 129.8779 },
+  matsuyama:  { name: "Matsuyama",                lat: 33.8392, lon: 132.7656 },
 };
 let customStart = null; // {name, lat, lon}
 

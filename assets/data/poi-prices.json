@@ -1,8 +1,27 @@
 {
   "schema_version": 2,
-  "last_refreshed_at": "2026-05-11T05:39:55Z",
+  "last_refreshed_at": "2026-05-12T19:43:56Z",
   "_doc": "Cached starting-prices (v2: per-entry native currency) AND access metadata for POIs in assets/js/*-pois.js. Keyed by POI name (n field). Refreshed on deploy by tools/fetch_poi_prices.py + .github/workflows/refresh-poi-prices.yml. Manually-curated entries (source_kind=manual) are NEVER overwritten by the auto-refresher; only source_kind=wikidata price entries are updated. Optional access fields (url, car_status, parking, entrance, getting_there, operational) are read by app.js's loadPoiPrices to surface real-world parking + entrance info in the POI popup and to redirect 'Open in Google Maps' to the parking lat/lng rather than the POI's display coords for cable-car/car-free destinations.",
   "entries": {
+    "21st Century Museum of Contemporary Art": {
+      "kind": "varies",
+      "currency": "JPY",
+      "source_url": "https://www.kanazawa21.jp/en/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "notes": "Hours: Exhibition Zone 10:00–18:00 (until 20:00 Fri/Sat), closed Mon. Free 'Public Zone' (incl. Swimming Pool exterior view). Paid Exhibition Zone varies by show, typically ¥450–1200 adult.",
+      "car_status": "direct",
+      "parking": {
+        "la": 36.55972,
+        "lo": 136.65861,
+        "name": "Kanazawa 21st Century Museum Underground Parking",
+        "cost": "¥350/30min",
+        "currency": "JPY",
+        "spaces": 322,
+        "notes": "Direct access below museum; entrance off Hirosaka."
+      },
+      "getting_there": "From Kanazawa Stn: Kenrokuen Shuttle Bus or Hokuriku Tetsudō bus to Hirosaka/21st Century Museum (~10 min)."
+    },
     "Aareschlucht (Aare Gorge)": {
       "kind": "paid",
       "as_of": "2024",
@@ -21,6 +40,28 @@
       "notes": "Library + cathedral combined ticket; cathedral alone is free.",
       "from_adult": 18,
       "currency": "CHF"
+    },
+    "Adachi Museum of Art": {
+      "kind": "paid",
+      "from_adult": 2500,
+      "currency": "JPY",
+      "as_of": "2026",
+      "source_url": "https://www.adachi-museum.or.jp/en/info/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "url": "https://www.adachi-museum.or.jp/en/",
+      "notes": "Adult ¥2,500 confirmed on official EN site (Apr 2026). Hours: 09:00–17:30 (Apr–Sep), 09:00–17:00 (Oct–Mar). Open daily.",
+      "car_status": "direct",
+      "parking": {
+        "la": 35.37969,
+        "lo": 133.1945,
+        "name": "Adachi Museum of Art free parking",
+        "cost": "Free",
+        "currency": "JPY",
+        "spaces": 400,
+        "notes": "Free on-site lot for 400 cars + 30 buses."
+      },
+      "getting_there": "Free shuttle bus from JR Yasugi Stn (~20 min, ~2/h). Yasugi is 15 min by ltd-express from Matsue. By car: 10 min from Yasugi IC (San-in Expwy)."
     },
     "Aigle Castle & Wine Museum": {
       "kind": "paid",
@@ -85,6 +126,24 @@
       },
       "getting_there": "From Bourg-Saint-Maurice: D87E10 (~14 km) to Arc 2000 (expensive parking). Varet gondola + Aiguille Rouge cable car to 3,227 m. Alt: BSM funicular → Arc 1600 → free inter-resort bus to Arc 2000."
     },
+    "Ainokura Gasshō Village": {
+      "kind": "free",
+      "source_url": "https://ainokura.com/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "notes": "Hours: Village 24h; folklore museum 08:30–17:00. Free to walk village (donation requested). Parking ¥500. UNESCO World Heritage gasshō hamlet.",
+      "car_status": "gateway-parking",
+      "parking": {
+        "la": 36.42306,
+        "lo": 136.9125,
+        "name": "Ainokura Visitor Parking",
+        "cost": "¥500/day",
+        "currency": "JPY",
+        "spaces": 40,
+        "notes": "Upper lot above village; 3-min walk down to hamlet (no cars in village)."
+      },
+      "getting_there": "Kaetsunō Bus from Takaoka Stn (Johana line + bus) to Ainokura-guchi (~75 min), 5-min walk uphill."
+    },
     "Albula Railway": {
       "kind": "paid",
       "as_of": "2024",
@@ -146,6 +205,25 @@
       },
       "getting_there": "Park at Mörel Riederalp P+R (CHF 10/day est.); 8-min gondola to car-free Riederalp; 30-min hike into the UNESCO Aletschwald primeval forest flanking Europe's longest glacier."
     },
+    "Amanohashidate": {
+      "kind": "free",
+      "source_url": "https://www.amanohashidate.jp/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "notes": "Hours: Sandbar 24h; Kasamatsu cable car/chairlift 09:00–17:00 (¥800 RT adult); Amanohashidate View Land monorail 09:00–17:00 (¥850 RT). Sandbar free to walk/cycle.",
+      "url": "https://www.amanohashidate.jp/",
+      "car_status": "direct",
+      "parking": {
+        "la": 35.5675,
+        "lo": 135.19306,
+        "name": "Chionji Parking (Amanohashidate south)",
+        "cost": "¥700/day",
+        "currency": "JPY",
+        "spaces": 120,
+        "notes": "Near Chion-ji temple at south end of sandbar, by Amanohashidate Stn."
+      },
+      "getting_there": "Kyoto Tango Railway to Amanohashidate Stn (~2 hr from Kyoto via JR Hashidate ltd express). Sandbar 5-min walk from station."
+    },
     "Andermatt": {
       "kind": "free",
       "source_url": "https://www.andermatt.ch/en",
@@ -159,6 +237,23 @@
       "source_kind": "manual",
       "verified_at": "2025-12-01",
       "notes": "Village is free; museum CHF 7."
+    },
+    "Arashiyama Bamboo Grove": {
+      "kind": "free",
+      "source_url": "https://www.kyoto.travel/en/see-and-do/cultural-heritage/sagano-bamboo-forest",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "notes": "Free public path through bamboo. Hours: open 24 h (no gate). Best visited early morning to avoid crowds.",
+      "car_status": "gateway-parking",
+      "parking": {
+        "la": 35.01636,
+        "lo": 135.67806,
+        "name": "Nison-in / Arashiyama coin parking (Tenryū-ji area)",
+        "cost": "≈¥1,000/day",
+        "currency": "JPY",
+        "notes": "Multiple coin lots near Tenryū-ji and Togetsukyō bridge; ~5–10 min walk to grove."
+      },
+      "getting_there": "5 min walk from JR Saga-Arashiyama Stn (Sagano Line) or 10 min from Hankyu/Keifuku Arashiyama Stns. From Kyoto Stn ~15 min by JR."
     },
     "Ascona": {
       "kind": "free",
@@ -210,6 +305,27 @@
         "transfer": "~10-min walk from fringe parking; or Navigazione Laghi ferry from Varenna/Como/Lecco/Menaggio"
       },
       "getting_there": "Drive to San Giovanni fringe lot (very limited, fills fast); better: car-ferry from Varenna (~10 min, €4.60 pp + €4/car) or passenger ferry from Como (~1 h). navigazionelaghi.it."
+    },
+    "Beppu Jigoku Meguri (Seven Hells)": {
+      "kind": "paid",
+      "from_adult": 2400,
+      "currency": "JPY",
+      "as_of": "2026",
+      "source_url": "https://www.beppu-jigoku.com/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "url": "https://www.beppu-jigoku.com/",
+      "notes": "Combined 7-Hells pass ¥2,400 adult (since Feb 2025) — single hell ¥500. Hours: 08:00–17:00 daily. Buy at Umi-Jigoku or Chinoike-Jigoku.",
+      "car_status": "direct",
+      "parking": {
+        "la": 33.34389,
+        "lo": 131.48028,
+        "name": "Umi Jigoku free parking",
+        "cost": "Free",
+        "currency": "JPY",
+        "notes": "Free lots at each Kannawa-area hell; Chinoike & Tatsumaki are ~3 km north (separate lot)."
+      },
+      "getting_there": "Bus 5/9/41 from JR Beppu Stn West Exit to Umi-Jigoku-mae / Kannawa (~20 min). By car: 5 min from Beppu IC (Oita Expwy)."
     },
     "Bergamo Alta (Città Alta)": {
       "source_kind": "manual",
@@ -367,6 +483,19 @@
       "source_kind": "manual",
       "verified_at": "2025-12-01",
       "notes": "Free hike from Randa or Europaweg."
+    },
+    "Chichu Art Museum": {
+      "kind": "paid",
+      "from_adult": 2500,
+      "currency": "JPY",
+      "as_of": "2026",
+      "source_url": "https://benesse-artsite.jp/en/art/chichu.html",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "url": "https://benesse-artsite.jp/en/art/chichu.html",
+      "notes": "Adult ¥2,500 online weekday / ¥2,700 weekend; on-site +¥300. Reservation required. Hours: 10:00–18:00 (Mar–Sep) / 10:00–17:00 (Oct–Feb), closed Mon.",
+      "car_status": "shuttle",
+      "getting_there": "Ferry Uno→Miyanoura (~20 min) or Takamatsu→Miyanoura (~60 min), then town bus to Tsutsujiso, then museum shuttle. No private cars to museum."
     },
     "Chillon Castle (Château de Chillon)": {
       "kind": "paid",
@@ -552,6 +681,27 @@
       "verified_at": "2025-12-01",
       "notes": "Church free; guided tours of the abbey CHF 12."
     },
+    "Enryaku-ji (Hiei-zan)": {
+      "kind": "paid",
+      "from_adult": 1000,
+      "currency": "JPY",
+      "as_of": "2026",
+      "source_url": "https://www.hieizan.or.jp/tickets/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "url": "https://www.hieizan.or.jp/",
+      "notes": "Combined ticket (Tōdō+Saitō+Yokawa) ¥1,000 adult; Kokuhō-den +¥500. Hours: Tōdō 08:30–16:30 (Mar–Nov), 09:00–16:00 (Dec–Feb); Saitō/Yokawa close 30 min earlier.",
+      "car_status": "park-lower-station",
+      "parking": {
+        "la": 35.07028,
+        "lo": 135.84083,
+        "name": "Enryaku-ji Tōdō parking",
+        "cost": "Free",
+        "currency": "JPY",
+        "notes": "Free lots at Tōdō, Saitō and Yokawa; toll required on Hiei Driveway."
+      },
+      "getting_there": "From Kyoto: Keihan/Eizan to Yase-Hieizan-guchi, then Eizan Cable + Ropeway. From Sakamoto-side: Sakamoto Cable Car from Cable Sakamoto Stn (~11 min)."
+    },
     "Evolène": {
       "kind": "free",
       "source_url": "https://www.evolene-region.ch/en",
@@ -583,6 +733,25 @@
       "notes": "Stoosbahn funicular + Fronalpstock chairlift combined return.",
       "from_adult": 52,
       "currency": "CHF"
+    },
+    "Fushimi Inari Taisha": {
+      "kind": "free",
+      "source_url": "https://inari.jp/en/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "url": "https://inari.jp/en/",
+      "notes": "Shrine grounds & torii paths free. Hours: open 24 h, main hall lit until ~late evening. Mountain hike to summit ~2–3 h round-trip.",
+      "car_status": "direct",
+      "parking": {
+        "la": 34.96833,
+        "lo": 135.77194,
+        "name": "Fushimi Inari Taisha free parking",
+        "cost": "Free",
+        "currency": "JPY",
+        "spaces": 170,
+        "notes": "Free shrine lot; very limited, closes during festivals (Jan 1–5). Use Kyoto-bound trains during peak."
+      },
+      "getting_there": "5 min walk from JR Inari Stn (Nara Line, 5 min from Kyoto Stn); 7 min walk from Fushimi-Inari Stn (Keihan Main Line)."
     },
     "Gandria": {
       "kind": "free",
@@ -669,6 +838,23 @@
       "from_adult": 132,
       "currency": "CHF"
     },
+    "Goryōkaku": {
+      "kind": "free",
+      "source_url": "https://www.hakodate.travel/en/featured/things-to-do/goryokaku-park",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "notes": "Star-shaped park free, open 05:00–19:00 (Apr–Oct) / 05:00–18:00 (Nov–Mar). Magistrate's Office (Bugyōsho) ¥500 adult; Goryōkaku Tower ¥1,000 (separate).",
+      "car_status": "gateway-parking",
+      "parking": {
+        "la": 41.79444,
+        "lo": 140.75833,
+        "name": "Goryōkaku Tower / Hakodate City parking",
+        "cost": "≈¥400/h (¥1,200/day cap typical)",
+        "currency": "JPY",
+        "notes": "Multiple paid coin lots ring the park; tower lot is closest to entrance."
+      },
+      "getting_there": "Hakodate City Tram to Goryōkaku-Kōen-mae stop (~17 min from Hakodate Stn), then 10 min walk. By car: 10 min from Hakodate Stn."
+    },
     "Grimentz": {
       "kind": "free",
       "source_url": "https://www.valdanniviers.ch/en/",
@@ -708,6 +894,23 @@
       "source_kind": "manual",
       "verified_at": "2025-12-01",
       "notes": "Outdoor castle area free; restaurant separate."
+    },
+    "Hakone-Yumoto Onsen": {
+      "kind": "free",
+      "source_url": "https://www.hakone.or.jp/en/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "notes": "Onsen town itself is free to wander; individual baths/ryokan charge ¥1,000–¥2,000 day-use. Hours: town open 24 h; shops 09:00–18:00 typical.",
+      "car_status": "direct",
+      "parking": {
+        "la": 35.23306,
+        "lo": 139.10583,
+        "name": "Hakone-Yumoto town parking",
+        "cost": "≈¥500–¥1,500/day",
+        "currency": "JPY",
+        "notes": "Several paid coin/town lots near the station and along the Sukumo River."
+      },
+      "getting_there": "Odakyu Romancecar from Shinjuku to Hakone-Yumoto Stn (~85 min) or change at Odawara. By car: 10 min from Hakone-guchi IC (Odawara-Atsugi Rd)."
     },
     "Hallstatt": {
       "source_kind": "manual",
@@ -786,6 +989,28 @@
       "from_adult": 38,
       "currency": "CHF"
     },
+    "Himeji Castle (Himeji-jō)": {
+      "kind": "paid",
+      "from_adult": 2500,
+      "currency": "JPY",
+      "as_of": "2026",
+      "source_url": "https://www.city.himeji.lg.jp/castle/0000030746.html",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "url": "https://www.himejicastle.jp/en/",
+      "notes": "New fee from 2026-03-01: adult (non-resident) ¥2,500; Himeji-citizen ¥1,000; combined w/ Kōko-en ¥2,600; under-18 free. Hours: 09:00–17:00 (last entry 16:00); to 18:00 in summer.",
+      "car_status": "gateway-parking",
+      "parking": {
+        "la": 34.83778,
+        "lo": 134.69528,
+        "name": "Ōtemon Parking (Himeji city lot)",
+        "cost": "¥600/3h, then ¥300/h",
+        "currency": "JPY",
+        "spaces": 222,
+        "notes": "Closest public lot south of Ōtemon gate, ~5 min walk to castle."
+      },
+      "getting_there": "20 min walk N from JR/Sanyō Himeji Stn, or Shinki bus to Ōtemon-mae (5 min). Shinkansen: ~30 min from Shin-Ōsaka, ~20 min from Okayama."
+    },
     "Hintertuxer Gletscher": {
       "source_kind": "manual",
       "verified_at": "2026-05-10",
@@ -809,6 +1034,49 @@
         "transfer": "Gletscherbus 1 from valley station to Sommerbergalm (2,100 m); Gletscherbus 2/3 to 3,250 m; total ~20 min. Year-round."
       },
       "getting_there": "Drive to end of Tuxertal (B173, Zillertal); park in underground garage at Hintertux valley station (1,500 m, ~€5–6/day est.). Gletscherbus cable cars rise to 3,250 m. Year-round glacier; book tickets online."
+    },
+    "Hirosaki Castle": {
+      "kind": "paid",
+      "from_adult": 320,
+      "currency": "JPY",
+      "as_of": "2026",
+      "source_url": "https://www.hirosakipark.com/en/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "url": "https://www.hirosakipark.com/en/",
+      "notes": "Honmaru + Kita-no-Kuruwa admission ¥320 adult; combined (incl. Botanical Garden & Fujita Memorial Garden) ¥520. Park itself free. Hours: 09:00–17:00 (Apr 1–Nov 23); paid area closed in winter.",
+      "car_status": "gateway-parking",
+      "parking": {
+        "la": 40.60639,
+        "lo": 140.47,
+        "name": "Hirosaki Park Tsuru-no-mai parking",
+        "cost": "¥360/h (¥1,000/day during sakura)",
+        "currency": "JPY",
+        "notes": "Several city-run lots ring the park; expect peak pricing during Cherry Blossom Festival."
+      },
+      "getting_there": "15 min by 100-yen Dotemachi loop bus from JR Hirosaki Stn to Shiyakusho-mae, then 5 min walk. By car: 30 min from Ōwani-Hirosaki IC."
+    },
+    "Hiroshima Peace Memorial Park & A-Bomb Dome": {
+      "kind": "paid",
+      "from_adult": 200,
+      "currency": "JPY",
+      "as_of": "2026",
+      "source_url": "https://hpmmuseum.jp/modules/info/index.php?action=PageView&page_id=47&lang=eng",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "url": "https://hpmmuseum.jp/?lang=eng",
+      "notes": "Park & A-Bomb Dome free, open 24 h. Peace Memorial Museum ¥200 adult, 08:30–18:00 (to 19:00 Aug; to 17:00 Dec–Feb), closed Dec 30–31.",
+      "car_status": "gateway-parking",
+      "parking": {
+        "la": 34.39222,
+        "lo": 132.45528,
+        "name": "Peace Memorial Park underground parking",
+        "cost": "¥360/h (¥1,440/day cap)",
+        "currency": "JPY",
+        "spaces": 264,
+        "notes": "Underground lot directly south of museum entrance."
+      },
+      "getting_there": "Hiroden tram #2/#6 from Hiroshima Stn to Genbaku-Dome-mae (~15 min). Shinkansen Nozomi: ~1h25 from Shin-Ōsaka."
     },
     "Hohensalzburg Fortress": {
       "source_kind": "manual",
@@ -840,12 +1108,115 @@
       "from_adult": 19.2,
       "currency": "EUR"
     },
+    "Hōryū-ji": {
+      "kind": "paid",
+      "from_adult": 1500,
+      "currency": "JPY",
+      "as_of": "2026",
+      "source_url": "https://www.horyuji.or.jp/en/annai/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "url": "https://www.horyuji.or.jp/en/",
+      "notes": "Combined ticket (Saiin + Daihōzōin + Tōin) ¥1,500 adult. Hours: 08:00–17:00 (Feb 22–Nov 3) / 08:00–16:30 (Nov 4–Feb 21). Note: some sources cite a 2025 revision to ¥2,000.",
+      "car_status": "direct",
+      "parking": {
+        "la": 34.61472,
+        "lo": 135.73833,
+        "name": "Hōryū-ji iChi-no-Torii paid parking",
+        "cost": "¥500/day",
+        "currency": "JPY",
+        "notes": "Coin lots along the sandō approach 200 m east of Nandaimon."
+      },
+      "getting_there": "From JR Hōryūji Stn (Yamatoji Line, 11 min from Nara): 20 min walk or local bus to Hōryūji-mae (8 min). By car: 5 min from Hōryūji IC (Nishi-Meihan Expwy)."
+    },
+    "Imperial Palace East Garden & Nijūbashi": {
+      "kind": "free",
+      "source_url": "https://www.kunaicho.go.jp/event/higashigyoen/higashigyoen.html",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "url": "https://sankan.kunaicho.go.jp/english/",
+      "notes": "East Gardens free, no ticket; numbered entry token returned at exit. Hours: 09:00–17:00 (Mar–Apr 14 & Sep), 09:00–18:00 (Apr 15–Aug), 09:00–16:30 (Nov–Feb). Closed Mon & Fri. Nijūbashi (outer plaza) free 24 h.",
+      "car_status": "no-car",
+      "getting_there": "5 min walk from Otemachi Stn (Marunouchi/Chiyoda/Tōzai/Mita/Hanzōmon lines) to Ōtemon Gate; 10 min from Tokyo Stn Marunouchi Exit."
+    },
+    "Ise Jingū — Naikū & Gekū": {
+      "kind": "free",
+      "source_url": "https://www.isejingu.or.jp/en/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "url": "https://www.isejingu.or.jp/en/",
+      "notes": "Both Naikū (Inner) and Gekū (Outer) shrines free, no ticket. Hours: 05:00–18:00 (May–Aug); 05:00–17:00 (Oct–Dec); 05:00–18:00 (Jan–Apr & Sep); open 365 d.",
+      "car_status": "direct",
+      "parking": {
+        "la": 34.45611,
+        "lo": 136.72333,
+        "name": "Naikū A/B free parking",
+        "cost": "Free",
+        "currency": "JPY",
+        "spaces": 320,
+        "notes": "Free Naikū lots (A1/A2/B); paid lots (¥500/day) when free lots are full, esp. weekends."
+      },
+      "getting_there": "Bus from Ise-shi Stn (JR/Kintetsu) to Naikū-mae (~20 min, ¥460); Gekū is 5 min walk from Ise-shi Stn. Shinkansen via Nagoya to Ise via Kintetsu."
+    },
     "Iseltwald": {
       "kind": "free",
       "source_url": "https://www.iseltwald.ch/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
       "notes": "Village free; the famous private pier charges CHF 5 for photos."
+    },
+    "Itsukushima Shrine & Floating Torii": {
+      "kind": "paid",
+      "from_adult": 300,
+      "currency": "JPY",
+      "as_of": "2026",
+      "source_url": "https://www.itsukushimajinja.jp/en/admission.html",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "url": "https://www.itsukushimajinja.jp/en/",
+      "notes": "Shrine ¥300 adult; combined ticket w/ Treasure Hall ¥500. Hours: 06:30–18:00 (Mar–Oct 14), 06:30–17:30 (Oct 15–Nov / Jan–Feb), 06:30–17:00 (Dec). Also ¥100 Miyajima visitor tax.",
+      "car_status": "no-car",
+      "getting_there": "JR ferry (10 min, JR Pass valid) or Matsudai ferry from Miyajimaguchi (~3 min walk from JR Miyajimaguchi Stn, San-yō Line) to Miyajima pier; 10 min walk to shrine. No cars on island."
+    },
+    "Izumo Taisha": {
+      "kind": "free",
+      "source_url": "https://www.izumooyashiro.or.jp/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "url": "https://www.izumooyashiro.or.jp/",
+      "notes": "Grounds free, no ticket. Hours: 06:00–20:00 (Mar–Oct) / 06:30–20:00 (Nov–Feb). Treasure Hall (Homotsuden) ¥300.",
+      "car_status": "direct",
+      "parking": {
+        "la": 35.40167,
+        "lo": 132.6875,
+        "name": "Izumo Taisha free parking",
+        "cost": "Free",
+        "currency": "JPY",
+        "spaces": 385,
+        "notes": "Free shrine lots N and E of grounds; full on weekends/New Year."
+      },
+      "getting_there": "Ichibata Railway to Izumo-Taisha-mae Stn (~25 min from Matsue-Shinjiko-Onsen), 5 min walk. Or JR Izumoshi Stn + Ichibata bus (~25 min)."
+    },
+    "Jigokudani Monkey Park": {
+      "kind": "paid",
+      "from_adult": 800,
+      "currency": "JPY",
+      "as_of": "2026",
+      "source_url": "https://jigokudani-yaenkoen.co.jp/?lang=en",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "url": "https://jigokudani-yaenkoen.co.jp/?lang=en",
+      "notes": "Adult ¥800, child ¥400. Hours: 08:30–17:00 (Apr–Oct), 09:00–16:00 (Nov–Mar). 30–40 min walk on uneven snowy trail from parking; not stroller-friendly.",
+      "car_status": "park-lower-station",
+      "parking": {
+        "la": 36.74,
+        "lo": 138.45694,
+        "name": "Kanbayashi Onsen / Snow Monkey parking",
+        "cost": "¥800/day",
+        "currency": "JPY",
+        "notes": "Trailhead lot; from here ~1.6 km forest walk (~30 min) to park entrance."
+      },
+      "getting_there": "Nagano Dentetsu ltd-express from Nagano Stn to Yudanaka (~45 min), then Nagaden bus to Kanbayashi Onsen (~15 min), then 30 min walk. By car: 15 min from Shinshū-Nakano IC."
     },
     "Jungfraujoch – Top of Europe": {
       "kind": "paid",
@@ -877,6 +1248,16 @@
       "from_adult": 250,
       "currency": "CHF"
     },
+    "Jōmon Sugi": {
+      "kind": "varies",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "source_url": "https://y-rekumori.com/en/",
+      "url": "https://y-rekumori.com/en/",
+      "notes": "Trail itself free but Yakushima Recreational Forest entry ¥1000/day. Realistic access requires guide (¥15,000–25,000) + Arakawa shuttle bus (¥1,740 RT, mandatory Mar–Nov). ~10hr round-trip hike. Hours: trail open dawn–dusk.",
+      "car_status": "shuttle",
+      "getting_there": "From Yakushima port: drive/taxi to Yakusugi Shizen-kan, then mandatory Arakawa shuttle bus (~35 min) to Arakawa trailhead; private cars banned Mar–Nov."
+    },
     "Kaiser-Franz-Josefs-Höhe": {
       "source_kind": "manual",
       "verified_at": "2026-05-10",
@@ -907,6 +1288,48 @@
       "from_adult": 46.5,
       "currency": "EUR"
     },
+    "Kenroku-en": {
+      "kind": "paid",
+      "from_adult": 320,
+      "currency": "JPY",
+      "as_of": "2026",
+      "source_url": "https://www.pref.ishikawa.jp/siro-niwa/kenrokuen/e/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "url": "https://www.pref.ishikawa.jp/siro-niwa/kenrokuen/e/",
+      "notes": "Adult ¥320 (Ishikawa Pref. official). Hours: 07:00–18:00 (Mar 1–Oct 15); 08:00–17:00 (Oct 16–end Feb). Free admission early-morning hours and during certain seasonal events.",
+      "car_status": "direct",
+      "parking": {
+        "la": 36.565,
+        "lo": 136.66639,
+        "name": "Kenrokuen Parking (Kenrokuen-shita)",
+        "cost": "¥350/first hr, ¥150/30min after",
+        "currency": "JPY",
+        "spaces": 482
+      },
+      "getting_there": "Kenrokuen-shita bus stop, ~15 min by Kanazawa Loop Bus from Kanazawa Stn (¥200)."
+    },
+    "Kinkaku-ji (Golden Pavilion)": {
+      "kind": "paid",
+      "from_adult": 500,
+      "currency": "JPY",
+      "as_of": "2026",
+      "source_url": "https://www.shokoku-ji.jp/en/kinkakuji/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "url": "https://www.shokoku-ji.jp/en/kinkakuji/",
+      "notes": "Adult ¥500 (junior/elementary ¥300). Hours: 09:00–17:00 daily, no closing day. Official site confirms 9–17 access.",
+      "car_status": "direct",
+      "parking": {
+        "la": 35.03861,
+        "lo": 135.73194,
+        "name": "Kinkaku-ji Temple Parking",
+        "cost": "¥300/hr (cars)",
+        "currency": "JPY",
+        "spaces": 250
+      },
+      "getting_there": "Kyoto City Bus #101/205 from Kyoto Stn to Kinkakuji-michi (~40 min, ¥230); 3 min walk."
+    },
     "Kitzsteinhorn Glacier (Top of Salzburg)": {
       "source_kind": "manual",
       "verified_at": "2026-05-10",
@@ -930,6 +1353,19 @@
         "transfer": "Gletscherjet 1 funitel + Panoramabahn to Alpincenter (2,450 m), then further lifts to 3,029 m Top of Salzburg. Open year-round."
       },
       "getting_there": "Drive to Kaprun (Salzburg, A10 → B311); FREE parking + EV charging at Gletscherjet 1 valley station (911 m). Cable cars to 3,029 m Top of Salzburg. Open year-round; Postbus 660 from Zell am See also serves."
+    },
+    "Kiyomizu-dera + Sannenzaka/Ninenzaka": {
+      "kind": "paid",
+      "from_adult": 500,
+      "currency": "JPY",
+      "as_of": "2026",
+      "source_url": "https://www.kiyomizudera.or.jp/en/visit/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "url": "https://www.kiyomizudera.or.jp/en/",
+      "notes": "Main Hall adult ¥500 (jr/elem ¥200). Sannenzaka/Ninenzaka lanes are free public streets. Hours: 06:00–18:00 (extended to 18:30 summer; special evening viewings ¥500 spring/autumn).",
+      "car_status": "no-car",
+      "getting_there": "City Bus 100/206 from Kyoto Stn to Gojo-zaka or Kiyomizu-michi (~15 min); ~10 min uphill walk."
     },
     "Klein Matterhorn – Matterhorn Glacier Paradise": {
       "kind": "paid",
@@ -966,6 +1402,37 @@
       "source_url": "https://www.glarnerland.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01"
+    },
+    "Kōtoku-in (Kamakura Daibutsu)": {
+      "kind": "paid",
+      "from_adult": 300,
+      "currency": "JPY",
+      "as_of": "2026",
+      "source_url": "https://www.kotoku-in.jp/en/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "url": "https://www.kotoku-in.jp/en/",
+      "notes": "Adult ¥300 (jr/elem ¥150); +¥50 to enter inside the Great Buddha statue. Hours: 08:00–17:30 (Apr–Sep), 08:00–17:00 (Oct–Mar); last entry 15 min prior.",
+      "car_status": "no-car",
+      "getting_there": "7 min walk from Hase Stn (Enoden Line); Enoden runs from JR Kamakura Stn (4 min)."
+    },
+    "Kōyasan Okunoin": {
+      "kind": "free",
+      "source_url": "https://www.koyasan.or.jp/en/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "url": "https://www.koyasan.or.jp/en/",
+      "notes": "Cemetery/approach free 24h; Torodo Hall (Lantern Hall) 06:00–17:30 free entry. Gokusho offering rite 06:00 & 10:30. Some other Koyasan temples (Kongobu-ji, Danjo Garan) are paid ¥1000 combo.",
+      "car_status": "park-lower-station",
+      "parking": {
+        "la": 34.21389,
+        "lo": 135.59056,
+        "name": "Okunoin-mae Parking",
+        "cost": "Free",
+        "currency": "JPY",
+        "spaces": 90
+      },
+      "getting_there": "Nankai Koya Line to Gokurakubashi Stn, then cable car to Koyasan Stn, then Nankai Rinkan Bus to Okunoin-mae (~15 min)."
     },
     "La Chaux-de-Fonds — UNESCO Watchmaking City": {
       "kind": "free",
@@ -1246,12 +1713,43 @@
       },
       "getting_there": "Drive SS203/SP641 to Malga Ciapela (1,450 m, Rocca Pietore). Free parking at cable car base. 3-stage gondola to Punta Rocca (3,265 m) in ~12 min. Summer Jun–Sep."
     },
+    "Matsumoto Castle (Karasu-jō, 'Crow Castle')": {
+      "kind": "paid",
+      "from_adult": 700,
+      "currency": "JPY",
+      "as_of": "2026",
+      "source_url": "https://www.matsumoto-castle.jp/lang/eng",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "url": "https://www.matsumoto-castle.jp/lang/eng",
+      "notes": "Adult ¥700 (combined with Matsumoto City Museum); elem/jr ¥300. Hours: 08:30–17:00 (last entry 16:30); extended 08:00–18:00 during Golden Week & summer. Closed Dec 29–31.",
+      "car_status": "gateway-parking",
+      "parking": {
+        "la": 36.23521,
+        "lo": 137.96842,
+        "name": "Matsumoto Castle Gate Parking",
+        "cost": "¥150/30min",
+        "currency": "JPY",
+        "notes": "Open 07:30–22:30; ~5 min walk to castle"
+      },
+      "getting_there": "15 min walk from JR Matsumoto Stn, or Town Sneaker North Loop bus to Matsumotojo-Shiyakushomae (~10 min, ¥200)."
+    },
     "Matterhorn": {
       "kind": "free",
       "source_url": "https://www.zermatt.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
       "notes": "Mountain itself; viewing from Zermatt is free, lifts to high viewpoints are not."
+    },
+    "Meiji Jingū": {
+      "kind": "free",
+      "source_url": "https://www.meijijingu.or.jp/en/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "url": "https://www.meijijingu.or.jp/en/",
+      "notes": "Shrine grounds free. Hours vary by month: opens sunrise (~05:00–06:40), closes sunset (~16:00–18:30). Inner Garden (Gyoen) ¥500, Treasure Museum ¥1000.",
+      "car_status": "no-car",
+      "getting_there": "1 min walk from Harajuku Stn (JR Yamanote) or Meiji-jingumae Stn (Tokyo Metro Chiyoda/Fukutoshin)."
     },
     "Mer de Glace & Montenvers Railway": {
       "source_kind": "manual",
@@ -1459,6 +1957,106 @@
       "from_adult": 96,
       "currency": "CHF"
     },
+    "Mt Aso Nakadake Crater": {
+      "kind": "varies",
+      "source_url": "https://www.aso.ne.jp/~volcano/eng/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "url": "https://www.aso.ne.jp/~volcano/eng/",
+      "notes": "Aso Panorama Line toll-road & parking ¥800/car (no per-person fee). Access closed during JMA volcanic alert L2+. Hours: 08:30–17:30 (Mar 20–Oct 31), reduced winter to 09:00–16:30; closed at 18:00.",
+      "car_status": "direct",
+      "parking": {
+        "la": 32.88306,
+        "lo": 131.09778,
+        "name": "Nakadake Crater Parking (Aso Panorama Line)",
+        "cost": "¥800/car (toll)",
+        "currency": "JPY"
+      },
+      "getting_there": "Drive Aso Panorama Line from Aso Stn (~35 min). Public bus: Aso Stn → Asosan Nishi (~40 min)."
+    },
+    "Mt Fuji (Fuji-san)": {
+      "kind": "paid",
+      "from_adult": 4000,
+      "currency": "JPY",
+      "as_of": "2026",
+      "source_url": "https://www.fujisan-climb.jp/en/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "url": "https://www.fujisan-climb.jp/en/",
+      "notes": "Climbing fee ¥4,000 per person on all 4 trails (Yoshida, Subashiri, Gotemba, Fujinomiya) for 2026; mandatory pre-registration. Yoshida opens ~Jul 1; others ~Jul 10–early Sep. Closed off-season.",
+      "car_status": "park-lower-station",
+      "parking": {
+        "la": 35.39556,
+        "lo": 138.73306,
+        "name": "Fuji Subaru Line 5th Station (Yoshida trailhead)",
+        "cost": "Park-and-ride mandatory in peak: ¥1000 shuttle bus RT",
+        "currency": "JPY",
+        "notes": "Private cars restricted in climbing season; use Subaru Line P&R lot at Fujihokuroku"
+      },
+      "getting_there": "Yoshida route: Bus from Fujisan Stn or Kawaguchiko Stn to Subaru Line 5th Stn (~60 min)."
+    },
+    "Mt Hakodate": {
+      "kind": "paid",
+      "from_adult": 1800,
+      "currency": "JPY",
+      "as_of": "2026",
+      "source_url": "https://334.co.jp/en/en-price/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "url": "https://334.co.jp/eng/",
+      "notes": "Ropeway adult RT ¥1,800 (one-way ¥1,200). Hours: 10:00–22:00 (Apr 20–Sep 30, last up 21:30); 10:00–21:00 (Oct 1–Apr 19, last up 20:30). Summit also reachable free by car/hike off-peak.",
+      "car_status": "park-lower-station",
+      "parking": {
+        "la": 41.76389,
+        "lo": 140.715,
+        "name": "Mt Hakodate Ropeway Sanroku Station Parking",
+        "cost": "Free (limited spaces)",
+        "currency": "JPY",
+        "spaces": 78
+      },
+      "getting_there": "Tram to Jujigai stop, ~10 min walk to ropeway base; or city bus from JR Hakodate Stn (~10 min)."
+    },
+    "Mt Inasa Ropeway Night View": {
+      "kind": "paid",
+      "from_adult": 1250,
+      "currency": "JPY",
+      "as_of": "2026",
+      "source_url": "https://www.inasayama.com/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "url": "https://www.inasayama.com/",
+      "notes": "Nagasaki Ropeway adult RT ¥1,250 (one-way ¥730). Hours: 09:00–22:00 daily (last up 21:40). Summit also reachable by car/road free (separate paid Skyway available).",
+      "car_status": "park-lower-station",
+      "parking": {
+        "la": 32.74694,
+        "lo": 129.86472,
+        "name": "Fuchi Shrine Ropeway Parking (free shuttle to ropeway)",
+        "cost": "Free",
+        "currency": "JPY"
+      },
+      "getting_there": "Free shuttle bus from major Nagasaki hotels/JR Nagasaki Stn to Fuchi Jinja ropeway base, ~10 min."
+    },
+    "Mt Rokkō & Mt Maya Night View": {
+      "kind": "paid",
+      "from_adult": 1100,
+      "currency": "JPY",
+      "as_of": "2026",
+      "source_url": "https://koberope.jp/rokko",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "url": "https://koberope.jp/rokko",
+      "notes": "Rokko Cable adult RT ¥1,100 (one-way ¥600). Maya View Line (cable+ropeway) adult RT ¥1,560. Hours: Rokko 07:10–21:00; Maya Ropeway 10:00–17:30 (later on Fri–Sun & summer to 20:50 for night views).",
+      "car_status": "park-lower-station",
+      "parking": {
+        "la": 34.74083,
+        "lo": 135.24333,
+        "name": "Rokko Cable Shita Station Parking",
+        "cost": "¥500/day",
+        "currency": "JPY",
+        "spaces": 25
+      },
+      "getting_there": "City Bus #16 from Hankyu/JR Rokko Stn to Rokko Cable-shita (~10 min, ¥210), then cable car (~10 min)."
+    },
     "Muottas Muragl": {
       "kind": "paid",
       "as_of": "2024",
@@ -1489,11 +2087,49 @@
       "verified_at": "2025-12-01",
       "notes": "Village free; cable cars from Lauterbrunnen are paid (~CHF 16 return)."
     },
+    "Nachi-no-Taki, Kumano Nachi Taisha & Seiganto-ji": {
+      "kind": "free",
+      "source_url": "https://kumanonachitaisha.or.jp/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "url": "https://kumanonachitaisha.or.jp/",
+      "notes": "Kumano Nachi Taisha & Seiganto-ji grounds free; closer falls platform ¥300; Three-Storied Pagoda viewing deck ¥300; Taisha Treasure Hall ¥300. Hours: shrines/falls roughly 07:00–16:30 daily.",
+      "car_status": "direct",
+      "parking": {
+        "la": 33.66833,
+        "lo": 135.89111,
+        "name": "Nachi-san Sanchu Parking (private)",
+        "cost": "¥800/car",
+        "currency": "JPY"
+      },
+      "getting_there": "JR Kii-Katsuura Stn → Kumano Kotsu bus to Nachi-no-taki-mae (~25 min, ¥630)."
+    },
     "Neuchâtel — Old Town & Lake": {
       "kind": "free",
       "source_url": "https://www.neuchateltourisme.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01"
+    },
+    "Nikkō Tōshōgū": {
+      "kind": "paid",
+      "from_adult": 1600,
+      "currency": "JPY",
+      "as_of": "2026",
+      "source_url": "https://www.toshogu.jp/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "url": "https://www.toshogu.jp/",
+      "notes": "Adult ¥1,600 (jr/elem ¥550) for shrine main precinct. Treasure Museum +¥1,000 (combo ¥2,400). Hours: 09:00–17:00 (Apr 1–Oct 31); 09:00–16:00 (Nov 1–Mar 31); last entry 30 min prior.",
+      "car_status": "direct",
+      "parking": {
+        "la": 36.75694,
+        "lo": 139.59722,
+        "name": "Nikko Toshogu Parking",
+        "cost": "¥600/car",
+        "currency": "JPY",
+        "spaces": 200
+      },
+      "getting_there": "From JR/Tobu Nikko Stn, World Heritage Loop Bus to Omotesando (~10 min); or 35 min walk uphill."
     },
     "Oeschinensee (Oeschinen Lake)": {
       "kind": "paid",
@@ -1524,6 +2160,27 @@
       "getting_there": "Park at the Oeschinensee gondola station in Kandersteg; ride the gondola (~5 min); walk 25–30 min to the UNESCO-listed lake shore at 1,578 m.",
       "from_adult": 36,
       "currency": "CHF"
+    },
+    "Okinawa Churaumi Aquarium & Ocean Expo Park": {
+      "kind": "paid",
+      "from_adult": 2180,
+      "currency": "JPY",
+      "as_of": "2026",
+      "source_url": "https://churaumi.okinawa/en/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "url": "https://churaumi.okinawa/en/",
+      "notes": "Aquarium adult ¥2,180 (high-school ¥1,440, elem/jr ¥710); discounted ¥1,510 after 16:00. Ocean Expo Park grounds free. Hours: 08:30–18:30 (last entry 17:30); extended to 20:00 in summer peak.",
+      "car_status": "direct",
+      "parking": {
+        "la": 26.69528,
+        "lo": 127.88056,
+        "name": "Ocean Expo Park P7 (closest to aquarium)",
+        "cost": "Free",
+        "currency": "JPY",
+        "spaces": 1900
+      },
+      "getting_there": "Yanbaru Express Bus from Naha Airport to Kinen-Koen-mae stop (~2h 30min, ¥2,100); or rental car ~2hr from Naha."
     },
     "Old City of Bern": {
       "kind": "free",
@@ -1563,6 +2220,23 @@
         "transfer": "foot from parking; rowboat (~2 min, ~€3 pp return) to Isola San Giulio"
       },
       "getting_there": "Drive to Orta San Giulio; park in Piazza Motta lakeside lot (~€2/hr) or free lots above town. Walk to waterfront. Boatmen row visitors to Isola San Giulio (~300 m, ~€3 pp)."
+    },
+    "Otaru Canal & Sakaimachi": {
+      "kind": "free",
+      "source_url": "https://otaru.gr.jp/en/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "url": "https://otaru.gr.jp/en/",
+      "notes": "Public canal walk and Sakaimachi historic street free, accessible 24h. Individual museums/shops have own fees. Winter Snow Light Path Festival (Feb) free.",
+      "car_status": "direct",
+      "parking": {
+        "la": 43.19833,
+        "lo": 141.00611,
+        "name": "Otaru Canal Parking (Times)",
+        "cost": "¥200/30min",
+        "currency": "JPY"
+      },
+      "getting_there": "10 min walk from JR Otaru Stn down Chuo-dori to the canal; JR from Sapporo ~40 min (¥750)."
     },
     "Pale di San Martino": {
       "source_kind": "manual",
@@ -1662,6 +2336,27 @@
       "verified_at": "2025-12-01",
       "notes": "Hiking and viewing free; train via Rhaetian Railway is paid."
     },
+    "Ryōan-ji Rock Garden": {
+      "kind": "paid",
+      "from_adult": 600,
+      "currency": "JPY",
+      "as_of": "2026",
+      "source_url": "https://www.ryoanji.jp/smph/eng/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "notes": "Hours: 08:00–17:00 (Mar–Nov), 08:30–16:30 (Dec–Feb). Adult ¥600, students ¥500, children ¥300 per official temple site.",
+      "url": "https://www.ryoanji.jp/",
+      "car_status": "direct",
+      "parking": {
+        "la": 35.035,
+        "lo": 135.71889,
+        "name": "Ryōan-ji Temple Parking",
+        "cost": "Free with admission (1 hr)",
+        "currency": "JPY",
+        "notes": "Free for visitors using the temple; ~80 spaces near main gate."
+      },
+      "getting_there": "From Kyoto Stn: City Bus 50 to Ritsumeikan-daigaku-mae or JR Bus to Ryōan-ji-mae (~30 min). Or Keifuku Randen Kitano line to Ryōanji Stn, 7-min walk."
+    },
     "Rütli Meadow": {
       "kind": "free",
       "source_url": "https://www.ruetli.ch/",
@@ -1709,6 +2404,18 @@
       "notes": "Museum and Carolingian frescoes ticket.",
       "from_adult": 12,
       "currency": "CHF"
+    },
+    "Sakurajima Volcano": {
+      "kind": "paid",
+      "from_adult": 250,
+      "currency": "JPY",
+      "as_of": "2026",
+      "source_url": "https://www.city.kagoshima.lg.jp/sakurajima-ferry/unchin/unchin.html",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "notes": "Hours: Ferry runs 24h (reduced overnight from 2025-10-01). Sakurajima Ferry adult one-way ¥250, child ¥130 (Kagoshima City Ship Dept). Mountain itself free; trails/observatories open.",
+      "car_status": "shuttle",
+      "getting_there": "From Kagoshima-Chuo Stn: city bus or tram to Kagoshima Port (~15 min), then Sakurajima Ferry (15 min crossing, every 15-20 min daytime)."
     },
     "Salginatobel Bridge": {
       "kind": "free",
@@ -1895,6 +2602,106 @@
       },
       "getting_there": "Park free at Seis am Schlern gondola station (Schlernstraße 39, outdoor). Road to Seiser Alm plateau is closed 09:00–17:00 for non-residents — use the gondola (~15 min)."
     },
+    "Sensō-ji & Kaminarimon (Asakusa)": {
+      "kind": "free",
+      "source_url": "https://www.senso-ji.jp/english/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "notes": "Hours: Main Hall 06:00–17:00 (06:30 Oct–Mar); grounds and Kaminarimon open 24h. Free admission. Nakamise shops daytime only.",
+      "url": "https://www.senso-ji.jp/",
+      "car_status": "no-car",
+      "getting_there": "Asakusa Stn (Ginza, Asakusa, Tōbu, Tsukuba Express lines), 1–5-min walk to Kaminarimon. From Tokyo Stn ~20 min via Ginza line."
+    },
+    "Shibuya Crossing & Hachikō Statue": {
+      "kind": "free",
+      "source_url": "https://www.city.shibuya.tokyo.jp/kanko/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "notes": "Hours: 24h public street; Hachikō statue accessible anytime. Free. Best viewed evenings; Shibuya Scramble Square SHIBUYA SKY (paid, separate) offers overhead view.",
+      "car_status": "no-car",
+      "getting_there": "Shibuya Stn (JR Yamanote, Ginza, Hanzōmon, Fukutoshin, Tōkyū, Keiō lines) — Hachikō exit opens directly onto the crossing."
+    },
+    "Shirakawa-gō Ogimachi": {
+      "kind": "free",
+      "source_url": "https://shirakawa-go.gr.jp/en/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "notes": "Hours: Village 24h, individual gasshō houses generally 09:00–16:00 (small fee ~¥300–400 each). Free to walk village. Winter light-ups require reservation.",
+      "url": "https://shirakawa-go.gr.jp/",
+      "car_status": "gateway-parking",
+      "parking": {
+        "la": 36.25889,
+        "lo": 136.90306,
+        "name": "Seseragi Park Parking (せせらぎ公園駐車場)",
+        "cost": "¥1000/day",
+        "currency": "JPY",
+        "spaces": 200,
+        "notes": "Main visitor lot across Shōkawa River; reach village by footbridge (~5 min walk)."
+      },
+      "getting_there": "Nōhi Bus from Takayama (~50 min, ¥2600) or Kanazawa (~75 min, ¥2000) to Shirakawa-gō bus terminal."
+    },
+    "Shiratani Unsuikyō": {
+      "kind": "paid",
+      "from_adult": 500,
+      "currency": "JPY",
+      "as_of": "2026",
+      "source_url": "https://y-rekumori.com/forest/shiratani/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "notes": "Hours: 08:30–16:30 (last entry; trails year-round). ¥500 forest-conservation fee per adult, payable at trail entrance gate. Yakushima Recreational Forest.",
+      "car_status": "direct",
+      "parking": {
+        "la": 30.36306,
+        "lo": 130.55972,
+        "name": "Shiratani Unsuikyō Parking",
+        "cost": "Free",
+        "currency": "JPY",
+        "spaces": 50,
+        "notes": "Narrow mountain road from Miyanoura; limited spaces, arrive early."
+      },
+      "getting_there": "From Miyanoura Port (Yakushima): Tanegashima-Yakushima Kotsu bus ~35 min, or rental car ~30 min via mountain road."
+    },
+    "Shiretoko National Park": {
+      "kind": "free",
+      "source_url": "https://shiretoko-whc.com/en/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "notes": "Hours: Park 24h; Nature Center 08:00–17:30 (Apr–Oct), shorter winter. Free to enter. Shiretoko Five Lakes elevated walkway free; ground trail requires guided tour & permit (bear season).",
+      "url": "https://www.shiretoko.asia/",
+      "car_status": "direct",
+      "parking": {
+        "la": 44.10472,
+        "lo": 145.08222,
+        "name": "Shiretoko Five Lakes Parking",
+        "cost": "¥500/day",
+        "currency": "JPY",
+        "spaces": 100,
+        "notes": "Main trailhead lot; Kamuiwakka access by shuttle bus only in peak summer."
+      },
+      "getting_there": "From Shari Stn: Shari Bus to Utoro Onsen (~50 min), then Shiretoko Five Lakes route bus or car. Memanbetsu Airport ~2 hr drive."
+    },
+    "Shuri Castle (Shurijō)": {
+      "kind": "paid",
+      "from_adult": 400,
+      "currency": "JPY",
+      "as_of": "2026",
+      "source_url": "https://oki-park.jp/shurijo/info/14/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "notes": "Hours: Paid zone 08:30–19:00 (Apr–Jun, Oct–Nov), 08:30–20:00 (Jul–Sep), 08:30–18:00 (Dec–Mar). Main hall (Seiden) still under reconstruction after 2019 fire; Hōshinmon, Yohoden & Higashi-no-Azana viewing zone open.",
+      "url": "https://oki-park.jp/shurijo/",
+      "car_status": "direct",
+      "parking": {
+        "la": 26.21889,
+        "lo": 127.715,
+        "name": "Shurijō Park Prefectural Parking (Suimuikan)",
+        "cost": "¥320 for 1st hr, ¥100 each 30 min",
+        "currency": "JPY",
+        "spaces": 116,
+        "notes": "Underground lot at Suimuikan visitor center."
+      },
+      "getting_there": "Yui Rail to Shuri Stn, 15-min walk; or Naha Bus 7/8 to Shurijō-mae."
+    },
     "Sirmione": {
       "source_kind": "manual",
       "verified_at": "2026-05-10",
@@ -2072,11 +2879,46 @@
       "from_adult": 22,
       "currency": "CHF"
     },
+    "teamLab Planets TOKYO (Toyosu)": {
+      "kind": "paid",
+      "from_adult": 3800,
+      "currency": "JPY",
+      "as_of": "2026",
+      "source_url": "https://www.teamlab.art/e/planets/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "notes": "Hours: 09:00–22:00 (last entry 21:00). Weekend adult walk-up typically ¥3800 (weekdays ~¥3600); prices vary by date — reserve online. Includes Garden area.",
+      "url": "https://planets.teamlab.art/tokyo/",
+      "car_status": "no-car",
+      "getting_there": "Yurikamome Line to Shin-Toyosu Stn (1-min walk), or Tokyo Metro Yūrakuchō Line to Toyosu Stn (~10-min walk)."
+    },
     "Tellskapelle (Tell's Chapel)": {
       "kind": "free",
       "source_url": "https://www.luzern.com/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01"
+    },
+    "Tokyo Skytree & Tembō Galleria": {
+      "kind": "paid",
+      "from_adult": 3000,
+      "currency": "JPY",
+      "as_of": "2026",
+      "source_url": "https://www.tokyo-skytree.jp/en/ticket/individual/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "notes": "Hours: 10:00–22:00 (last entry 21:00). Combo (Tembo Deck + Galleria) adult ¥3000 online; +¥500 at 4F counter. Tembo Deck only ¥1800. Prices may vary by date.",
+      "url": "https://www.tokyo-skytree.jp/",
+      "car_status": "direct",
+      "parking": {
+        "la": 35.70972,
+        "lo": 139.81222,
+        "name": "Tokyo Skytree Town Parking",
+        "cost": "¥600/30min (max ¥3,000/day)",
+        "currency": "JPY",
+        "spaces": 1000,
+        "notes": "Under Tokyo Solamachi; discount with shopping receipts."
+      },
+      "getting_there": "Tokyo Skytree Stn (Tōbu Skytree line) or Oshiage Stn (Asakusa/Hanzōmon/Keisei). ~15 min from Tokyo Stn via Hanzōmon line."
     },
     "Tourbillon Castle": {
       "kind": "free",
@@ -2133,6 +2975,28 @@
       "verified_at": "2025-12-01",
       "from_adult": 14,
       "currency": "CHF"
+    },
+    "Tōdai-ji & the Great Buddha (Daibutsu)": {
+      "kind": "paid",
+      "from_adult": 800,
+      "currency": "JPY",
+      "as_of": "2026",
+      "source_url": "https://www.todaiji.or.jp/en/information/haikan/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "notes": "Hours: Daibutsu-den 07:30–17:30 (Apr–Oct), 08:00–17:00 (Nov–Mar). Adult ¥800; Daibutsuden+Museum combo ¥1200. Hokke-dō & Kaidan-dō separate ¥800.",
+      "url": "https://www.todaiji.or.jp/",
+      "car_status": "direct",
+      "parking": {
+        "la": 34.68722,
+        "lo": 135.84083,
+        "name": "Tōdai-ji Parking (Nara Park area)",
+        "cost": "¥1000/day",
+        "currency": "JPY",
+        "spaces": 200,
+        "notes": "Several park lots near Nandaimon; can be busy in autumn."
+      },
+      "getting_there": "From Kintetsu Nara Stn 20-min walk through Nara Park, or Nara Kōtsū bus to Daibutsuden-Kasuga-Taisha-mae (~5 min)."
     },
     "Uetliberg": {
       "kind": "paid",
@@ -2224,6 +3088,44 @@
       "getting_there": "Drive to Tremezzina (Lenno); park at Lido di Lenno (~50 spaces). Reach the villa by taxi boat (~10 min, fee) or walk 1 km uphill from Lenno (~25 min). FAI booking: villadelbalbianello.it.",
       "from_adult": 15,
       "currency": "EUR"
+    },
+    "Yamadera Risshaku-ji": {
+      "kind": "paid",
+      "from_adult": 300,
+      "currency": "JPY",
+      "as_of": "2026",
+      "source_url": "https://www.rissyakuji.jp/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "notes": "Hours: 08:00–17:00 (winter shorter, last entry 16:00). Adult ¥300, child ¥100. ~1000 stone steps to upper Okunoin; allow 60–90 min round trip.",
+      "car_status": "direct",
+      "parking": {
+        "la": 38.31194,
+        "lo": 140.43472,
+        "name": "Yamadera private lots near JR Yamadera Stn",
+        "cost": "¥500/day",
+        "currency": "JPY",
+        "notes": "Multiple small private lots at trail base, walk over Tachiya bridge."
+      },
+      "getting_there": "JR Senzan Line to Yamadera Stn (~20 min from Yamagata), 7-min walk to base of stone staircase."
+    },
+    "Yoshino-yama": {
+      "kind": "free",
+      "source_url": "https://www.yoshinoyama-kankou.com/",
+      "source_kind": "manual",
+      "verified_at": "2026-05-12",
+      "notes": "Hours: Mountain 24h public roads; shrines/temples ~08:30–17:00. Free to enter area. Yoshino Ropeway (Sembonguchi–Yoshinoyama, oldest in Japan) was suspended for safety; check status before relying on it. Cherry season Apr brings traffic controls.",
+      "car_status": "gateway-parking",
+      "parking": {
+        "la": 34.36639,
+        "lo": 135.85889,
+        "name": "Shimosenbon Parking (吉野山観光駐車場)",
+        "cost": "¥2000/day in cherry season, ¥1000 otherwise",
+        "currency": "JPY",
+        "spaces": 400,
+        "notes": "Year-round paid since 2025-10. Traffic restrictions Mar 20–May 10; park & bus ride encouraged."
+      },
+      "getting_there": "Kintetsu Yoshino Line to Yoshino Stn (terminal); cable car/shuttle bus up to Shimosenbon village (~5 min)."
     },
     "Zermatt": {
       "kind": "free",

@@ -1686,6 +1686,8 @@ const ROUTE_SOURCE_ID = "planned-route";
 const START_SOURCE_ID = "planned-start";
 const LEISURE_ZONE_SOURCE_ID = "leisure-zones";
 const LEISURE_POINT_SOURCE_ID = "leisure-points";
+const SCENIC_DRIVE_LINE_SOURCE_ID = "scenic-drive-lines";
+const SCENIC_DRIVE_POINT_SOURCE_ID = "scenic-drive-points";
 const EMPTY_FEATURE_COLLECTION = { type: "FeatureCollection", features: [] };
 let mapLayersReady = false;
 let poiLayerVisible = true;
@@ -2152,6 +2154,60 @@ function currentPoiMapFeatures() {
     POIS.filter(p => poiPassesAllFilters(p)).filter(p => !q || poiSearchMatches(p, q)),
     poiFeature
   );
+}
+
+/* Scenic drives (multi-waypoint LineStrings). Currently Japan-only.
+   Two FeatureCollections feed two MapLibre layers: a line layer for the
+   route polyline, and a circle+label layer for the named waypoints. */
+const SCENIC_DRIVES_RAW = ((typeof JAPAN_SCENIC_DRIVES !== "undefined" && Array.isArray(JAPAN_SCENIC_DRIVES))
+  ? JAPAN_SCENIC_DRIVES
+  : []);
+
+function currentScenicDriveLineFeatures() {
+  return {
+    type: "FeatureCollection",
+    features: SCENIC_DRIVES_RAW.map((d, i) => ({
+      type: "Feature",
+      id: `scenic-drive-${i}`,
+      geometry: {
+        type: "LineString",
+        coordinates: (d.waypoints || []).map(w => [w.lo, w.la]),
+      },
+      properties: {
+        kind: "scenic-drive",
+        name: d.n,
+        region: d.region || "",
+        country: d.co || "",
+        lengthKm: d.len_km || 0,
+        driveMin: d.drive_min || 0,
+        score: d.sc || 0,
+      },
+    })),
+  };
+}
+
+function currentScenicDrivePointFeatures() {
+  const features = [];
+  for (let i = 0; i < SCENIC_DRIVES_RAW.length; i += 1) {
+    const drive = SCENIC_DRIVES_RAW[i];
+    const wps = drive.waypoints || [];
+    for (let j = 0; j < wps.length; j += 1) {
+      const w = wps[j];
+      const isEndpoint = j === 0 || j === wps.length - 1;
+      features.push({
+        type: "Feature",
+        id: `scenic-wp-${i}-${j}`,
+        geometry: { type: "Point", coordinates: [w.lo, w.la] },
+        properties: {
+          kind: "scenic-drive-waypoint",
+          driveName: drive.n,
+          waypointName: w.n,
+          isEndpoint,
+        },
+      });
+    }
+  }
+  return { type: "FeatureCollection", features };
 }
 
 function setSourceData(sourceId, data) {
@@ -3998,6 +4054,67 @@ function setupMapLayers() {
     }, ALPINE_GL_LAYER_ID);
   } catch (e) {
     console.warn("leisure overlays disabled", e);
+  }
+
+  /* Scenic drives — Japan-only multi-waypoint routes. Rendered as a dashed
+     teal polyline below the planned-route stack with small endpoint dots
+     and (zoom >=8) labels at each waypoint. Always-on; not interactive. */
+  try {
+    if (!map.getSource(SCENIC_DRIVE_LINE_SOURCE_ID)) {
+      map.addSource(SCENIC_DRIVE_LINE_SOURCE_ID, {
+        type: "geojson",
+        data: currentScenicDriveLineFeatures(),
+      });
+    }
+    if (!map.getSource(SCENIC_DRIVE_POINT_SOURCE_ID)) {
+      map.addSource(SCENIC_DRIVE_POINT_SOURCE_ID, {
+        type: "geojson",
+        data: currentScenicDrivePointFeatures(),
+      });
+    }
+    addLayerWithSource({
+      id: "scenic-drive-line",
+      type: "line",
+      source: SCENIC_DRIVE_LINE_SOURCE_ID,
+      paint: {
+        "line-color": "#54d1ff",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 5, 2, 9, 4, 12, 5],
+        "line-opacity": 0.85,
+        "line-dasharray": [2, 1.5],
+      },
+      layout: { "line-cap": "round", "line-join": "round" },
+    }, "planned-route-shadow");
+    addLayerWithSource({
+      id: "scenic-drive-waypoints",
+      type: "circle",
+      source: SCENIC_DRIVE_POINT_SOURCE_ID,
+      paint: {
+        "circle-radius": ["case", ["==", ["get", "isEndpoint"], true], 6, 4],
+        "circle-color": ["case", ["==", ["get", "isEndpoint"], true], "#54d1ff", "#0e1418"],
+        "circle-stroke-color": ["case", ["==", ["get", "isEndpoint"], true], "#0e1418", "#54d1ff"],
+        "circle-stroke-width": 2,
+      },
+    }, "planned-route-shadow");
+    addLayerWithSource({
+      id: "scenic-drive-labels",
+      type: "symbol",
+      source: SCENIC_DRIVE_POINT_SOURCE_ID,
+      minzoom: 8,
+      layout: {
+        "text-field": ["get", "waypointName"],
+        "text-size": 11,
+        "text-anchor": "left",
+        "text-offset": [0.8, 0],
+        "text-optional": true,
+      },
+      paint: {
+        "text-color": "#0e1418",
+        "text-halo-color": "#54d1ff",
+        "text-halo-width": 1.2,
+      },
+    }, ALPINE_GL_LAYER_ID);
+  } catch (e) {
+    console.warn("scenic drive overlays disabled", e);
   }
 
   mapLayersReady = true;

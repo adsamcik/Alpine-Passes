@@ -316,11 +316,12 @@ const POIS = POI_RAW.map((d, i) => ({
   /* Visit-time at destination (separate from driving time). */
   visitDwellSec: typeof d.dur === "number" ? Math.round(d.dur * 3600) : 0,
   /* Starting price (filled in async by loadPoiPrices()). */
-  priceKind:         null,
-  priceFromAdultChf: null,
-  priceAsOf:         null,
-  priceSourceUrl:    null,
-  priceNotes:        null,
+  priceKind:        null,
+  priceFromAdult:   null,  // numeric amount in priceCurrency
+  priceCurrency:    null,  // ISO code: "CHF" | "EUR" | "JPY" | "GBP" | "USD" | ...
+  priceAsOf:        null,
+  priceSourceUrl:   null,
+  priceNotes:       null,
   /* Access metadata (filled in async by loadPoiPrices()). Surfaces real-world
      parking + entrance info in the POI popup so users know where to park
      when the POI is up a cable car or behind a P+R / shuttle / toll road. */
@@ -349,9 +350,11 @@ function isPlannablePoi(p) { return p?.isPoi && PLANNABLE_POI_IDS.has(p.id); }
    missing or unreachable cache simply leaves POIs without enrichment.
 
    Schema of each entry — ALL FIELDS OPTIONAL:
-     ── Price (existing) ──
+     ── Price (v2: per-entry native currency) ──
      kind            "paid" | "free" | "varies" | "donation"
-     from_adult_chf  number — only when kind === "paid"
+     from_adult      number — only when kind === "paid", expressed in `currency`
+     currency        ISO code: "CHF" | "EUR" | "JPY" | "GBP" | "USD" | ...
+                     (defaults to cache.default_currency when omitted)
      as_of           year string for context (e.g. "2024")
      source_url      official source URL for the price claim
      source_kind     "manual" | "wikidata"  (refresher only updates wikidata)
@@ -385,12 +388,24 @@ async function loadPoiPrices() {
     const cache = await res.json();
     if (!cache || typeof cache !== "object") return;
     const entries = cache.entries || {};
+    const defaultCurrency = cache.default_currency || cache.currency || "CHF";
     let matched = 0;
     POIS.forEach(p => {
       const e = entries[p.rawName];
       if (!e) return;
-      p.priceKind        = e.kind || null;
-      p.priceFromAdultChf = typeof e.from_adult_chf === "number" ? e.from_adult_chf : null;
+      p.priceKind       = e.kind || null;
+      /* schema v2: from_adult + currency. v1 fallback (from_adult_chf) kept for
+         older deployed caches that may not yet be refreshed. */
+      if (typeof e.from_adult === "number") {
+        p.priceFromAdult = e.from_adult;
+        p.priceCurrency  = e.currency || defaultCurrency;
+      } else if (typeof e.from_adult_chf === "number") {
+        p.priceFromAdult = e.from_adult_chf;
+        p.priceCurrency  = "CHF";
+      } else {
+        p.priceFromAdult = null;
+        p.priceCurrency  = null;
+      }
       p.priceAsOf        = e.as_of || null;
       p.priceSourceUrl   = e.source_url || null;
       p.priceNotes       = e.notes || null;
@@ -418,8 +433,8 @@ function poiPriceShort(poi) {
     case "varies":   return "Varies";
     case "donation": return "Donation";
     case "paid":
-      return poi.priceFromAdultChf
-        ? `CHF ${Math.round(poi.priceFromAdultChf)}+`
+      return poi.priceFromAdult
+        ? `${formatPriceShortAmount(poi.priceFromAdult, poi.priceCurrency)}+`
         : null;
     default: return null;
   }
@@ -431,14 +446,38 @@ function poiPriceLong(poi) {
     case "varies":   return "Varies";
     case "donation": return "Donation";
     case "paid":
-      return poi.priceFromAdultChf
-        ? `From CHF ${Number.isInteger(poi.priceFromAdultChf)
-            ? poi.priceFromAdultChf
-            : poi.priceFromAdultChf.toFixed(2)} · adult`
+      return poi.priceFromAdult
+        ? `From ${formatPriceLongAmount(poi.priceFromAdult, poi.priceCurrency)} · adult`
         : null;
     default: return null;
   }
 }
+
+/* Currency formatting helpers. JPY has no fractional unit; everything else
+   shows up to 2 decimals when the amount isn't a whole number. Symbol-prefix
+   for EUR / GBP / USD / JPY (Western convention); code-prefix for CHF
+   (Swiss convention "CHF 12" beats "₣12" which would be confused with FRF). */
+const CURRENCY_SYMBOL = { EUR: "€", GBP: "£", USD: "$", JPY: "¥" };
+const CURRENCY_NO_DECIMALS = new Set(["JPY"]);
+function _fmtAmount(amount, currency, mode /* "short" | "long" */) {
+  const noDec = CURRENCY_NO_DECIMALS.has(currency);
+  const sym = CURRENCY_SYMBOL[currency];
+  let display;
+  if (noDec || mode === "short") {
+    display = String(Math.round(amount));
+  } else if (Number.isInteger(amount)) {
+    display = String(amount);
+  } else {
+    /* Preserve trailing zeros (e.g. "19.20" not "19.2") by leaving toFixed
+       output as a string instead of round-tripping through Number(). */
+    display = amount.toFixed(2);
+  }
+  if (sym) return `${sym}${display}`;
+  /* Fallback: "CHF 12" / "XYZ 12". Always show the code so the unit is unambiguous. */
+  return `${currency || ""} ${display}`.trim();
+}
+function formatPriceShortAmount(amount, currency) { return _fmtAmount(amount, currency, "short"); }
+function formatPriceLongAmount(amount, currency)  { return _fmtAmount(amount, currency, "long"); }
 
 /* Human label for the car_status enum from poi-prices.json. */
 const POI_CAR_STATUS_LABELS = {

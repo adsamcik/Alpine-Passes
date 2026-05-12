@@ -149,8 +149,8 @@ def load_all_pois() -> list[dict[str, Any]]:
 def load_cache() -> dict[str, Any]:
     if not CACHE_FILE.exists():
         return {
-            "schema_version": 1,
-            "currency": "CHF",
+            "schema_version": 2,
+            "default_currency": "CHF",
             "last_refreshed_at": None,
             "entries": {},
         }
@@ -158,8 +158,12 @@ def load_cache() -> dict[str, Any]:
 
 
 def write_cache(cache: dict[str, Any]) -> None:
-    cache.setdefault("schema_version", 1)
-    cache.setdefault("currency", "CHF")
+    cache.setdefault("schema_version", 2)
+    # v1 cache used top-level "currency"; v2 renamed to "default_currency" to
+    # make clear it's only a fallback for entries that don't specify their own.
+    if "currency" in cache and "default_currency" not in cache:
+        cache["default_currency"] = cache.pop("currency")
+    cache.setdefault("default_currency", "CHF")
     cache["last_refreshed_at"] = (
         dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     )
@@ -291,11 +295,14 @@ def refresh(*, dry_run: bool = False, bootstrap: bool = False) -> int:
                 continue
             amount, source_url = res
             entry["kind"] = "paid"
-            entry["from_adult_chf"] = round(amount, 2)
+            entry["from_adult"] = round(amount, 2)
+            entry["currency"] = "CHF"
             entry["source_url"] = source_url
             entry["source_kind"] = "wikidata"
             entry["verified_at"] = dt.date.today().isoformat()
             entry.setdefault("as_of", str(dt.date.today().year))
+            # If migrating an older v1 entry mid-refresh, scrub the legacy key.
+            entry.pop("from_adult_chf", None)
             stats["updated"] += 1
         except Exception as e:
             print(f"[refresh] Wikidata fetch failed for {name!r}: {e}", file=sys.stderr)
@@ -333,7 +340,8 @@ def refresh(*, dry_run: bool = False, bootstrap: bool = False) -> int:
                 amount, source_url = res
                 entries[name] = {
                     "kind": "paid",
-                    "from_adult_chf": round(amount, 2),
+                    "from_adult": round(amount, 2),
+                    "currency": "CHF",
                     "as_of": str(dt.date.today().year),
                     "source_url": source_url,
                     "source_kind": "wikidata",

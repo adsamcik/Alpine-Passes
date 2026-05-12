@@ -1,39 +1,40 @@
 {
-  "schema_version": 1,
-  "currency": "CHF",
+  "schema_version": 2,
   "last_refreshed_at": "2026-05-11T05:39:55Z",
-  "_doc": "Cached starting-prices AND access metadata for POIs in assets/js/*-pois.js. Keyed by POI name (n field). Refreshed on deploy by tools/fetch_poi_prices.py + .github/workflows/refresh-poi-prices.yml. Manually-curated entries (source_kind=manual) are NEVER overwritten by the auto-refresher; only source_kind=wikidata price entries are updated. Optional access fields (url, car_status, parking, entrance, getting_there, operational) are read by app.js's loadPoiPrices to surface real-world parking + entrance info in the POI popup and to redirect 'Open in Google Maps' to the parking lat/lng rather than the POI's display coords for cable-car/car-free destinations.",
+  "_doc": "Cached starting-prices (v2: per-entry native currency) AND access metadata for POIs in assets/js/*-pois.js. Keyed by POI name (n field). Refreshed on deploy by tools/fetch_poi_prices.py + .github/workflows/refresh-poi-prices.yml. Manually-curated entries (source_kind=manual) are NEVER overwritten by the auto-refresher; only source_kind=wikidata price entries are updated. Optional access fields (url, car_status, parking, entrance, getting_there, operational) are read by app.js's loadPoiPrices to surface real-world parking + entrance info in the POI popup and to redirect 'Open in Google Maps' to the parking lat/lng rather than the POI's display coords for cable-car/car-free destinations.",
   "entries": {
     "Aareschlucht (Aare Gorge)": {
       "kind": "paid",
-      "from_adult_chf": 11,
       "as_of": "2024",
       "source_url": "https://www.aareschlucht.ch/en/",
       "source_kind": "manual",
-      "verified_at": "2025-12-01"
+      "verified_at": "2025-12-01",
+      "from_adult": 11,
+      "currency": "CHF"
     },
     "Abbey of Saint Gall": {
       "kind": "paid",
-      "from_adult_chf": 18,
       "as_of": "2024",
       "source_url": "https://www.stiftsbezirk.ch/en/visit/admission-prices",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Library + cathedral combined ticket; cathedral alone is free."
+      "notes": "Library + cathedral combined ticket; cathedral alone is free.",
+      "from_adult": 18,
+      "currency": "CHF"
     },
     "Aigle Castle & Wine Museum": {
       "kind": "paid",
-      "from_adult_chf": 14,
       "as_of": "2024",
       "source_url": "https://www.chateauaigle.ch/en/",
       "source_kind": "manual",
-      "verified_at": "2025-12-01"
+      "verified_at": "2025-12-01",
+      "from_adult": 14,
+      "currency": "CHF"
     },
     "Aiguille du Midi": {
       "source_kind": "manual",
       "verified_at": "2026-05-10",
       "kind": "paid",
-      "from_adult_chf": 79,
       "as_of": "2026",
       "source_url": "https://www.chamonet.com/summer-passes/",
       "notes": "Cable-car return ticket €83 adult (summer 2026) ≈ CHF 79. Pre-book a boarding number online.",
@@ -56,7 +57,9 @@
         "name": "Aiguille du Midi cable-car valley station (Place de l'Aiguille du Midi)",
         "transfer": "~210 m, 3-min walk north-northeast from Grépon parking"
       },
-      "getting_there": "Park at Grépon outdoor lot in Chamonix (800 spaces); 3-min walk to the cable-car valley station (1,035 m); two-stage cable car rises 2,807 m to 3,842 m in ~20 min. Pre-book online."
+      "getting_there": "Park at Grépon outdoor lot in Chamonix (800 spaces); 3-min walk to the cable-car valley station (1,035 m); two-stage cable car rises 2,807 m to 3,842 m in ~20 min. Pre-book online.",
+      "from_adult": 83,
+      "currency": "EUR"
     },
     "Aiguille Rouge": {
       "source_kind": "manual",
@@ -84,12 +87,13 @@
     },
     "Albula Railway": {
       "kind": "paid",
-      "from_adult_chf": 38,
       "as_of": "2024",
       "source_url": "https://www.rhb.ch/en/timetable-tickets",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Chur–St. Moritz one-way; covered by Swiss Travel Pass."
+      "notes": "Chur–St. Moritz one-way; covered by Swiss Travel Pass.",
+      "from_adult": 38,
+      "currency": "CHF"
     },
     "Aletsch Glacier": {
       "source_kind": "manual",
@@ -211,7 +215,6 @@
       "source_kind": "manual",
       "verified_at": "2026-05-10",
       "kind": "paid",
-      "from_adult_chf": 2,
       "as_of": "2024",
       "source_url": "https://www.atb.bergamo.it/en/",
       "notes": "ATB funicular ticket €1.70 single (75 min) ≈ CHF 2; 24-hr pass €3.50.",
@@ -234,40 +237,44 @@
         "name": "Città Alta — Piazza Mercato delle Scarpe (funicular upper station)",
         "transfer": "ATB funicular (~4 min); ticket €1.70 single (75 min)"
       },
-      "getting_there": "Park in Bergamo Bassa near funicular lower station (ZTL bars non-residents from Città Alta). ATB funicular €1.70 single (75 min) or 24-hr pass €3.50."
+      "getting_there": "Park in Bergamo Bassa near funicular lower station (ZTL bars non-residents from Città Alta). ATB funicular €1.70 single (75 min) or 24-hr pass €3.50.",
+      "from_adult": 1.7,
+      "currency": "EUR"
     },
     "Bernina Express": {
       "kind": "paid",
-      "from_adult_chf": 84,
       "as_of": "2024",
       "source_url": "https://www.rhb.ch/en/panoramic-trains/bernina-express",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Chur–Tirano one-way base fare; mandatory seat reservation extra (~CHF 26 in summer)."
+      "notes": "Chur–Tirano one-way base fare; mandatory seat reservation extra (~CHF 26 in summer).",
+      "from_adult": 84,
+      "currency": "CHF"
     },
     "Bettmeralp": {
       "kind": "paid",
-      "from_adult_chf": 32,
       "as_of": "2024",
       "source_url": "https://www.aletscharena.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Cable car return from Betten Talstation to Bettmeralp."
+      "notes": "Cable car return from Betten Talstation to Bettmeralp.",
+      "from_adult": 32,
+      "currency": "CHF"
     },
     "Bogn Engiadina Scuol": {
       "kind": "paid",
-      "from_adult_chf": 32,
       "as_of": "2024",
       "source_url": "https://www.bognengiadina.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Three-hour adult thermal ticket."
+      "notes": "Three-hour adult thermal ticket.",
+      "from_adult": 32,
+      "currency": "CHF"
     },
     "Borromean Islands": {
       "source_kind": "manual",
       "verified_at": "2026-05-10",
       "kind": "paid",
-      "from_adult_chf": 21,
       "as_of": "2024",
       "source_url": "https://www.isoleborromee.it/en/",
       "notes": "Adult entry: Isola Bella €22 ≈ CHF 21; Isola Madre €19; combined ticket €34.",
@@ -290,61 +297,69 @@
         "name": "Isola Bella boat landing (Navigazione Laghi ferry from Stresa)",
         "transfer": "Navigazione Laghi ferry from Stresa main dock or Carciano (~5 min to Isola Bella)"
       },
-      "getting_there": "Drive or train to Stresa; park near the lakefront. Navigazione Laghi ferry to Isola Bella (~5 min). Adult entry: Isola Bella €22, Isola Madre €19, combined €34. No cars on islands."
+      "getting_there": "Drive or train to Stresa; park near the lakefront. Navigazione Laghi ferry to Isola Bella (~5 min). Adult entry: Isola Bella €22, Isola Madre €19, combined €34. No cars on islands.",
+      "from_adult": 22,
+      "currency": "EUR"
     },
     "Brienzer Rothorn": {
       "kind": "paid",
-      "from_adult_chf": 96,
       "as_of": "2024",
       "source_url": "https://brienz-rothorn-bahn.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Steam cogwheel return; summer-only."
+      "notes": "Steam cogwheel return; summer-only.",
+      "from_adult": 96,
+      "currency": "CHF"
     },
     "Brissago Islands": {
       "kind": "paid",
-      "from_adult_chf": 11,
       "as_of": "2024",
       "source_url": "https://www.isolebrissago.ti.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Garden entry only; boat to islands is extra (~CHF 25 return from Locarno)."
+      "notes": "Garden entry only; boat to islands is extra (~CHF 25 return from Locarno).",
+      "from_adult": 11,
+      "currency": "CHF"
     },
     "Cardada / Cimetta": {
       "kind": "paid",
-      "from_adult_chf": 47,
       "as_of": "2024",
       "source_url": "https://www.cardada.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Locarno–Orselina–Cardada–Cimetta combined return."
+      "notes": "Locarno–Orselina–Cardada–Cimetta combined return.",
+      "from_adult": 47,
+      "currency": "CHF"
     },
     "Castles of Bellinzona": {
       "kind": "paid",
-      "from_adult_chf": 18,
       "as_of": "2024",
       "source_url": "https://www.bellinzonaevalli.ch/en/discover/the-castles-of-bellinzona",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Combined ticket for all three castles (Castelgrande, Montebello, Sasso Corbaro)."
+      "notes": "Combined ticket for all three castles (Castelgrande, Montebello, Sasso Corbaro).",
+      "from_adult": 18,
+      "currency": "CHF"
     },
     "Caumasee (Lake Cauma)": {
       "kind": "paid",
-      "from_adult_chf": 8,
       "as_of": "2024",
       "source_url": "https://flimslaax.com/en/summer/highlights/caumasee",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Funicular + bathing area in summer; free outside the lido season."
+      "notes": "Funicular + bathing area in summer; free outside the lido season.",
+      "from_adult": 8,
+      "currency": "CHF"
     },
     "Centovalli Railway": {
       "kind": "paid",
-      "from_adult_chf": 35,
       "as_of": "2024",
       "source_url": "https://www.centovalli.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Locarno–Domodossola one-way; covered by Swiss Travel Pass."
+      "notes": "Locarno–Domodossola one-way; covered by Swiss Travel Pass.",
+      "from_adult": 35,
+      "currency": "CHF"
     },
     "Charles Kuonen Suspension Bridge": {
       "kind": "free",
@@ -355,7 +370,6 @@
     },
     "Chillon Castle (Château de Chillon)": {
       "kind": "paid",
-      "from_adult_chf": 14,
       "as_of": "2024",
       "source_url": "https://www.chillon.ch/en/",
       "source_kind": "manual",
@@ -379,7 +393,9 @@
         "name": "Château de Chillon — main entrance bridge",
         "transfer": "~50 m walk from north car park across the access bridge onto the island fortress"
       },
-      "getting_there": "Drive to Château de Chillon on Lake Geneva; park in the castle's own lot north of the fortress (free est., Av. de Chillon 21, Veytaux); 50 m walk to the medieval island castle entrance."
+      "getting_there": "Drive to Château de Chillon on Lake Geneva; park in the castle's own lot north of the fortress (free est., Av. de Chillon 21, Veytaux); 50 m walk to the medieval island castle entrance.",
+      "from_adult": 14,
+      "currency": "CHF"
     },
     "Crans-Montana": {
       "kind": "free",
@@ -444,16 +460,16 @@
     },
     "Diavolezza": {
       "kind": "paid",
-      "from_adult_chf": 41,
       "as_of": "2024",
       "source_url": "https://www.diavolezza.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Cable car return from Bernina Diavolezza station."
+      "notes": "Cable car return from Bernina Diavolezza station.",
+      "from_adult": 41,
+      "currency": "CHF"
     },
     "Ebenalp & Berggasthaus Äscher": {
       "kind": "paid",
-      "from_adult_chf": 33,
       "as_of": "2024",
       "source_url": "https://www.ebenalp.ch/",
       "source_kind": "manual",
@@ -478,22 +494,24 @@
         "name": "Wasserauen – Ebenalp cable car valley station",
         "transfer": "Cable car (every 15 min, ~5 min) to Ebenalp (1,640 m), then 15-min hike through Wildkirchli cave to Berggasthaus Äscher"
       },
-      "getting_there": "Park at Wasserauen; 5-min cable car to Ebenalp (1,640 m); hike 15 min through the ancient Wildkirchli cave to iconic Berggasthaus Äscher — Switzerland's most-photographed cliffside inn."
+      "getting_there": "Park at Wasserauen; 5-min cable car to Ebenalp (1,640 m); hike 15 min through the ancient Wildkirchli cave to iconic Berggasthaus Äscher — Switzerland's most-photographed cliffside inn.",
+      "from_adult": 33,
+      "currency": "CHF"
     },
     "Eggishorn": {
       "kind": "paid",
-      "from_adult_chf": 49,
       "as_of": "2024",
       "source_url": "https://www.aletscharena.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Fiesch–Fiescheralp–Eggishorn combined return."
+      "notes": "Fiesch–Fiescheralp–Eggishorn combined return.",
+      "from_adult": 49,
+      "currency": "CHF"
     },
     "Eisriesenwelt Ice Cave": {
       "source_kind": "manual",
       "verified_at": "2026-05-10",
       "kind": "paid",
-      "from_adult_chf": 43,
       "as_of": "2025",
       "source_url": "https://www.eisriesenwelt.at/en/plan-your-visit/tickets",
       "notes": "Combi ticket (cable car + cave) €45 cash / €41 online ≈ CHF 43.",
@@ -516,7 +534,9 @@
         "name": "Eisriesenwelt Cave Entrance (1,656 m)",
         "transfer": "3-min cable car from visitor centre + 15–20-min alpine trail to cave entrance"
       },
-      "getting_there": "Drive to Werfen, then 5 km up the mountain road to the visitor centre (free parking). 3-min cable car + 15-min walk to the cave. Combi ticket €41 online / €45 cash. Open May 1 – Oct 26."
+      "getting_there": "Drive to Werfen, then 5 km up the mountain road to the visitor centre (free parking). 3-min cable car + 15-min walk to the cave. Combi ticket €41 online / €45 cash. Open May 1 – Oct 26.",
+      "from_adult": 45,
+      "currency": "EUR"
     },
     "Emmentaler Schaukäserei (Affoltern)": {
       "kind": "free",
@@ -540,12 +560,13 @@
     },
     "First Cliff Walk, Grindelwald": {
       "kind": "paid",
-      "from_adult_chf": 64,
       "as_of": "2024",
       "source_url": "https://www.jungfrau.ch/en-gb/grindelwald-first/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Grindelwald–First gondola return; cliff walk and Bachalpsee included free."
+      "notes": "Grindelwald–First gondola return; cliff walk and Bachalpsee included free.",
+      "from_adult": 64,
+      "currency": "CHF"
     },
     "Foroglio Waterfall": {
       "kind": "free",
@@ -555,12 +576,13 @@
     },
     "Fronalpstock / Stoos": {
       "kind": "paid",
-      "from_adult_chf": 52,
       "as_of": "2024",
       "source_url": "https://www.stoos.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Stoosbahn funicular + Fronalpstock chairlift combined return."
+      "notes": "Stoosbahn funicular + Fronalpstock chairlift combined return.",
+      "from_adult": 52,
+      "currency": "CHF"
     },
     "Gandria": {
       "kind": "free",
@@ -576,20 +598,22 @@
     },
     "Glacier 3000 / Diablerets Peak Walk": {
       "kind": "paid",
-      "from_adult_chf": 92,
       "as_of": "2024",
       "source_url": "https://www.glacier3000.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Col du Pillon return; Peak Walk and Ice Express included."
+      "notes": "Col du Pillon return; Peak Walk and Ice Express included.",
+      "from_adult": 92,
+      "currency": "CHF"
     },
     "Glacier Garden (Gletschergarten), Lucerne": {
       "kind": "paid",
-      "from_adult_chf": 22,
       "as_of": "2024",
       "source_url": "https://gletschergarten.ch/en/",
       "source_kind": "manual",
-      "verified_at": "2025-12-01"
+      "verified_at": "2025-12-01",
+      "from_adult": 22,
+      "currency": "CHF"
     },
     "Gorges du Verdon": {
       "source_kind": "manual",
@@ -617,7 +641,6 @@
     },
     "Gornergrat": {
       "kind": "paid",
-      "from_adult_chf": 132,
       "as_of": "2024",
       "source_url": "https://www.gornergrat.ch/en/",
       "source_kind": "manual",
@@ -642,7 +665,9 @@
         "name": "Zermatt — Gornergratbahn (GGB) cogwheel station (1,605 m)",
         "transfer": "Täsch → Zermatt shuttle (12 min) + 5-min walk to GGB; cogwheel 33 min to Gornergrat (3,089 m)"
       },
-      "getting_there": "Park Matterhorn Terminal Täsch (CHF 16/day, 2,100 covered spaces); 12-min shuttle to car-free Zermatt; 5-min walk to Gornergratbahn; 33-min cogwheel to Gornergrat (3,089 m) for the Matterhorn panorama."
+      "getting_there": "Park Matterhorn Terminal Täsch (CHF 16/day, 2,100 covered spaces); 12-min shuttle to car-free Zermatt; 5-min walk to Gornergratbahn; 33-min cogwheel to Gornergrat (3,089 m) for the Matterhorn panorama.",
+      "from_adult": 132,
+      "currency": "CHF"
     },
     "Grimentz": {
       "kind": "free",
@@ -653,12 +678,13 @@
     },
     "Gruyères Village & Castle": {
       "kind": "paid",
-      "from_adult_chf": 12,
       "as_of": "2024",
       "source_url": "https://www.chateau-gruyeres.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Castle entry; village walking is free."
+      "notes": "Castle entry; village walking is free.",
+      "from_adult": 12,
+      "currency": "CHF"
     },
     "Guarda": {
       "kind": "free",
@@ -668,12 +694,13 @@
     },
     "Gurten": {
       "kind": "paid",
-      "from_adult_chf": 18,
       "as_of": "2024",
       "source_url": "https://www.gurtenpark.ch/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Gurtenbahn funicular return from Bern."
+      "notes": "Gurtenbahn funicular return from Bern.",
+      "from_adult": 18,
+      "currency": "CHF"
     },
     "Habsburg Castle": {
       "kind": "free",
@@ -732,29 +759,32 @@
     },
     "Hallwyl Castle (Wasserschloss)": {
       "kind": "paid",
-      "from_adult_chf": 15,
       "as_of": "2024",
       "source_url": "https://www.schloss-hallwyl.ch/en/",
       "source_kind": "manual",
-      "verified_at": "2025-12-01"
+      "verified_at": "2025-12-01",
+      "from_adult": 15,
+      "currency": "CHF"
     },
     "Hammetschwand Elevator / Bürgenstock": {
       "kind": "paid",
-      "from_adult_chf": 12,
       "as_of": "2024",
       "source_url": "https://www.buergenstock.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Hammetschwand elevator return; Bürgenstock funicular extra."
+      "notes": "Hammetschwand elevator return; Bürgenstock funicular extra.",
+      "from_adult": 12,
+      "currency": "CHF"
     },
     "Harder Kulm": {
       "kind": "paid",
-      "from_adult_chf": 38,
       "as_of": "2024",
       "source_url": "https://www.jungfrau.ch/en-gb/harder-kulm/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Interlaken–Harder Kulm funicular return."
+      "notes": "Interlaken–Harder Kulm funicular return.",
+      "from_adult": 38,
+      "currency": "CHF"
     },
     "Hintertuxer Gletscher": {
       "source_kind": "manual",
@@ -784,7 +814,6 @@
       "source_kind": "manual",
       "verified_at": "2026-05-10",
       "kind": "paid",
-      "from_adult_chf": 18,
       "as_of": "2025",
       "source_url": "https://www.festung-hohensalzburg.at/en/your-visit/tickets",
       "notes": "All-inclusive ticket (with funicular) €19.20 adult ≈ CHF 18.",
@@ -807,7 +836,9 @@
         "name": "Festungsbahn Lower Station – Festungsgasse (Salzburg)",
         "transfer": "1-min funicular (every 10 min, 55 pax/car); or 30-min footpath up Festungsberg"
       },
-      "getting_there": "Park in an Altstadt garage (old town is pedestrian-only); walk 10–20 min to Festungsgasse; take the Festungsbahn funicular (1 min) to the fortress. All-inclusive ticket €19.20."
+      "getting_there": "Park in an Altstadt garage (old town is pedestrian-only); walk 10–20 min to Festungsgasse; take the Festungsbahn funicular (1 min) to the fortress. All-inclusive ticket €19.20.",
+      "from_adult": 19.2,
+      "currency": "EUR"
     },
     "Iseltwald": {
       "kind": "free",
@@ -818,7 +849,6 @@
     },
     "Jungfraujoch – Top of Europe": {
       "kind": "paid",
-      "from_adult_chf": 250,
       "as_of": "2024",
       "source_url": "https://www.jungfrau.ch/en-gb/jungfraujoch-top-of-europe/",
       "source_kind": "manual",
@@ -843,13 +873,14 @@
         "name": "Grindelwald Terminal – Eiger Express tricable gondola",
         "transfer": "Eiger Express gondola to Eigergletscher (15 min), then Jungfrau Railway cogwheel through Eiger–Mönch tunnel to Jungfraujoch (30 min)"
       },
-      "getting_there": "Park at Grindelwald Terminal (1,032 spaces); board the Eiger Express gondola (15 min) to Eigergletscher; transfer to the Jungfrau cogwheel railway for the 30-min tunnel climb."
+      "getting_there": "Park at Grindelwald Terminal (1,032 spaces); board the Eiger Express gondola (15 min) to Eigergletscher; transfer to the Jungfrau cogwheel railway for the 30-min tunnel climb.",
+      "from_adult": 250,
+      "currency": "CHF"
     },
     "Kaiser-Franz-Josefs-Höhe": {
       "source_kind": "manual",
       "verified_at": "2026-05-10",
       "kind": "paid",
-      "from_adult_chf": 44,
       "as_of": "2026",
       "source_url": "https://www.grossglockner.at/en/for-your-visit/prices-opening-times",
       "notes": "Großglockner High Alpine Road car day toll €46.50 (2026) ≈ CHF 44. After 18:00 €36.50; E-car €40. Road open late Apr – late Oct.",
@@ -872,7 +903,9 @@
         "name": "Kaiser-Franz-Josefs-Höhe Visitor Centre & Glacier Overlook (2,369 m)",
         "transfer": "Drive directly — parking at destination"
       },
-      "getting_there": "Pay €46.50 toll at Ferleiten (N) or Heiligenblut (S). Drive the 48 km scenic Großglockner High Alpine Road to the summit car park. Open late Apr – late Oct."
+      "getting_there": "Pay €46.50 toll at Ferleiten (N) or Heiligenblut (S). Drive the 48 km scenic Großglockner High Alpine Road to the summit car park. Open late Apr – late Oct.",
+      "from_adult": 46.5,
+      "currency": "EUR"
     },
     "Kitzsteinhorn Glacier (Top of Salzburg)": {
       "source_kind": "manual",
@@ -900,7 +933,6 @@
     },
     "Klein Matterhorn – Matterhorn Glacier Paradise": {
       "kind": "paid",
-      "from_adult_chf": 120,
       "as_of": "2024",
       "source_url": "https://www.matterhornparadise.ch/en/",
       "source_kind": "manual",
@@ -925,7 +957,9 @@
         "name": "Zermatt – Matterhorn Glacier Paradise valley station",
         "transfer": "Shuttle train Täsch → Zermatt every 20 min (12 min) + ~10-min walk to cable-car valley station"
       },
-      "getting_there": "Park Matterhorn Terminal Täsch (CHF 16/day, 2,100 covered spaces); 12-min shuttle train to car-free Zermatt; 10-min walk to Matterhorn Glacier Paradise cable car."
+      "getting_there": "Park Matterhorn Terminal Täsch (CHF 16/day, 2,100 covered spaces); 12-min shuttle train to car-free Zermatt; 10-min walk to Matterhorn Glacier Paradise cable car.",
+      "from_adult": 120,
+      "currency": "CHF"
     },
     "Klöntalersee": {
       "kind": "free",
@@ -974,7 +1008,6 @@
       "source_kind": "manual",
       "verified_at": "2026-05-10",
       "kind": "paid",
-      "from_adult_chf": 36,
       "as_of": "2023",
       "source_url": "https://www.pragsparking.com/en",
       "notes": "P4 parking €38/day (2023 ref) ≈ CHF 36. Includes a meal voucher.",
@@ -997,7 +1030,9 @@
         "name": "Lago di Braies / Pragser Wildsee shoreline",
         "transfer": "Walk ~5 min south from P4 to the lake shore and Hotel Pragser Wildsee"
       },
-      "getting_there": "Peak season (1 Jul–15 Sep, 09:00–16:00): road closed — book P4 online in advance or take bus 442 from Villabassa. Off-peak: drive directly to P4 (~€38/day)."
+      "getting_there": "Peak season (1 Jul–15 Sep, 09:00–16:00): road closed — book P4 online in advance or take bus 442 from Villabassa. Off-peak: drive directly to P4 (~€38/day).",
+      "from_adult": 38,
+      "currency": "EUR"
     },
     "Lago di Sorapis": {
       "source_kind": "manual",
@@ -1049,12 +1084,13 @@
     },
     "Lake Lucerne Paddle Steamers": {
       "kind": "paid",
-      "from_adult_chf": 36,
       "as_of": "2024",
       "source_url": "https://www.lakelucerne.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Single-leg adult fares vary by route; covered by Swiss Travel Pass."
+      "notes": "Single-leg adult fares vary by route; covered by Swiss Travel Pass.",
+      "from_adult": 36,
+      "currency": "CHF"
     },
     "Lake Sils": {
       "kind": "free",
@@ -1093,7 +1129,6 @@
       "source_kind": "manual",
       "verified_at": "2026-05-10",
       "kind": "paid",
-      "from_adult_chf": 41,
       "as_of": "2026",
       "source_url": "https://www.chamonix.com/planpraz-brevent,82,en.html",
       "notes": "Cable-car adult return €43 (2026) ≈ CHF 41; child €36.60; family €133.40.",
@@ -1116,32 +1151,37 @@
         "name": "Téléphérique du Brévent — base station (29 Rue Henriette d'Angeville)",
         "transfer": "2-min walk from Parking du Brévent; two-stage cable car: Planpraz 2,000 m → Le Brévent 2,525 m"
       },
-      "getting_there": "Via A40 'Autoroute Blanche' → Chamonix; park at Parking du Brévent (~€2.50/h est.) adjacent to cable car, or P+R Centre-Ville for long stays. Adult return €43."
+      "getting_there": "Via A40 'Autoroute Blanche' → Chamonix; park at Parking du Brévent (~€2.50/h est.) adjacent to cable car, or P+R Centre-Ville for long stays. Adult return €43.",
+      "from_adult": 43,
+      "currency": "EUR"
     },
     "Lenzburg Castle": {
       "kind": "paid",
-      "from_adult_chf": 16,
       "as_of": "2024",
       "source_url": "https://www.schloss-lenzburg.ch/en/",
       "source_kind": "manual",
-      "verified_at": "2025-12-01"
+      "verified_at": "2025-12-01",
+      "from_adult": 16,
+      "currency": "CHF"
     },
     "Leukerbad": {
       "kind": "paid",
-      "from_adult_chf": 35,
       "as_of": "2024",
       "source_url": "https://www.leukerbad.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Walliser Alpentherme three-hour adult thermal ticket; village itself is free to walk."
+      "notes": "Walliser Alpentherme three-hour adult thermal ticket; village itself is free to walk.",
+      "from_adult": 35,
+      "currency": "CHF"
     },
     "Lindt Home of Chocolate": {
       "kind": "paid",
-      "from_adult_chf": 17,
       "as_of": "2024",
       "source_url": "https://www.lindt-home-of-chocolate.com/en/",
       "source_kind": "manual",
-      "verified_at": "2025-12-01"
+      "verified_at": "2025-12-01",
+      "from_adult": 17,
+      "currency": "CHF"
     },
     "Lion Monument (Löwendenkmal)": {
       "kind": "free",
@@ -1217,7 +1257,6 @@
       "source_kind": "manual",
       "verified_at": "2026-05-10",
       "kind": "paid",
-      "from_adult_chf": 30,
       "as_of": "2026",
       "source_url": "https://en.chamonix.com/activites-en-famille/mer-de-glace-et-train-du-montenvers",
       "notes": "Train-only return €31.50 adult; full package (train + cable car + ice cave + exhibitions) €49.70 (2026).",
@@ -1240,13 +1279,14 @@
         "name": "Chamonix-Montenvers rack railway valley station (Place de la Mer de Glace)",
         "transfer": "~120 m walk from Biolay lot; ~350 m from Parking du Mont Blanc"
       },
-      "getting_there": "Park at Biolay (free) or Parking du Mont Blanc on Avenue du Mont Blanc; 2–4-min walk to the Montenvers rack railway station; 20-min cog ride to Montenvers (1,913 m); gondola descends to the Mer de Glace ice cave."
+      "getting_there": "Park at Biolay (free) or Parking du Mont Blanc on Avenue du Mont Blanc; 2–4-min walk to the Montenvers rack railway station; 20-min cog ride to Montenvers (1,913 m); gondola descends to the Mer de Glace ice cave.",
+      "from_adult": 31.5,
+      "currency": "EUR"
     },
     "Mont Blanc": {
       "source_kind": "manual",
       "verified_at": "2026-05-10",
       "kind": "paid",
-      "from_adult_chf": 79,
       "as_of": "2026",
       "source_url": "https://www.montblancnaturalresort.com/en/aiguille-du-midi",
       "notes": "Mont Blanc summit (4,806 m) is climber-only. Recommended public viewpoint = Aiguille du Midi (3,842 m). Cable-car return €83 adult ≈ CHF 79.",
@@ -1269,25 +1309,29 @@
         "name": "Aiguille du Midi cable-car valley station — gateway to Mont Blanc viewpoint",
         "transfer": "~210 m walk from Grépon parking; cable car 20 min to summit viewpoint"
       },
-      "getting_there": "Mont Blanc (4,806 m) is climber-only; the recommended public viewpoint is the Aiguille du Midi (3,842 m). Park at Grépon, 3-min walk to cable car, ride 20 min to summit. Bring warm layers."
+      "getting_there": "Mont Blanc (4,806 m) is climber-only; the recommended public viewpoint is the Aiguille du Midi (3,842 m). Park at Grépon, 3-min walk to cable car, ride 20 min to summit. Bring warm layers.",
+      "from_adult": 83,
+      "currency": "EUR"
     },
     "Mont Fort": {
       "kind": "paid",
-      "from_adult_chf": 88,
       "as_of": "2024",
       "source_url": "https://www.verbier4vallees.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Verbier–Mont Fort summer return."
+      "notes": "Verbier–Mont Fort summer return.",
+      "from_adult": 88,
+      "currency": "CHF"
     },
     "Monte Generoso": {
       "kind": "paid",
-      "from_adult_chf": 60,
       "as_of": "2024",
       "source_url": "https://www.montegeneroso.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Capolago–Monte Generoso cogwheel return."
+      "notes": "Capolago–Monte Generoso cogwheel return.",
+      "from_adult": 60,
+      "currency": "CHF"
     },
     "Monte San Giorgio": {
       "kind": "free",
@@ -1298,12 +1342,13 @@
     },
     "Monte San Salvatore": {
       "kind": "paid",
-      "from_adult_chf": 36,
       "as_of": "2024",
       "source_url": "https://www.montesansalvatore.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Lugano–Paradiso–San Salvatore funicular return."
+      "notes": "Lugano–Paradiso–San Salvatore funicular return.",
+      "from_adult": 36,
+      "currency": "CHF"
     },
     "Montreux Riviera": {
       "kind": "free",
@@ -1326,7 +1371,6 @@
     },
     "Mount Pilatus": {
       "kind": "paid",
-      "from_adult_chf": 78,
       "as_of": "2024",
       "source_url": "https://www.pilatus.ch/en/",
       "source_kind": "manual",
@@ -1351,11 +1395,12 @@
         "name": "Alpnachstad — Pilatusbahn cogwheel valley station (440 m)",
         "transfer": "Adjacent parking; world's steepest cogwheel (48% max grade) 30 min to Pilatus Kulm (2,073 m)"
       },
-      "getting_there": "Drive to Alpnachstad (free parking adjacent to station); board world's steepest cogwheel (48%, May–Nov) 30 min to Pilatus Kulm (2,073 m). Year-round alternative: cable car from Kriens."
+      "getting_there": "Drive to Alpnachstad (free parking adjacent to station); board world's steepest cogwheel (48%, May–Nov) 30 min to Pilatus Kulm (2,073 m). Year-round alternative: cable car from Kriens.",
+      "from_adult": 78,
+      "currency": "CHF"
     },
     "Mount Rigi (Rigi Kulm)": {
       "kind": "paid",
-      "from_adult_chf": 78,
       "as_of": "2024",
       "source_url": "https://www.rigi.ch/en/",
       "source_kind": "manual",
@@ -1380,11 +1425,12 @@
         "name": "Vitznau — Vitznau-Rigi-Bahn cogwheel valley station (434 m)",
         "transfer": "~100 m walk from parking; cogwheel 35 min to Rigi Kulm (1,797 m)"
       },
-      "getting_there": "Park in Vitznau (CHF 10/day est.) at Europe's first mountain railway (1871); 35-min cogwheel to Rigi Kulm (1,797 m) with views over Lakes Lucerne, Zug, and Zürich."
+      "getting_there": "Park in Vitznau (CHF 10/day est.) at Europe's first mountain railway (1871); 35-min cogwheel to Rigi Kulm (1,797 m) with views over Lakes Lucerne, Zug, and Zürich.",
+      "from_adult": 78,
+      "currency": "CHF"
     },
     "Mount Titlis (Engelberg)": {
       "kind": "paid",
-      "from_adult_chf": 96,
       "as_of": "2024",
       "source_url": "https://www.titlis.ch/en/",
       "source_kind": "manual",
@@ -1409,16 +1455,19 @@
         "name": "Engelberg — Titlisbahnen valley station (1,002 m)",
         "transfer": "~200 m walk; 4-stage cable car (35 min) to Klein Titlis (3,028 m) including the world's first rotating gondola 'Rotair'"
       },
-      "getting_there": "Park in Engelberg (CHF 15/day est.); 4-stage cable car (35 min) to Klein Titlis (3,028 m), including the world's first rotating gondola 'Rotair'. Open year-round."
+      "getting_there": "Park in Engelberg (CHF 15/day est.); 4-stage cable car (35 min) to Klein Titlis (3,028 m), including the world's first rotating gondola 'Rotair'. Open year-round.",
+      "from_adult": 96,
+      "currency": "CHF"
     },
     "Muottas Muragl": {
       "kind": "paid",
-      "from_adult_chf": 41,
       "as_of": "2024",
       "source_url": "https://www.muottasmuragl.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Punt Muragl–Muottas Muragl funicular return."
+      "notes": "Punt Muragl–Muottas Muragl funicular return.",
+      "from_adult": 41,
+      "currency": "CHF"
     },
     "Murten / Morat — Medieval Walled Town": {
       "kind": "free",
@@ -1448,7 +1497,6 @@
     },
     "Oeschinensee (Oeschinen Lake)": {
       "kind": "paid",
-      "from_adult_chf": 36,
       "as_of": "2024",
       "source_url": "https://www.oeschinensee.ch/en/",
       "source_kind": "manual",
@@ -1473,7 +1521,9 @@
         "name": "Kandersteg – Oeschinensee Cable Car valley station",
         "transfer": "Gondola (~5 min) + 25–30-min walk to lake shore at 1,578 m; electric taxi available in summer"
       },
-      "getting_there": "Park at the Oeschinensee gondola station in Kandersteg; ride the gondola (~5 min); walk 25–30 min to the UNESCO-listed lake shore at 1,578 m."
+      "getting_there": "Park at the Oeschinensee gondola station in Kandersteg; ride the gondola (~5 min); walk 25–30 min to the UNESCO-listed lake shore at 1,578 m.",
+      "from_adult": 36,
+      "currency": "CHF"
     },
     "Old City of Bern": {
       "kind": "free",
@@ -1483,11 +1533,12 @@
     },
     "Olympic Museum, Lausanne": {
       "kind": "paid",
-      "from_adult_chf": 20,
       "as_of": "2024",
       "source_url": "https://olympics.com/museum/en/",
       "source_kind": "manual",
-      "verified_at": "2025-12-01"
+      "verified_at": "2025-12-01",
+      "from_adult": 20,
+      "currency": "CHF"
     },
     "Orta San Giulio": {
       "source_kind": "manual",
@@ -1539,12 +1590,13 @@
     },
     "Piz Nair": {
       "kind": "paid",
-      "from_adult_chf": 39,
       "as_of": "2024",
       "source_url": "https://www.mountains.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "St. Moritz–Corviglia–Piz Nair summer return."
+      "notes": "St. Moritz–Corviglia–Piz Nair summer return.",
+      "from_adult": 39,
+      "currency": "CHF"
     },
     "Ponte dei Salti, Lavertezzo": {
       "kind": "free",
@@ -1568,21 +1620,23 @@
     },
     "Reichenbach Falls": {
       "kind": "paid",
-      "from_adult_chf": 12,
       "as_of": "2024",
       "source_url": "https://www.grimselwelt.ch/en/reichenbachfall/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Reichenbachfall-Bahn funicular return; falls themselves are free to view from the valley."
+      "notes": "Reichenbachfall-Bahn funicular return; falls themselves are free to view from the valley.",
+      "from_adult": 12,
+      "currency": "CHF"
     },
     "Rhine Falls (Rheinfall)": {
       "kind": "paid",
-      "from_adult_chf": 5,
       "as_of": "2024",
       "source_url": "https://rheinfall.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Schloss Laufen viewing platform; boat trips ~CHF 8–25 extra."
+      "notes": "Schloss Laufen viewing platform; boat trips ~CHF 8–25 extra.",
+      "from_adult": 5,
+      "currency": "CHF"
     },
     "Riffelsee": {
       "kind": "free",
@@ -1593,12 +1647,13 @@
     },
     "Rochers de Naye": {
       "kind": "paid",
-      "from_adult_chf": 67,
       "as_of": "2024",
       "source_url": "https://www.mob.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Montreux–Rochers de Naye cogwheel return."
+      "notes": "Montreux–Rochers de Naye cogwheel return.",
+      "from_adult": 67,
+      "currency": "CHF"
     },
     "Ruinaulta (Rhine Gorge)": {
       "kind": "free",
@@ -1647,12 +1702,13 @@
     },
     "Saint John Abbey, Müstair": {
       "kind": "paid",
-      "from_adult_chf": 12,
       "as_of": "2024",
       "source_url": "https://www.muestair.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Museum and Carolingian frescoes ticket."
+      "notes": "Museum and Carolingian frescoes ticket.",
+      "from_adult": 12,
+      "currency": "CHF"
     },
     "Salginatobel Bridge": {
       "kind": "free",
@@ -1717,7 +1773,6 @@
     },
     "Schilthorn / Piz Gloria": {
       "kind": "paid",
-      "from_adult_chf": 108,
       "as_of": "2024",
       "source_url": "https://schilthorn.ch/en/",
       "source_kind": "manual",
@@ -1742,32 +1797,37 @@
         "name": "Stechelberg – Schilthornbahn valley station",
         "transfer": "Stechelberg–Mürren cable car (world's steepest 159.4%, Dec 2024) to car-free Mürren, then cable car via Birg to Schilthorn (~45 min total)"
       },
-      "getting_there": "Drive to Stechelberg (free parking, end of the valley road); board the world's steepest cable car to car-free Mürren; change cable car via Birg for the final ascent to Piz Gloria at 2,970 m."
+      "getting_there": "Drive to Stechelberg (free parking, end of the valley road); board the world's steepest cable car to car-free Mürren; change cable car via Birg for the final ascent to Piz Gloria at 2,970 m.",
+      "from_adult": 108,
+      "currency": "CHF"
     },
     "Schloss Spiez (Spiez Castle)": {
       "kind": "paid",
-      "from_adult_chf": 12,
       "as_of": "2024",
       "source_url": "https://www.schloss-spiez.ch/en/",
       "source_kind": "manual",
-      "verified_at": "2025-12-01"
+      "verified_at": "2025-12-01",
+      "from_adult": 12,
+      "currency": "CHF"
     },
     "Schloss Thun (Thun Castle)": {
       "kind": "paid",
-      "from_adult_chf": 10,
       "as_of": "2024",
       "source_url": "https://www.schlossthun.ch/en/",
       "source_kind": "manual",
-      "verified_at": "2025-12-01"
+      "verified_at": "2025-12-01",
+      "from_adult": 10,
+      "currency": "CHF"
     },
     "Schynige Platte Railway": {
       "kind": "paid",
-      "from_adult_chf": 72,
       "as_of": "2024",
       "source_url": "https://www.jungfrau.ch/en-gb/schynige-platte/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Wilderswil–Schynige Platte cogwheel return; summer-only."
+      "notes": "Wilderswil–Schynige Platte cogwheel return; summer-only.",
+      "from_adult": 72,
+      "currency": "CHF"
     },
     "Schöllenen Gorge & Devil's Bridge": {
       "kind": "free",
@@ -1779,7 +1839,6 @@
       "source_kind": "manual",
       "verified_at": "2026-05-10",
       "kind": "paid",
-      "from_adult_chf": 70,
       "as_of": "2026",
       "source_url": "https://www.seceda.it/en/",
       "notes": "Adult return Ortisei → Seceda €74 (2026, confirmed seceda.it) ≈ CHF 70.",
@@ -1802,7 +1861,9 @@
         "name": "Seceda upper gondola station / ridge viewpoint (2,518 m)",
         "transfer": "2-stage gondola: Ortisei → Furnes (~12 min) + Furnes → Seceda (~13 min)"
       },
-      "getting_there": "Drive to Ortisei (Val Gardena); park near the gondola valley station; 2-stage cable car to Seceda ridge. Adult return €74 (2026)."
+      "getting_there": "Drive to Ortisei (Val Gardena); park near the gondola valley station; 2-stage cable car to Seceda ridge. Adult return €74 (2026).",
+      "from_adult": 74,
+      "currency": "EUR"
     },
     "Seerenbach Falls & Walensee": {
       "kind": "free",
@@ -1862,7 +1923,6 @@
       "source_kind": "manual",
       "verified_at": "2026-05-10",
       "kind": "paid",
-      "from_adult_chf": 57,
       "as_of": "2025",
       "source_url": "https://www.skywaymontebianco.com/en/",
       "notes": "Cable-car round-trip ≈ €55–65 (2025 estimate) ≈ CHF 57.",
@@ -1885,7 +1945,9 @@
         "name": "Skyway Monte Bianco base station, Pontal d'Entrèves (1,300 m)",
         "transfer": "Cable car: ~6 min to Pavillon (2,173 m); +7 min to Pointe Helbronner (3,466 m)"
       },
-      "getting_there": "Drive to Pontal d'Entrèves near Courmayeur (Aosta Valley); park at the cable-car base; take Skyway up to Pavillon (2,173 m) or onward to Pointe Helbronner (3,466 m)."
+      "getting_there": "Drive to Pontal d'Entrèves near Courmayeur (Aosta Valley); park at the cable-car base; take Skyway up to Pavillon (2,173 m) or onward to Pointe Helbronner (3,466 m).",
+      "from_adult": 55,
+      "currency": "EUR"
     },
     "Soglio": {
       "kind": "free",
@@ -1915,12 +1977,13 @@
     },
     "Stanserhorn": {
       "kind": "paid",
-      "from_adult_chf": 82,
       "as_of": "2024",
       "source_url": "https://stanserhorn.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Stans–Stanserhorn funicular + open-top CabriO cable car return."
+      "notes": "Stans–Stanserhorn funicular + open-top CabriO cable car return.",
+      "from_adult": 82,
+      "currency": "CHF"
     },
     "Staubbach Falls": {
       "kind": "free",
@@ -1960,11 +2023,12 @@
     },
     "Swiss Museum of Transport (Verkehrshaus)": {
       "kind": "paid",
-      "from_adult_chf": 35,
       "as_of": "2024",
       "source_url": "https://www.verkehrshaus.ch/en/",
       "source_kind": "manual",
-      "verified_at": "2025-12-01"
+      "verified_at": "2025-12-01",
+      "from_adult": 35,
+      "currency": "CHF"
     },
     "Swiss National Park": {
       "kind": "free",
@@ -1981,29 +2045,32 @@
     },
     "Säntis": {
       "kind": "paid",
-      "from_adult_chf": 64,
       "as_of": "2024",
       "source_url": "https://www.saentisbahn.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Schwägalp–Säntis cable car return."
+      "notes": "Schwägalp–Säntis cable car return.",
+      "from_adult": 64,
+      "currency": "CHF"
     },
     "Tamina Gorge (Taminaschlucht)": {
       "kind": "paid",
-      "from_adult_chf": 12,
       "as_of": "2024",
       "source_url": "https://www.taminaschlucht.ch/en/",
       "source_kind": "manual",
-      "verified_at": "2025-12-01"
+      "verified_at": "2025-12-01",
+      "from_adult": 12,
+      "currency": "CHF"
     },
     "Tarasp Castle": {
       "kind": "paid",
-      "from_adult_chf": 22,
       "as_of": "2024",
       "source_url": "https://www.schloss-tarasp.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Guided-tour-only entry."
+      "notes": "Guided-tour-only entry.",
+      "from_adult": 22,
+      "currency": "CHF"
     },
     "Tellskapelle (Tell's Chapel)": {
       "kind": "free",
@@ -2022,7 +2089,6 @@
       "source_kind": "manual",
       "verified_at": "2026-05-10",
       "kind": "paid",
-      "from_adult_chf": 28,
       "as_of": "2025",
       "source_url": "https://www.rifugioauronzo.it/en/",
       "notes": "Toll road SP49 from Misurina ≈ €30/car ≈ CHF 28. May–October only.",
@@ -2045,33 +2111,38 @@
         "name": "Rifugio Auronzo trailhead (2,320 m)",
         "transfer": "Walk <1 min from parking to trailhead; main circuit ~10 km, 3 hr"
       },
-      "getting_there": "Drive from Misurina up toll road SP49; pay ~€30/car at the barrier; park at Rifugio Auronzo (2,320 m), the main trailhead. Open May–October only."
+      "getting_there": "Drive from Misurina up toll road SP49; pay ~€30/car at the barrier; park at Rifugio Auronzo (2,320 m), the main trailhead. Open May–October only.",
+      "from_adult": 30,
+      "currency": "EUR"
     },
     "Trift Bridge (Triftbrücke)": {
       "kind": "paid",
-      "from_adult_chf": 32,
       "as_of": "2024",
       "source_url": "https://www.grimselwelt.ch/en/triftgebiet/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Triftbahn cable car return; bridge itself is free after a 1.5-hr hike."
+      "notes": "Triftbahn cable car return; bridge itself is free after a 1.5-hr hike.",
+      "from_adult": 32,
+      "currency": "CHF"
     },
     "Trümmelbach Falls": {
       "kind": "paid",
-      "from_adult_chf": 14,
       "as_of": "2024",
       "source_url": "https://truemmelbachfaelle.ch/en/",
       "source_kind": "manual",
-      "verified_at": "2025-12-01"
+      "verified_at": "2025-12-01",
+      "from_adult": 14,
+      "currency": "CHF"
     },
     "Uetliberg": {
       "kind": "paid",
-      "from_adult_chf": 16,
       "as_of": "2024",
       "source_url": "https://www.uetliberg.ch/en/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Zürich HB–Uetliberg train return; covered by ZVV day pass."
+      "notes": "Zürich HB–Uetliberg train return; covered by ZVV day pass.",
+      "from_adult": 16,
+      "currency": "CHF"
     },
     "Vallée de Joux — Watchmaking Valley": {
       "kind": "free",
@@ -2109,12 +2180,13 @@
     },
     "Valère Basilica": {
       "kind": "paid",
-      "from_adult_chf": 5,
       "as_of": "2024",
       "source_url": "https://www.musees-valais.ch/en/musee-de-valere/",
       "source_kind": "manual",
       "verified_at": "2025-12-01",
-      "notes": "Basilica + History Museum combined; hilltop walk is free."
+      "notes": "Basilica + History Museum combined; hilltop walk is free.",
+      "from_adult": 5,
+      "currency": "CHF"
     },
     "Verzasca Dam (Contra Dam)": {
       "kind": "free",
@@ -2127,7 +2199,6 @@
       "source_kind": "manual",
       "verified_at": "2026-05-10",
       "kind": "paid",
-      "from_adult_chf": 14,
       "as_of": "2025",
       "source_url": "https://www.fondoambiente.it/villa-del-balbianello-eng",
       "notes": "FAI: Garden/Park only €15 (≈ CHF 14); Villa guided tour + Garden €25.",
@@ -2150,7 +2221,9 @@
         "name": "Villa del Balbianello (Dosso d'Avedo promontory, Lake Como)",
         "transfer": "Taxi boat from Lido di Lenno ~10 min OR walk 1 km uphill from Lenno (~25 min)"
       },
-      "getting_there": "Drive to Tremezzina (Lenno); park at Lido di Lenno (~50 spaces). Reach the villa by taxi boat (~10 min, fee) or walk 1 km uphill from Lenno (~25 min). FAI booking: villadelbalbianello.it."
+      "getting_there": "Drive to Tremezzina (Lenno); park at Lido di Lenno (~50 spaces). Reach the villa by taxi boat (~10 min, fee) or walk 1 km uphill from Lenno (~25 min). FAI booking: villadelbalbianello.it.",
+      "from_adult": 15,
+      "currency": "EUR"
     },
     "Zermatt": {
       "kind": "free",
@@ -2190,5 +2263,6 @@
       "verified_at": "2025-12-01",
       "notes": "Old town and Grossmünster church free; Karlsturm tower CHF 5."
     }
-  }
+  },
+  "default_currency": "CHF"
 }

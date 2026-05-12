@@ -505,6 +505,18 @@ const POI_CATEGORY_LABELS = {
   "geology-cave":        "Geology / cave",
   "wine-region":         "Wine region",
   "special-experience":  "Special experience",
+  /* Japan categories (P0b). */
+  "shinto-shrine":       "Shinto shrine",
+  "buddhist-temple":     "Buddhist temple",
+  "traditional-garden":  "Garden",
+  "onsen-town":          "Onsen town",
+  "post-town":           "Post town",
+  "volcano":             "Volcano",
+  "observation-tower":   "Observation tower",
+  "historic-district":   "Historic district",
+  "food-market":         "Food market",
+  "pop-culture-site":    "Pop-culture site",
+  "art-island":          "Art island",
 };
 const POI_CATEGORY_ICON = {
   "mountain-summit":     "poi-mountain-summit",
@@ -525,6 +537,18 @@ const POI_CATEGORY_ICON = {
   "geology-cave":        "poi-geology-cave",
   "wine-region":         "poi-wine-region",
   "special-experience":  "poi-special-experience",
+  /* Japan categories (P0b). */
+  "shinto-shrine":       "poi-shinto-shrine",
+  "buddhist-temple":     "poi-buddhist-temple",
+  "traditional-garden":  "poi-traditional-garden",
+  "onsen-town":          "poi-onsen-town",
+  "post-town":           "poi-post-town",
+  "volcano":             "poi-volcano",
+  "observation-tower":   "poi-observation-tower",
+  "historic-district":   "poi-historic-district",
+  "food-market":         "poi-food-market",
+  "pop-culture-site":    "poi-pop-culture-site",
+  "art-island":          "poi-art-island",
 };
 const POI_FAMILY_OF_CATEGORY = {
   "mountain-summit": "nature",
@@ -545,6 +569,18 @@ const POI_FAMILY_OF_CATEGORY = {
   "museum-cultural": "indulgence",
   "wine-region": "indulgence",
   "special-experience": "indulgence",
+  /* Japan categories (P0b). */
+  "shinto-shrine": "heritage",
+  "buddhist-temple": "heritage",
+  "traditional-garden": "heritage",
+  "post-town": "heritage",
+  "historic-district": "heritage",
+  "volcano": "nature",
+  "observation-tower": "engineered",
+  "onsen-town": "indulgence",
+  "food-market": "indulgence",
+  "pop-culture-site": "indulgence",
+  "art-island": "indulgence",
 };
 const POI_FAMILY_LABELS = {
   nature: "Nature",
@@ -585,6 +621,10 @@ const UI_ICON_IDS = new Set([
   "poi-bridge-engineering", "poi-village", "poi-national-park", "poi-spa-wellness", "poi-viewpoint-panorama",
   "poi-museum-cultural", "poi-geology-cave", "poi-wine-region", "poi-special-experience", "pass-generic",
   "poi-funicular",
+  /* Japan categories (P0b). */
+  "poi-shinto-shrine", "poi-buddhist-temple", "poi-traditional-garden", "poi-onsen-town", "poi-post-town",
+  "poi-volcano", "poi-observation-tower", "poi-historic-district", "poi-food-market",
+  "poi-pop-culture-site", "poi-art-island",
 ]);
 
 function iconSvg(id, className = "app-icon") {
@@ -7954,7 +7994,13 @@ function loadLeisurePlannerModule() {
   return leisurePlannerModulePromise;
 }
 function resetLeisurePlannerModuleHandle() {
+  const pendingModule = leisurePlannerModulePromise;
   leisurePlannerModulePromise = null;
+  if (pendingModule) {
+    pendingModule
+      .then((mod) => mod.releaseWasmShimResources?.())
+      .catch(() => { /* shim never loaded successfully; nothing to release */ });
+  }
 }
 function syncLeisureFlagControl() {
   let debug = false;

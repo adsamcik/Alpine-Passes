@@ -68,37 +68,50 @@ button:not(:disabled):active { transform: translateY(1px); }
   height: 1em;
   flex: 0 0 auto;
   background-image: url("../ui-icons/alpine-ui-icons.png");
-  background-size: 500% 600%;
+  background-size: 500% 800%;
   background-repeat: no-repeat;
   background-position: var(--ui-icon-x, 0%) var(--ui-icon-y, 0%);
   vertical-align: -.15em;
 }
+/* Sprite grid: 5 columns × 8 rows (37 cells). X% step = 25 (cols), Y% step = 100/7 ≈ 14.286 (rows). */
 .ui-icon-status-open { --ui-icon-x: 0%; --ui-icon-y: 0%; }
 .ui-icon-status-restricted { --ui-icon-x: 25%; --ui-icon-y: 0%; }
 .ui-icon-status-closed { --ui-icon-x: 50%; --ui-icon-y: 0%; }
 .ui-icon-status-estimated { --ui-icon-x: 75%; --ui-icon-y: 0%; }
 .ui-icon-status-unknown { --ui-icon-x: 100%; --ui-icon-y: 0%; }
-.ui-icon-poi-generic { --ui-icon-x: 0%; --ui-icon-y: 20%; }
-.ui-icon-not-by-car { --ui-icon-x: 25%; --ui-icon-y: 20%; }
-.ui-icon-poi-mountain-summit { --ui-icon-x: 50%; --ui-icon-y: 20%; }
-.ui-icon-poi-alpine-lake { --ui-icon-x: 75%; --ui-icon-y: 20%; }
-.ui-icon-poi-waterfall-gorge { --ui-icon-x: 100%; --ui-icon-y: 20%; }
-.ui-icon-poi-glacier { --ui-icon-x: 0%; --ui-icon-y: 40%; }
-.ui-icon-poi-old-town { --ui-icon-x: 25%; --ui-icon-y: 40%; }
-.ui-icon-poi-castle-fortress { --ui-icon-x: 50%; --ui-icon-y: 40%; }
-.ui-icon-poi-monastery-church { --ui-icon-x: 75%; --ui-icon-y: 40%; }
-.ui-icon-poi-scenic-railway { --ui-icon-x: 100%; --ui-icon-y: 40%; }
-.ui-icon-poi-bridge-engineering { --ui-icon-x: 0%; --ui-icon-y: 60%; }
-.ui-icon-poi-village { --ui-icon-x: 25%; --ui-icon-y: 60%; }
-.ui-icon-poi-national-park { --ui-icon-x: 50%; --ui-icon-y: 60%; }
-.ui-icon-poi-spa-wellness { --ui-icon-x: 75%; --ui-icon-y: 60%; }
-.ui-icon-poi-viewpoint-panorama { --ui-icon-x: 100%; --ui-icon-y: 60%; }
-.ui-icon-poi-museum-cultural { --ui-icon-x: 0%; --ui-icon-y: 80%; }
-.ui-icon-poi-geology-cave { --ui-icon-x: 25%; --ui-icon-y: 80%; }
-.ui-icon-poi-wine-region { --ui-icon-x: 50%; --ui-icon-y: 80%; }
-.ui-icon-poi-special-experience { --ui-icon-x: 75%; --ui-icon-y: 80%; }
-.ui-icon-pass-generic { --ui-icon-x: 100%; --ui-icon-y: 80%; }
-.ui-icon-poi-funicular { --ui-icon-x: 0%; --ui-icon-y: 100%; }
+.ui-icon-poi-generic { --ui-icon-x: 0%; --ui-icon-y: 14.2857%; }
+.ui-icon-not-by-car { --ui-icon-x: 25%; --ui-icon-y: 14.2857%; }
+.ui-icon-poi-mountain-summit { --ui-icon-x: 50%; --ui-icon-y: 14.2857%; }
+.ui-icon-poi-alpine-lake { --ui-icon-x: 75%; --ui-icon-y: 14.2857%; }
+.ui-icon-poi-waterfall-gorge { --ui-icon-x: 100%; --ui-icon-y: 14.2857%; }
+.ui-icon-poi-glacier { --ui-icon-x: 0%; --ui-icon-y: 28.5714%; }
+.ui-icon-poi-old-town { --ui-icon-x: 25%; --ui-icon-y: 28.5714%; }
+.ui-icon-poi-castle-fortress { --ui-icon-x: 50%; --ui-icon-y: 28.5714%; }
+.ui-icon-poi-monastery-church { --ui-icon-x: 75%; --ui-icon-y: 28.5714%; }
+.ui-icon-poi-scenic-railway { --ui-icon-x: 100%; --ui-icon-y: 28.5714%; }
+.ui-icon-poi-bridge-engineering { --ui-icon-x: 0%; --ui-icon-y: 42.8571%; }
+.ui-icon-poi-village { --ui-icon-x: 25%; --ui-icon-y: 42.8571%; }
+.ui-icon-poi-national-park { --ui-icon-x: 50%; --ui-icon-y: 42.8571%; }
+.ui-icon-poi-spa-wellness { --ui-icon-x: 75%; --ui-icon-y: 42.8571%; }
+.ui-icon-poi-viewpoint-panorama { --ui-icon-x: 100%; --ui-icon-y: 42.8571%; }
+.ui-icon-poi-museum-cultural { --ui-icon-x: 0%; --ui-icon-y: 57.1429%; }
+.ui-icon-poi-geology-cave { --ui-icon-x: 25%; --ui-icon-y: 57.1429%; }
+.ui-icon-poi-wine-region { --ui-icon-x: 50%; --ui-icon-y: 57.1429%; }
+.ui-icon-poi-special-experience { --ui-icon-x: 75%; --ui-icon-y: 57.1429%; }
+.ui-icon-pass-generic { --ui-icon-x: 100%; --ui-icon-y: 57.1429%; }
+.ui-icon-poi-funicular { --ui-icon-x: 0%; --ui-icon-y: 71.4286%; }
+/* Japan POI categories (P0b). Row 5 cols 1-4, row 6, row 7 cols 0-1. */
+.ui-icon-poi-art-island { --ui-icon-x: 25%; --ui-icon-y: 71.4286%; }
+.ui-icon-poi-buddhist-temple { --ui-icon-x: 50%; --ui-icon-y: 71.4286%; }
+.ui-icon-poi-food-market { --ui-icon-x: 75%; --ui-icon-y: 71.4286%; }
+.ui-icon-poi-historic-district { --ui-icon-x: 100%; --ui-icon-y: 71.4286%; }
+.ui-icon-poi-observation-tower { --ui-icon-x: 0%; --ui-icon-y: 85.7143%; }
+.ui-icon-poi-onsen-town { --ui-icon-x: 25%; --ui-icon-y: 85.7143%; }
+.ui-icon-poi-pop-culture-site { --ui-icon-x: 50%; --ui-icon-y: 85.7143%; }
+.ui-icon-poi-post-town { --ui-icon-x: 75%; --ui-icon-y: 85.7143%; }
+.ui-icon-poi-shinto-shrine { --ui-icon-x: 100%; --ui-icon-y: 85.7143%; }
+.ui-icon-poi-traditional-garden { --ui-icon-x: 0%; --ui-icon-y: 100%; }
+.ui-icon-poi-volcano { --ui-icon-x: 25%; --ui-icon-y: 100%; }
 input::placeholder { color: #768894; opacity: 1; }
 input[type="checkbox"] { accent-color: var(--accent); }
 select, input[type="search"], input[type="date"], input[type="time"] { color-scheme: dark; }

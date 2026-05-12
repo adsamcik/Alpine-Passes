@@ -43,6 +43,17 @@ ICON_NAMES = [
     "poi-special-experience",
     "pass-generic",
     "poi-funicular",
+    "poi-art-island",
+    "poi-buddhist-temple",
+    "poi-food-market",
+    "poi-historic-district",
+    "poi-observation-tower",
+    "poi-onsen-town",
+    "poi-pop-culture-site",
+    "poi-post-town",
+    "poi-shinto-shrine",
+    "poi-traditional-garden",
+    "poi-volcano",
 ]
 
 
@@ -60,14 +71,31 @@ def render_png_cell(png_path: Path, cell_size: int) -> Image.Image:
     return image.resize((cell_size, cell_size), Image.Resampling.LANCZOS)
 
 
+def _cairo_available() -> bool:
+    """Probe whether cairosvg can actually render (Windows often lacks libcairo)."""
+    try:
+        import cairosvg  # noqa: F401
+        cairosvg.svg2png(bytestring=b'<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>')
+        return True
+    except Exception:
+        return False
+
+
 def build_sprite(
     svg_dir: Path,
     png_dir: Path,
     sprite_path: Path,
     cell_size: int = 128,
     cols: int = 5,
-    rows: int = 6,
+    rows: int = 8,
+    prefer_png: bool = False,
 ) -> None:
+    # Auto-detect cairo availability so Windows users without libcairo still get
+    # a working rebuild as long as normalized-png/<index>-<name>.png cells exist.
+    if not prefer_png and not _cairo_available():
+        print("note: cairosvg unavailable; using PNG cells from", png_dir)
+        prefer_png = True
+
     sprite = Image.new("RGBA", (cols * cell_size, rows * cell_size), (0, 0, 0, 0))
     for index, name in enumerate(ICON_NAMES):
         row, col = divmod(index, cols)
@@ -75,10 +103,11 @@ def build_sprite(
             raise ValueError(f"{len(ICON_NAMES)} icons do not fit in a {cols}x{rows} atlas")
         svg_path = svg_dir / f"{index:02d}-{name}.svg"
         png_path = png_dir / f"{index:02d}-{name}.png"
-        if svg_path.exists():
-            cell = render_svg_cell(svg_path, cell_size)
-        elif png_path.exists():
-            cell = render_png_cell(png_path, cell_size)
+        primary, fallback = (png_path, svg_path) if prefer_png else (svg_path, png_path)
+        if primary.exists():
+            cell = render_png_cell(primary, cell_size) if primary.suffix == ".png" else render_svg_cell(primary, cell_size)
+        elif fallback.exists():
+            cell = render_png_cell(fallback, cell_size) if fallback.suffix == ".png" else render_svg_cell(fallback, cell_size)
         else:
             raise FileNotFoundError(f"Missing SVG or PNG for {index:02d}-{name}")
         sprite.paste(cell, (col * cell_size, row * cell_size), cell)
@@ -97,13 +126,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--sprite", type=Path, default=Path("assets/ui-icons/alpine-ui-icons.png"))
     parser.add_argument("--cell-size", type=int, default=128)
     parser.add_argument("--cols", type=int, default=5)
-    parser.add_argument("--rows", type=int, default=6)
+    parser.add_argument("--rows", type=int, default=8)
+    parser.add_argument("--prefer-png", action="store_true",
+                        help="Use PNG cells from --png-dir instead of SVGs (handy when libcairo is unavailable).")
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
-    build_sprite(args.svg_dir, args.png_dir, args.sprite, cell_size=args.cell_size, cols=args.cols, rows=args.rows)
+    build_sprite(args.svg_dir, args.png_dir, args.sprite, cell_size=args.cell_size,
+                 cols=args.cols, rows=args.rows, prefer_png=args.prefer_png)
 
 
 if __name__ == "__main__":

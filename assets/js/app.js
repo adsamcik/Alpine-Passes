@@ -270,6 +270,7 @@ const POI_RAW = [
   ...((typeof FRENCH_POIS   !== "undefined" && Array.isArray(FRENCH_POIS))   ? FRENCH_POIS   : []),
   ...((typeof ITALY_POIS    !== "undefined" && Array.isArray(ITALY_POIS))    ? ITALY_POIS    : []),
   ...((typeof AUSTRIAN_POIS !== "undefined" && Array.isArray(AUSTRIAN_POIS)) ? AUSTRIAN_POIS : []),
+  ...((typeof JAPAN_POIS    !== "undefined" && Array.isArray(JAPAN_POIS))    ? JAPAN_POIS    : []),
 ];
 const POIS = POI_RAW.map((d, i) => ({
   id: "poi" + i,
@@ -625,6 +626,7 @@ const UI_ICON_IDS = new Set([
   "poi-shinto-shrine", "poi-buddhist-temple", "poi-traditional-garden", "poi-onsen-town", "poi-post-town",
   "poi-volcano", "poi-observation-tower", "poi-historic-district", "poi-food-market",
   "poi-pop-culture-site", "poi-art-island",
+  "layer-survey", "layer-plan", "layer-explore",
 ]);
 
 function iconSvg(id, className = "app-icon") {
@@ -1709,7 +1711,7 @@ const LAYER_MODE_IDS = ["survey", "plan", "explore"];
 const LAYER_MODE_DEFINITIONS = {
   survey: {
     id: "survey",
-    icon: "🗺",
+    iconId: "layer-survey",
     label: "Survey",
     description: "What's drivable now?",
     basemap: "Liberty vector",
@@ -1724,7 +1726,7 @@ const LAYER_MODE_DEFINITIONS = {
   },
   plan: {
     id: "plan",
-    icon: "🧭",
+    iconId: "layer-plan",
     label: "Plan",
     description: "Build a tour",
     basemap: "Liberty vector",
@@ -1739,7 +1741,7 @@ const LAYER_MODE_DEFINITIONS = {
   },
   explore: {
     id: "explore",
-    icon: "📷",
+    iconId: "layer-explore",
     label: "Explore",
     description: "Discover scenic content",
     basemap: "Positron vector",
@@ -1824,7 +1826,7 @@ function showLayerModeGhost(modeId) {
   const def = layerModeDefinition(modeId);
   const ghost = document.createElement("div");
   ghost.className = "alpine-layer-mode-ghost";
-  ghost.textContent = `${def.icon} ${def.label} mode`;
+  ghost.innerHTML = `${uiIconHtml(def.iconId, "layer-mode-ghost-icon", def.label)} <span>${escapeHtml(def.label)} mode</span>`;
   ghost.setAttribute("aria-hidden", "true");
   container.appendChild(ghost);
   requestAnimationFrame(() => ghost.classList.add("is-visible"));
@@ -2213,7 +2215,7 @@ const ALPINE_GL_LABEL_COLS = 16;
 const ALPINE_GL_LABEL_ROWS = 16;
 const ALPINE_GL_LABEL_CELL = 64;
 const ALPINE_GL_UI_ATLAS_COLS = 5;
-const ALPINE_GL_UI_ATLAS_ROWS = 6;
+const ALPINE_GL_UI_ATLAS_ROWS = 8;
 const ALPINE_GL_PASS_ATLAS_COLS = 5;
 const ALPINE_GL_PASS_ATLAS_ROWS = 5;
 const ALPINE_GL_FLAG_ESTIMATED = 1;
@@ -2262,6 +2264,20 @@ const UI_ATLAS_CELLS = {
   "poi-special-experience": [3, 4],
   "pass-generic": [4, 4],
   "poi-funicular": [0, 5],
+  "poi-art-island": [1, 5],
+  "poi-buddhist-temple": [2, 5],
+  "poi-food-market": [3, 5],
+  "poi-historic-district": [4, 5],
+  "poi-observation-tower": [0, 6],
+  "poi-onsen-town": [1, 6],
+  "poi-pop-culture-site": [2, 6],
+  "poi-post-town": [3, 6],
+  "poi-shinto-shrine": [4, 6],
+  "poi-traditional-garden": [0, 7],
+  "poi-volcano": [1, 7],
+  "layer-survey": [2, 7],
+  "layer-plan": [3, 7],
+  "layer-explore": [4, 7],
 };
 
 function lngLatToMercatorNorm(lng, lat) {
@@ -4649,7 +4665,7 @@ class AlpineLayerControl {
       const mode = layerModeDefinition(id);
       return `<div class="pass-stack-mode-item" data-layer-mode-item="${escapeHtml(id)}">
         <button type="button" class="pass-stack-theme pass-stack-mode-chip" data-layer-mode="${escapeHtml(id)}" aria-pressed="false">
-          <span class="pass-stack-mode-name"><span aria-hidden="true">${escapeHtml(mode.icon)}</span><span>${escapeHtml(mode.label)}</span></span>
+          <span class="pass-stack-mode-name">${uiIconHtml(mode.iconId, "pass-stack-mode-icon", mode.label)}<span>${escapeHtml(mode.label)}</span></span>
           <small>${escapeHtml(mode.description)}</small>
         </button>
         <button type="button" class="pass-stack-mode-lock" data-layer-mode-lock="${escapeHtml(id)}" aria-label="Lock mode" title="Lock mode">🔓</button>
@@ -4665,7 +4681,7 @@ class AlpineLayerControl {
   _basemapSectionHtml() {
     const cards = VECTOR_BASEMAPS.map((base, index) => `
       <button type="button" class="pass-stack-map-card" data-basemap="${escapeHtml(base.name)}" aria-pressed="false">
-        <span class="pass-stack-map-thumb thumb-${index}" aria-hidden="true"></span>
+        <span class="pass-stack-map-thumb thumb-${index}" data-basemap-preview="${escapeHtml(base.style)}" aria-hidden="true"></span>
         <span>${escapeHtml(baseMapShortName(base.name))}</span>
       </button>`).join("");
     return `<section class="pass-stack-section">
@@ -4870,6 +4886,36 @@ class AlpineLayerControl {
     tile.setAttribute("aria-pressed", String(!!active));
   }
 
+  _ensureBasemapPreviews() {
+    if (typeof maplibregl === "undefined" || !this._drawer) return;
+    this._basemapPreviews ??= new WeakSet();
+    const thumbs = this._drawer.querySelectorAll("[data-basemap-preview]");
+    thumbs.forEach((thumb) => {
+      if (this._basemapPreviews.has(thumb)) return;
+      const styleUrl = thumb.dataset.basemapPreview;
+      if (!styleUrl) return;
+      this._basemapPreviews.add(thumb);
+      try {
+        const preview = new maplibregl.Map({
+          container: thumb,
+          style: styleUrl,
+          center: [10.0, 46.7],
+          zoom: 5.2,
+          minZoom: 4,
+          maxZoom: 7,
+          interactive: false,
+          attributionControl: false,
+          preserveDrawingBuffer: false,
+        });
+        preview.on("error", () => { /* swallow tile fetch errors quietly */ });
+        // Re-render once the thumb is laid out so the canvas matches its CSS box.
+        requestAnimationFrame(() => preview.resize());
+      } catch (error) {
+        console.warn("basemap preview failed", error);
+      }
+    });
+  }
+
   refresh() {
     if (!this._root || !this._drawer) return;
     const stripOpen = this._root.classList.contains("is-strip-open");
@@ -4891,6 +4937,8 @@ class AlpineLayerControl {
     this._root.classList.toggle("is-drawer-open", this._drawerOpen);
     this._drawer.classList.toggle("is-open", this._drawerOpen);
     this._drawer.setAttribute("aria-hidden", String(!this._drawerOpen));
+
+    if (this._drawerOpen) this._ensureBasemapPreviews();
 
     this._drawer.querySelectorAll("[data-layer-mode-item]").forEach(item => {
       const active = item.dataset.layerModeItem === LayerMode.current;
@@ -4963,7 +5011,7 @@ class AlpineLayerControl {
   }
 }
 
-map.addControl(new AlpineLayerControl(), "top-right");
+map.addControl(new AlpineLayerControl(), "bottom-left");
 conditionsStripInstance = new AlpineConditionsStrip().addTo(map);
 function restoreMapLayers() {
   requestMapLayerRestore();
@@ -6289,7 +6337,9 @@ planStartTimeEl?.addEventListener("change", () => {
 });
 planRunBtn.addEventListener("click", () => planTour());
 syncLeisureFlagControl();
-leisureFlagEl?.addEventListener("change", () => setLeisurePlannerFlag(!!leisureFlagEl.checked));
+leisureFlagEl?.addEventListener("change", async () => {
+  await setLeisurePlannerFlag(!!leisureFlagEl.checked);
+});
 planEndSearchEl?.addEventListener("input", persistLeisureEndNodeInput);
 planEndSearchEl?.addEventListener("change", persistLeisureEndNodeInput);
 planEndSearchEl?.addEventListener("keydown", e => {
@@ -7989,17 +8039,32 @@ function activateRouteAlternative(index) {
 }
 
 let leisurePlannerModulePromise = null;
-function loadLeisurePlannerModule() {
+let leisurePlannerModuleResetPromise = null;
+async function loadLeisurePlannerModule() {
+  if (leisurePlannerModuleResetPromise) await leisurePlannerModuleResetPromise;
   leisurePlannerModulePromise ??= import("./leisure/wasm-shim.js");
   return leisurePlannerModulePromise;
 }
-function resetLeisurePlannerModuleHandle() {
-  const pendingModule = leisurePlannerModulePromise;
+async function resetLeisurePlannerModuleHandle() {
+  if (!leisurePlannerModulePromise) {
+    if (leisurePlannerModuleResetPromise) await leisurePlannerModuleResetPromise;
+    return;
+  }
+  const pending = leisurePlannerModulePromise;
   leisurePlannerModulePromise = null;
-  if (pendingModule) {
-    pendingModule
-      .then((mod) => mod.releaseWasmShimResources?.())
-      .catch(() => { /* shim never loaded successfully; nothing to release */ });
+  const releasePromise = (async () => {
+    try {
+      const mod = await pending;
+      await mod?.releaseWasmShimResources?.();
+    } catch {
+      /* nothing to release if module failed to load */
+    }
+  })();
+  leisurePlannerModuleResetPromise = releasePromise;
+  try {
+    await releasePromise;
+  } finally {
+    if (leisurePlannerModuleResetPromise === releasePromise) leisurePlannerModuleResetPromise = null;
   }
 }
 function syncLeisureFlagControl() {
@@ -8011,12 +8076,12 @@ function syncLeisureFlagControl() {
   }
   syncLeisureEndSearchVisibility(debug);
 }
-function setLeisurePlannerFlag(enabled) {
+async function setLeisurePlannerFlag(enabled) {
   try {
     if (enabled) localStorage.setItem("alpine.planner.leisure.v1", "1");
     else localStorage.removeItem("alpine.planner.leisure.v1");
   } catch { /* private mode */ }
-  resetLeisurePlannerModuleHandle();
+  await resetLeisurePlannerModuleHandle();
   syncLeisureFlagControl();
   if (enabled) loadLeisurePlannerModule().catch(e => console.warn("leisure planner preload failed", e));
 }

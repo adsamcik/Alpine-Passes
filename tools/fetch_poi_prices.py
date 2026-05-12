@@ -57,6 +57,7 @@ POI_SOURCES: list[tuple[Path, str]] = [
     (REPO_ROOT / "assets" / "js" / "french-pois.js",   "FRENCH_POIS"),
     (REPO_ROOT / "assets" / "js" / "italy-pois.js",    "ITALY_POIS"),
     (REPO_ROOT / "assets" / "js" / "austrian-pois.js", "AUSTRIAN_POIS"),
+    (REPO_ROOT / "assets" / "js" / "japan-pois.js",    "JAPAN_POIS"),
 ]
 CACHE_FILE = REPO_ROOT / "assets" / "data" / "poi-prices.json"
 

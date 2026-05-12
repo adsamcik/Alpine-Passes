@@ -24,12 +24,28 @@ function parseStringSet(source, constName) {
   return new Set([...match[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]));
 }
 
+function parseNumberConst(source, constName) {
+  const match = source.match(new RegExp(`const ${constName} = (\\d+);`));
+  assert.ok(match, `Missing ${constName}`);
+  return Number(match[1]);
+}
+
+function parseAtlasCells(source) {
+  const match = source.match(/const UI_ATLAS_CELLS = \{([\s\S]*?)\};/);
+  assert.ok(match, "Missing UI_ATLAS_CELLS");
+  return Object.fromEntries(
+    [...match[1].matchAll(/"([^"]+)":\s+\[(\d+),\s+(\d+)\]/g)]
+      .map((m) => [m[1], [Number(m[2]), Number(m[3])]])
+  );
+}
+
 function loadPoiData() {
   const files = [
     ["assets/js/swiss-pois.js", "SWISS_POIS"],
     ["assets/js/french-pois.js", "FRENCH_POIS"],
     ["assets/js/italy-pois.js", "ITALY_POIS"],
     ["assets/js/austrian-pois.js", "AUSTRIAN_POIS"],
+    ["assets/js/japan-pois.js", "JAPAN_POIS"],
   ];
   const sandbox = {};
   for (const [relPath, globalName] of files) {
@@ -42,6 +58,7 @@ function loadPoiData() {
     ...(sandbox.FRENCH_POIS || []),
     ...(sandbox.ITALY_POIS || []),
     ...(sandbox.AUSTRIAN_POIS || []),
+    ...(sandbox.JAPAN_POIS || []),
   ];
 }
 
@@ -52,6 +69,45 @@ function assetIds(relDir, ext) {
       .map((name) => name.replace(/^\d+-/, "").replace(new RegExp(`${ext}$`), ""))
   );
 }
+
+function pngSize(relPath) {
+  const bytes = fs.readFileSync(path.join(repoRoot, relPath));
+  assert.equal(bytes.toString("ascii", 1, 4), "PNG", `${relPath} is not a PNG`);
+  return [bytes.readUInt32BE(16), bytes.readUInt32BE(20)];
+}
+
+function icoSizes(relPath) {
+  const bytes = fs.readFileSync(path.join(repoRoot, relPath));
+  assert.equal(bytes.readUInt16LE(0), 0, `${relPath} has invalid ICO reserved field`);
+  assert.equal(bytes.readUInt16LE(2), 1, `${relPath} is not an icon file`);
+  const count = bytes.readUInt16LE(4);
+  const sizes = new Set();
+  for (let i = 0; i < count; i += 1) {
+    const offset = 6 + i * 16;
+    const width = bytes[offset] || 256;
+    const height = bytes[offset + 1] || 256;
+    sizes.add(`${width}x${height}`);
+  }
+  return sizes;
+}
+
+test("app icon family has generated browser-ready variants", () => {
+  const expectedPngSizes = {
+    "assets/app-icon-source.png": [1024, 1024],
+    "assets/favicon-512.png": [512, 512],
+    "assets/favicon-32.png": [32, 32],
+    "assets/apple-touch-icon.png": [180, 180],
+  };
+
+  for (const [relPath, expected] of Object.entries(expectedPngSizes)) {
+    assert.deepEqual(pngSize(relPath), expected, `${relPath} should be ${expected.join("x")}`);
+  }
+
+  const sizes = icoSizes("favicon.ico");
+  for (const size of ["16x16", "32x32", "48x48", "64x64", "128x128", "256x256"]) {
+    assert.ok(sizes.has(size), `favicon.ico missing ${size}`);
+  }
+});
 
 test("every used POI category has its own generated UI icon asset", () => {
   const appSource = read("assets/js/app.js");
@@ -71,6 +127,42 @@ test("every used POI category has its own generated UI icon asset", () => {
   }
 
   assert.deepEqual([...cssIconIds].filter((id) => !pngIconIds.has(id)), []);
+});
+
+test("every declared in-app UI icon is wired across CSS, PNG, and WebGL atlas", () => {
+  const appSource = read("assets/js/app.js");
+  const cssSource = read("assets/css/site.css");
+  const uiIconIds = parseStringSet(appSource, "UI_ICON_IDS");
+  const cssIconIds = new Set([...cssSource.matchAll(/\.ui-icon-([a-z0-9-]+)\s*\{/g)].map((m) => m[1]));
+  const pngIconIds = assetIds("assets/ui-icons/normalized-png", ".png");
+  const atlasCells = parseAtlasCells(appSource);
+  const atlasCols = parseNumberConst(appSource, "ALPINE_GL_UI_ATLAS_COLS");
+  const atlasRows = parseNumberConst(appSource, "ALPINE_GL_UI_ATLAS_ROWS");
+
+  assert.deepEqual(
+    pngSize("assets/ui-icons/alpine-ui-icons.png"),
+    [atlasCols * 128, atlasRows * 128],
+    "runtime UI sprite dimensions should match the WebGL atlas constants"
+  );
+
+  for (const iconId of uiIconIds) {
+    assert.ok(cssIconIds.has(iconId), `${iconId} missing CSS sprite class`);
+    assert.ok(pngIconIds.has(iconId), `${iconId} missing normalized PNG`);
+    assert.ok(atlasCells[iconId], `${iconId} missing WebGL atlas cell`);
+    const [col, row] = atlasCells[iconId];
+    assert.ok(col >= 0 && col < atlasCols, `${iconId} atlas col ${col} outside ${atlasCols} columns`);
+    assert.ok(row >= 0 && row < atlasRows, `${iconId} atlas row ${row} outside ${atlasRows} rows`);
+  }
+});
+
+test("generated UI icon sprite cells are non-placeholder artwork", () => {
+  for (const fileName of fs.readdirSync(path.join(repoRoot, "assets/ui-icons/normalized-png"))) {
+    if (!fileName.endsWith(".png")) continue;
+    const relPath = path.join("assets/ui-icons/normalized-png", fileName);
+    assert.deepEqual(pngSize(relPath), [128, 128], `${fileName} should be a 128x128 sprite cell`);
+    const bytes = fs.statSync(path.join(repoRoot, relPath)).size;
+    assert.ok(bytes >= 2_000, `${fileName} is too small for the generated-art icon set (${bytes} bytes)`);
+  }
 });
 
 test("every notable pass has generated scenic and symbol icons", () => {

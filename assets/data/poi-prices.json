@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "default_currency": "CHF",
-  "last_refreshed_at": "2026-05-13T07:59:14Z",
+  "last_refreshed_at": "2026-05-13T08:36:08Z",
   "_doc": "Cached starting-prices (v2: per-entry native currency) AND access metadata for POIs in assets/js/*-pois.js. Keyed by POI name (n field). Refreshed on deploy by tools/fetch_poi_prices.py + .github/workflows/refresh-poi-prices.yml. Manually-curated entries (source_kind=manual) are NEVER overwritten by the auto-refresher; only source_kind=wikidata price entries are updated. Optional access fields (url, car_status, parking, entrance, getting_there, operational) are read by app.js's loadPoiPrices to surface real-world parking + entrance info in the POI popup and to redirect 'Open in Google Maps' to the parking lat/lng rather than the POI's display coords for cable-car/car-free destinations.",
   "entries": {
     "21st Century Museum of Contemporary Art": {
@@ -3123,11 +3123,11 @@
       "from_adult": 4000,
       "currency": "JPY",
       "as_of": "2026",
-      "source_url": "https://www.fujisan-climb.jp/en/",
+      "source_url": "https://www.pref.yamanashi.jp/fujisan/siyouryou.html",
       "source_kind": "manual",
-      "verified_at": "2026-05-12",
+      "verified_at": "2026-05-13",
       "url": "https://www.fujisan-climb.jp/en/",
-      "notes": "Climbing fee ¥4,000 per person on all 4 trails (Yoshida, Subashiri, Gotemba, Fujinomiya) for 2026; mandatory pre-registration. Yoshida opens ~Jul 1; others ~Jul 10–early Sep. Closed off-season.",
+      "notes": "Yoshida-trail toll ¥4,000/person confirmed on Yamanashi Pref. official site (令和8年/2026 schedule); ¥4,000 per visit, mandatory pre-registration; Yoshida regulated Jul 1–Sep 10 (gate closed 14:00–03:00, 4,000-climber daily cap). Shizuoka adopted similar fees in 2025 for the Fujinomiya/Gotemba/Subashiri trails. Off-season climbing closed.",
       "car_status": "park-lower-station",
       "parking": {
         "la": 35.39556,

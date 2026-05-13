@@ -1,5 +1,17 @@
-//! wasm-bindgen boundary for the leisure planner core.
+//! wasm_api/ — WASM boundary for the leisure planner core.
 //!
+//! Convention: each downstream feature adds its own submodule here:
+//!   - F2: tour_dto.rs
+//!   - F3: route_geom.rs
+//!   - F4: phase4.rs
+//!   - F5: finalize.rs
+//! Each submodule declares `#[wasm_bindgen]`-annotated `wasm_*` exports and is
+//! registered with a `pub mod {name};` line in this file. Internal helpers
+//! (handle pools, parsers, to_js_value) live in this mod.rs and are
+//! `pub(super)` so submodules can use them.
+//! See ADR-F1-005 for why heuristics.rs starts empty.
+//!
+//! Original module description:
 //! The exports intentionally accept JSON strings for complex inputs so the
 //! JavaScript shim can preserve the legacy public API while keeping Rust-owned
 //! graph and ear-decomposition state behind small numeric handles.
@@ -23,6 +35,8 @@ use serde_wasm_bindgen::Serializer;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashSet};
 use wasm_bindgen::prelude::*;
+
+pub mod heuristics;
 
 fn to_js_value<T: Serialize>(value: &T) -> Result<JsValue, JsValue> {
     let serializer = Serializer::new().serialize_maps_as_objects(true);

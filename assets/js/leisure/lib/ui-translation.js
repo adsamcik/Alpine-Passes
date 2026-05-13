@@ -1,8 +1,5 @@
-import { resolvePassIdSet } from "./optimizer-planning.js";
-
 /**
- * Shared UI-translation helpers used by both the JS-only planner
- * (assets/js/leisure/index.js) and the WASM-backed shim
+ * Shared UI-translation helpers used by the WASM-backed leisure planner shim
  * (assets/js/leisure/wasm-shim.js).
  *
  * Helpers are pure functions with no module state. Functions that need UI or
@@ -668,6 +665,43 @@ export function phaseStartTime(uiOptions = {}) {
   const tripDate = parseTripDate(uiOptions.tripDate) || new Date();
   tripDate.setHours(8, 0, 0, 0);
   return tripDate;
+}
+
+function resolvePassIdSet(graph, ids) {
+  const out = new Set();
+  for (const id of arrayFrom(ids)) {
+    const passId = resolvePassId(graph, id);
+    if (passId) out.add(passId);
+  }
+  return out;
+}
+
+function resolvePassId(graph, id) {
+  if (!id) return null;
+  const value = String(id);
+  for (const form of passIdForms(value)) {
+    const mapped = graph?.passIdByNodeId?.get(form);
+    if (mapped) return mapped;
+    if (graph?.passTriplets?.has(form) || graph?.nodes?.get(form)?.kind === "pass") return form;
+  }
+  return null;
+}
+
+function passIdForms(value) {
+  const forms = [];
+  const add = (form) => { if (form && !forms.includes(form)) forms.push(form); };
+  add(value);
+  add(passIdFromSyntheticId(value));
+  for (const form of forms.slice()) {
+    if (form.startsWith("p-")) add(form.slice(2));
+    else add(`p-${form}`);
+  }
+  return forms;
+}
+
+function passIdFromSyntheticId(nodeId) {
+  const match = String(nodeId).match(/^(.+):[ABS]$/);
+  return match ? match[1] : null;
 }
 
 /**

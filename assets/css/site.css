@@ -1845,7 +1845,7 @@ select option:checked {
 
 /* MapLibre layer/style control. */
 .overlay-meta { color: var(--fg-dim); font-size: 11px; }
-.alpine-layer-control {
+.itinera-layer-control {
   min-width: 172px;
   padding: 8px;
   background: rgba(20,28,34,.94);
@@ -1853,22 +1853,22 @@ select option:checked {
   border: 1px solid var(--border);
   box-shadow: var(--shadow-soft);
 }
-.alpine-layer-control label {
+.itinera-layer-control label {
   display: flex;
   align-items: center;
   gap: 7px;
   margin: 0;
   font-size: 12px;
 }
-.alpine-layer-control label + label { margin-top: 7px; }
-.alpine-layer-control label > span:first-child {
+.itinera-layer-control label + label { margin-top: 7px; }
+.itinera-layer-control label > span:first-child {
   color: var(--fg-dim);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: .08em;
   text-transform: uppercase;
 }
-.alpine-layer-control select {
+.itinera-layer-control select {
   width: 100%;
   min-width: 0;
   margin-left: auto;
@@ -1878,10 +1878,10 @@ select option:checked {
   color: var(--fg);
   background: var(--bg-3);
 }
-.alpine-layer-control .check {
+.itinera-layer-control .check {
   justify-content: flex-start;
 }
-.alpine-layer-control .check span {
+.itinera-layer-control .check span {
   color: var(--fg);
   font-size: 12px;
   font-weight: 600;
@@ -2970,27 +2970,27 @@ input[type="range"]:disabled {
 
 /* ── FIX 3: Mobile style picker slide-off when popup open ─────────── */
 @media (max-width: 640px) {
-  .alpine-layer-control,
-  .maplibregl-ctrl.alpine-layer-control {
+  .itinera-layer-control,
+  .maplibregl-ctrl.itinera-layer-control {
     transition: transform 200ms cubic-bezier(.2,.7,.2,1), opacity 200ms linear;
     will-change: transform;
   }
-  [data-popup-open="true"] .alpine-layer-control,
-  [data-popup-open="true"] .maplibregl-ctrl.alpine-layer-control {
+  [data-popup-open="true"] .itinera-layer-control,
+  [data-popup-open="true"] .maplibregl-ctrl.itinera-layer-control {
     transform: translateX(calc(100% + 16px));
     opacity: 0;
     pointer-events: none;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .alpine-layer-control { transition: opacity 120ms linear; }
-  [data-popup-open="true"] .alpine-layer-control { transform: none; opacity: 0; }
+  .itinera-layer-control { transition: opacity 120ms linear; }
+  [data-popup-open="true"] .itinera-layer-control { transform: none; opacity: 0; }
 }
 
 
 /* ===== iter-8 polish: style swap crossfade + cluster hover ===== */
 
-.alpine-style-swap-overlay {
+.itinera-style-swap-overlay {
   position: absolute; inset: 0;
   width: 100%; height: 100%;
   pointer-events: none;
@@ -3000,7 +3000,7 @@ input[type="range"]:disabled {
   will-change: opacity;
 }
 @media (prefers-reduced-motion: reduce) {
-  .alpine-style-swap-overlay { transition: none; }
+  .itinera-style-swap-overlay { transition: none; }
 }
 
 /* ===== iter-9 polish: a11y / keyboard / focus ===== */
@@ -3844,8 +3844,8 @@ input[type="range"]:disabled {
 }
 
 /* ===== layer-control rebuild: Pass Stack drawer + Conditions Strip ===== */
-.alpine-layer-control.pass-stack-control,
-.maplibregl-ctrl.alpine-layer-control.pass-stack-control {
+.itinera-layer-control.pass-stack-control,
+.maplibregl-ctrl.itinera-layer-control.pass-stack-control {
   position: relative;
   width: 44px;
   min-width: 44px;
@@ -4230,7 +4230,7 @@ input[type="range"]:disabled {
   background: rgba(255,255,255,.025);
 }
 .pass-stack-locked-list strong { color: var(--estimated); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
-/* Keep the drawer insulated from legacy .alpine-layer-control label/button selectors. */
+/* Keep the drawer insulated from legacy .itinera-layer-control label/button selectors. */
 .pass-stack-drawer label.pass-stack-switch,
 .pass-stack-drawer label.pass-stack-range {
   margin: 0;
@@ -4337,7 +4337,7 @@ input[type="range"]:disabled {
   .pass-stack-drawer,
   .pass-stack-switch-ui::after { transition: none; }
 }
-.alpine-conditions-strip {
+.itinera-conditions-strip {
   position: absolute;
   z-index: 890;
   top: 14px;
@@ -4359,9 +4359,9 @@ input[type="range"]:disabled {
   backdrop-filter: blur(18px) saturate(1.12);
   transition: opacity .18s ease;
 }
-[data-popup-open="true"] .alpine-conditions-strip { opacity: 0; pointer-events: none; }
+[data-popup-open="true"] .itinera-conditions-strip { opacity: 0; pointer-events: none; }
 @supports (background: color-mix(in srgb, white 50%, transparent)) {
-  .alpine-conditions-strip { background: color-mix(in srgb, var(--bg-2) 75%, transparent); }
+  .itinera-conditions-strip { background: color-mix(in srgb, var(--bg-2) 75%, transparent); }
 }
 .conditions-chip {
   display: inline-flex;
@@ -4441,7 +4441,7 @@ input[type="range"]:disabled {
   }
 }
 @media (max-width: 640px) {
-  .alpine-conditions-strip {
+  .itinera-conditions-strip {
     top: 8px;
     gap: 4px;
     max-width: calc(100% - 92px);
@@ -4469,7 +4469,7 @@ input[type="range"]:disabled {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .alpine-conditions-strip {
+  .itinera-conditions-strip {
     animation: none;
   }
   .conditions-chip {
@@ -4576,13 +4576,13 @@ input[type="range"]:disabled {
 .pass-stack-mode-custom[hidden] {
   display: none;
 }
-.alpine-overlay-canvas {
+.itinera-overlay-canvas {
   transition: opacity .15s ease;
 }
-.alpine-overlay-canvas.is-layer-mode-dipping {
+.itinera-overlay-canvas.is-layer-mode-dipping {
   opacity: .76;
 }
-.alpine-layer-mode-ghost {
+.itinera-layer-mode-ghost {
   position: absolute;
   z-index: 940;
   left: 50%;
@@ -4600,17 +4600,17 @@ input[type="range"]:disabled {
   transform: translate(-50%, -50%) scale(.98);
   transition: opacity .18s ease, transform .18s ease;
 }
-.alpine-layer-mode-ghost .layer-mode-ghost-icon {
+.itinera-layer-mode-ghost .layer-mode-ghost-icon {
   width: 32px;
   height: 32px;
   font-size: 32px;
   filter: drop-shadow(0 3px 10px rgba(0,0,0,.30));
 }
-.alpine-layer-mode-ghost.is-visible {
+.itinera-layer-mode-ghost.is-visible {
   opacity: .9;
   transform: translate(-50%, -50%) scale(1);
 }
-.alpine-map-toast {
+.itinera-map-toast {
   position: absolute;
   z-index: 950;
   left: 50%;
@@ -4629,7 +4629,7 @@ input[type="range"]:disabled {
   transition: opacity .16s ease, transform .16s ease;
   backdrop-filter: blur(12px) saturate(1.1);
 }
-.alpine-map-toast.is-visible {
+.itinera-map-toast.is-visible {
   opacity: 1;
   transform: translate(-50%, 0);
 }
@@ -4644,16 +4644,16 @@ input[type="range"]:disabled {
 }
 @media (prefers-reduced-motion: reduce) {
   .pass-stack-drawer .pass-stack-mode-chip,
-  .alpine-overlay-canvas,
-  .alpine-layer-mode-ghost,
-  .alpine-map-toast {
+  .itinera-overlay-canvas,
+  .itinera-layer-mode-ghost,
+  .itinera-map-toast {
     transition: none;
   }
   .pass-stack-drawer .pass-stack-mode-chip:hover,
   .pass-stack-drawer .pass-stack-mode-chip:focus-visible {
     transform: none;
   }
-  .alpine-overlay-canvas.is-layer-mode-dipping {
+  .itinera-overlay-canvas.is-layer-mode-dipping {
     opacity: 1;
   }
 }

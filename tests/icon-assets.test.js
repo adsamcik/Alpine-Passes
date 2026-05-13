@@ -136,8 +136,8 @@ test("every declared in-app UI icon is wired across CSS, PNG, and WebGL atlas", 
   const cssIconIds = new Set([...cssSource.matchAll(/\.ui-icon-([a-z0-9-]+)\s*\{/g)].map((m) => m[1]));
   const pngIconIds = assetIds("assets/ui-icons/normalized-png", ".png");
   const atlasCells = parseAtlasCells(appSource);
-  const atlasCols = parseNumberConst(appSource, "ALPINE_GL_UI_ATLAS_COLS");
-  const atlasRows = parseNumberConst(appSource, "ALPINE_GL_UI_ATLAS_ROWS");
+  const atlasCols = parseNumberConst(appSource, "ITINERA_GL_UI_ATLAS_COLS");
+  const atlasRows = parseNumberConst(appSource, "ITINERA_GL_UI_ATLAS_ROWS");
 
   assert.deepEqual(
     pngSize("assets/ui-icons/alpine-ui-icons.png"),

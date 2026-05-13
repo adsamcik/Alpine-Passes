@@ -1725,7 +1725,7 @@ const map = new maplibregl.Map({
   preserveDrawingBuffer: true,
 });
 window.alpineMap = map;
-map.getCanvas().classList.add("alpine-overlay-canvas");
+map.getCanvas().classList.add("itinera-overlay-canvas");
 
 map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-left");
 updateMapInfo(defaultBaseLayerName);
@@ -1736,7 +1736,7 @@ function stateIconId(state, estimated = false) {
   return STATE_ICON_NAMES.has(state) ? `status-${state}` : "status-unknown";
 }
 
-const PASS_SOURCE_ID = "alpine-passes";
+const PASS_SOURCE_ID = "itinera-passes";
 const POI_SOURCE_ID = "swiss-pois";
 const ROUTE_SOURCE_ID = "planned-route";
 const START_SOURCE_ID = "planned-start";
@@ -1890,7 +1890,7 @@ function showLayerModeGhost(modeId) {
   clearTimeout(layerModeGhostTimer);
   const def = layerModeDefinition(modeId);
   const ghost = document.createElement("div");
-  ghost.className = "alpine-layer-mode-ghost";
+  ghost.className = "itinera-layer-mode-ghost";
   ghost.innerHTML = `${uiIconHtml(def.iconId, "layer-mode-ghost-icon", def.label)} <span>${escapeHtml(def.label)} mode</span>`;
   ghost.setAttribute("aria-hidden", "true");
   container.appendChild(ghost);
@@ -1912,7 +1912,7 @@ function runLayerModeTransition(modeId) {
 function showLayerModeToast(message) {
   if (!layerModeToastEl) {
     layerModeToastEl = document.createElement("div");
-    layerModeToastEl.className = "alpine-map-toast";
+    layerModeToastEl.className = "itinera-map-toast";
     layerModeToastEl.setAttribute("role", "status");
     layerModeToastEl.setAttribute("aria-live", "polite");
     map.getContainer().appendChild(layerModeToastEl);
@@ -2287,7 +2287,7 @@ function hasRequiredMapLayers() {
     map.getSource(POI_SOURCE_ID) &&
     map.getSource(ROUTE_SOURCE_ID) &&
     map.getLayer("planned-route-core") &&
-    map.getLayer(ALPINE_GL_LAYER_ID)
+    map.getLayer(ITINERA_GL_LAYER_ID)
   );
 }
 
@@ -2333,26 +2333,26 @@ function addLayerWithSource(layer, beforeId) {
   map.addLayer(layer);
 }
 
-const ALPINE_GL_LAYER_ID = "alpine-overlay";
-const ALPINE_GL_STRIDE = 39;
-const ALPINE_GL_KIND = { pass: 0, poi: 1, passCluster: 2, poiCluster: 3, label: 4, preview: 5 };
-const ALPINE_GL_ENTRANCE_SECONDS = 0.32;
-const ALPINE_GL_PEBBLE_POP_SECONDS = 0.20;
-const ALPINE_GL_PEBBLE_STAGGER_SECONDS = 0.12;
-const ALPINE_GL_PEBBLE_ENTRANCE_SECONDS = 0.65;
-const ALPINE_GL_LABEL_COLS = 16;
-const ALPINE_GL_LABEL_ROWS = 16;
-const ALPINE_GL_LABEL_CELL = 64;
-const ALPINE_GL_UI_ATLAS_COLS = 5;
-const ALPINE_GL_UI_ATLAS_ROWS = 13;
-const ALPINE_GL_PASS_ATLAS_COLS = 5;
-const ALPINE_GL_PASS_ATLAS_ROWS = 5;
-const ALPINE_GL_FLAG_ESTIMATED = 1;
-const ALPINE_GL_FLAG_DIM = 2;
-const ALPINE_GL_FLAG_SIMPLE_CIRCLE = 4;
-const ALPINE_GL_FLAG_SOLO_DIM = 8;
-const ALPINE_GL_PASS_ART_SCALE = 1.1;
-const ALPINE_GL_COLORS = {
+const ITINERA_GL_LAYER_ID = "itinera-overlay";
+const ITINERA_GL_STRIDE = 39;
+const ITINERA_GL_KIND = { pass: 0, poi: 1, passCluster: 2, poiCluster: 3, label: 4, preview: 5 };
+const ITINERA_GL_ENTRANCE_SECONDS = 0.32;
+const ITINERA_GL_PEBBLE_POP_SECONDS = 0.20;
+const ITINERA_GL_PEBBLE_STAGGER_SECONDS = 0.12;
+const ITINERA_GL_PEBBLE_ENTRANCE_SECONDS = 0.65;
+const ITINERA_GL_LABEL_COLS = 16;
+const ITINERA_GL_LABEL_ROWS = 16;
+const ITINERA_GL_LABEL_CELL = 64;
+const ITINERA_GL_UI_ATLAS_COLS = 5;
+const ITINERA_GL_UI_ATLAS_ROWS = 13;
+const ITINERA_GL_PASS_ATLAS_COLS = 5;
+const ITINERA_GL_PASS_ATLAS_ROWS = 5;
+const ITINERA_GL_FLAG_ESTIMATED = 1;
+const ITINERA_GL_FLAG_DIM = 2;
+const ITINERA_GL_FLAG_SIMPLE_CIRCLE = 4;
+const ITINERA_GL_FLAG_SOLO_DIM = 8;
+const ITINERA_GL_PASS_ART_SCALE = 1.1;
+const ITINERA_GL_COLORS = {
   markerPurple:[0.545, 0.424, 0.925, 1],
   open:       [0.239, 0.863, 0.518, 1],
   restricted: [1.000, 0.690, 0.125, 1],
@@ -2451,8 +2451,8 @@ function atlasCellUv(cell, cols, rows) {
 function textureRefForUiIcon(id, scale = 0.85) {
   const [u, v] = atlasCellUv(
     UI_ATLAS_CELLS[id] || UI_ATLAS_CELLS["poi-generic"],
-    ALPINE_GL_UI_ATLAS_COLS,
-    ALPINE_GL_UI_ATLAS_ROWS
+    ITINERA_GL_UI_ATLAS_COLS,
+    ITINERA_GL_UI_ATLAS_ROWS
   );
   return { sheet: 0, u, v, scale };
 }
@@ -2480,10 +2480,10 @@ function prngFromHash(hash) {
 
 function packedGlyphForUiIcon(id, style = 0) {
   const cell = UI_ATLAS_CELLS[id] || UI_ATLAS_CELLS["poi-generic"];
-  const col = Math.max(0, Math.min(ALPINE_GL_UI_ATLAS_COLS - 1, Number(cell[0]) || 0));
-  const row = Math.max(0, Math.min(ALPINE_GL_UI_ATLAS_ROWS - 1, Number(cell[1]) || 0));
+  const col = Math.max(0, Math.min(ITINERA_GL_UI_ATLAS_COLS - 1, Number(cell[0]) || 0));
+  const row = Math.max(0, Math.min(ITINERA_GL_UI_ATLAS_ROWS - 1, Number(cell[1]) || 0));
   const styleCode = Math.max(0, Math.min(4, Number(style) || 0));
-  return styleCode * PEBBLE_GLYPH_STYLE_SCALE + col * ALPINE_GL_UI_ATLAS_ROWS + row + 1;
+  return styleCode * PEBBLE_GLYPH_STYLE_SCALE + col * ITINERA_GL_UI_ATLAS_ROWS + row + 1;
 }
 
 function clusterPebbleLayoutSize(model) {
@@ -2594,13 +2594,13 @@ function layoutPoiClusterPebbles(model, seed) {
 function textureRefForPassSymbol(asset, scale = 1.0) {
   if (!asset) return null;
   const sheet = String(asset.sheet || "").includes("sprite-02") ? 2 : 1;
-  const [u, v] = atlasCellUv([asset.col, asset.row], ALPINE_GL_PASS_ATLAS_COLS, ALPINE_GL_PASS_ATLAS_ROWS);
+  const [u, v] = atlasCellUv([asset.col, asset.row], ITINERA_GL_PASS_ATLAS_COLS, ITINERA_GL_PASS_ATLAS_ROWS);
   return { sheet, u, v, scale };
 }
 
 class AlpineWebGLLayer {
   constructor() {
-    this.id = ALPINE_GL_LAYER_ID;
+    this.id = ITINERA_GL_LAYER_ID;
     this.type = "custom";
     this.renderingMode = "2d";
     this._map = null;
@@ -2623,8 +2623,8 @@ class AlpineWebGLLayer {
     this._animationMs = 280;
     this._start = null;
     this._labelCanvas = document.createElement("canvas");
-    this._labelCanvas.width = ALPINE_GL_LABEL_COLS * ALPINE_GL_LABEL_CELL;
-    this._labelCanvas.height = ALPINE_GL_LABEL_ROWS * ALPINE_GL_LABEL_CELL;
+    this._labelCanvas.width = ITINERA_GL_LABEL_COLS * ITINERA_GL_LABEL_CELL;
+    this._labelCanvas.height = ITINERA_GL_LABEL_ROWS * ITINERA_GL_LABEL_CELL;
     this._labelEntries = [];
     this._labelKeys = new Map();
     this._reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches || false;
@@ -2684,7 +2684,7 @@ class AlpineWebGLLayer {
     const hasRouteItem = group?.type === "cluster"
       ? (group.items || []).some(item => plannedBadgeNumber(item))
       : !!plannedBadgeNumber(group?.item);
-    return hasRouteItem ? 0 : ALPINE_GL_FLAG_SOLO_DIM;
+    return hasRouteItem ? 0 : ITINERA_GL_FLAG_SOLO_DIM;
   }
 
   _prepareGroupAnimations(oldGroups, newGroups) {
@@ -2868,7 +2868,7 @@ class AlpineWebGLLayer {
     if (!this._reducedMotion && this._featureState.size > 0) {
       const _nowSec = performance.now() / 1000;
       for (const s of this._featureState.values()) {
-        if (_nowSec - s.bornAt >= 0 && _nowSec - s.bornAt < ALPINE_GL_PEBBLE_ENTRANCE_SECONDS) {
+        if (_nowSec - s.bornAt >= 0 && _nowSec - s.bornAt < ITINERA_GL_PEBBLE_ENTRANCE_SECONDS) {
           this._map?.triggerRepaint();
           break;
         }
@@ -2975,7 +2975,7 @@ class AlpineWebGLLayer {
         vec4 clip = u_matrix * vec4(a_pos, 0.0, 1.0);
         vec2 ndc = clip.xy / clip.w;
         float elapsed = max(0.0, u_now - a_entrance);
-        float t_entrance = clamp(elapsed / ${ALPINE_GL_ENTRANCE_SECONDS}, 0.0, 1.0);
+        float t_entrance = clamp(elapsed / ${ITINERA_GL_ENTRANCE_SECONDS}, 0.0, 1.0);
         float t_smooth = smoothstep(0.0, 1.0, t_entrance);
         float overshoot = 1.0 + 0.06 * (1.0 - abs(2.0 * t_smooth - 1.0));
         float isPebbleCluster = step(1.5, a_meta.z) * (1.0 - step(3.5, a_meta.z));
@@ -2987,7 +2987,7 @@ class AlpineWebGLLayer {
         gl_Position = vec4((ndc + ndcOffset) * clip.w, clip.z, clip.w);
         v_quad = vec4(a_quad + 0.5, a_quad);
         v_meta = a_meta;
-        v_state = vec4(u_time, a_hover, u_reduced_motion > 0.5 ? ${ALPINE_GL_PEBBLE_ENTRANCE_SECONDS} : elapsed, a_selected);
+        v_state = vec4(u_time, a_hover, u_reduced_motion > 0.5 ? ${ITINERA_GL_PEBBLE_ENTRANCE_SECONDS} : elapsed, a_selected);
         if (a_meta.z > 1.5 && a_meta.z < 3.5) {
           v_fill = a_pebble0;
           v_stroke = a_pebble1;
@@ -3036,8 +3036,8 @@ class AlpineWebGLLayer {
         vec2 iconLocal = (uv - vec2(0.5)) / max(0.001, scale) + vec2(0.5);
         if (iconLocal.x < 0.0 || iconLocal.x > 1.0 || iconLocal.y < 0.0 || iconLocal.y > 1.0) return vec4(0.0);
         vec2 atlasStep = vec2(0.2, 0.2);
-        if (v_icon.x < 0.5) atlasStep = vec2(1.0 / ${ALPINE_GL_UI_ATLAS_COLS}.0, 1.0 / ${ALPINE_GL_UI_ATLAS_ROWS}.0);
-        else if (v_icon.x > 2.5) atlasStep = vec2(1.0 / ${ALPINE_GL_LABEL_COLS}.0, 1.0 / ${ALPINE_GL_LABEL_ROWS}.0);
+        if (v_icon.x < 0.5) atlasStep = vec2(1.0 / ${ITINERA_GL_UI_ATLAS_COLS}.0, 1.0 / ${ITINERA_GL_UI_ATLAS_ROWS}.0);
+        else if (v_icon.x > 2.5) atlasStep = vec2(1.0 / ${ITINERA_GL_LABEL_COLS}.0, 1.0 / ${ITINERA_GL_LABEL_ROWS}.0);
         vec2 iconUv = vec2(v_icon.y + iconLocal.x * atlasStep.x, v_icon.z + iconLocal.y * atlasStep.y);
         return sampleIcon(iconUv);
       }
@@ -3108,7 +3108,7 @@ class AlpineWebGLLayer {
         return mix(b, a, h) - k * h * (1.0 - h);
       }
       float entranceAlphaFromElapsed(float elapsed) {
-        return smoothstep(0.0, 1.0, clamp(elapsed / ${ALPINE_GL_ENTRANCE_SECONDS}, 0.0, 1.0));
+        return smoothstep(0.0, 1.0, clamp(elapsed / ${ITINERA_GL_ENTRANCE_SECONDS}, 0.0, 1.0));
       }
       float easeOutBack(float t) {
         float x = t - 1.0;
@@ -3117,7 +3117,7 @@ class AlpineWebGLLayer {
         return 1.0 + c3 * x * x * x + c1 * x * x;
       }
       float pebblePopProgress(float order) {
-        float t = clamp((v_entrance_elapsed - order * ${ALPINE_GL_PEBBLE_STAGGER_SECONDS}) / ${ALPINE_GL_PEBBLE_POP_SECONDS}, 0.0, 1.0);
+        float t = clamp((v_entrance_elapsed - order * ${ITINERA_GL_PEBBLE_STAGGER_SECONDS}) / ${ITINERA_GL_PEBBLE_POP_SECONDS}, 0.0, 1.0);
         return clamp(easeOutBack(t), 0.0, 1.06);
       }
       vec4 animatedPebble(vec4 pebble, float order) {
@@ -3126,7 +3126,7 @@ class AlpineWebGLLayer {
         return pebble;
       }
       float pebbleFusionK() {
-        float clusterEntranceT = clamp(v_entrance_elapsed / ${ALPINE_GL_PEBBLE_ENTRANCE_SECONDS}, 0.0, 1.0);
+        float clusterEntranceT = clamp(v_entrance_elapsed / ${ITINERA_GL_PEBBLE_ENTRANCE_SECONDS}, 0.0, 1.0);
         float entranceK = mix(0.024, 0.060, smoothstep(0.0, 0.4, clusterEntranceT));
         return mix(entranceK, 0.006, clamp(v_selected, 0.0, 1.0));
       }
@@ -3177,8 +3177,8 @@ class AlpineWebGLLayer {
         float col = floor(localCode / 13.0);
         float row = mod(localCode, 13.0);
         vec2 iconUv = vec2(
-          (col + glyphLocal.x) / ${ALPINE_GL_UI_ATLAS_COLS}.0,
-          (${ALPINE_GL_UI_ATLAS_ROWS}.0 - 1.0 - row + glyphLocal.y) / ${ALPINE_GL_UI_ATLAS_ROWS}.0
+          (col + glyphLocal.x) / ${ITINERA_GL_UI_ATLAS_COLS}.0,
+          (${ITINERA_GL_UI_ATLAS_ROWS}.0 - 1.0 - row + glyphLocal.y) / ${ITINERA_GL_UI_ATLAS_ROWS}.0
         );
         float chamber = 1.0 - smoothstep(pebble.z * 0.70, pebble.z * 0.86, length(v_local - pebble.xy));
         return texture2D(u_uiTex, iconUv).a * chamber;
@@ -3234,8 +3234,8 @@ class AlpineWebGLLayer {
       }
       vec4 labelMarker() {
         vec2 iconUv = vec2(
-          v_icon.y + v_uv.x / ${ALPINE_GL_LABEL_COLS}.0,
-          v_icon.z + v_uv.y / ${ALPINE_GL_LABEL_ROWS}.0
+          v_icon.y + v_uv.x / ${ITINERA_GL_LABEL_COLS}.0,
+          v_icon.z + v_uv.y / ${ITINERA_GL_LABEL_ROWS}.0
         );
         vec4 label = texture2D(u_labelTex, iconUv);
         if (label.a <= 0.01) discard;
@@ -3256,7 +3256,7 @@ class AlpineWebGLLayer {
         c.rgb = clamp(c.rgb + 0.20 * leafHover + 0.12 * clusterHover, 0.0, 1.0);
         // Clusters skip whole-instance fade because individual pebble radius pops are their entrance.
         c.a *= mix(entranceAlphaFromElapsed(v_entrance_elapsed), 1.0, clusterKind);
-        // Keep this literal in sync with ALPINE_GL_FLAG_SOLO_DIM.
+        // Keep this literal in sync with ITINERA_GL_FLAG_SOLO_DIM.
         if (flagSet(v_meta.w, 8.0)) c.a *= 0.60;
         // Selected marker pulse — brightness/alpha boost for leaf markers only
         if (kind < 2.0 && v_selected > 0.5 && u_pulse_clock < 1.6) {
@@ -3398,7 +3398,7 @@ class AlpineWebGLLayer {
     this._vertexAttribDivisor(gl, loc.aQuad, 0);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._instanceBuffer);
-    const stride = ALPINE_GL_STRIDE * 4;
+    const stride = ITINERA_GL_STRIDE * 4;
     this._instanceAttrib(gl, loc.aPos, 2, stride, 0);
     this._instanceAttrib(gl, loc.aMeta, 4, stride, 2);
     this._instanceAttrib(gl, loc.aFill, 4, stride, 6);
@@ -3473,7 +3473,7 @@ class AlpineWebGLLayer {
     }
     this._drawLabelAtlas();
     this._labelDirty = true;
-    this._instanceCount = out.length / ALPINE_GL_STRIDE;
+    this._instanceCount = out.length / ITINERA_GL_STRIDE;
     this._instanceData = new Float32Array(out);
     this._hasLoadedOnce = true;
   }
@@ -3482,7 +3482,7 @@ class AlpineWebGLLayer {
     const isCluster = group.type === "cluster";
     const isPoi = group.kind === "poi";
     const soloDimFlags = this._soloFocusDimFlags(group);
-    let kind, width, height, flags = soloDimFlags, fill, stroke = ALPINE_GL_COLORS.white, icon = { sheet: -1, u: 0, v: 0, scale: 0 };
+    let kind, width, height, flags = soloDimFlags, fill, stroke = ITINERA_GL_COLORS.white, icon = { sheet: -1, u: 0, v: 0, scale: 0 };
     let lng = group.lng;
     let lat = group.lat;
     if (!isCluster && group.item) {
@@ -3509,14 +3509,14 @@ class AlpineWebGLLayer {
     this._featureState.set(featureId, { bornAt: bornAtSec, lastSeenAt: now, selectedAt, lastGen: this._featureGen });
     const isSelected = featureId === this._selectedId ? 1 : 0;
     if (isCluster) {
-      kind = isPoi ? ALPINE_GL_KIND.poiCluster : ALPINE_GL_KIND.passCluster;
+      kind = isPoi ? ITINERA_GL_KIND.poiCluster : ITINERA_GL_KIND.passCluster;
       const clusterHover = (group.id === this._hoverTargetId) ? this._hoverAnim : 0;
 
       const pebbleModel = isPoi ? poiClusterPebbleModel(group.items) : passClusterPebbleModel(group.items);
       const pebbleLayout = isPoi ? layoutPoiClusterPebbles(pebbleModel, group.id) : layoutClusterPebbles(pebbleModel, group.id);
       width = pebbleLayout.width;
       height = pebbleLayout.height;
-      fill = isPoi ? ALPINE_GL_COLORS.poiCluster : ALPINE_GL_COLORS.passCluster;
+      fill = isPoi ? ITINERA_GL_COLORS.poiCluster : ITINERA_GL_COLORS.passCluster;
       const splitProgress = this._clusterSplitProgress(group, now);
       this._pushInstance(out, lng, lat, width, height, kind, flags, fill, fill, icon, 0, 0, clusterHover, bornAtSec, splitProgress, pebbleLayout.pebbles);
 
@@ -3530,47 +3530,47 @@ class AlpineWebGLLayer {
         const offsetLen = Math.hypot(baseOffsetX, baseOffsetY) || 1;
         const offsetX = baseOffsetX + (baseOffsetX / offsetLen) * 2 * clusterHover;
         const offsetY = baseOffsetY + (baseOffsetY / offsetLen) * 2 * clusterHover;
-        this._pushInstance(out, lng, lat, labelSize, labelSize, ALPINE_GL_KIND.label, soloDimFlags,
-          ALPINE_GL_COLORS.dark, ALPINE_GL_COLORS.dark, countLabel, offsetX, offsetY, 0, bornAtSec, 0);
+        this._pushInstance(out, lng, lat, labelSize, labelSize, ITINERA_GL_KIND.label, soloDimFlags,
+          ITINERA_GL_COLORS.dark, ITINERA_GL_COLORS.dark, countLabel, offsetX, offsetY, 0, bornAtSec, 0);
       }
       this._pickItems.push({ type: "cluster", kind: group.kind, id: group.id, group, lng, lat, radius: Math.max(width, height) * 0.62 });
       return;
     } else if (isPoi) {
       const plannable = isPlannablePoi(group.item);
-      kind = ALPINE_GL_KIND.poi;
+      kind = ITINERA_GL_KIND.poi;
       width = 36;
       height = 44;
-      flags = (plannable ? 0 : ALPINE_GL_FLAG_DIM) | soloDimFlags;
-      fill = plannable ? ALPINE_GL_COLORS.markerPurple : ALPINE_GL_COLORS.poiDim;
+      flags = (plannable ? 0 : ITINERA_GL_FLAG_DIM) | soloDimFlags;
+      fill = plannable ? ITINERA_GL_COLORS.markerPurple : ITINERA_GL_COLORS.poiDim;
       icon = textureRefForUiIcon(poiCategoryIconId(group.item.poiCategory), 0.62);
       const poiHover = (group.item?.id === this._hoverTargetId) ? this._hoverAnim : 0;
-      this._pushInstance(out, lng, lat, width, height, kind, flags, fill, ALPINE_GL_COLORS.dark, icon, 0, height * 0.42, poiHover, bornAtSec, isSelected);
+      this._pushInstance(out, lng, lat, width, height, kind, flags, fill, ITINERA_GL_COLORS.dark, icon, 0, height * 0.42, poiHover, bornAtSec, isSelected);
       if (!plannable) {
         /* Smaller corner badge tucked into the bottom-right of the pin head
            (positive offsetY = up; head sits in the upper portion of the
            quad with vertical center at offsetY = height * 0.42 + ~head/2)
            so the category glyph stays the dominant visual. */
-        this._pushInstance(out, lng, lat, 14, 14, ALPINE_GL_KIND.preview, soloDimFlags,
+        this._pushInstance(out, lng, lat, 14, 14, ITINERA_GL_KIND.preview, soloDimFlags,
           [0.055, 0.078, 0.118, 0.94], stroke, textureRefForUiIcon("not-by-car", 0.82),
           width * 0.42, height * 0.42 - height * 0.18, 0, bornAtSec, 0);
       }
     } else {
-      kind = ALPINE_GL_KIND.pass;
+      kind = ITINERA_GL_KIND.pass;
       const view = statusDisplay(passStatus(group.item));
       width = 36;
       height = 36;
-      flags = ALPINE_GL_FLAG_SIMPLE_CIRCLE | (view.estimated ? ALPINE_GL_FLAG_ESTIMATED : 0) | soloDimFlags;
-      fill = ALPINE_GL_COLORS.markerPurple;
-      icon = textureRefForPassSymbol(group.item.symbolIconAsset, ALPINE_GL_PASS_ART_SCALE) ||
+      flags = ITINERA_GL_FLAG_SIMPLE_CIRCLE | (view.estimated ? ITINERA_GL_FLAG_ESTIMATED : 0) | soloDimFlags;
+      fill = ITINERA_GL_COLORS.markerPurple;
+      icon = textureRefForPassSymbol(group.item.symbolIconAsset, ITINERA_GL_PASS_ART_SCALE) ||
              textureRefForUiIcon("pass-generic", 0.62);
       const passHover = (group.item?.id === this._hoverTargetId) ? this._hoverAnim : 0;
       this._pushInstance(out, lng, lat, width, height, kind, flags,
-        fill, ALPINE_GL_COLORS.dark, icon, 0, 0, passHover, bornAtSec, isSelected);
+        fill, ITINERA_GL_COLORS.dark, icon, 0, 0, passHover, bornAtSec, isSelected);
     }
     const badge = plannedBadgeNumber(group.item);
     if (badge) {
       const badgeIcon = this._labelRef(String(badge), isPoi ? "badge-poi" : "badge-pass");
-      if (badgeIcon) this._pushInstance(out, lng, lat, 22, 22, ALPINE_GL_KIND.label, 0,
+      if (badgeIcon) this._pushInstance(out, lng, lat, 22, 22, ITINERA_GL_KIND.label, 0,
         fill, stroke, badgeIcon, 13, height * 0.42 + 9, 0, bornAtSec, 0);
     }
     this._pickItems.push({
@@ -3586,7 +3586,7 @@ class AlpineWebGLLayer {
 
   _pushStartInstance(out, start) {
     const label = this._labelRef((start.name?.[0] || "S").toUpperCase(), "start");
-    if (label) this._pushInstance(out, start.lon, start.lat, 38, 38, ALPINE_GL_KIND.label, 0, ALPINE_GL_COLORS.white, ALPINE_GL_COLORS.white, label, 0, -15);
+    if (label) this._pushInstance(out, start.lon, start.lat, 38, 38, ITINERA_GL_KIND.label, 0, ITINERA_GL_COLORS.white, ITINERA_GL_COLORS.white, label, 0, -15);
   }
 
   _pushInstance(out, lng, lat, width, height, kind, flags, fill, stroke, icon, offsetX = 0, offsetY = 0, hover = 0, entrance = 0, selected = 0, pebbles = null) {
@@ -3614,15 +3614,15 @@ class AlpineWebGLLayer {
     const existing = this._labelKeys.get(key);
     if (existing) return existing;
     const slot = this._labelEntries.length;
-    if (slot >= ALPINE_GL_LABEL_COLS * ALPINE_GL_LABEL_ROWS) return null;
-    const col = slot % ALPINE_GL_LABEL_COLS;
-    const row = Math.floor(slot / ALPINE_GL_LABEL_COLS);
+    if (slot >= ITINERA_GL_LABEL_COLS * ITINERA_GL_LABEL_ROWS) return null;
+    const col = slot % ITINERA_GL_LABEL_COLS;
+    const row = Math.floor(slot / ITINERA_GL_LABEL_COLS);
     const ref = {
       sheet: 3,
-      u: col / ALPINE_GL_LABEL_COLS,
+      u: col / ITINERA_GL_LABEL_COLS,
       /* Match the same flip applied to UI atlas in atlasCellUv() so labels
          render upright after UNPACK_FLIP_Y_WEBGL=true. */
-      v: (ALPINE_GL_LABEL_ROWS - row - 1) / ALPINE_GL_LABEL_ROWS,
+      v: (ITINERA_GL_LABEL_ROWS - row - 1) / ITINERA_GL_LABEL_ROWS,
       scale: 1,
     };
     this._labelEntries.push({ text: safeText, type, col, row });
@@ -3641,10 +3641,10 @@ class AlpineWebGLLayer {
   }
 
   _drawLabelCell(ctx, entry) {
-    const x = entry.col * ALPINE_GL_LABEL_CELL;
-    const y = entry.row * ALPINE_GL_LABEL_CELL;
-    const cx = x + ALPINE_GL_LABEL_CELL / 2;
-    const cy = y + ALPINE_GL_LABEL_CELL / 2;
+    const x = entry.col * ITINERA_GL_LABEL_CELL;
+    const y = entry.row * ITINERA_GL_LABEL_CELL;
+    const cx = x + ITINERA_GL_LABEL_CELL / 2;
+    const cy = y + ITINERA_GL_LABEL_CELL / 2;
     ctx.save();
     if (entry.type === "start") {
       ctx.translate(cx, cy);
@@ -4083,7 +4083,7 @@ function setupMapLayers() {
     },
     layout: { "line-cap": "round", "line-join": "round" },
   });
-  if (!map.getLayer(ALPINE_GL_LAYER_ID)) {
+  if (!map.getLayer(ITINERA_GL_LAYER_ID)) {
     map.addLayer(alpineOverlayLayer);
   }
   try {
@@ -4116,7 +4116,7 @@ function setupMapLayers() {
         "circle-stroke-color": "#0e1418",
         "circle-stroke-width": 2,
       },
-    }, ALPINE_GL_LAYER_ID);
+    }, ITINERA_GL_LAYER_ID);
     addLayerWithSource({
       id: "leisure-break-points",
       type: "circle",
@@ -4128,7 +4128,7 @@ function setupMapLayers() {
         "circle-stroke-color": "#0e1418",
         "circle-stroke-width": 2,
       },
-    }, ALPINE_GL_LAYER_ID);
+    }, ITINERA_GL_LAYER_ID);
     addLayerWithSource({
       id: "leisure-point-labels",
       type: "symbol",
@@ -4140,7 +4140,7 @@ function setupMapLayers() {
         "text-allow-overlap": true,
       },
       paint: { "text-color": "#0e1418", "text-halo-color": "#ffffff", "text-halo-width": 1 },
-    }, ALPINE_GL_LAYER_ID);
+    }, ITINERA_GL_LAYER_ID);
   } catch (e) {
     console.warn("leisure overlays disabled", e);
   }
@@ -4201,7 +4201,7 @@ function setupMapLayers() {
         "text-halo-color": "#54d1ff",
         "text-halo-width": 1.2,
       },
-    }, ALPINE_GL_LAYER_ID);
+    }, ITINERA_GL_LAYER_ID);
   } catch (e) {
     console.warn("scenic drive overlays disabled", e);
   }
@@ -4622,7 +4622,7 @@ function performMapStyleSwap(nextStyle) {
   }
   const overlay = document.createElement('img');
   overlay.src = dataUrl;
-  overlay.className = 'alpine-style-swap-overlay';
+  overlay.className = 'itinera-style-swap-overlay';
   overlay.setAttribute('aria-hidden', 'true');
   map.getContainer().appendChild(overlay);
   _styleSwapOverlay = overlay;
@@ -4682,7 +4682,7 @@ class AlpineConditionsStrip {
   addTo(mapInstance) {
     this._map = mapInstance || map;
     const el = document.createElement("div");
-    el.className = "alpine-conditions-strip";
+    el.className = "itinera-conditions-strip";
     el.setAttribute("role", "group");
     el.setAttribute("aria-label", "Pass conditions and trip date");
     el.innerHTML = this._html();
@@ -4794,7 +4794,7 @@ class AlpineLayerControl {
     this._map = mapInstance || map;
     this._drawerOpen = false;
     const el = document.createElement("div");
-    el.className = "maplibregl-ctrl maplibregl-ctrl-group alpine-layer-control pass-stack-control";
+    el.className = "maplibregl-ctrl maplibregl-ctrl-group itinera-layer-control pass-stack-control";
     el.innerHTML = this._controlHtml();
     this._root = el;
     this._drawer = this._buildDrawer();

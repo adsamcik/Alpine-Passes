@@ -11,6 +11,8 @@ pub mod lunch;
 pub mod optimizer;
 pub mod types;
 pub mod ui_options;
+pub mod tour_dto;
+pub mod extras;
 pub mod wasm_api;
 
 pub use astar::{leisure_astar, AStarOptions, AStarResult, AStarStatus, CostMode};

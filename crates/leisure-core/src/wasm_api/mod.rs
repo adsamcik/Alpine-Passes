@@ -37,6 +37,7 @@ use std::collections::{BTreeMap, HashSet};
 use wasm_bindgen::prelude::*;
 
 pub mod heuristics;
+pub mod tour_dto;
 
 fn to_js_value<T: Serialize>(value: &T) -> Result<JsValue, JsValue> {
     let serializer = Serializer::new().serialize_maps_as_objects(true);

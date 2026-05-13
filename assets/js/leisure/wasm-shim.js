@@ -6,7 +6,7 @@ const GRAPH_URL = new URL("../../data/leisure-graph.v1.json", import.meta.url).h
 const FETCH_TIMEOUT_MS = 20_000;
 // Auto-updated by tools/leisure/build-wasm.mjs at build time. Used to
 // cache-bust the WASM binary against stale glue JS on deploys.
-const WASM_CONTENT_HASH = "85a2e4771698";
+const WASM_CONTENT_HASH = "d7900ac87ed1";
 const SHIM_REPORTED = Symbol.for("alpine.leisure.shimReported");
 
 let graphStatePromise = null;

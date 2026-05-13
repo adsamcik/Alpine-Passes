@@ -46,7 +46,7 @@ The Rust dependency versions for WASM glue are pinned in `Cargo.toml` and must m
 # Tools needed:
 rustup target add wasm32-unknown-unknown
 cargo install wasm-pack
-cargo install wasm-bindgen-cli --version 0.2.121
+cargo install wasm-bindgen-cli --version 0.2.118
 npm install --no-save binaryen   # provides wasm-opt
 
 # Build checked-in WASM artifacts:
@@ -157,7 +157,7 @@ Wire these to your team's telemetry pipeline (Sentry, Datadog, etc.) if availabl
 
 Pin in CI:
 
-- `cargo install wasm-bindgen-cli --version 0.2.121` (matches the Cargo dependency pin)
+- `cargo install wasm-bindgen-cli --version 0.2.118` (matches the Cargo dependency pin)
 - `wasm-pack` (any 0.x.y version)
 - `binaryen` via `npm install --no-save binaryen` (provides `wasm-opt`)
 

@@ -10,6 +10,7 @@ pub mod heuristics;
 pub mod intent;
 pub mod lunch;
 pub mod optimizer;
+pub mod phase4_orchestrator;
 pub mod route_geom;
 pub mod tour_dto;
 pub mod types;

@@ -37,6 +37,7 @@ use std::collections::{BTreeMap, HashSet};
 use wasm_bindgen::prelude::*;
 
 pub mod heuristics;
+pub mod phase4;
 pub mod route_geom;
 pub mod tour_dto;
 
@@ -293,7 +294,8 @@ pub fn wasm_surface_intent_pois(
     })
 }
 
-fn wasm_boundary<T, F>(body: F) -> Result<JsValue, JsValue>
+// pub(super) for F4 (ADR-F4-008)
+pub(super) fn wasm_boundary<T, F>(body: F) -> Result<JsValue, JsValue>
 where
     T: Serialize,
     F: FnOnce() -> Result<T, String>,
@@ -399,7 +401,8 @@ fn free_ears_handle(ears_handle: u32) -> Result<bool, String> {
     })
 }
 
-fn with_graph<T, F>(graph_handle: u32, body: F) -> Result<T, String>
+// pub(super) for F4 (ADR-F4-008)
+pub(super) fn with_graph<T, F>(graph_handle: u32, body: F) -> Result<T, String>
 where
     F: FnOnce(&LeisureGraph) -> Result<T, String>,
 {
@@ -654,7 +657,8 @@ struct CorridorOptionsInput {
     mode: Option<String>,
 }
 
-fn parse_corridor_options(value: JsValue) -> Result<CorridorOptions, String> {
+// pub(super) for F4 (ADR-F4-008)
+pub(super) fn parse_corridor_options(value: JsValue) -> Result<CorridorOptions, String> {
     let input: CorridorOptionsInput = parse_js_or_default(value, "corridor options")?;
     let mut options = CorridorOptions::default();
     assign_finite(&mut options.buffer_km, input.buffer_km);
@@ -700,7 +704,8 @@ struct LunchOptionsInput {
     weather: Option<String>,
 }
 
-fn parse_lunch_options(value: JsValue) -> Result<LunchOptions, String> {
+// pub(super) for F4 (ADR-F4-008)
+pub(super) fn parse_lunch_options(value: JsValue) -> Result<LunchOptions, String> {
     let input: LunchOptionsInput = parse_js_or_default(value, "lunch options")?;
     let mut options = LunchOptions::default();
     if let Some(value) = input.start_time.filter(|value| !value.trim().is_empty()) {
@@ -754,7 +759,8 @@ struct BreakOptionsInput {
     stop_dwell_sec: Option<BTreeMap<String, f64>>,
 }
 
-fn parse_break_options(value: JsValue) -> Result<BreakOptions, String> {
+// pub(super) for F4 (ADR-F4-008)
+pub(super) fn parse_break_options(value: JsValue) -> Result<BreakOptions, String> {
     let input: BreakOptionsInput = parse_js_or_default(value, "break options")?;
     let mut options = BreakOptions::default();
     if let Some(value) = input.start_time.filter(|value| !value.trim().is_empty()) {
@@ -782,7 +788,11 @@ fn parse_break_options(value: JsValue) -> Result<BreakOptions, String> {
     Ok(options)
 }
 
-fn parse_intent_state(entities: Vec<IntentEntity>, options: &Value) -> Result<IntentState, String> {
+// pub(super) for F4 (ADR-F4-008)
+pub(super) fn parse_intent_state(
+    entities: Vec<IntentEntity>,
+    options: &Value,
+) -> Result<IntentState, String> {
     let object = options.as_object();
     let theme_chips = object
         .and_then(|item| item.get("themeChips").or_else(|| item.get("themes")))
@@ -884,7 +894,8 @@ fn parse_string_list(value: JsValue, label: &str) -> Result<Vec<String>, String>
     Ok(strings_from_value(&value))
 }
 
-fn parse_js<T>(value: JsValue, label: &str) -> Result<T, String>
+// pub(super) for F4 (ADR-F4-008)
+pub(super) fn parse_js<T>(value: JsValue, label: &str) -> Result<T, String>
 where
     T: DeserializeOwned,
 {
@@ -892,7 +903,8 @@ where
         .map_err(|error| format!("failed to parse {label}: {error}"))
 }
 
-fn parse_js_or_default<T>(value: JsValue, label: &str) -> Result<T, String>
+// pub(super) for F4 (ADR-F4-008)
+pub(super) fn parse_js_or_default<T>(value: JsValue, label: &str) -> Result<T, String>
 where
     T: DeserializeOwned + Default,
 {
@@ -912,7 +924,8 @@ where
     parse_js(value, label).map(Some)
 }
 
-fn parse_value_or_default(value: JsValue, label: &str) -> Result<Value, String> {
+// pub(super) for F4 (ADR-F4-008)
+pub(super) fn parse_value_or_default(value: JsValue, label: &str) -> Result<Value, String> {
     if value.is_null() || value.is_undefined() {
         return Ok(Value::Null);
     }

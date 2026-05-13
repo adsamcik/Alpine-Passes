@@ -2832,7 +2832,7 @@ class AlpineWebGLLayer {
     if (!gl || !matrix) {
       if (!this._warnedMissingMatrix) {
         this._warnedMissingMatrix = true;
-        console.error("Alpine WebGL overlay render missing a 4x4 projection matrix");
+        console.error("Itinera WebGL overlay render missing a 4x4 projection matrix");
       }
       return;
     }
@@ -3356,7 +3356,7 @@ class AlpineWebGLLayer {
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
       this._map?.triggerRepaint();
     };
-    image.onerror = () => console.warn("Alpine WebGL overlay texture failed to load", url);
+    image.onerror = () => console.warn("Itinera WebGL overlay texture failed to load", url);
     image.src = url;
     return tex;
   }

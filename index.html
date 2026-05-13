@@ -17,18 +17,18 @@
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.css">
 <script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js" defer></script>
 
-<link rel="stylesheet" href="assets/css/site.css?v=alpine-engine-27">
-<script src="assets/js/passes-data.js?v=alpine-engine-27" defer></script>
-<script src="assets/js/japan-passes.js?v=alpine-engine-27" defer></script>
-<script src="assets/js/japan-scenic-drives.js?v=alpine-engine-27" defer></script>
-<script src="assets/js/swiss-pois.js?v=alpine-engine-27" defer></script>
-<script src="assets/js/french-pois.js?v=alpine-engine-27" defer></script>
-<script src="assets/js/italy-pois.js?v=alpine-engine-27" defer></script>
-<script src="assets/js/austrian-pois.js?v=alpine-engine-27" defer></script>
-<script src="assets/js/japan-pois.js?v=alpine-engine-27" defer></script>
-<script src="assets/js/passes-cams.js?v=alpine-engine-27" defer></script>
-<script src="assets/js/pass-icons.js?v=alpine-engine-27" defer></script>
-<script src="assets/js/app.js?v=alpine-engine-27" defer></script>
+<link rel="stylesheet" href="assets/css/site.css?v=itinera-1">
+<script src="assets/js/passes-data.js?v=itinera-1" defer></script>
+<script src="assets/js/japan-passes.js?v=itinera-1" defer></script>
+<script src="assets/js/japan-scenic-drives.js?v=itinera-1" defer></script>
+<script src="assets/js/swiss-pois.js?v=itinera-1" defer></script>
+<script src="assets/js/french-pois.js?v=itinera-1" defer></script>
+<script src="assets/js/italy-pois.js?v=itinera-1" defer></script>
+<script src="assets/js/austrian-pois.js?v=itinera-1" defer></script>
+<script src="assets/js/japan-pois.js?v=itinera-1" defer></script>
+<script src="assets/js/passes-cams.js?v=itinera-1" defer></script>
+<script src="assets/js/pass-icons.js?v=itinera-1" defer></script>
+<script src="assets/js/app.js?v=itinera-1" defer></script>
 </head>
 <body>
 
@@ -41,11 +41,11 @@
   <nav class="sidebar-tabs" aria-label="Sidebar sections">
     <div class="sidebar-tab-strip" role="tablist" aria-label="Planner sections">
       <label class="sidebar-tab" for="sidebarTabPlan" role="tab" aria-controls="sidebarPanelPlan">
-        <span class="sidebar-tab-main"><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-compass"></use></svg> Plan</span>
+        <span class="sidebar-tab-main"><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#itinera-compass"></use></svg> Plan</span>
         <span class="sidebar-tab-sub">Build a tour</span>
       </label>
       <label class="sidebar-tab" for="sidebarTabBrowse" role="tab" aria-controls="sidebarPanelBrowse">
-        <span class="sidebar-tab-main"><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-explore"></use></svg> Browse</span>
+        <span class="sidebar-tab-main"><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#itinera-explore"></use></svg> Browse</span>
         <span class="sidebar-tab-sub"><strong><span id="passCount">…</span></strong> passes · <strong><span id="poiCount">…</span></strong> sights</span>
       </label>
     </div>
@@ -59,14 +59,14 @@
       <section class="sidebar-tab-panel sidebar-tab-panel-plan" id="sidebarPanelPlan" role="tabpanel" aria-labelledby="sidebarTabPlan">
         <section class="planner" id="planner" aria-labelledby="planner-title">
           <div class="planner-intro">
-            <span class="summary-title" id="planner-title"><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-compass"></use></svg> Plan a sightseeing tour</span>
+            <span class="summary-title" id="planner-title"><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#itinera-compass"></use></svg> Plan a sightseeing tour</span>
             <span class="summary-subtitle">Essentials first · optional sights · exact-stop builder when needed</span>
           </div>
       <div class="planner-body planner-redesign">
         <div class="planner-card planner-primary-card">
           <div class="planner-card-head">
             <div>
-              <div class="section-label"><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-route"></use></svg> 1 · Trip essentials</div>
+              <div class="section-label"><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#itinera-route"></use></svg> 1 · Trip essentials</div>
               <p class="planner-card-copy">Choose where to start, when you travel, and whether your day is sized by kilometres or total time.</p>
             </div>
           </div>
@@ -113,11 +113,11 @@
               <span id="planLocateError" class="plan-locate-error" role="status" aria-live="polite" hidden></span>
               <div class="start-search-row">
                 <button id="planLocate" class="start-icon-btn" type="button" title="Use current browser location" aria-label="Use current browser location as start">
-                  <svg class="button-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-compass"></use></svg>
+                  <svg class="button-icon" aria-hidden="true"><use href="assets/icons.svg#itinera-compass"></use></svg>
                   <span class="button-label">My location</span>
                 </button>
                 <button id="planPick" class="start-icon-btn" type="button" title="Click on map to set start" aria-label="Pick a custom start point on the map" aria-pressed="false">
-                  <svg class="button-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-pin"></use></svg>
+                  <svg class="button-icon" aria-hidden="true"><use href="assets/icons.svg#itinera-pin"></use></svg>
                   <span class="button-label">Pick on map</span>
                 </button>
                 <input id="planStartSearch" type="search" placeholder="Or search town or address" autocomplete="off" aria-label="Search any starting point" aria-controls="planStartSearchResults">
@@ -165,7 +165,7 @@
         <div class="planner-card planner-options-card compact">
           <div class="planner-card-head">
             <div>
-              <div class="section-label"><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-tune"></use></svg> 2 · Make it yours</div>
+              <div class="section-label"><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#itinera-tune"></use></svg> 2 · Make it yours</div>
               <p class="planner-card-copy">Keep the default open-pass filter, add curated sights with one preset, or switch to exact stop picking.</p>
             </div>
           </div>
@@ -246,7 +246,7 @@
 
           <details class="poi-prefs planner-stops" id="plannerStops">
             <summary>
-              <span class="summary-title"><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-clock"></use></svg> Stops &amp; breaks</span>
+              <span class="summary-title"><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#itinera-clock"></use></svg> Stops &amp; breaks</span>
               <span class="summary-subtitle" id="plannerStopsSubtitle">Auto-pads time for pass photo stops, lunch, and driving rests</span>
             </summary>
             <div class="poi-prefs-body">
@@ -379,7 +379,7 @@
         </section>
 
         <details class="legend-panel">
-          <summary><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-legend"></use></svg> Map legend</summary>
+          <summary><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#itinera-legend"></use></svg> Map legend</summary>
           <section class="legend" aria-label="Map marker legend">
             <span><span class="ui-art-icon legend-art status-art open ui-icon-status-open" aria-hidden="true"></span>Open</span>
             <span><span class="ui-art-icon legend-art status-art restricted ui-icon-status-restricted" aria-hidden="true"></span>Restrictions</span>
@@ -400,7 +400,7 @@
 
 <footer class="site-footer">
   <span class="footer-status" id="updated"><span id="updatedText">Loading live status…</span><button id="refreshBtn" type="button"
-    class="refresh-button" title="Reload page; live source cache refreshes daily"><svg class="button-icon" aria-hidden="true"><use href="assets/icons.svg#alpine-reload"></use></svg> reload</button></span>
+    class="refresh-button" title="Reload page; live source cache refreshes daily"><svg class="button-icon" aria-hidden="true"><use href="assets/icons.svg#itinera-reload"></use></svg> reload</button></span>
   <span id="mapInfo">Vector map initialising…</span>
   <span class="footer-credits">Vector tiles © <a href="https://openfreemap.org/" target="_blank" rel="noopener">OpenFreeMap</a> /
         <a href="https://openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a> ·

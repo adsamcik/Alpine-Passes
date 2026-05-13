@@ -1,72 +1,72 @@
 <svg xmlns="http://www.w3.org/2000/svg" style="display:none">
-  <symbol id="alpine-compass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+  <symbol id="itinera-compass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="12" cy="12" r="9" />
     <path d="M12 4.5 13.5 12 10.5 12Z" fill="currentColor" />
     <path d="M10.5 12 12 19.5 13.5 12" />
   </symbol>
 
-  <symbol id="alpine-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+  <symbol id="itinera-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
     <path d="M12 21s6-5.5 6-11a6 6 0 0 0-12 0c0 5.5 6 11 6 11Z"/>
     <circle cx="12" cy="10" r="2"/>
   </symbol>
 
-  <symbol id="alpine-route" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+  <symbol id="itinera-route" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
     <path d="M5 7h6l-4 5h7l-4 5h9" />
     <circle cx="5" cy="7" r="2" fill="currentColor" />
     <circle cx="19" cy="17" r="2" fill="currentColor" />
   </symbol>
 
-  <symbol id="alpine-tune" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+  <symbol id="itinera-tune" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
     <path d="M6 4v16M12 4v16M18 4v16" />
     <path d="M4 9h4M10 15h4M16 8h4" />
   </symbol>
 
-  <symbol id="alpine-legend" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+  <symbol id="itinera-legend" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="6" cy="7" r="2" fill="#3ddc84" stroke="none" />
     <circle cx="6" cy="12" r="2" fill="#ffb020" stroke="none" />
     <circle cx="6" cy="17" r="2" fill="#ef4444" stroke="none" />
     <path d="M11 7h9M11 12h7M11 17h5" fill="none" stroke="currentColor" stroke-width="1.75" />
   </symbol>
 
-  <symbol id="alpine-explore" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+  <symbol id="itinera-explore" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="10.5" cy="10.5" r="6.5"/>
     <path d="M15.5 15.5 20 20"/>
     <path d="M7 13l3-3 5 5"/>
   </symbol>
 
-  <symbol id="alpine-reload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+  <symbol id="itinera-reload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
     <path d="M18.5 8.5A7 7 0 1 0 19 15"/>
     <path d="M18.5 4.5v4h-4"/>
   </symbol>
 
-  <symbol id="alpine-status" viewBox="0 0 24 24">
+  <symbol id="itinera-status" viewBox="0 0 24 24">
     <path d="M4.5 18.5 12 5.5l7.5 13H4.5Z" fill="currentColor"/>
     <path d="M9 16.5 12 10.5l3 6H9Z" fill="var(--icon-cut, #0e1418)"/>
   </symbol>
 
-  <symbol id="alpine-state-open" viewBox="0 0 24 24">
+  <symbol id="itinera-state-open" viewBox="0 0 24 24">
     <path d="M6 12.5 10.5 17 18 8.5" fill="none" stroke="var(--icon-cut, #0e1418)" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"/>
   </symbol>
 
-  <symbol id="alpine-state-restricted" viewBox="0 0 24 24">
+  <symbol id="itinera-state-restricted" viewBox="0 0 24 24">
     <path d="M12 6.5V13.5" fill="none" stroke="var(--icon-cut, #0e1418)" stroke-width="2.25" stroke-linecap="round"/>
     <circle cx="12" cy="17.5" r="1.5" fill="var(--icon-cut, #0e1418)"/>
   </symbol>
 
-  <symbol id="alpine-state-closed" viewBox="0 0 24 24">
+  <symbol id="itinera-state-closed" viewBox="0 0 24 24">
     <path d="M6.5 12H17.5" fill="none" stroke="var(--icon-cut, #0e1418)" stroke-width="3" stroke-linecap="round"/>
   </symbol>
 
-  <symbol id="alpine-state-estimated" viewBox="0 0 24 24">
+  <symbol id="itinera-state-estimated" viewBox="0 0 24 24">
     <path d="M6 12.5 10.5 17 18 8.5" fill="none" stroke="var(--icon-cut, #0e1418)" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1.5 3"/>
   </symbol>
 
-  <symbol id="alpine-state-unknown" viewBox="0 0 24 24">
+  <symbol id="itinera-state-unknown" viewBox="0 0 24 24">
     <path d="M9 9C9 7.5 10.25 6.5 12 6.5S15 7.5 15 9C15 11.5 12 11.5 12 14" fill="none" stroke="var(--icon-cut, #0e1418)" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"/>
     <circle cx="12" cy="17.5" r="1.5" fill="var(--icon-cut, #0e1418)"/>
   </symbol>
 
-  <symbol id="alpine-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+  <symbol id="itinera-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="12" cy="13" r="7.5"/>
     <path d="M12 9v4l2.5 2"/>
     <path d="M9.5 3.5h5"/>

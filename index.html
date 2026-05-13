@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="Interactive Alpine pass map with live Swiss road status, seasonal estimates, pass search, and a sightseeing tour planner.">
+<meta name="description" content="Itinera — interactive map of mountain passes, scenic drives, and curated POIs across the Alps and Japan, with live road status, opening hours, and a sightseeing tour planner.">
 <meta name="theme-color" content="#161a1d">
-<title>Alpine Passes — live map &amp; tour planner</title>
+<title>Itinera — scenic passes, drives & sights</title>
 <link rel="icon" href="assets/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="icon" href="assets/favicon-512.png" sizes="512x512" type="image/png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
@@ -184,7 +184,7 @@
           <details class="poi-prefs" id="poiPrefs" hidden open>
             <summary>
               <span class="summary-title">Sight presets &amp; preferences</span>
-              <span class="summary-subtitle" id="poiPrefsSubtitle">Default · any category · any theme · ★ 6+ · up to 3 sights</span>
+              <span class="summary-subtitle" id="poiPrefsSubtitle">Default · any category · any theme · <span class="ui-art-icon ui-icon-utility-star score-star-icon" aria-hidden="true"></span> 6+ · up to 3 sights</span>
               <span class="poi-prefs-label poi-prefs-presets-label">One-click presets</span>
               <span class="poi-prefs-presets" id="poiPresets" role="group" aria-label="Sight preset bundles">
                 <button type="button" data-preset="family"   class="preset-chip"><span class="ui-art-icon preset-chip-icon ui-icon-poi-generic" aria-hidden="true"></span>Family day</button>
@@ -192,7 +192,7 @@
                 <button type="button" data-preset="photo"    class="preset-chip"><span class="ui-art-icon preset-chip-icon ui-icon-poi-viewpoint-panorama" aria-hidden="true"></span>Photo tour</button>
                 <button type="button" data-preset="hidden"   class="preset-chip"><span class="ui-art-icon preset-chip-icon ui-icon-poi-special-experience" aria-hidden="true"></span>Hidden gems</button>
                 <button type="button" data-preset="wine"     class="preset-chip"><span class="ui-art-icon preset-chip-icon ui-icon-poi-wine-region" aria-hidden="true"></span>Wine &amp; food</button>
-                <button type="button" data-preset="reset"    class="preset-chip preset-reset">↺ Reset</button>
+                <button type="button" data-preset="reset"    class="preset-chip preset-reset">Reset</button>
               </span>
             </summary>
             <div class="poi-prefs-body">
@@ -206,7 +206,7 @@
               </div>
               <div class="poi-range-grid">
                 <label class="poi-prefs-row">
-                  <span class="poi-prefs-label">Min notability: <strong id="poiMinScoreLabel">★ 6+</strong></span>
+                  <span class="poi-prefs-label">Min notability: <strong id="poiMinScoreLabel"><span class="ui-art-icon ui-icon-utility-star score-star-icon" aria-hidden="true"></span> 6+</strong></span>
                   <input id="poiMinScore" type="range" min="5" max="10" step="1" value="6" aria-label="Minimum POI notability score">
                 </label>
                 <label class="poi-prefs-row">
@@ -327,7 +327,7 @@
         <section class="controls" aria-label="Pass filters">
           <input id="search" type="search" placeholder="Search pass name…" autocomplete="off" aria-label="Search passes by name">
           <select id="sort" title="Sort" aria-label="Sort passes">
-            <option value="quality">Quality ★</option>
+            <option value="quality">Quality score</option>
             <option value="status">Status</option>
             <option value="distance">Distance</option>
             <option value="elevation">Elevation</option>
@@ -353,7 +353,7 @@
         <section class="controls" aria-label="Sight filters">
           <input id="poiSearch" type="search" placeholder="Search sights, region, theme…" autocomplete="off" aria-label="Search sights">
           <select id="poiSort" title="Sort" aria-label="Sort sights">
-            <option value="score">Notability ★</option>
+            <option value="score">Notability score</option>
             <option value="name">Name</option>
             <option value="category">Category</option>
             <option value="region">Region</option>
@@ -371,7 +371,7 @@
           </label>
           <label class="check compact">
             <input id="poiTopOnly" type="checkbox">
-            <span>Top notable (★8+)</span>
+            <span>Top notable (<span class="ui-art-icon ui-icon-utility-star score-star-icon" aria-hidden="true"></span>8+)</span>
           </label>
         </section>
         <ul class="pass-list poi-list" id="poiList"></ul>
@@ -396,7 +396,7 @@
   </div>
 </aside>
 
-<main id="map" aria-label="Interactive Alpine pass map"></main>
+<main id="map" aria-label="Interactive map of mountain passes, scenic drives, and sights"></main>
 
 <footer class="site-footer">
   <span class="footer-status" id="updated"><span id="updatedText">Loading live status…</span><button id="refreshBtn" type="button"

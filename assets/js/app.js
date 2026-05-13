@@ -375,8 +375,8 @@ function isPlannablePoi(p) { return p?.isPoi && PLANNABLE_POI_IDS.has(p.id); }
                      defaults to true when omitted
 
    The popup uses the access fields to render a "Getting there" block, a
-   "🅿️ Park: …" line with a direct Google-Maps-to-parking link, an
-   "Official site ↗" link, and a closure warning when operational === false.
+   parking line with a direct Google-Maps-to-parking link, an official-site
+   link, and a closure warning when operational === false.
    Tour planning still uses the POI's own la/lo for OSRM routing — the
    parking lat/lng is *informational* for now, surfaced as a direct external
    link rather than entangled with the internal route solver.
@@ -499,7 +499,7 @@ function poiAccessHtml(poi) {
   /* Operational status — only render if explicitly false. */
   if (poi.operational === false) {
     const closure = poi.parking?.notes || "Temporarily closed — check the official site.";
-    parts.push(`<div class="popup-meta tight poi-closed-line"><strong>⚠️ Currently closed:</strong> ${escapeHtml(closure.split(".")[0] + ".")}</div>`);
+    parts.push(`<div class="popup-meta tight poi-closed-line"><strong>${uiIconHtml("utility-warning", "popup-meta-icon")} Currently closed:</strong> ${escapeHtml(closure.split(".")[0] + ".")}</div>`);
   }
 
   /* car_status chip + "Getting there" sentence. */
@@ -520,13 +520,13 @@ function poiAccessHtml(poi) {
     if (pk.cost) bits.push(escapeHtml(pk.cost));
     if (Number.isFinite(pk.spaces) && pk.spaces > 0) bits.push(`${pk.spaces} spaces`);
     const meta = bits.length ? ` <span class="poi-parking-meta">· ${bits.join(" · ")}</span>` : "";
-    const opLink = pk.url ? ` <a class="poi-parking-source" href="${escapeHtml(pk.url)}" target="_blank" rel="noopener">operator ↗</a>` : "";
-    parts.push(`<div class="popup-meta tight poi-parking-line"><strong>🅿️ Park:</strong> ${escapeHtml(pk.name || "Recommended parking")}${meta} <a class="poi-parking-link" href="${escapeHtml(mapsUrl)}" target="_blank" rel="noopener">drive ↗</a>${opLink}</div>`);
+    const opLink = pk.url ? ` <a class="poi-parking-source" href="${escapeHtml(pk.url)}" target="_blank" rel="noopener">operator ${externalLinkIconHtml()}</a>` : "";
+    parts.push(`<div class="popup-meta tight poi-parking-line"><strong>${uiIconHtml("utility-parking", "popup-meta-icon")} Park:</strong> ${escapeHtml(pk.name || "Recommended parking")}${meta} <a class="poi-parking-link" href="${escapeHtml(mapsUrl)}" target="_blank" rel="noopener">drive ${externalLinkIconHtml()}</a>${opLink}</div>`);
   }
 
   /* Official site link (only when distinct from the price source). */
   if (poi.officialUrl && poi.officialUrl !== poi.priceSourceUrl) {
-    parts.push(`<div class="popup-meta tight poi-official-line"><a class="popup-link" href="${escapeHtml(poi.officialUrl)}" target="_blank" rel="noopener">Official site ↗</a></div>`);
+    parts.push(`<div class="popup-meta tight poi-official-line"><a class="popup-link" href="${escapeHtml(poi.officialUrl)}" target="_blank" rel="noopener">Official site ${externalLinkIconHtml()}</a></div>`);
   }
 
   return parts.join("");
@@ -667,12 +667,14 @@ const UI_ICON_IDS = new Set([
   "poi-glacier", "poi-old-town", "poi-castle-fortress", "poi-monastery-church", "poi-scenic-railway",
   "poi-bridge-engineering", "poi-village", "poi-national-park", "poi-spa-wellness", "poi-viewpoint-panorama",
   "poi-museum-cultural", "poi-geology-cave", "poi-wine-region", "poi-special-experience", "pass-generic",
-  "poi-funicular",
-  /* Japan categories (P0b). */
-  "poi-shinto-shrine", "poi-buddhist-temple", "poi-traditional-garden", "poi-onsen-town", "poi-post-town",
-  "poi-volcano", "poi-observation-tower", "poi-historic-district", "poi-food-market",
-  "poi-pop-culture-site", "poi-art-island",
-  "layer-survey", "layer-plan", "layer-explore",
+  "poi-funicular", "poi-art-island", "poi-buddhist-temple", "poi-food-market", "poi-historic-district",
+  "poi-observation-tower", "poi-onsen-town", "poi-pop-culture-site", "poi-post-town", "poi-shinto-shrine",
+  "poi-traditional-garden", "poi-volcano", "layer-survey", "layer-plan", "layer-explore",
+  "weather-sunny", "weather-partly-cloudy", "weather-cloudy", "weather-fog", "weather-rain",
+  "weather-snow", "weather-showers", "weather-storm", "weather-wind", "break-coffee",
+  "break-restroom", "break-viewpoint", "utility-parking", "utility-warning", "utility-external-link",
+  "utility-lock", "utility-unlock", "utility-star", "utility-check", "utility-add",
+  "utility-close", "utility-more", "utility-calendar",
 ]);
 
 function iconSvg(id, className = "app-icon") {
@@ -685,6 +687,21 @@ function uiIconHtml(id, className = "app-icon", label = "") {
     ? ` role="img" aria-label="${escapeHtml(label)}"`
     : ` aria-hidden="true"`;
   return `<span class="ui-art-icon ui-icon-${safeId} ${className}"${aria}></span>`;
+}
+
+function generatedStarsHtml(filled, total = 5, className = "rating-star-icon") {
+  const count = Math.max(0, Math.min(total, Number(filled) || 0));
+  return Array.from({ length: total }, (_, index) =>
+    uiIconHtml("utility-star", `${className}${index >= count ? " is-empty" : ""}`)
+  ).join("");
+}
+
+function generatedScoreHtml(value, className = "score-star-icon") {
+  return `${uiIconHtml("utility-star", className)} ${escapeHtml(String(value))}`;
+}
+
+function externalLinkIconHtml() {
+  return uiIconHtml("utility-external-link", "inline-link-icon");
 }
 
 function poiCategoryIcon(cat, className = "poi-icon") {
@@ -2024,12 +2041,22 @@ notifyInitialLayerModePresetApplied();
 
 function passLayerControlQualityLabel() {
   const stars = Math.round(layerControlState.passQualityMin * 5);
-  return stars <= 0 ? "All passes" : `★ ${stars}+`;
+  return stars <= 0 ? "All passes" : `${stars}+`;
+}
+
+function passLayerControlQualityLabelHtml() {
+  const stars = Math.round(layerControlState.passQualityMin * 5);
+  return stars <= 0 ? "All passes" : `${generatedScoreHtml(stars)}+`;
 }
 
 function poiLayerControlQualityLabel() {
   const stars = Math.round(layerControlState.poiQualityMin * 5);
-  return stars <= 0 ? "All sights" : `★ ${stars}+`;
+  return stars <= 0 ? "All sights" : `${stars}+`;
+}
+
+function poiLayerControlQualityLabelHtml() {
+  const stars = Math.round(layerControlState.poiQualityMin * 5);
+  return stars <= 0 ? "All sights" : `${generatedScoreHtml(stars)}+`;
 }
 
 function layerPoiPresetDefinition(id) {
@@ -2317,7 +2344,7 @@ const ALPINE_GL_LABEL_COLS = 16;
 const ALPINE_GL_LABEL_ROWS = 16;
 const ALPINE_GL_LABEL_CELL = 64;
 const ALPINE_GL_UI_ATLAS_COLS = 5;
-const ALPINE_GL_UI_ATLAS_ROWS = 8;
+const ALPINE_GL_UI_ATLAS_ROWS = 13;
 const ALPINE_GL_PASS_ATLAS_COLS = 5;
 const ALPINE_GL_PASS_ATLAS_ROWS = 5;
 const ALPINE_GL_FLAG_ESTIMATED = 1;
@@ -2380,6 +2407,29 @@ const UI_ATLAS_CELLS = {
   "layer-survey": [2, 7],
   "layer-plan": [3, 7],
   "layer-explore": [4, 7],
+  "weather-sunny": [0, 8],
+  "weather-partly-cloudy": [1, 8],
+  "weather-cloudy": [2, 8],
+  "weather-fog": [3, 8],
+  "weather-rain": [4, 8],
+  "weather-snow": [0, 9],
+  "weather-showers": [1, 9],
+  "weather-storm": [2, 9],
+  "weather-wind": [3, 9],
+  "break-coffee": [4, 9],
+  "break-restroom": [0, 10],
+  "break-viewpoint": [1, 10],
+  "utility-parking": [2, 10],
+  "utility-warning": [3, 10],
+  "utility-external-link": [4, 10],
+  "utility-lock": [0, 11],
+  "utility-unlock": [1, 11],
+  "utility-star": [2, 11],
+  "utility-check": [3, 11],
+  "utility-add": [4, 11],
+  "utility-close": [0, 12],
+  "utility-more": [1, 12],
+  "utility-calendar": [2, 12],
 };
 
 function lngLatToMercatorNorm(lng, lat) {
@@ -2433,7 +2483,7 @@ function packedGlyphForUiIcon(id, style = 0) {
   const col = Math.max(0, Math.min(ALPINE_GL_UI_ATLAS_COLS - 1, Number(cell[0]) || 0));
   const row = Math.max(0, Math.min(ALPINE_GL_UI_ATLAS_ROWS - 1, Number(cell[1]) || 0));
   const styleCode = Math.max(0, Math.min(4, Number(style) || 0));
-  return styleCode * PEBBLE_GLYPH_STYLE_SCALE + col * 10 + row + 1;
+  return styleCode * PEBBLE_GLYPH_STYLE_SCALE + col * ALPINE_GL_UI_ATLAS_ROWS + row + 1;
 }
 
 function clusterPebbleLayoutSize(model) {
@@ -3037,11 +3087,10 @@ class AlpineWebGLLayer {
            color, and the POI category icons in the lower rows (mountain,
            lake, castle, …) which carry their own designed colors and
            should render with that color preserved. v_icon.z is the
-           cell's V coord; the top row sits high (>0.78) in a 5x6 grid
-           while POI rows are at 0.667 and below, so the threshold
-           cleanly separates the two. Pass-symbol sheets (sheet 1/2)
+           cell's V coord; the top row sits high (>0.78) in a 5x13 grid; the next row starts below 0.85, so
+           this threshold cleanly separates the top status row. Pass-symbol sheets (sheet 1/2)
            keep their existing colored treatment via the same branch. */
-        bool isStatusGlyph = glyphIcon && v_icon.z > 0.78;
+        bool isStatusGlyph = glyphIcon && v_icon.z > 0.88;
         vec3 iconColor = (isStatusGlyph || v_meta.z < 0.5 || v_meta.z > 4.5)
           ? vec3(1.0)
           : mix(icon.rgb, vec3(1.0), 0.18);
@@ -3124,8 +3173,9 @@ class AlpineWebGLLayer {
         if (glyphCode < 0.0) return 0.0;
         float sheet = floor(glyphCode / 100.0);
         if (sheet > 0.5) return 0.0;
-        float col = floor(mod(glyphCode, 100.0) / 10.0);
-        float row = mod(glyphCode, 10.0);
+        float localCode = mod(glyphCode, 65.0);
+        float col = floor(localCode / 13.0);
+        float row = mod(localCode, 13.0);
         vec2 iconUv = vec2(
           (col + glyphLocal.x) / ${ALPINE_GL_UI_ATLAS_COLS}.0,
           (${ALPINE_GL_UI_ATLAS_ROWS}.0 - 1.0 - row + glyphLocal.y) / ${ALPINE_GL_UI_ATLAS_ROWS}.0
@@ -4623,9 +4673,9 @@ function layerControlToggleHtml({ label, description = "", checked = false, inpu
 }
 
 const CONDITIONS_STRIP_STATUSES = [
-  { key: "open", label: "open", glyph: "🟢" },
-  { key: "restricted", label: "restricted", glyph: "🟡" },
-  { key: "closed", label: "closed", glyph: "🔴" },
+  { key: "open", label: "open", iconId: "status-open" },
+  { key: "restricted", label: "restricted", iconId: "status-restricted" },
+  { key: "closed", label: "closed", iconId: "status-closed" },
 ];
 
 class AlpineConditionsStrip {
@@ -4652,7 +4702,7 @@ class AlpineConditionsStrip {
     const statusHtml = CONDITIONS_STRIP_STATUSES.map((status, index) => `
       ${index ? '<span class="conditions-sep" aria-hidden="true">·</span>' : ""}
       <button type="button" class="conditions-chip conditions-status status-${escapeHtml(status.key)}" data-condition-status="${escapeHtml(status.key)}" aria-pressed="false">
-        <span class="conditions-emoji" aria-hidden="true">${escapeHtml(status.glyph)}</span>
+        ${uiIconHtml(status.iconId, "conditions-icon")}
         <span class="conditions-dot" aria-hidden="true"></span>
         <span class="conditions-count" data-condition-count="${escapeHtml(status.key)}">0</span>
         <span class="conditions-status-label">${escapeHtml(status.label)}</span>
@@ -4660,7 +4710,7 @@ class AlpineConditionsStrip {
     return `${statusHtml}
       <span class="conditions-sep" aria-hidden="true">·</span>
       <button type="button" class="conditions-chip conditions-date" data-condition-date aria-label="Choose trip date">
-        <span class="conditions-date-icon" aria-hidden="true">☀</span>
+        ${uiIconHtml("utility-calendar", "conditions-date-icon")}
         <span class="conditions-date-label" data-condition-date-label>Today</span>
       </button>`;
   }
@@ -4759,6 +4809,12 @@ class AlpineLayerControl {
   }
 
   onRemove() {
+    if (this._previewMaps) {
+      for (const preview of this._previewMaps) {
+        try { preview.remove(); } catch { /* already removed */ }
+      }
+      this._previewMaps.length = 0;
+    }
     this._drawer?.remove();
     this._root?.remove();
     if (layerControlInstance === this) layerControlInstance = null;
@@ -4772,27 +4828,27 @@ class AlpineLayerControl {
       <span class="pass-stack-tooltip" role="tooltip">Layers</span>
       <div class="pass-stack-strip" id="passStackStrip" role="group" aria-label="Layer quick controls">
         <button type="button" class="pass-stack-tile" data-action="cycle-map">
-          <span class="pass-stack-tile-icon" aria-hidden="true">◇</span>
+          ${uiIconHtml("layer-survey", "pass-stack-tile-icon")}
           <span>Map</span>
           <small data-current-basemap>${escapeHtml(baseMapShortName(currentBaseLayerName))}</small>
         </button>
         <button type="button" class="pass-stack-tile" data-action="toggle-passes" aria-pressed="true">
-          <span class="pass-stack-tile-icon" aria-hidden="true">△</span>
+          ${uiIconHtml("pass-generic", "pass-stack-tile-icon")}
           <span>Passes</span>
           <small>markers</small>
         </button>
         <button type="button" class="pass-stack-tile" data-action="toggle-sights" aria-pressed="true">
-          <span class="pass-stack-tile-icon" aria-hidden="true">✦</span>
+          ${uiIconHtml("poi-generic", "pass-stack-tile-icon")}
           <span>Sights</span>
           <small>POIs</small>
         </button>
         <button type="button" class="pass-stack-tile" data-action="toggle-tour" aria-pressed="false" hidden>
-          <span class="pass-stack-tile-icon" aria-hidden="true">↬</span>
+          ${uiIconHtml("layer-plan", "pass-stack-tile-icon")}
           <span>Tour</span>
           <small>focus</small>
         </button>
         <button type="button" class="pass-stack-tile" data-action="open-drawer" aria-expanded="false" aria-controls="passStackDrawer">
-          <span class="pass-stack-tile-icon" aria-hidden="true">⋯</span>
+          ${uiIconHtml("utility-more", "pass-stack-tile-icon")}
           <span>More</span>
           <small>filters</small>
         </button>
@@ -4811,7 +4867,7 @@ class AlpineLayerControl {
           <p class="pass-stack-kicker">Pass Stack</p>
           <h2>Map layers</h2>
         </div>
-        <button type="button" class="pass-stack-close" data-action="close-drawer" aria-label="Close layer drawer">×</button>
+        <button type="button" class="pass-stack-close" data-action="close-drawer" aria-label="Close layer drawer">${uiIconHtml("utility-close", "pass-stack-close-icon")}</button>
       </div>
       <div class="pass-stack-drawer-body">
         ${this._modeSectionHtml()}
@@ -4831,7 +4887,7 @@ class AlpineLayerControl {
           <span class="pass-stack-mode-name">${uiIconHtml(mode.iconId, "pass-stack-mode-icon", mode.label)}<span>${escapeHtml(mode.label)}</span></span>
           <small>${escapeHtml(mode.description)}</small>
         </button>
-        <button type="button" class="pass-stack-mode-lock" data-layer-mode-lock="${escapeHtml(id)}" aria-label="Lock mode" title="Lock mode">🔓</button>
+        <button type="button" class="pass-stack-mode-lock" data-layer-mode-lock="${escapeHtml(id)}" aria-label="Lock mode" title="Lock mode">${uiIconHtml("utility-unlock", "pass-stack-mode-lock-icon")}</button>
         <button type="button" class="pass-stack-mode-custom" data-layer-mode-reset="${escapeHtml(id)}" title="Restore ${escapeHtml(mode.label)} defaults">Customized</button>
       </div>`;
     }).join("");
@@ -4867,7 +4923,7 @@ class AlpineLayerControl {
       ${layerControlToggleHtml({ label: "Show pass overlays", description: "Markers and clusters", checked: true, inputAttrs: "data-pass-overlay" })}
       <div class="pass-stack-pill-row">${statuses}</div>
       <label class="pass-stack-range">
-        <span>Pass quality <output data-pass-quality-label>${escapeHtml(passLayerControlQualityLabel())}</output></span>
+        <span>Pass quality <output data-pass-quality-label>${passLayerControlQualityLabelHtml()}</output></span>
         <input type="range" min="0" max="5" step="1" value="0" data-pass-quality>
       </label>
       ${layerControlToggleHtml({ label: "Symbolic icons", description: "Preview only (disabled)", checked: true, inputAttrs: "data-inert-toggle", disabled: true })}
@@ -4891,7 +4947,7 @@ class AlpineLayerControl {
       <div class="pass-stack-subtitle">Theme</div>
       <div class="pass-stack-theme-row">${presets}</div>
       <label class="pass-stack-range">
-        <span>Minimum quality <output data-poi-quality-label>${escapeHtml(poiLayerControlQualityLabel())}</output></span>
+        <span>Minimum quality <output data-poi-quality-label>${poiLayerControlQualityLabelHtml()}</output></span>
         <input type="range" min="0" max="5" step="1" value="3" data-poi-quality>
       </label>
       ${layerControlToggleHtml({ label: "Plannable only", description: "Reachable by car", inputAttrs: "data-poi-plannable" })}
@@ -5052,6 +5108,7 @@ class AlpineLayerControl {
   _ensureBasemapPreviews() {
     if (typeof maplibregl === "undefined" || !this._drawer) return;
     this._basemapPreviews ??= new WeakSet();
+    this._previewMaps ??= [];
     const thumbs = this._drawer.querySelectorAll("[data-basemap-preview]");
     thumbs.forEach((thumb) => {
       if (this._basemapPreviews.has(thumb)) return;
@@ -5070,6 +5127,7 @@ class AlpineLayerControl {
           attributionControl: false,
           preserveDrawingBuffer: false,
         });
+        this._previewMaps.push(preview);
         preview.on("error", () => { /* swallow tile fetch errors quietly */ });
         // Re-render once the thumb is laid out so the canvas matches its CSS box.
         requestAnimationFrame(() => preview.resize());
@@ -5118,7 +5176,7 @@ class AlpineLayerControl {
     this._drawer.querySelectorAll("[data-layer-mode-lock]").forEach(btn => {
       const active = btn.dataset.layerModeLock === LayerMode.current;
       btn.hidden = !active;
-      btn.textContent = LayerMode.locked ? "🔒" : "🔓";
+      btn.innerHTML = uiIconHtml(LayerMode.locked ? "utility-lock" : "utility-unlock", "pass-stack-mode-lock-icon");
       btn.classList.toggle("is-locked", LayerMode.locked);
       btn.setAttribute("aria-label", LayerMode.locked ? "Unlock mode auto-switch" : "Lock mode auto-switch");
       btn.setAttribute("title", LayerMode.locked ? "Unlock mode" : "Lock mode");
@@ -5142,7 +5200,7 @@ class AlpineLayerControl {
     const passQuality = this._drawer.querySelector("[data-pass-quality]");
     if (passQuality) passQuality.value = String(Math.round(layerControlState.passQualityMin * 5));
     const passQualityLabel = this._drawer.querySelector("[data-pass-quality-label]");
-    if (passQualityLabel) passQualityLabel.textContent = passLayerControlQualityLabel();
+    if (passQualityLabel) passQualityLabel.innerHTML = passLayerControlQualityLabelHtml();
 
     const poiToggle = this._drawer.querySelector("#mapPoiToggle");
     if (poiToggle) poiToggle.checked = poiLayerVisible;
@@ -5159,7 +5217,7 @@ class AlpineLayerControl {
     const poiQuality = this._drawer.querySelector("[data-poi-quality]");
     if (poiQuality) poiQuality.value = String(Math.round(layerControlState.poiQualityMin * 5));
     const poiQualityLabel = this._drawer.querySelector("[data-poi-quality-label]");
-    if (poiQualityLabel) poiQualityLabel.textContent = poiLayerControlQualityLabel();
+    if (poiQualityLabel) poiQualityLabel.innerHTML = poiLayerControlQualityLabelHtml();
     const poiPlannable = this._drawer.querySelector("[data-poi-plannable]");
     if (poiPlannable) poiPlannable.checked = layerControlState.poiPlannableOnly;
 
@@ -5227,7 +5285,7 @@ function buildPopupHtml(p, status, wiki) {
   const whyBlock = whyLine ? `<div class="popup-why">${whyLine}</div>` : "";
   const camsBlock = p.cams && p.cams.length
     ? `<div class="popup-cams" aria-label="Live webcams">
-         <div class="popup-cams-label">📹 Live cams</div>
+         <div class="popup-cams-label">${uiIconHtml("break-viewpoint", "popup-meta-icon")} Live cams</div>
          ${buildDisclosure(`Live cams (${p.cams.length})`,
            `<ul class="popup-cams-list">${p.cams.map(c =>
              `<li><a href="${escapeHtml(c.u)}" target="_blank" rel="noopener"><span class="cam-label">${escapeHtml(c.l)}</span><span class="cam-source">${escapeHtml(c.s)}</span></a></li>`
@@ -5238,8 +5296,8 @@ function buildPopupHtml(p, status, wiki) {
     ? `<div class="popup-actions">${buildPopupRouteButtonHtml("pass", p)}</div>`
     : "";
   const linkParts = [];
-  if (passDetail) linkParts.push(`<a href="${passDetail}" target="_blank" rel="noopener">↗ alpen-paesse.ch</a>`);
-  linkParts.push(`<a href="${wikiHref}" target="_blank" rel="noopener">↗ Wikipedia</a>`);
+  if (passDetail) linkParts.push(`<a href="${passDetail}" target="_blank" rel="noopener">${externalLinkIconHtml()} alpen-paesse.ch</a>`);
+  linkParts.push(`<a href="${wikiHref}" target="_blank" rel="noopener">${externalLinkIconHtml()} Wikipedia</a>`);
 
   return `<div class="popup">${img}
     <div class="popup-body">
@@ -5376,14 +5434,13 @@ function whyRatingLine(p) {
 function qualityStars(q) {
   if (typeof q !== "number" || q <= 0) return "";
   const filled = Math.round(q * 5);
-  const stars = "★★★★★".slice(0, filled) + "☆☆☆☆☆".slice(0, 5 - filled);
-  return `<span class="quality" title="Quality score: ${q.toFixed(2)} (AI-evaluated scenic beauty, driving experience, summit interest, popularity)">${stars}</span>`;
+  return `<span class="quality quality-icons" title="Quality score: ${q.toFixed(2)} (AI-evaluated scenic beauty, driving experience, summit interest, popularity)">${generatedStarsHtml(filled)}</span>`;
 }
 function qualityStarsCompact(q) {
   if (typeof q !== "number" || q < 0.2) return "";
   const filled = Math.round(q * 5);
   if (filled === 0) return "";
-  return `<span class="quality compact">${"★".repeat(filled)}</span>`;
+  return `<span class="quality compact quality-icons">${generatedStarsHtml(filled, filled, "rating-star-icon compact")}</span>`;
 }
 
 /* Eagerly compute baseline status so markers render with the right colour
@@ -5410,7 +5467,7 @@ function buildPoiPopupHtml(poi) {
   let priceHtml = "";
   if (priceLong) {
     const sourceLink = poi.priceSourceUrl
-      ? ` <a class="poi-price-source" href="${escapeHtml(poi.priceSourceUrl)}" target="_blank" rel="noopener">source ↗</a>`
+      ? ` <a class="poi-price-source" href="${escapeHtml(poi.priceSourceUrl)}" target="_blank" rel="noopener">source ${externalLinkIconHtml()}</a>`
       : "";
     const asOf = poi.priceAsOf ? ` <span class="poi-price-asof">(${escapeHtml(poi.priceAsOf)})</span>` : "";
     const note = poi.priceNotes
@@ -5443,7 +5500,7 @@ function buildPoiPopupHtml(poi) {
         ${poiAccessHtml(poi)}
       </div>
       <footer class="popup-foot">
-        <a class="popup-link" href="${wikiHref}" target="_blank" rel="noopener">Wikipedia ↗</a>
+        <a class="popup-link" href="${wikiHref}" target="_blank" rel="noopener">Wikipedia ${externalLinkIconHtml()}</a>
         ${planBtn}
       </footer>
     </article>`;
@@ -5550,7 +5607,7 @@ function planTargetMode() {
 function planTargetValue() {
   return planTargetMode() === "time" ? +timeSlider.value : +distSlider.value;
 }
-/* Tolerance: 20% of distance, or clamp(0.5h, 15% × hours, 2h) for time mode. */
+/* Tolerance: 20% of distance, or clamp(0.5h, 15% x hours, 2h) for time mode. */
 function planTargetTolerance() {
   if (planTargetMode() === "distance") return 0.20;
   const hours = +timeSlider.value;
@@ -5797,12 +5854,12 @@ function themeLabel(key) {
   return THEME_LABELS[key] || (key.charAt(0).toUpperCase() + key.slice(1).replace(/-/g, " "));
 }
 const POI_PRESETS = {
-  family:   { cats: ["viewpoint-panorama","alpine-lake","scenic-railway","funicular","special-experience","museum-cultural"], themes: ["family-friendly"], minScore: 7, maxCount: 4, label: "Family day · ★7+ · max 4" },
-  cultural: { cats: ["castle-fortress","monastery-church","old-town","museum-cultural"], themes: ["unesco","historic"], minScore: 7, maxCount: 4, label: "Cultural tour · ★7+ · max 4" },
-  photo:    { cats: ["viewpoint-panorama","alpine-lake","mountain-summit","glacier","waterfall-gorge"], themes: ["photogenic","iconic"], minScore: 8, maxCount: 3, label: "Photo tour · ★8+ · max 3" },
-  hidden:   { cats: [], themes: ["hidden-gem"], minScore: 6, maxCount: 3, label: "Hidden gems · ★6+ · max 3" },
-  wine:     { cats: ["wine-region","village","old-town"], themes: ["food-drink"], minScore: 6, maxCount: 4, label: "Wine & food · ★6+ · max 4" },
-  reset:    { cats: [], themes: [], minScore: 6, maxCount: 3, label: "Default · any category · any theme · ★6+ · max 3" },
+  family:   { cats: ["viewpoint-panorama","alpine-lake","scenic-railway","funicular","special-experience","museum-cultural"], themes: ["family-friendly"], minScore: 7, maxCount: 4, label: "Family day · score 7+ · max 4" },
+  cultural: { cats: ["castle-fortress","monastery-church","old-town","museum-cultural"], themes: ["unesco","historic"], minScore: 7, maxCount: 4, label: "Cultural tour · score 7+ · max 4" },
+  photo:    { cats: ["viewpoint-panorama","alpine-lake","mountain-summit","glacier","waterfall-gorge"], themes: ["photogenic","iconic"], minScore: 8, maxCount: 3, label: "Photo tour · score 8+ · max 3" },
+  hidden:   { cats: [], themes: ["hidden-gem"], minScore: 6, maxCount: 3, label: "Hidden gems · score 6+ · max 3" },
+  wine:     { cats: ["wine-region","village","old-town"], themes: ["food-drink"], minScore: 6, maxCount: 4, label: "Wine & food · score 6+ · max 4" },
+  reset:    { cats: [], themes: [], minScore: 6, maxCount: 3, label: "Default · any category · any theme · score 6+ · max 3" },
 };
 /* Active presets — multi-select with union semantics. Clicking a preset
    toggles it in/out of the set; the active state is the UNION of all
@@ -6131,7 +6188,7 @@ function renderAdvancedSelection() {
       <span class="selected-pass-chip">
         ${passIconHtml(p, "pass-art-icon chip symbol", "symbol")}
         <span title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</span>
-        <button type="button" data-remove-id="${escapeHtml(p.id)}" aria-label="Remove ${escapeHtml(p.name)}">×</button>
+        <button type="button" data-remove-id="${escapeHtml(p.id)}" aria-label="Remove ${escapeHtml(p.name)}">${uiIconHtml("utility-close", "selected-chip-remove-icon")}</button>
       </span>`).join("")
     : "No passes selected.";
   lazyLoadPassIcons(selectedPassesEl);
@@ -6147,7 +6204,7 @@ function renderAdvancedPoiSelection() {
       <span class="selected-pass-chip poi-chip">
         ${poiCategoryIcon(p.poiCategory, "chip-glyph")}
         <span title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</span>
-        <button type="button" data-remove-poi-id="${escapeHtml(p.id)}" aria-label="Remove ${escapeHtml(p.name)}">×</button>
+        <button type="button" data-remove-poi-id="${escapeHtml(p.id)}" aria-label="Remove ${escapeHtml(p.name)}">${uiIconHtml("utility-close", "selected-chip-remove-icon")}</button>
       </span>`).join("")
     : "No sights selected.";
   refreshSelectedCounters();
@@ -6327,23 +6384,32 @@ function updateTimeTolHint() {
   const half = Math.max(0.5, Math.min(2.0, hours * 0.15));
   timeTolHint.textContent = `(±${half.toFixed(half >= 1 ? 1 : 1)} h)`;
 }
-function fmtMinScoreLabel(v) { return `★ ${v}+`; }
+function fmtMinScoreLabel(v) { return `${v}+`; }
+function fmtMinScoreLabelHtml(v) { return `${generatedScoreHtml(v)}+`; }
+function poiPresetShortLabel(id) {
+  return POI_PRESETS[id]?.label.split(" · ")[0] || id;
+}
+function poiPresetLabelHtml(id) {
+  const preset = POI_PRESETS[id];
+  if (!preset) return escapeHtml(id);
+  return `${escapeHtml(poiPresetShortLabel(id))} · ${fmtMinScoreLabelHtml(preset.minScore)} · max ${escapeHtml(String(preset.maxCount))}`;
+}
 function poiPrefsCurrentSubtitle() {
   if (activePresetIds.size > 0) {
     const labels = [...activePresetIds]
       .filter(id => POI_PRESETS[id])
-      .map(id => POI_PRESETS[id].label.split(" · ")[0]);
-    if (labels.length === 1) return POI_PRESETS[[...activePresetIds][0]].label;
-    return `Stacked: ${labels.join(" + ")} · ★ ${poiMinScoreVal()}+ · max ${poiMaxCountVal()}`;
+      .map(id => escapeHtml(poiPresetShortLabel(id)));
+    if (labels.length === 1) return poiPresetLabelHtml([...activePresetIds][0]);
+    return `Stacked: ${labels.join(" + ")} · ${fmtMinScoreLabelHtml(poiMinScoreVal())} · max ${escapeHtml(String(poiMaxCountVal()))}`;
   }
   const catCount = allowedPoiCategories.size;
   const themeCount = allowedPoiThemes.size;
   const cats = catCount === 0 ? "any category" : catCount === 1 ? "1 category" : `${catCount} categories`;
   const themes = themeCount === 0 ? "any theme" : themeCount === 1 ? "1 theme" : `${themeCount} themes`;
-  return `Custom · ${cats} · ${themes} · ★ ${poiMinScoreVal()}+ · up to ${poiMaxCountVal()} sights`;
+  return `Custom · ${escapeHtml(cats)} · ${escapeHtml(themes)} · ${fmtMinScoreLabelHtml(poiMinScoreVal())} · up to ${escapeHtml(String(poiMaxCountVal()))} sights`;
 }
 function refreshPoiPrefsSubtitle() {
-  if (poiPrefsSubtitleEl) poiPrefsSubtitleEl.textContent = poiPrefsCurrentSubtitle();
+  if (poiPrefsSubtitleEl) poiPrefsSubtitleEl.innerHTML = poiPrefsCurrentSubtitle();
 }
 function syncPresetButtons() {
   poiPresetsEl?.querySelectorAll("[data-preset]").forEach(b => {
@@ -6375,7 +6441,7 @@ function recomputeFromActivePresets() {
   }
   if (Number.isFinite(minScore)) {
     poiMinScoreEl.value = String(minScore);
-    poiMinScoreLabelEl.textContent = fmtMinScoreLabel(minScore);
+    poiMinScoreLabelEl.innerHTML = fmtMinScoreLabelHtml(minScore);
   }
   if (Number.isFinite(maxCount)) {
     poiMaxCountEl.value = String(maxCount);
@@ -6394,7 +6460,7 @@ function applyPoiPreset(id) {
     allowedPoiThemes.clear();
     poiMinScoreEl.value = String(p.minScore);
     poiMaxCountEl.value = String(p.maxCount);
-    poiMinScoreLabelEl.textContent = fmtMinScoreLabel(p.minScore);
+    poiMinScoreLabelEl.innerHTML = fmtMinScoreLabelHtml(p.minScore);
     poiMaxCountLabelEl.textContent = String(p.maxCount);
     renderPoiPrefsChips();
     syncPresetButtons();
@@ -6412,7 +6478,7 @@ function applyPoiPreset(id) {
     allowedPoiThemes.clear();
     poiMinScoreEl.value = "6";
     poiMaxCountEl.value = "3";
-    poiMinScoreLabelEl.textContent = fmtMinScoreLabel(6);
+    poiMinScoreLabelEl.innerHTML = fmtMinScoreLabelHtml(6);
     poiMaxCountLabelEl.textContent = "3";
     renderPoiPrefsChips();
   } else {
@@ -6462,7 +6528,7 @@ poiPresetsEl?.addEventListener("click", e => {
   applyPoiPreset(btn.dataset.preset);
 });
 poiMinScoreEl?.addEventListener("input", () => {
-  poiMinScoreLabelEl.textContent = fmtMinScoreLabel(poiMinScoreVal());
+  poiMinScoreLabelEl.innerHTML = fmtMinScoreLabelHtml(poiMinScoreVal());
   clearActivePreset();
 });
 poiMaxCountEl?.addEventListener("input", () => {
@@ -6806,16 +6872,16 @@ function stopElevation(item) {
 
 function wmoWeather(code) {
   const c = Number(code);
-  if (c === 0) return { icon: "☀", text: "sunny" };
-  if (c === 1) return { icon: "🌤", text: "partly cloudy" };
-  if (c === 2) return { icon: "⛅", text: "mostly cloudy" };
-  if (c === 3) return { icon: "⛅", text: "cloudy" };
-  if (c >= 45 && c <= 48) return { icon: "🌫", text: "fog" };
-  if (c >= 51 && c <= 67) return { icon: "🌧", text: c >= 61 ? "rain" : "light rain" };
-  if (c >= 71 && c <= 77) return { icon: "❄", text: "snow" };
-  if (c >= 80 && c <= 86) return { icon: "🌦", text: c >= 85 ? "snow showers" : "showers" };
-  if (c >= 95 && c <= 99) return { icon: "⛈", text: "storm" };
-  return { icon: "🌤", text: "forecast" };
+  if (c === 0) return { iconId: "weather-sunny", text: "sunny" };
+  if (c === 1) return { iconId: "weather-partly-cloudy", text: "partly cloudy" };
+  if (c === 2) return { iconId: "weather-cloudy", text: "mostly cloudy" };
+  if (c === 3) return { iconId: "weather-cloudy", text: "cloudy" };
+  if (c >= 45 && c <= 48) return { iconId: "weather-fog", text: "fog" };
+  if (c >= 51 && c <= 67) return { iconId: "weather-rain", text: c >= 61 ? "rain" : "light rain" };
+  if (c >= 71 && c <= 77) return { iconId: "weather-snow", text: "snow" };
+  if (c >= 80 && c <= 86) return { iconId: "weather-showers", text: c >= 85 ? "snow showers" : "showers" };
+  if (c >= 95 && c <= 99) return { iconId: "weather-storm", text: "storm" };
+  return { iconId: "weather-partly-cloudy", text: "forecast" };
 }
 
 function nearestWeatherHour(hourly, eta) {
@@ -6891,17 +6957,18 @@ function formatWeatherChip(hourly, hourIdx, elevation) {
   const wind = Number(hourly.wind_speed_10m?.[hourIdx]) || 0;
   const snowfall = Number(hourly.snowfall?.[hourIdx]) || 0;
   const w = wmoWeather(code);
-  let icon = w.icon;
+  let iconId = w.iconId;
   let text = w.text;
   if (precip > 0 && !/(rain|showers|snow|storm)/.test(text)) text = "light rain";
   const elev = Number(elevation);
   if (snowfall > 0 && (!Number.isFinite(elev) || elev > 1500)) {
-    icon = "❄";
+    iconId = "weather-snow";
     text = text.includes("snow") ? text : `snow · ${text}`;
   }
-  const warnings = [];
-  if (wind > WEATHER_WIND_WARN_KMH) warnings.push("⚠ strong wind");
-  return `${icon} ${Math.round(temp)}° · ${text}${warnings.length ? ` · ${warnings.join(" · ")}` : ""}`;
+  const warningHtml = wind > WEATHER_WIND_WARN_KMH
+    ? ` <span class="tour-stop-weather-warning">${uiIconHtml("weather-wind", "tour-stop-weather-icon")} strong wind</span>`
+    : "";
+  return `${uiIconHtml(iconId, "tour-stop-weather-icon", text)} <span>${Math.round(temp)}° · ${escapeHtml(text)}</span>${warningHtml}`;
 }
 
 function setWeatherUnavailableHint(message) {
@@ -6921,7 +6988,7 @@ async function hydratePlanWeather() {
   const chips = stopWeatherNodes();
   if (!geom?.stops?.length || chips.length === 0) return;
   setWeatherUnavailableHint("");
-  chips.forEach(chip => { chip.hidden = true; chip.textContent = ""; });
+  chips.forEach(chip => { chip.hidden = true; chip.innerHTML = ""; });
   const tripDate = planDateEl?.value || toDateInputValue(currentTripDate());
   if (daysBetweenDates(todayLocalDate(), currentTripDate()) > 6) {
     setWeatherUnavailableHint("Weather forecasts are available for the next 7 days.");
@@ -6940,9 +7007,9 @@ async function hydratePlanWeather() {
       const forecast = await fetchWeatherForecast(lat, lng, tripDate);
       if (seq !== weatherHydrationSeq) return;
       const hourIdx = nearestWeatherHour(forecast?.hourly, etaForGeometryStop(geom, stop));
-      const text = formatWeatherChip(forecast?.hourly, hourIdx, stopElevation(item));
-      if (!chip || !text) return;
-      chip.textContent = text;
+      const html = formatWeatherChip(forecast?.hourly, hourIdx, stopElevation(item));
+      if (!chip || !html) return;
+      chip.innerHTML = html;
       chip.hidden = false;
       populated++;
     } catch {
@@ -7056,7 +7123,7 @@ const ALLOW_OUT_AND_BACK = false;
 const SHARED_GATEWAY_KM = 5;
 const SHARED_GATEWAY_PENALTY = 2.0;
 
-/* Pre-compute an N×N flag matrix marking which candidate passes have
+/* Pre-compute an NxN flag matrix marking which candidate passes have
    approach gateways close enough that any tour visiting both would
    likely retrace the same connector valley. Uses haversine on the
    four base-pair distances (bA-bA, bA-bB, bB-bA, bB-bB) — true
@@ -7172,7 +7239,7 @@ function _bestTourGatedImpl(matrix, N, targetSpec, tolerance, maxPasses, passQ, 
            sc=8,  dwell 1.5h → (1.3)^4 - 1.5 - 0.9 = 0.46
            sc=5,  dwell 1h   → (1.0)^4 - 1.5 - 0.6 = -1.10  (skipped)
          Median pass (qSm=qAp=0.7 traversed) gives ~17.95, so passes still
-         dominate ~5–10× per slot — POIs only win on cost, never quality. */
+         dominate ~5–10x per slot — POIs only win on cost, never quality. */
       const dwellHours = (stops[i].visitDwellSec || 0) / 3600;
       return Math.pow(q.qSummit + 0.5, PASS_QUALITY_POWER) - PASS_PER_VISIT_COST - dwellHours * 0.6;
     }
@@ -7185,10 +7252,10 @@ function _bestTourGatedImpl(matrix, N, targetSpec, tolerance, maxPasses, passQ, 
        pure sum of raw quality and an extra mediocre pass *always* lifts
        the score, leading to e.g. five Pre-Alps cols beating one Klausen.
        The cube emphasises individual pass quality (a 0.9-quality pass is
-       ~3× more valuable than a 0.6-quality pass instead of 1.5×); the
+       ~3x more valuable than a 0.6-quality pass instead of 1.5x); the
        constant cost makes a sub-median pass hurt the tour score.
        The retrace penalty discourages out-and-back even further: the
-       quality already drops (1× approach instead of 2×) but driving the
+       quality already drops (1x approach instead of 2x) but driving the
        same road twice deserves an explicit hit on top of that. */
     let v = Math.pow(raw, PASS_QUALITY_POWER) - PASS_PER_VISIT_COST;
     if (outAndBack) v -= OUT_AND_BACK_RETRACE_PENALTY;
@@ -8338,7 +8405,7 @@ function showWasmUnavailableBanner(detail = "") {
     : "";
   planResult.innerHTML = `
     <div id="leisureWasmUnavailableBanner" class="warn" role="alert" aria-live="assertive" style="border-left: 4px solid #b7791f; background: #fff8dc; color: #3f2a00; padding: 0.75rem 1rem;">
-      <button type="button" class="banner-dismiss" aria-label="Dismiss WebAssembly required banner" data-action="dismiss-wasm-banner">×</button>
+      <button type="button" class="banner-dismiss" aria-label="Dismiss WebAssembly required banner" data-action="dismiss-wasm-banner">${uiIconHtml("utility-close", "banner-dismiss-icon")}</button>
       <strong>WebAssembly required.</strong> This planner requires WebAssembly, which is not supported or has been blocked in your browser. Try a different browser or check your security settings.
       ${detailHtml}
       <a href="https://webassembly.org/" target="_blank" rel="noreferrer" aria-label="Learn more about WebAssembly browser support">Learn more</a>
@@ -8607,7 +8674,7 @@ async function planTour() {
   });
 
   /* Pre-filter candidates by haversine distance.  Cap firmly at
-     budgetKmEquiv × 0.55 so the planner can't reach for famous-but-distant
+     budgetKmEquiv x 0.55 so the planner can't reach for famous-but-distant
      passes and produce a wildly out-of-budget tour.  No silent fallback
      that broadens to all-of-Alps. */
   const upperHaversine = budgetKmEquiv * 0.55;
@@ -9415,7 +9482,7 @@ ${trkpts}
     : "";
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="Alpine Passes"
+<gpx version="1.1" creator="Itinera"
   xmlns="http://www.topografix.com/GPX/1/1"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
@@ -9669,7 +9736,7 @@ function renderLeisureCorridorBlock(corridor) {
   const suggestions = Array.isArray(corridor.suggestions) ? corridor.suggestions : [];
   if (auto.length === 0 && suggestions.length === 0) return "";
   const autoHtml = auto.slice(0, 4).map((item) =>
-    `<span class="leisure-corridor-pill auto" title="${escapeHtml(item.reason || "")}">✓ ${escapeHtml(leisureItemName(item))}</span>`
+    `<span class="leisure-corridor-pill auto" title="${escapeHtml(item.reason || "")}">${uiIconHtml("utility-check", "corridor-pill-icon")} ${escapeHtml(leisureItemName(item))}</span>`
   ).join("");
   const suggestionHtml = suggestions.slice(0, 6).map((item) => {
     const id = item.poiId || item.id || "";
@@ -9677,7 +9744,7 @@ function renderLeisureCorridorBlock(corridor) {
     const detour = `<span>${Math.round(Number(item.detourMin) || 0)} min</span>`;
     const isSelectable = id && POI_BY_ID.has(id) && (typeof PLANNABLE_POI_IDS === "undefined" || PLANNABLE_POI_IDS.has(id));
     return isSelectable
-      ? `<button type="button" class="leisure-corridor-pill suggest" data-leisure-add-poi="${escapeHtml(id)}" title="${escapeHtml(item.reason || "Add this optional sight")}">+ ${name}${detour}</button>`
+      ? `<button type="button" class="leisure-corridor-pill suggest" data-leisure-add-poi="${escapeHtml(id)}" title="${escapeHtml(item.reason || "Add this optional sight")}">${uiIconHtml("utility-add", "corridor-pill-icon")} ${name}${detour}</button>`
       : `<span class="leisure-corridor-pill suggest" title="${escapeHtml(item.reason || "")}">${name}${detour}</span>`;
   }).join("");
   return `<div class="leisure-corridor-card">
@@ -9702,7 +9769,7 @@ function renderLeisureBreaksBlock(breaks) {
   if (!Array.isArray(breaks) || breaks.length === 0) return "";
   const badges = breaks.slice(0, 4).map((br) =>
     `<button type="button" class="leisure-break-badge" data-leisure-focus="${escapeHtml(br.id || "")}" title="${escapeHtml(br.reason || "")}">
-      ${escapeHtml(breakIcon(br.type))} ${escapeHtml(formatLeisureTime(br.tStart))}<span>${escapeHtml(br.type || "break")}</span>
+      ${breakIconHtml(br.type)} ${escapeHtml(formatLeisureTime(br.tStart))}<span>${escapeHtml(br.type || "break")}</span>
     </button>`
   ).join("");
   return `<div class="popup-meta tight leisure-breaks"><strong>Suggested breaks</strong><div class="leisure-break-list">${badges}</div></div>`;
@@ -9724,11 +9791,15 @@ function formatLeisureTime(value) {
   return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 
-function breakIcon(type) {
-  if (type === "coffee") return "☕";
-  if (type === "toilet" || type === "fuel") return "🚻";
-  if (type === "viewpoint") return "📷";
-  return "☕";
+function breakIconId(type) {
+  if (type === "coffee") return "break-coffee";
+  if (type === "toilet" || type === "fuel") return "break-restroom";
+  if (type === "viewpoint") return "break-viewpoint";
+  return "break-coffee";
+}
+
+function breakIconHtml(type) {
+  return uiIconHtml(breakIconId(type), "leisure-break-icon", `${type || "break"} break`);
 }
 
 function isOpenRouteResult(r) {
@@ -9788,7 +9859,7 @@ function showPlanResult(r) {
     ? `<div class="popup-meta tight"><span class="mode-badge">↻</span> ${obCount} of ${passOnly.length} pass${passOnly.length === 1 ? "" : "es"} visited summit-and-back</div>`
     : "";
   const qualityLine = avgQ > 0
-    ? `<div class="popup-meta tight">Pass quality: <strong class="tour-quality">${"★".repeat(Math.round(avgQ * 5))}</strong> <span>(avg ${avgQ.toFixed(2)})</span></div>`
+    ? `<div class="popup-meta tight">Pass quality: <strong class="tour-quality quality-icons">${generatedStarsHtml(Math.round(avgQ * 5), Math.round(avgQ * 5), "rating-star-icon compact")}</strong> <span>(avg ${avgQ.toFixed(2)})</span></div>`
     : "";
   const warn = !r.inRange
     ? (() => {
@@ -9862,18 +9933,18 @@ function showPlanResult(r) {
           /* `preset` is now an array (multi-select) — fall back to the
              single-string format from older results for back-compat. */
           const ids = Array.isArray(r.poiPrefs.preset) ? r.poiPrefs.preset : [r.poiPrefs.preset];
-          const labels = ids.map(id => POI_PRESETS[id]?.label.split(" · ")[0] || id);
+          const labels = ids.map(id => escapeHtml(poiPresetShortLabel(id)));
           const lab = labels.length === 1
-            ? POI_PRESETS[ids[0]]?.label || ids[0]
+            ? poiPresetLabelHtml(ids[0])
             : `Stacked: ${labels.join(" + ")}`;
-          return `<div class="popup-meta tight">Sights: ${escapeHtml(lab)}</div>`;
+          return `<div class="popup-meta tight">Sights: ${lab}</div>`;
         }
         const bits = [];
         if (r.poiPrefs.cats.length) bits.push(`${r.poiPrefs.cats.length} cat${r.poiPrefs.cats.length === 1 ? "" : "s"}`);
         if (r.poiPrefs.themes.length) bits.push(`themes: ${r.poiPrefs.themes.join(", ")}`);
-        bits.push(`★${r.poiPrefs.minScore}+`);
+        bits.push(`${generatedScoreHtml(r.poiPrefs.minScore)}+`);
         bits.push(`max ${r.poiPrefs.maxCount}`);
-        return `<div class="popup-meta tight">Sights filter: ${escapeHtml(bits.join(" · "))}</div>`;
+        return `<div class="popup-meta tight">Sights filter: ${bits.map(bit => bit.includes("ui-art-icon") ? bit : escapeHtml(bit)).join(" · ")}</div>`;
       })()
     : "";
   const candidatePoolBlock = r.candidatePoolNote
@@ -9973,7 +10044,7 @@ function drawLeisureOverlays(overlays = {}) {
     if (!point) continue;
     const id = br.id || `break-${pointFeatures.length}`;
     pointFeatures.push(leisurePointFeature(id, "break", point.lat, point.lon, {
-      label: breakIcon(br.type),
+      label: "",
       name: br.poiCandidate?.name || br.type || "Break",
       reason: br.reason || "",
       time: formatLeisureTime(br.tStart),
@@ -9981,8 +10052,8 @@ function drawLeisureOverlays(overlays = {}) {
     }));
     focus.set(id, point);
   }
-  for (const item of overlays.corridorAutoInclude || []) addCorridorFeature(pointFeatures, focus, item, "corridor-auto", "✓");
-  for (const item of overlays.corridorSuggestions || []) addCorridorFeature(pointFeatures, focus, item, "corridor-suggestion", "+");
+  for (const item of overlays.corridorAutoInclude || []) addCorridorFeature(pointFeatures, focus, item, "corridor-auto", "");
+  for (const item of overlays.corridorSuggestions || []) addCorridorFeature(pointFeatures, focus, item, "corridor-suggestion", "");
   plannedLeisureOverlayData = {
     zones: { type: "FeatureCollection", features: zoneFeatures },
     points: { type: "FeatureCollection", features: pointFeatures },
@@ -10805,7 +10876,7 @@ const updatedText = document.getElementById("updatedText");
 
   if (failures.length) {
     banner.classList.remove("hidden");
-    banner.textContent = `⚠ Some live sources unavailable (${failures.join(", ")}). Falling back to OSM rules / estimates where needed.`;
+    banner.innerHTML = `${uiIconHtml("utility-warning", "popup-meta-icon")} Some live sources unavailable (${escapeHtml(failures.join(", "))}). Falling back to OSM rules / estimates where needed.`;
   }
 
   refreshProjectedStatuses({ updateMarkers: true });

@@ -54,6 +54,32 @@ ICON_NAMES = [
     "poi-shinto-shrine",
     "poi-traditional-garden",
     "poi-volcano",
+    "layer-survey",
+    "layer-plan",
+    "layer-explore",
+    "weather-sunny",
+    "weather-partly-cloudy",
+    "weather-cloudy",
+    "weather-fog",
+    "weather-rain",
+    "weather-snow",
+    "weather-showers",
+    "weather-storm",
+    "weather-wind",
+    "break-coffee",
+    "break-restroom",
+    "break-viewpoint",
+    "utility-parking",
+    "utility-warning",
+    "utility-external-link",
+    "utility-lock",
+    "utility-unlock",
+    "utility-star",
+    "utility-check",
+    "utility-add",
+    "utility-close",
+    "utility-more",
+    "utility-calendar",
 ]
 
 
@@ -87,7 +113,7 @@ def build_sprite(
     sprite_path: Path,
     cell_size: int = 128,
     cols: int = 5,
-    rows: int = 8,
+    rows: int = 13,
     prefer_png: bool = False,
 ) -> None:
     # Auto-detect cairo availability so Windows users without libcairo still get
@@ -126,7 +152,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--sprite", type=Path, default=Path("assets/ui-icons/alpine-ui-icons.png"))
     parser.add_argument("--cell-size", type=int, default=128)
     parser.add_argument("--cols", type=int, default=5)
-    parser.add_argument("--rows", type=int, default=8)
+    parser.add_argument("--rows", type=int, default=13)
     parser.add_argument("--prefer-png", action="store_true",
                         help="Use PNG cells from --png-dir instead of SVGs (handy when libcairo is unavailable).")
     return parser.parse_args()

@@ -155,6 +155,41 @@ test("every declared in-app UI icon is wired across CSS, PNG, and WebGL atlas", 
   }
 });
 
+test("runtime text marks are backed by generated UI icon assets", () => {
+  const appSource = read("assets/js/app.js");
+  const cssSource = read("assets/css/site.css");
+  const uiIconIds = parseStringSet(appSource, "UI_ICON_IDS");
+  const cssIconIds = new Set([...cssSource.matchAll(/\.ui-icon-([a-z0-9-]+)\s*\{/g)].map((m) => m[1]));
+  const pngIconIds = assetIds("assets/ui-icons/normalized-png", ".png");
+  const requiredMarkIds = [
+    "layer-survey", "layer-plan", "layer-explore",
+    "weather-sunny", "weather-partly-cloudy", "weather-cloudy", "weather-fog", "weather-rain",
+    "weather-snow", "weather-showers", "weather-storm", "weather-wind",
+    "break-coffee", "break-restroom", "break-viewpoint",
+    "utility-parking", "utility-warning", "utility-external-link", "utility-lock", "utility-unlock",
+    "utility-star", "utility-check", "utility-add", "utility-close", "utility-more", "utility-calendar",
+  ];
+
+  for (const iconId of requiredMarkIds) {
+    assert.ok(uiIconIds.has(iconId), `${iconId} missing from UI_ICON_IDS`);
+    assert.ok(cssIconIds.has(iconId), `${iconId} missing CSS sprite class`);
+    assert.ok(pngIconIds.has(iconId), `${iconId} missing generated PNG asset`);
+  }
+
+  const legacyMarkChars = String.fromCodePoint(
+    0x00d7, 0x2713, 0x2197, 0x1f17f, 0x26a0, 0x1f512, 0x1f513,
+    0x1f4f9, 0x2600, 0x1f324, 0x26c5, 0x1f32b, 0x1f327, 0x2744,
+    0x1f326, 0x26c8, 0x2615, 0x1f6bb, 0x1f4f7, 0x2605, 0x2606,
+    0x22ef, 0x21ba
+  );
+  const legacyMarkPattern = new RegExp(`[${legacyMarkChars}]`, "gu");
+  for (const relPath of ["assets/js/app.js", "index.html", "assets/css/site.css"]) {
+    const matches = [...read(relPath).matchAll(legacyMarkPattern)]
+      .map((match) => `U+${match[0].codePointAt(0).toString(16).toUpperCase()}`);
+    assert.deepEqual(matches, [], `${relPath} still contains legacy text icon marks`);
+  }
+});
+
 test("generated UI icon sprite cells are non-placeholder artwork", () => {
   for (const fileName of fs.readdirSync(path.join(repoRoot, "assets/ui-icons/normalized-png"))) {
     if (!fileName.endsWith(".png")) continue;

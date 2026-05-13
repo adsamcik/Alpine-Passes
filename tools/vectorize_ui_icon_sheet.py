@@ -3,7 +3,7 @@
 
 The source artwork uses a chroma-green background. This script:
 
-1. Splits the source sheet into a 5-column by 6-row grid, allowing for
+1. Splits the source sheet into a 5-column by configurable-row grid, allowing for
    non-divisible source dimensions.
 2. Removes the green background.
 3. Detects true alpha bounds per icon.
@@ -69,6 +69,43 @@ ICON_NAMES = [
     "poi-special-experience",
     "pass-generic",
     "poi-funicular",
+    "poi-art-island",
+    "poi-buddhist-temple",
+    "poi-food-market",
+    "poi-historic-district",
+    "poi-observation-tower",
+    "poi-onsen-town",
+    "poi-pop-culture-site",
+    "poi-post-town",
+    "poi-shinto-shrine",
+    "poi-traditional-garden",
+    "poi-volcano",
+    "layer-survey",
+    "layer-plan",
+    "layer-explore",
+    "weather-sunny",
+    "weather-partly-cloudy",
+    "weather-cloudy",
+    "weather-fog",
+    "weather-rain",
+    "weather-snow",
+    "weather-showers",
+    "weather-storm",
+    "weather-wind",
+    "break-coffee",
+    "break-restroom",
+    "break-viewpoint",
+    "utility-parking",
+    "utility-warning",
+    "utility-external-link",
+    "utility-lock",
+    "utility-unlock",
+    "utility-star",
+    "utility-check",
+    "utility-add",
+    "utility-close",
+    "utility-more",
+    "utility-calendar",
 ]
 
 
@@ -403,13 +440,13 @@ def vectorize_sheet(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--source", type=Path, required=True, help="generated 5x5 green-background source PNG")
+    parser.add_argument("--source", type=Path, required=True, help="generated green-background source PNG")
     parser.add_argument("--source-copy", type=Path, default=Path("assets/ui-icons/alpine-ui-icons-source.png"))
     parser.add_argument("--png-dir", type=Path, default=Path("assets/ui-icons/normalized-png"))
     parser.add_argument("--svg-dir", type=Path, default=Path("assets/ui-icons/svg"))
     parser.add_argument("--sprite", type=Path, default=Path("assets/ui-icons/alpine-ui-icons.png"))
     parser.add_argument("--cols", type=int, default=5)
-    parser.add_argument("--rows", type=int, default=6)
+    parser.add_argument("--rows", type=int, default=13)
     parser.add_argument("--grid", type=int, default=None, help="legacy alias for --cols")
     parser.add_argument("--canvas-size", type=int, default=128)
     parser.add_argument("--padding", type=int, default=12)

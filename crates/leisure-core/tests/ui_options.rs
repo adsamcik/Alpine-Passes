@@ -64,8 +64,13 @@ fn ui_options_full_camel_case_round_trip() {
     assert_eq!(parsed.themes, vec!["scenic".to_string()]);
     assert_eq!(parsed.tz_offset_minutes, Some(120));
     assert!(matches!(parsed.start, Some(UiPoint::Id(ref s)) if s == "node-A"));
-    assert!(matches!(parsed.end_node, Some(UiPoint::Coord { lat, lon, .. }) if lat == 47.1 && lon == 11.4));
-    assert_eq!(parsed.poi_prefs.as_ref().map(|p| p.themes.clone()), Some(vec!["food".to_string()]));
+    assert!(
+        matches!(parsed.end_node, Some(UiPoint::Coord { lat, lon, .. }) if lat == 47.1 && lon == 11.4)
+    );
+    assert_eq!(
+        parsed.poi_prefs.as_ref().map(|p| p.themes.clone()),
+        Some(vec!["food".to_string()])
+    );
 
     // Round-trip equivalence (re-serialize and re-deserialize → same struct).
     let value = serde_json::to_value(&parsed).expect("serialize");
@@ -75,7 +80,10 @@ fn ui_options_full_camel_case_round_trip() {
 
 #[test]
 fn target_mode_serializes_lowercase() {
-    assert_eq!(serde_json::to_value(TargetMode::Time).unwrap(), json!("time"));
+    assert_eq!(
+        serde_json::to_value(TargetMode::Time).unwrap(),
+        json!("time")
+    );
     assert_eq!(
         serde_json::to_value(TargetMode::Distance).unwrap(),
         json!("distance")

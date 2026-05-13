@@ -176,7 +176,10 @@ pub fn break_persona_for(personas: &[String]) -> String {
     {
         return "gourmet".to_owned();
     }
-    lower.into_iter().next().unwrap_or_else(|| "default".to_owned())
+    lower
+        .into_iter()
+        .next()
+        .unwrap_or_else(|| "default".to_owned())
 }
 
 /// Mirrors `lunchPolicyFor` (ui-translation.js:719-722). Returns the typed

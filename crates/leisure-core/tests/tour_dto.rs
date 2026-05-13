@@ -3,6 +3,7 @@
 //! Uses a small synthetic graph fixture (`LeisureGraph::load_from_json`) for
 //! graph-dependent tests; pure functions are tested without a graph.
 
+use leisure_core::tour_dto::__testing as helpers;
 use leisure_core::tour_dto::{
     compressed_path, derive_modes, display_stops, endpoint_stop, endpoint_stop_for_end_node,
     enrich_break_point, implicit_passes_from_path, map_leisure_stop, map_pass_stop, map_poi_stop,
@@ -10,7 +11,6 @@ use leisure_core::tour_dto::{
     path_from_edges, resolve_pass_id, resolve_selected_stop_id, same_stop, EndNode, EndpointKind,
     PlannerStopInput, SelectedStop, MAX_OSRM_WAYPOINTS,
 };
-use leisure_core::tour_dto::__testing as helpers;
 use leisure_core::{
     LeisureGraph, NodeId, UiBreakItem, UiCorridorItem, UiEndpointStop, UiPassStop, UiPoiStop,
     UiPoint, UiTourStop,
@@ -245,12 +245,34 @@ fn map_leisure_stop_returns_none_without_pass_or_coords() {
 #[test]
 fn display_stops_filters_all_four_kinds() {
     let stops = vec![
-        PlannerStopInput { kind: Some("start".to_owned()), ..Default::default() },
-        PlannerStopInput { kind: Some("pass".to_owned()), id: Some("p-1".to_owned()), ..Default::default() },
-        PlannerStopInput { kind: Some("end".to_owned()), ..Default::default() },
-        PlannerStopInput { kind: Some("return".to_owned()), ..Default::default() },
-        PlannerStopInput { kind: Some("poi".to_owned()), id: Some("poi-1".to_owned()), ..Default::default() },
-        PlannerStopInput { return_to_start: true, kind: Some("pass".to_owned()), id: Some("p-2".to_owned()), ..Default::default() },
+        PlannerStopInput {
+            kind: Some("start".to_owned()),
+            ..Default::default()
+        },
+        PlannerStopInput {
+            kind: Some("pass".to_owned()),
+            id: Some("p-1".to_owned()),
+            ..Default::default()
+        },
+        PlannerStopInput {
+            kind: Some("end".to_owned()),
+            ..Default::default()
+        },
+        PlannerStopInput {
+            kind: Some("return".to_owned()),
+            ..Default::default()
+        },
+        PlannerStopInput {
+            kind: Some("poi".to_owned()),
+            id: Some("poi-1".to_owned()),
+            ..Default::default()
+        },
+        PlannerStopInput {
+            return_to_start: true,
+            kind: Some("pass".to_owned()),
+            id: Some("p-2".to_owned()),
+            ..Default::default()
+        },
     ];
     let out = display_stops(&stops);
     assert_eq!(out.len(), 2);
@@ -261,9 +283,21 @@ fn display_stops_filters_all_four_kinds() {
 #[test]
 fn display_stops_preserves_order_and_unknown_kinds() {
     let stops = vec![
-        PlannerStopInput { kind: Some("pass".to_owned()), id: Some("a".to_owned()), ..Default::default() },
-        PlannerStopInput { kind: None, id: Some("b".to_owned()), ..Default::default() },
-        PlannerStopInput { kind: Some("custom".to_owned()), id: Some("c".to_owned()), ..Default::default() },
+        PlannerStopInput {
+            kind: Some("pass".to_owned()),
+            id: Some("a".to_owned()),
+            ..Default::default()
+        },
+        PlannerStopInput {
+            kind: None,
+            id: Some("b".to_owned()),
+            ..Default::default()
+        },
+        PlannerStopInput {
+            kind: Some("custom".to_owned()),
+            id: Some("c".to_owned()),
+            ..Default::default()
+        },
     ];
     let out = display_stops(&stops);
     assert_eq!(out.len(), 3);
@@ -368,13 +402,23 @@ fn endpoint_stop_from_id_point_has_nan_coords() {
 
 #[test]
 fn endpoint_stop_default_name_per_kind() {
-    let p = UiPoint::Coord { lat: 0.0, lon: 0.0, name: None };
+    let p = UiPoint::Coord {
+        lat: 0.0,
+        lon: 0.0,
+        name: None,
+    };
     assert_eq!(
-        endpoint_stop(&p, EndpointKind::Start).unwrap().name.as_deref(),
+        endpoint_stop(&p, EndpointKind::Start)
+            .unwrap()
+            .name
+            .as_deref(),
         Some("Start")
     );
     assert_eq!(
-        endpoint_stop(&p, EndpointKind::End).unwrap().name.as_deref(),
+        endpoint_stop(&p, EndpointKind::End)
+            .unwrap()
+            .name
+            .as_deref(),
         Some("End")
     );
 }
@@ -401,7 +445,11 @@ fn endpoint_stop_for_end_node_id_unknown_returns_nan_endpoint() {
 fn open_route_tour_stops_closed_returns_input_unchanged() {
     let g = empty_graph();
     let stops = vec![pass_tour_stop("a", 1.0, 1.0)];
-    let start = UiPoint::Coord { lat: 0.0, lon: 0.0, name: None };
+    let start = UiPoint::Coord {
+        lat: 0.0,
+        lon: 0.0,
+        name: None,
+    };
     let out = open_route_tour_stops(stops.clone(), &start, None, true, &g);
     assert_eq!(out, stops);
 }
@@ -410,7 +458,11 @@ fn open_route_tour_stops_closed_returns_input_unchanged() {
 fn open_route_tour_stops_open_adds_start_and_end() {
     let g = graph_fixture();
     let stops = vec![pass_tour_stop("p-stelvio", 46.5, 10.45)];
-    let start = UiPoint::Coord { lat: 46.0, lon: 7.0, name: Some("Base".to_owned()) };
+    let start = UiPoint::Coord {
+        lat: 46.0,
+        lon: 7.0,
+        name: Some("Base".to_owned()),
+    };
     let end_node = Some(EndNode::Id("base"));
     let out = open_route_tour_stops(stops, &start, end_node, false, &g);
     assert_eq!(out.len(), 3);
@@ -422,7 +474,11 @@ fn open_route_tour_stops_open_adds_start_and_end() {
 fn open_route_tour_stops_skips_start_when_first_already_matches() {
     let g = empty_graph();
     let stops = vec![endpoint_tour_stop(None, 46.0, 7.0)];
-    let start = UiPoint::Coord { lat: 46.0, lon: 7.0, name: None };
+    let start = UiPoint::Coord {
+        lat: 46.0,
+        lon: 7.0,
+        name: None,
+    };
     let out = open_route_tour_stops(stops, &start, None, false, &g);
     assert_eq!(out.len(), 1);
 }
@@ -434,7 +490,11 @@ fn open_route_tour_stops_skips_end_when_last_already_matches() {
         endpoint_tour_stop(Some("base"), 46.0, 7.0),
         endpoint_tour_stop(Some("base"), 46.0, 7.0),
     ];
-    let start = UiPoint::Coord { lat: 46.0, lon: 7.0, name: None };
+    let start = UiPoint::Coord {
+        lat: 46.0,
+        lon: 7.0,
+        name: None,
+    };
     let out = open_route_tour_stops(stops, &start, Some(EndNode::Id("base")), false, &g);
     // start dropped (first stop has matching coords), end dropped (last has same id)
     assert_eq!(out.len(), 2);
@@ -447,7 +507,11 @@ fn open_route_tour_stops_skips_end_when_last_already_matches() {
 #[test]
 fn derive_modes_out_and_back_when_path_only_visits_one_side() {
     let g = graph_fixture();
-    let path = vec![NodeId::from("p-stelvio:A"), NodeId::from("p-stelvio:S"), NodeId::from("p-stelvio:A")];
+    let path = vec![
+        NodeId::from("p-stelvio:A"),
+        NodeId::from("p-stelvio:S"),
+        NodeId::from("p-stelvio:A"),
+    ];
     let stops = vec![pass_tour_stop("p-stelvio", 46.5, 10.45)];
     let modes = derive_modes(&path, &stops, &g);
     assert_eq!(modes.len(), 1);
@@ -459,7 +523,11 @@ fn derive_modes_out_and_back_when_path_only_visits_one_side() {
 #[test]
 fn derive_modes_traverse_when_enter_and_exit_sides_differ() {
     let g = graph_fixture();
-    let path = vec![NodeId::from("p-stelvio:A"), NodeId::from("p-stelvio:S"), NodeId::from("p-stelvio:B")];
+    let path = vec![
+        NodeId::from("p-stelvio:A"),
+        NodeId::from("p-stelvio:S"),
+        NodeId::from("p-stelvio:B"),
+    ];
     let stops = vec![pass_tour_stop("p-stelvio", 46.5, 10.45)];
     let modes = derive_modes(&path, &stops, &g);
     assert_eq!(modes[0].mode, "traverse");
@@ -483,9 +551,18 @@ fn derive_modes_poi_and_endpoint_get_their_own_mode() {
     let g = empty_graph();
     let stops = vec![
         UiTourStop::Poi(UiPoiStop {
-            id: "poi-1".to_owned(), name: "POI".to_owned(), lat: 0.0, lon: 0.0,
-            is_poi: true, visit_dwell_sec: 0, dwell_min: 0, dwell_h: 0.0,
-            poi_category: "sight".to_owned(), poi_themes: vec![], quality: 0.0, scenic_score: 0.0,
+            id: "poi-1".to_owned(),
+            name: "POI".to_owned(),
+            lat: 0.0,
+            lon: 0.0,
+            is_poi: true,
+            visit_dwell_sec: 0,
+            dwell_min: 0,
+            dwell_h: 0.0,
+            poi_category: "sight".to_owned(),
+            poi_themes: vec![],
+            quality: 0.0,
+            scenic_score: 0.0,
         }),
         endpoint_tour_stop(Some("end"), 0.0, 0.0),
     ];
@@ -557,7 +634,12 @@ fn path_from_edges_empty_returns_empty() {
 
 #[test]
 fn path_from_edges_skips_malformed_ids() {
-    let edges = vec!["malformed".to_owned(), "->b".to_owned(), "a->".to_owned(), "x->y".to_owned()];
+    let edges = vec![
+        "malformed".to_owned(),
+        "->b".to_owned(),
+        "a->".to_owned(),
+        "x->y".to_owned(),
+    ];
     let path = path_from_edges(&edges);
     let strs: Vec<&str> = path.iter().map(NodeId::as_str).collect();
     assert_eq!(strs, vec!["x", "y"]);
@@ -611,7 +693,13 @@ fn compressed_path_strides_when_important_exceeds_max() {
     // Create a path of MAX+2 entries, every single one is a pass-base node so
     // they all qualify as important.
     let path: Vec<NodeId> = (0..MAX_OSRM_WAYPOINTS + 5)
-        .map(|i| NodeId::from(if i % 2 == 0 { "p-stelvio:A" } else { "p-stelvio:B" }))
+        .map(|i| {
+            NodeId::from(if i % 2 == 0 {
+                "p-stelvio:A"
+            } else {
+                "p-stelvio:B"
+            })
+        })
         .collect();
     let out = compressed_path(&path, &g);
     // First and last always kept; total bounded.
@@ -671,14 +759,29 @@ fn pass_id_from_synthetic_id_returns_none_for_non_synthetic() {
 #[test]
 fn resolve_pass_id_via_canonical_form() {
     let g = graph_fixture();
-    assert_eq!(resolve_pass_id(&g, "p-stelvio").map(|n| n.to_string()).as_deref(), Some("p-stelvio"));
+    assert_eq!(
+        resolve_pass_id(&g, "p-stelvio")
+            .map(|n| n.to_string())
+            .as_deref(),
+        Some("p-stelvio")
+    );
 }
 
 #[test]
 fn resolve_pass_id_via_synthetic_form() {
     let g = graph_fixture();
-    assert_eq!(resolve_pass_id(&g, "p-stelvio:A").map(|n| n.to_string()).as_deref(), Some("p-stelvio"));
-    assert_eq!(resolve_pass_id(&g, "p-stelvio:S").map(|n| n.to_string()).as_deref(), Some("p-stelvio"));
+    assert_eq!(
+        resolve_pass_id(&g, "p-stelvio:A")
+            .map(|n| n.to_string())
+            .as_deref(),
+        Some("p-stelvio")
+    );
+    assert_eq!(
+        resolve_pass_id(&g, "p-stelvio:S")
+            .map(|n| n.to_string())
+            .as_deref(),
+        Some("p-stelvio")
+    );
 }
 
 #[test]
@@ -703,20 +806,31 @@ fn resolve_selected_stop_id_via_node_id() {
 fn resolve_selected_stop_id_via_pass_triplet() {
     let g = graph_fixture();
     let s = SelectedStop::Id("p-stelvio");
-    assert_eq!(resolve_selected_stop_id(&s, &g).as_deref(), Some("p-stelvio"));
+    assert_eq!(
+        resolve_selected_stop_id(&s, &g).as_deref(),
+        Some("p-stelvio")
+    );
 }
 
 #[test]
 fn resolve_selected_stop_id_unknown_id_still_returned() {
     let g = graph_fixture();
     let s = SelectedStop::Id("not-in-graph");
-    assert_eq!(resolve_selected_stop_id(&s, &g).as_deref(), Some("not-in-graph"));
+    assert_eq!(
+        resolve_selected_stop_id(&s, &g).as_deref(),
+        Some("not-in-graph")
+    );
 }
 
 #[test]
 fn resolve_selected_stop_id_poi_named_resolves_via_match() {
     let g = graph_fixture();
-    let s = SelectedStop::PoiNamed { id: None, name: "Castle", lat: 46.1, lon: 7.1 };
+    let s = SelectedStop::PoiNamed {
+        id: None,
+        name: "Castle",
+        lat: 46.1,
+        lon: 7.1,
+    };
     let id = resolve_selected_stop_id(&s, &g).expect("Some");
     assert_eq!(id, "poi-castle");
 }
@@ -968,8 +1082,14 @@ fn adversarial_path_from_edges_arrow_in_node_id_split_only_first() {
 #[test]
 fn adversarial_display_stops_only_bookkeeping_returns_empty() {
     let stops = vec![
-        PlannerStopInput { kind: Some("start".to_owned()), ..Default::default() },
-        PlannerStopInput { return_to_start: true, ..Default::default() },
+        PlannerStopInput {
+            kind: Some("start".to_owned()),
+            ..Default::default()
+        },
+        PlannerStopInput {
+            return_to_start: true,
+            ..Default::default()
+        },
     ];
     assert!(display_stops(&stops).is_empty());
 }

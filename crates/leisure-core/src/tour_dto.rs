@@ -10,8 +10,8 @@
 
 use crate::graph::{haversine_m, LeisureGraph};
 use crate::types::{
-    Node, NodeId, NodeKind, Point, UiBreakItem, UiCorridorItem, UiEndpointStop, UiMode,
-    UiPassStop, UiPoiStop, UiPoint, UiTourStop,
+    Node, NodeId, NodeKind, Point, UiBreakItem, UiCorridorItem, UiEndpointStop, UiMode, UiPassStop,
+    UiPoiStop, UiPoint, UiTourStop,
 };
 
 /// Maximum number of OSRM waypoints; mirrors `MAX_OSRM_WAYPOINTS` in
@@ -146,19 +146,31 @@ pub fn map_pass_stop(stop: &PlannerStopInput, graph: &LeisureGraph) -> UiPassSto
         .as_ref()
         .and_then(|s| s.summit.as_ref())
         .and_then(|id| graph.nodes.get(id))
-        .or_else(|| graph.nodes.get(&NodeId::from(format!("{pass_id}:S").as_str())));
+        .or_else(|| {
+            graph
+                .nodes
+                .get(&NodeId::from(format!("{pass_id}:S").as_str()))
+        });
 
     let base_a_node = sides
         .as_ref()
         .and_then(|s| s.a.as_ref())
         .and_then(|id| graph.nodes.get(id))
-        .or_else(|| graph.nodes.get(&NodeId::from(format!("{pass_id}:A").as_str())));
+        .or_else(|| {
+            graph
+                .nodes
+                .get(&NodeId::from(format!("{pass_id}:A").as_str()))
+        });
 
     let base_b_node = sides
         .as_ref()
         .and_then(|s| s.b.as_ref())
         .and_then(|id| graph.nodes.get(id))
-        .or_else(|| graph.nodes.get(&NodeId::from(format!("{pass_id}:B").as_str())));
+        .or_else(|| {
+            graph
+                .nodes
+                .get(&NodeId::from(format!("{pass_id}:B").as_str()))
+        });
 
     let name = pass_node
         .map(|n| n.name.clone())
@@ -178,7 +190,9 @@ pub fn map_pass_stop(stop: &PlannerStopInput, graph: &LeisureGraph) -> UiPassSto
     ])
     .unwrap_or(f64::NAN);
 
-    let elev = pass_node.and_then(|n| n.elev).or_else(|| summit_node.and_then(|n| n.elev));
+    let elev = pass_node
+        .and_then(|n| n.elev)
+        .or_else(|| summit_node.and_then(|n| n.elev));
 
     let q = pass_node.map(quality_of_node).unwrap_or(0.0);
 
@@ -290,7 +304,9 @@ pub fn endpoint_stop(point: &UiPoint, kind: EndpointKind) -> Option<UiEndpointSt
         UiPoint::Id(s) => (Some(s.clone()), Some(s.clone()), f64::NAN, f64::NAN),
         UiPoint::Coord { lat, lon, name } => (None, name.clone(), *lat, *lon),
     };
-    let resolved_name = name.or_else(|| id.clone()).unwrap_or_else(|| kind.default_name().to_owned());
+    let resolved_name = name
+        .or_else(|| id.clone())
+        .unwrap_or_else(|| kind.default_name().to_owned());
     Some(UiEndpointStop {
         id,
         name: Some(resolved_name),
@@ -346,7 +362,10 @@ pub fn display_stops(stops: &[PlannerStopInput]) -> Vec<&PlannerStopInput> {
             if s.return_to_start {
                 return false;
             }
-            !matches!(s.kind.as_deref(), Some("start") | Some("end") | Some("return"))
+            !matches!(
+                s.kind.as_deref(),
+                Some("start") | Some("end") | Some("return")
+            )
         })
         .collect()
 }
@@ -368,7 +387,10 @@ pub fn open_route_tour_stops(
     }
     let mut out: Vec<UiTourStop> = Vec::with_capacity(planner_stops.len() + 2);
     if let Some(start_stop) = endpoint_stop(start, EndpointKind::Start).map(UiTourStop::Endpoint) {
-        let same_as_first = planner_stops.first().map(|s| same_stop(s, &start_stop)).unwrap_or(false);
+        let same_as_first = planner_stops
+            .first()
+            .map(|s| same_stop(s, &start_stop))
+            .unwrap_or(false);
         if !same_as_first {
             out.push(start_stop);
         }
@@ -669,10 +691,7 @@ pub fn match_poi_by_name<'g>(
         if normalize_name(&poi.name) != target {
             continue;
         }
-        let distance = haversine_route_km(&[
-            (stop_lat, stop_lon),
-            (poi.lat, poi.lon),
-        ]);
+        let distance = haversine_route_km(&[(stop_lat, stop_lon), (poi.lat, poi.lon)]);
         match best {
             Some((_, d)) if d <= distance => {}
             _ => best = Some((poi, distance)),

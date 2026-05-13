@@ -1,7 +1,7 @@
 use leisure_core::{
-    break_persona_for, is_in_range, is_seasonally_closed_pass, lunch_persona_for,
-    lunch_policy_for, optimizer_options, projected_open_pass_count, top_intent_personas,
-    LeisureGraph, LunchPersona, LunchPolicy, NodeId, TargetMode, UiOptions,
+    break_persona_for, is_in_range, is_seasonally_closed_pass, lunch_persona_for, lunch_policy_for,
+    optimizer_options, projected_open_pass_count, top_intent_personas, LeisureGraph, LunchPersona,
+    LunchPolicy, NodeId, TargetMode, UiOptions,
 };
 use serde_json::{json, Value};
 use std::collections::BTreeMap;

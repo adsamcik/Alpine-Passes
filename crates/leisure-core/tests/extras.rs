@@ -7,8 +7,8 @@
 //! fallback).
 
 use leisure_core::extras::{
-    compute_extras_approx, finite_or, quality_of, round_hours, scenic_stops_approx,
-    ExtrasConfig, ExtrasPartsApprox, LunchBreakOption,
+    compute_extras_approx, finite_or, quality_of, round_hours, scenic_stops_approx, ExtrasConfig,
+    ExtrasPartsApprox, LunchBreakOption,
 };
 use leisure_core::types::{
     Point, UiEndpointStop, UiMode, UiPassStop, UiPoiStop, UiPoint, UiTourStop,
@@ -258,7 +258,11 @@ fn extras_no_passes_no_extras() {
 
 #[test]
 fn extras_pass_stop_mins_uniform_fill() {
-    let stops = vec![pass("p1", "P1", 0.0, 0.0), pass("p2", "P2", 0.0, 0.0), poi("x")];
+    let stops = vec![
+        pass("p1", "P1", 0.0, 0.0),
+        pass("p2", "P2", 0.0, 0.0),
+        poi("x"),
+    ];
     let out = compute_extras_approx(
         &stops,
         1.0,

@@ -273,15 +273,8 @@ pub fn finite_or(primary: f64, fallback: f64) -> f64 {
 /// taken (then collapses to 0 via `Number(NaN) || 0`).
 ///
 /// Clamping: if `v > 1`, divide by 10 and cap at 1; otherwise floor at 0.
-pub fn quality_of(
-    scenic_score: Option<f64>,
-    score: Option<f64>,
-    raw_quality: Option<f64>,
-) -> f64 {
-    let raw = raw_quality
-        .or(scenic_score)
-        .or(score)
-        .unwrap_or(0.0);
+pub fn quality_of(scenic_score: Option<f64>, score: Option<f64>, raw_quality: Option<f64>) -> f64 {
+    let raw = raw_quality.or(scenic_score).or(score).unwrap_or(0.0);
     // JS `Number(raw) || 0` — NaN (and 0/-0) collapse to 0.
     let value = if raw.is_finite() && raw != 0.0 {
         raw

@@ -29,8 +29,7 @@ fn wasm_exports_have_expected_signatures() {
     let _f02: fn(u32) -> Result<JsValue, JsValue> = wasm_api::wasm_decompose_ears;
     let _f03: fn(u32) -> Result<JsValue, JsValue> = wasm_api::wasm_free_graph;
     let _f04: fn(u32) -> Result<JsValue, JsValue> = wasm_api::wasm_free_ears;
-    let _f05: fn(u32, u32, JsValue) -> Result<JsValue, JsValue> =
-        wasm_api::wasm_leisure_plan_auto;
+    let _f05: fn(u32, u32, JsValue) -> Result<JsValue, JsValue> = wasm_api::wasm_leisure_plan_auto;
     let _f06: fn(u32, u32, JsValue, JsValue) -> Result<JsValue, JsValue> =
         wasm_api::wasm_leisure_plan_selected;
     let _f07: fn(u32, u32, &str, &str, JsValue) -> Result<JsValue, JsValue> =
@@ -39,8 +38,7 @@ fn wasm_exports_have_expected_signatures() {
         wasm_api::wasm_suggest_corridor;
     let _f09: fn(u32, JsValue, JsValue) -> Result<JsValue, JsValue> =
         wasm_api::wasm_find_lunch_area;
-    let _f10: fn(u32, JsValue, JsValue) -> Result<JsValue, JsValue> =
-        wasm_api::wasm_suggest_breaks;
+    let _f10: fn(u32, JsValue, JsValue) -> Result<JsValue, JsValue> = wasm_api::wasm_suggest_breaks;
     let _f11: fn(JsValue, JsValue) -> Result<JsValue, JsValue> = wasm_api::wasm_infer_intent;
     let _f12: fn(JsValue, JsValue, JsValue, JsValue) -> Result<JsValue, JsValue> =
         wasm_api::wasm_surface_intent_pois;
@@ -95,8 +93,10 @@ fn wasm_api_mod_rs_exports_exact_set() {
     found.sort();
     found.dedup();
 
-    let mut expected: Vec<String> =
-        EXPECTED_WASM_EXPORTS_IN_MOD.iter().map(|s| s.to_string()).collect();
+    let mut expected: Vec<String> = EXPECTED_WASM_EXPORTS_IN_MOD
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
     expected.sort();
 
     assert_eq!(

@@ -4,15 +4,16 @@ pub mod astar;
 pub mod breaks;
 pub mod corridor;
 pub mod ears;
+pub mod extras;
 pub mod graph;
 pub mod heuristics;
 pub mod intent;
 pub mod lunch;
 pub mod optimizer;
+pub mod route_geom;
+pub mod tour_dto;
 pub mod types;
 pub mod ui_options;
-pub mod tour_dto;
-pub mod extras;
 pub mod wasm_api;
 
 pub use astar::{leisure_astar, AStarOptions, AStarResult, AStarStatus, CostMode};
@@ -22,6 +23,10 @@ pub use corridor::{
 };
 pub use ears::{decompose_ears, Ear, EarDecomposition, EarKind};
 pub use graph::{haversine_m, LeisureGraph};
+pub use heuristics::{
+    break_persona_for, is_in_range, is_seasonally_closed_pass, lunch_persona_for, lunch_policy_for,
+    optimizer_options, projected_open_pass_count, top_intent_personas, LunchPersona,
+};
 pub use intent::{
     infer_intent, surface_intent_pois, tags_from_entity, tags_from_target, IntentCandidate,
     IntentDistribution, IntentEntity, IntentState, IntentTarget, SurfaceIntentOptions,
@@ -40,11 +45,6 @@ pub use types::{
     UiScenicStop, UiTourStop,
 };
 pub use ui_options::*;
-pub use heuristics::{
-    break_persona_for, is_in_range, is_seasonally_closed_pass, lunch_persona_for,
-    lunch_policy_for, optimizer_options, projected_open_pass_count, top_intent_personas,
-    LunchPersona,
-};
 pub use wasm_api::*;
 
 use wasm_bindgen::prelude::wasm_bindgen;

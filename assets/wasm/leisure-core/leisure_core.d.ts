@@ -3,7 +3,11 @@
 
 export function leisure_core_version(): string;
 
+export function wasm_build_route_requests(graph_handle: number, plan_result_value: any, ui_options_value: any): any;
+
 export function wasm_decompose_ears(graph_handle: number): any;
+
+export function wasm_finalize_plan(graph_handle: number, plan_result_value: any, route_facts_value: any, ui_options_value: any, advanced: boolean): any;
 
 export function wasm_find_lunch_area(graph_handle: number, tour_value: any, options_value: any): any;
 
@@ -20,6 +24,8 @@ export function wasm_free_ears(handle: number): any;
  */
 export function wasm_free_graph(handle: number): any;
 
+export function wasm_infeasible_result(reason: string, ui_options_value: any, advanced: boolean): any;
+
 export function wasm_infer_intent(entities_value: any, options_value: any): any;
 
 export function wasm_leisure_plan_auto(graph_handle: number, ears_handle: number, options_value: any): any;
@@ -29,6 +35,10 @@ export function wasm_leisure_plan_open(graph_handle: number, ears_handle: number
 export function wasm_leisure_plan_selected(graph_handle: number, ears_handle: number, must_visit_value: any, options_value: any): any;
 
 export function wasm_load_graph(graph_data: any): any;
+
+export function wasm_phase4_outputs(graph_handle: number, tour_value: any, tour_stops_value: any, ui_options_value: any): any;
+
+export function wasm_resolve_selected_stop_ids(graph_handle: number, selected_stops_value: any): any;
 
 export function wasm_suggest_breaks(graph_handle: number, tour_value: any, options_value: any): any;
 
@@ -41,15 +51,20 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly leisure_core_version: (a: number) => void;
+    readonly wasm_build_route_requests: (a: number, b: number, c: number, d: number) => void;
     readonly wasm_decompose_ears: (a: number, b: number) => void;
+    readonly wasm_finalize_plan: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
     readonly wasm_find_lunch_area: (a: number, b: number, c: number, d: number) => void;
     readonly wasm_free_ears: (a: number, b: number) => void;
     readonly wasm_free_graph: (a: number, b: number) => void;
+    readonly wasm_infeasible_result: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly wasm_infer_intent: (a: number, b: number, c: number) => void;
     readonly wasm_leisure_plan_auto: (a: number, b: number, c: number, d: number) => void;
     readonly wasm_leisure_plan_open: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => void;
     readonly wasm_leisure_plan_selected: (a: number, b: number, c: number, d: number, e: number) => void;
     readonly wasm_load_graph: (a: number, b: number) => void;
+    readonly wasm_phase4_outputs: (a: number, b: number, c: number, d: number, e: number) => void;
+    readonly wasm_resolve_selected_stop_ids: (a: number, b: number, c: number) => void;
     readonly wasm_suggest_breaks: (a: number, b: number, c: number, d: number) => void;
     readonly wasm_suggest_corridor: (a: number, b: number, c: number, d: number) => void;
     readonly wasm_surface_intent_pois: (a: number, b: number, c: number, d: number, e: number) => void;

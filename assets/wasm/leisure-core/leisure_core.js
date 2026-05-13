@@ -22,12 +22,58 @@ export function leisure_core_version() {
 
 /**
  * @param {number} graph_handle
+ * @param {any} plan_result_value
+ * @param {any} ui_options_value
+ * @returns {any}
+ */
+export function wasm_build_route_requests(graph_handle, plan_result_value, ui_options_value) {
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        wasm.wasm_build_route_requests(retptr, graph_handle, addHeapObject(plan_result_value), addHeapObject(ui_options_value));
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        if (r2) {
+            throw takeObject(r1);
+        }
+        return takeObject(r0);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+    }
+}
+
+/**
+ * @param {number} graph_handle
  * @returns {any}
  */
 export function wasm_decompose_ears(graph_handle) {
     try {
         const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
         wasm.wasm_decompose_ears(retptr, graph_handle);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        if (r2) {
+            throw takeObject(r1);
+        }
+        return takeObject(r0);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+    }
+}
+
+/**
+ * @param {number} graph_handle
+ * @param {any} plan_result_value
+ * @param {any} route_facts_value
+ * @param {any} ui_options_value
+ * @param {boolean} advanced
+ * @returns {any}
+ */
+export function wasm_finalize_plan(graph_handle, plan_result_value, route_facts_value, ui_options_value, advanced) {
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        wasm.wasm_finalize_plan(retptr, graph_handle, addHeapObject(plan_result_value), addHeapObject(route_facts_value), addHeapObject(ui_options_value), advanced);
         var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
         var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
         var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
@@ -95,6 +141,30 @@ export function wasm_free_graph(handle) {
     try {
         const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
         wasm.wasm_free_graph(retptr, handle);
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        if (r2) {
+            throw takeObject(r1);
+        }
+        return takeObject(r0);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+    }
+}
+
+/**
+ * @param {string} reason
+ * @param {any} ui_options_value
+ * @param {boolean} advanced
+ * @returns {any}
+ */
+export function wasm_infeasible_result(reason, ui_options_value, advanced) {
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        const ptr0 = passStringToWasm0(reason, wasm.__wbindgen_export, wasm.__wbindgen_export2);
+        const len0 = WASM_VECTOR_LEN;
+        wasm.wasm_infeasible_result(retptr, ptr0, len0, addHeapObject(ui_options_value), advanced);
         var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
         var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
         var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
@@ -209,6 +279,50 @@ export function wasm_load_graph(graph_data) {
     try {
         const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
         wasm.wasm_load_graph(retptr, addHeapObject(graph_data));
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        if (r2) {
+            throw takeObject(r1);
+        }
+        return takeObject(r0);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+    }
+}
+
+/**
+ * @param {number} graph_handle
+ * @param {any} tour_value
+ * @param {any} tour_stops_value
+ * @param {any} ui_options_value
+ * @returns {any}
+ */
+export function wasm_phase4_outputs(graph_handle, tour_value, tour_stops_value, ui_options_value) {
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        wasm.wasm_phase4_outputs(retptr, graph_handle, addHeapObject(tour_value), addHeapObject(tour_stops_value), addHeapObject(ui_options_value));
+        var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+        var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+        var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
+        if (r2) {
+            throw takeObject(r1);
+        }
+        return takeObject(r0);
+    } finally {
+        wasm.__wbindgen_add_to_stack_pointer(16);
+    }
+}
+
+/**
+ * @param {number} graph_handle
+ * @param {any} selected_stops_value
+ * @returns {any}
+ */
+export function wasm_resolve_selected_stop_ids(graph_handle, selected_stops_value) {
+    try {
+        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+        wasm.wasm_resolve_selected_stop_ids(retptr, graph_handle, addHeapObject(selected_stops_value));
         var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
         var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
         var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);

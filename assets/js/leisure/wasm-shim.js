@@ -1,46 +1,17 @@
-import { arrayFrom, breakPersonaFor, emptyCorridor, emptyPhase4Outputs, enrichBreakPoint, infeasibleResult, lunchPersonaFor, lunchPolicyFor, normalizeCorridorItems, optimizerOptions, phaseStartTime, projectedOpenPassCount, resolveSelectedStopId, safePhase, topIntentPersonas, translatePlannerResult } from "./lib/ui-translation.js";
 // Must match the legacy localStorage bridge literals in assets/js/app.js.
 export const LEISURE_PLANNER_FLAG_KEY = "alpine.planner.leisure.v1";
 export const LEISURE_PLANNER_END_NODE_KEY = "alpine.planner.endNode";
+
 const GRAPH_URL = new URL("../../data/leisure-graph.v1.json", import.meta.url).href;
 const FETCH_TIMEOUT_MS = 20_000;
 // Auto-updated by tools/leisure/build-wasm.mjs at build time. Used to
 // cache-bust the WASM binary against stale glue JS on deploys.
-const WASM_CONTENT_HASH = "d7900ac87ed1";
+const WASM_CONTENT_HASH = "2bb5d9ced3cf";
 const SHIM_REPORTED = Symbol.for("alpine.leisure.shimReported");
 
 let graphStatePromise = null;
+let wasmReadyPromise = null;
 
-/**
- * UI-shaped result returned by the leisure façade.
- *
- * @typedef {object} UiPlanResult
- * @property {object} start UI start point `{ id?, name, lat, lon }`.
- * @property {string|undefined} endNode Resolved endpoint node id. Closed-loop tours use `start.id`.
- * @property {object[]} tourStops UI-compatible pass/POI stops. Open A→B
- * tours include start/end sentinels around intermediate stops; closed loops
- * keep the start implicit.
- * @property {{passIdx:number,enterSide:number,exitSide:number,mode:string}[]} modes Stop traversal modes.
- * @property {object[]} implicitPasses Passes inferred from path traversal but not selected by the optimizer.
- * @property {object[]} scenicStops Suggested scenic/break stops for rendering.
- * @property {number} km Route distance in kilometres.
- * @property {number} driveH Driving duration in hours.
- * @property {number} dwellH POI dwell duration in hours.
- * @property {number} extrasH Break/scenic-stop duration in hours.
- * @property {object} extrasParts Breakdown consumed by the legacy UI.
- * @property {number} totalH Total drive + dwell + extras duration in hours.
- * @property {boolean} inRange Whether the final result fits the requested target tolerance.
- * @property {boolean} advanced True for selected-stop planning.
- * @property {string} routeWarning Non-fatal route warning for the UI.
- * @property {string} statusWarning Non-fatal status warning for the UI.
- * @property {Date|string|null} tripDate Trip date used for seasonal masking.
- * @property {object[]} routeAlternatives Summaries for route alternative buttons.
- * @property {number} totalOpen Projected open/restricted pass shortlist count.
- * @property {{autoInclude:object[],suggestions:object[],drawer:object[]}} [corridor] Optional along-route POI detours.
- * @property {object[]} [lunchZones] Optional lunch zone polygons, capped at two.
- * @property {object[]} [breaks] Optional driving break suggestions.
- * @property {{topPersona:string,ambiguous:boolean,primary:object[],serendipity:object[],topPersonas?:string[]}} [intent] Optional intent-persona POI surface.
- */
 /**
  * Return whether the leisure planner feature flag is enabled.
  *
@@ -54,51 +25,62 @@ export function isLeisurePlannerEnabled() {
 /**
  * Build an automatic leisure tour and translate it into the legacy UI contract.
  *
- * @param {object} [uiOptions={}] UI options from app.js: start, optional `endNode`
- * node id or `{lat, lon, name?}` endpoint, target mode/value/tolerance, seasonal
- * filters, POI preferences, stops config, and an `osrmRoute(coords)` helper.
- * @returns {Promise<UiPlanResult>} UI-shaped result for rendering and route alternatives.
+ * @param {object} [uiOptions={}] UI options from app.js.
+ * @returns {Promise<object>} UI-shaped result for rendering and route alternatives.
  */
 export async function leisurePlanAuto(uiOptions = {}) {
-  const startedAt = Date.now();
-  try {
-    const state = await graphState();
-    const options = optionsForWasm(optimizerOptions(uiOptions, leisureEndNodeOverride()));
-    const mode = options.endNode && typeof options.start === "string" && typeof options.endNode === "string" ? "open" : "auto";
-    const planned = mode === "open"
-      ? fromWasm(state.wasm.wasm_leisure_plan_open(state.graphHandle, state.earsHandle, options.start, options.endNode, options))
-      : fromWasm(state.wasm.wasm_leisure_plan_auto(state.graphHandle, state.earsHandle, options));
-    const result = translatePlannerResult(planned, { graph: state.graph, uiOptions, advanced: false, phase4Outputs, defaultOsrmRoute: globalThis.window?.osrmRoute, wasmState: state });
-    reportShimEvent("plan-completed", { mode, durationMs: Date.now() - startedAt });
-    return result;
-  } catch (error) {
-    return wasmFailureResult(error, uiOptions, false, "plan");
-  }
+  return planCommon(uiOptions, "auto", null, false);
 }
 
 /**
  * Build a leisure tour through selected UI stops and translate it for rendering.
  *
- * @param {object} [uiOptions={}] UI options from app.js: start, optional `endNode`
- * node id or `{lat, lon, name?}` endpoint, target mode/value/tolerance, seasonal
- * filters, POI preferences, stops config, and an `osrmRoute(coords)` helper.
- * @param {object[]} [selectedStops=[]] UI-selected pass/POI stops; id/passId/nodeId resolve must-visits.
- * @returns {Promise<UiPlanResult>} UI-shaped selected-tour result for rendering.
+ * @param {object} [uiOptions={}] UI options from app.js.
+ * @param {object[]} [selectedStops=[]] UI-selected pass/POI stops.
+ * @returns {Promise<object>} UI-shaped selected-tour result for rendering.
  */
 export async function leisurePlanSelected(uiOptions = {}, selectedStops = []) {
+  return planCommon(uiOptions, "selected", selectedStops, true);
+}
+
+async function planCommon(uiOptions, mode, selectedStops, advanced) {
   const startedAt = Date.now();
+  let state;
+  try { state = await graphState(); }
+  catch (error) { return wasmUnavailableResult(uiOptions, advanced, error); }
+
   try {
-    const state = await graphState();
-    const { graph } = state;
-    const mustVisitIds = selectedStops.map((stop) => resolveSelectedStopId(stop, graph)).filter(Boolean);
-    if (mustVisitIds.length === 0) return infeasibleResult("no-selected-stops", uiOptions, true, null, projectedOpenPassCount(graph, uiOptions));
-    const options = optionsForWasm(optimizerOptions({ ...uiOptions, openOnly: false, forbiddenPassIds: [] }, leisureEndNodeOverride()));
-    const planned = fromWasm(state.wasm.wasm_leisure_plan_selected(state.graphHandle, state.earsHandle, mustVisitIds, options));
-    const result = translatePlannerResult(planned, { graph, uiOptions, advanced: true, phase4Outputs, defaultOsrmRoute: globalThis.window?.osrmRoute, wasmState: state });
-    reportShimEvent("plan-completed", { mode: "selected", durationMs: Date.now() - startedAt });
+    const uiForRust = optionsForRust(uiOptions, leisureEndNodeOverride());
+
+    let planResult, planMode;
+    if (mode === "selected") {
+      const ids = state.wasm.wasm_resolve_selected_stop_ids(state.graphHandle, selectedStops);
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return reshapeForLegacyAppJs(state.wasm.wasm_infeasible_result("no-selected-stops", uiForRust, true));
+      }
+      planResult = state.wasm.wasm_leisure_plan_selected(state.graphHandle, state.earsHandle, ids, uiForRust);
+      planMode = "selected";
+    } else {
+      const isOpen = uiForRust.endNode && typeof uiForRust.start === "string" && typeof uiForRust.endNode === "string";
+      planResult = isOpen
+        ? state.wasm.wasm_leisure_plan_open(state.graphHandle, state.earsHandle, uiForRust.start, uiForRust.endNode, uiForRust)
+        : state.wasm.wasm_leisure_plan_auto(state.graphHandle, state.earsHandle, uiForRust);
+      planMode = isOpen ? "open" : "auto";
+    }
+
+    const routeRequests = state.wasm.wasm_build_route_requests(state.graphHandle, planResult, uiForRust) ?? [];
+    const routeFacts = await Promise.all(
+      routeRequests.map((req) => fetchOsrmFacts(req, uiOptions?.osrmRoute))
+    );
+    const finalized = state.wasm.wasm_finalize_plan(
+      state.graphHandle, planResult, routeFacts, uiForRust, advanced);
+    const result = reshapeForLegacyAppJs(
+      withLazyAlternativeEnrichment(finalized, state, uiForRust));
+
+    reportShimEvent("plan-completed", { mode: planMode, durationMs: Date.now() - startedAt });
     return result;
   } catch (error) {
-    return wasmFailureResult(error, uiOptions, true, "plan");
+    return planFailureResult(state, uiOptions, advanced, error);
   }
 }
 
@@ -113,8 +95,6 @@ function graphState() {
   }
   return graphStatePromise;
 }
-
-let wasmReadyPromise = null;
 
 function loadWasm() {
   if (!wasmReadyPromise) {
@@ -149,22 +129,18 @@ function loadWasm() {
 
 async function initializeGraphState() {
   const [wasm, graphText] = await Promise.all([loadWasm(), loadGraphText(GRAPH_URL)]);
-  let graphData = null;
   let graphHandle;
   try {
-    graphHandle = fromWasm(wasm.wasm_load_graph(graphText));
+    graphHandle = wasm.wasm_load_graph(graphText);
   } catch (error) {
-    // Compatibility with pre-Phase-4a generated WASM bundles that only accept object-shaped graph data.
     if (!/invalid type:\s*string/i.test(errorMessage(error))) throw error;
-    graphData = JSON.parse(graphText);
-    graphHandle = fromWasm(wasm.wasm_load_graph(graphData));
+    graphHandle = wasm.wasm_load_graph(JSON.parse(graphText));
   }
   if (!Number.isInteger(graphHandle)) throw new Error(`Invalid WASM graph handle: ${graphHandle}`);
-  graphData ??= JSON.parse(graphText);
-  const ears = fromWasm(wasm.wasm_decompose_ears(graphHandle));
+  const ears = wasm.wasm_decompose_ears(graphHandle);
   const earsHandle = Number.isInteger(ears) ? ears : ears?.handle;
   if (!Number.isInteger(earsHandle)) throw new Error("Invalid WASM ears handle");
-  return { wasm, graph: new LeisureGraphShim(graphData), graphHandle, earsHandle, ears };
+  return { wasm, graphHandle, earsHandle, ears };
 }
 
 async function loadGraphText(url) {
@@ -237,83 +213,169 @@ if (typeof globalThis.addEventListener === "function") {
   });
 }
 
-class LeisureGraphShim {
-  constructor(data) {
-    this.data = data ?? {};
-    this.rawNodes = Array.isArray(this.data.nodes) ? this.data.nodes : [];
-    this.rawEdges = Array.isArray(this.data.edges) ? this.data.edges : [];
-    this.nodes = new Map();
-    this.nodesByKind = new Map();
-    this.passTriplets = new Map();
-    this.passIdByNodeId = new Map();
-    this.edgeById = new Map();
-    this.edgeByKey = new Map();
-    for (const node of this.rawNodes) {
-      if (!node?.id) continue;
-      this.nodes.set(node.id, node);
-      appendToMapArray(this.nodesByKind, node.kind, node);
-    }
-    for (const edge of this.rawEdges) {
-      if (!edge?.from || !edge?.to) continue;
-      const id = edgeIdOf(edge);
-      const key = edgeKey(edge.from, edge.to);
-      const stored = { ...edge, id, key };
-      this.edgeById.set(id, stored);
-      this.edgeByKey.set(key, stored);
-    }
-    this._buildPassIndexes();
-  }
+function optionsForRust(uiOptions, endNodeOverride) {
+  const out = { ...uiOptions };
+  if (endNodeOverride && !out.endNode) out.endNode = endNodeOverride;
+  out.tzOffsetMinutes = computeTzOffsetMinutes();
+  out.startTime = resolveStartTimeIso(uiOptions.startTime, uiOptions.tripDate);
+  out.tripDate = resolveTripDateString(uiOptions.tripDate);
+  return out;
+}
 
-  _buildPassIndexes() {
-    for (const pass of this.nodesByKind.get("pass") ?? []) {
-      this.passTriplets.set(pass.id, { pass, A: null, S: null, B: null });
-      this.passIdByNodeId.set(pass.id, pass.id);
+function resolveTripDateString(tripDate) {
+  if (tripDate == null) return undefined;
+  if (typeof tripDate === "string") return tripDate;
+  const date = tripDate instanceof Date ? tripDate : new Date(tripDate);
+  if (Number.isNaN(date.getTime())) return undefined;
+  const yyyy = date.getUTCFullYear();
+  const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(date.getUTCDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function resolveStartTimeIso(startTime, tripDate) {
+  if (startTime) {
+    const iso = isoStringOrNull(startTime);
+    if (iso) return iso;
+  }
+  if (tripDate) {
+    if (typeof tripDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(tripDate)) {
+      return `${tripDate}T08:00:00.000Z`;
     }
-    for (const node of this.rawNodes) {
-      if (node?.kind !== "pass-base" && node?.kind !== "pass-summit") continue;
-      const passId = node.passId ?? passIdFromSyntheticId(node.id);
-      if (!passId) continue;
-      if (!this.passTriplets.has(passId)) this.passTriplets.set(passId, { pass: this.nodes.get(passId) ?? null, A: null, S: null, B: null });
-      const triplet = this.passTriplets.get(passId);
-      if (node.kind === "pass-base" && node.side === "A") triplet.A = node;
-      if (node.kind === "pass-base" && node.side === "B") triplet.B = node;
-      if (node.kind === "pass-summit") triplet.S = node;
-      this.passIdByNodeId.set(node.id, passId);
-    }
+    const iso = isoStringOrNull(tripDate);
+    if (iso) return iso;
   }
+  return null;
+}
 
-  passSidesFor(passId) {
-    const resolvedPassId = this.passIdByNodeId.get(passId) ?? passIdFromSyntheticId(passId) ?? passId;
-    const triplet = this.passTriplets.get(resolvedPassId);
-    if (!triplet) return null;
-    return { pass: triplet.pass ?? null, A: triplet.A ?? null, S: triplet.S ?? null, B: triplet.B ?? null, baseA: triplet.A ?? null, summit: triplet.S ?? null, baseB: triplet.B ?? null };
-  }
+function isoStringOrNull(value) {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString();
+  const date = value ? new Date(value) : null;
+  return date && !Number.isNaN(date.getTime()) ? date.toISOString() : null;
+}
 
-  nodeKindOf(nodeId) {
-    return this.nodes.get(nodeId)?.kind;
-  }
-
-  edgeBetween(fromId, toId) {
-    return this.edgeByKey.get(edgeKey(fromId, toId)) ?? null;
+async function fetchOsrmFacts(routeRequest, osrmRoute) {
+  if (typeof osrmRoute !== "function") return null;
+  const coords = routeRequest?.coords;
+  if (!Array.isArray(coords) || coords.length < 2) return null;
+  // routeRequest.coords are [lon, lat] pairs (Rust RouteRequest contract).
+  const coordsStr = coords.map(([lon, lat]) => `${lon},${lat}`).join(";");
+  try {
+    const resp = await osrmRoute(coordsStr);
+    if (!resp) return null;
+    return { geom: resp.geom, distanceKm: resp.distanceKm, durationH: resp.durationH };
+  } catch (err) {
+    reportShimError("osrm-fetch", err);
+    return null;
   }
 }
 
-function edgeIdOf(edge) {
-  return edge?.id ?? edgeKey(edge?.from, edge?.to);
+function withLazyAlternativeEnrichment(finalized, state, uiForRust) {
+  const alts = Array.isArray(finalized?._routeAlternatives) ? finalized._routeAlternatives : [];
+  const wrapped = alts.map((alt) => {
+    let phase4Promise = null;
+    const wrappedAlt = {
+      label: alt.label,
+      result: alt.result,
+      draw: alt.draw,
+    };
+    Object.defineProperty(wrappedAlt, "tour", { value: alt.tour, enumerable: false });
+    Object.defineProperty(wrappedAlt, "tourStops", { value: alt.tourStops, enumerable: false });
+    wrappedAlt.ensurePhase4 = function ensurePhase4() {
+      if (!phase4Promise) {
+        phase4Promise = (async () => {
+          try {
+            const phase4 = state.wasm.wasm_phase4_outputs(
+              state.graphHandle, alt.tour, alt.tourStops, uiForRust);
+            applyPhase4InPlace(wrappedAlt.result, wrappedAlt.draw?.meta, phase4);
+          } catch (err) {
+            reportShimError("phase4-enrich", err);
+          }
+        })();
+      }
+      return phase4Promise.then(() => wrappedAlt);
+    };
+    return wrappedAlt;
+  });
+  return { ...finalized, _routeAlternatives: wrapped };
 }
 
-function edgeKey(fromId, toId) {
-  return `${fromId}->${toId}`;
+function applyPhase4InPlace(result, drawMeta, phase4) {
+  if (!result || !phase4) return;
+  result.corridor = reshapeCorridor(phase4.corridor);
+  result.lunchZones = phase4.lunchZones ?? [];
+  result.breaks = phase4.breaks ?? [];
+  result.intent = phase4.intent ?? { topPersona: "", ambiguous: false, primary: [], serendipity: [], topPersonas: [] };
+  if (drawMeta) drawMeta.leisureOverlays = phase4.overlays ?? defaultOverlays();
 }
 
-function appendToMapArray(map, key, value) {
-  if (!map.has(key)) map.set(key, []);
-  map.get(key).push(value);
+function reshapeForLegacyAppJs(result) {
+  if (result?.corridor) result.corridor = reshapeCorridor(result.corridor);
+  if (Array.isArray(result?._routeAlternatives)) {
+    for (const alt of result._routeAlternatives) {
+      if (alt?.result?.corridor) alt.result.corridor = reshapeCorridor(alt.result.corridor);
+    }
+  }
+  return result;
 }
 
-function passIdFromSyntheticId(nodeId) {
-  const match = String(nodeId).match(/^(.+):[ABS]$/);
-  return match ? match[1] : null;
+function reshapeCorridor(corridor) {
+  if (!corridor) return { autoInclude: [], suggestions: [], drawer: [] };
+  if ("suggestions" in corridor && !("items" in corridor)) return corridor;
+  return {
+    autoInclude: corridor.autoInclude ?? [],
+    suggestions: corridor.items ?? corridor.suggestions ?? [],
+    drawer: [],
+  };
+}
+
+function defaultOverlays() {
+  return { lunchZones: [], breaks: [], corridorSuggestions: [], corridorAutoInclude: [] };
+}
+
+function wasmUnavailableResult(uiOptions, advanced, error) {
+  const message = `WebAssembly is required for the leisure planner: ${errorMessage(error)}`;
+  reportShimErrorOnce("plan", error);
+  return {
+    start: uiOptions?.start ?? null,
+    endNode: undefined,
+    tourStops: [],
+    modes: [],
+    implicitPasses: [],
+    scenicStops: [],
+    km: 0, driveH: 0, dwellH: 0, extrasH: 0,
+    extrasParts: { corridorH: 0, lunchH: 0, breaksH: 0 },
+    totalH: 0,
+    inRange: false,
+    advanced: !!advanced,
+    routeWarning: message,
+    statusWarning: message,
+    tripDate: uiOptions?.tripDate ?? null,
+    routeAlternatives: [],
+    routeAlternativeIndex: 0,
+    totalOpen: 0,
+    corridor: { autoInclude: [], suggestions: [], drawer: [] },
+    lunchZones: [],
+    breaks: [],
+    intent: { topPersona: "", ambiguous: false, primary: [], serendipity: [], topPersonas: [] },
+    _latlngs: [],
+    _drawMeta: { leisureOverlays: defaultOverlays() },
+    _routeAlternatives: [],
+    wasmUnavailable: true,
+    error: errorMessage(error),
+  };
+}
+
+function planFailureResult(state, uiOptions, advanced, error) {
+  reportShimErrorOnce("plan", error);
+  if (state?.wasm?.wasm_infeasible_result) {
+    try {
+      const uiForRust = optionsForRust(uiOptions, leisureEndNodeOverride());
+      return reshapeForLegacyAppJs(state.wasm.wasm_infeasible_result(
+        "wasm-error: " + errorMessage(error), uiForRust, !!advanced));
+    } catch { /* fall through */ }
+  }
+  return wasmUnavailableResult(uiOptions, advanced, error);
 }
 
 function isNodeWasmFetchError(error) {
@@ -330,101 +392,8 @@ function isNodeWasmFetchError(error) {
     || /fetch is not defined|fetch failed/i.test(msg);
 }
 
-function phase4Outputs(graph, tour, tourStops, uiOptions = {}, wasmState = null) {
-  const wasm = wasmState?.wasm;
-  const graphHandle = wasmState?.graphHandle;
-  if (!wasm || !Number.isInteger(graphHandle)) return emptyPhase4Outputs();
-  const startTime = phaseStartTime(uiOptions);
-  const startTimeIso = isoString(startTime);
-  const themes = arrayFrom(uiOptions.themes ?? uiOptions.poiPrefs?.themes);
-  const personas = arrayFrom(uiOptions.personas ?? uiOptions.poiPrefs?.preset);
-  const weather = uiOptions.weather ?? null;
-  const corridorResult = safePhase("corridor", () => fromWasm(wasm.wasm_suggest_corridor(graphHandle, tour, {
-    themes,
-    personas,
-    maxAutoIncludePerHour: uiOptions.maxAutoIncludePerHour ?? uiOptions.corridor?.maxAutoIncludePerHour ?? 1,
-    autoIncludeMaxDetourMin: uiOptions.autoIncludeMaxDetourMin ?? uiOptions.corridor?.autoIncludeMaxDetourMin,
-    suggestMaxDetourMin: uiOptions.suggestMaxDetourMin ?? uiOptions.corridor?.suggestMaxDetourMin,
-    maxSuggestionsTotal: uiOptions.maxSuggestionsTotal ?? uiOptions.corridor?.maxSuggestionsTotal ?? 12,
-  })), emptyCorridor());
-  const corridor = {
-    autoInclude: normalizeCorridorItems(corridorResult.autoInclude),
-    suggestions: normalizeCorridorItems(corridorResult.suggestions),
-    drawer: normalizeCorridorItems(corridorResult.drawer),
-  };
-  const lunchPersona = lunchPersonaFor(personas);
-  const tzOffsetMinutes = computeTzOffsetMinutes();
-  const lunchResult = safePhase("lunch", () => fromWasm(wasm.wasm_find_lunch_area(graphHandle, tour, {
-    startTime: startTimeIso,
-    persona: lunchPersona,
-    lunchPolicy: lunchPolicyFor(uiOptions.stopsConfig?.lunchBreak),
-    narrativeMode: true,
-    weather,
-    tzOffsetMinutes,
-  })), { zones: [] });
-  const breaksResult = safePhase("breaks", () => fromWasm(wasm.wasm_suggest_breaks(graphHandle, tour, {
-    startTime: startTimeIso,
-    persona: breakPersonaFor(personas),
-    weather,
-    tourPacked: tourStops.length >= 8,
-    corridorPois: corridor.suggestions,
-    maxBreaksTotal: 4,
-    tzOffsetMinutes,
-  })), { breaks: [] });
-  const intentDistribution = safePhase("intent", () => fromWasm(wasm.wasm_infer_intent(tourStops, {
-    themeChips: themes,
-    budgetTier: uiOptions.budgetTier,
-    withChild: uiOptions.withChild ?? personas.includes("family"),
-    startTime: startTimeIso,
-    weather,
-  })), emptyIntentDistribution());
-  const corridorPois = [...corridor.autoInclude, ...corridor.suggestions];
-  const intentCandidates = corridorPois.map(intentCandidateFromCorridorItem);
-  const surfaced = safePhase("intent-surface", () => fromWasm(wasm.wasm_surface_intent_pois(tour, intentCandidates, intentDistribution, { topK: 12 })), { primary: [], serendipity: [], diagnostics: {} });
-  const topPersonas = topIntentPersonas(intentDistribution);
-  const lunchZones = arrayFrom(lunchResult.zones).slice(0, 2);
-  const breaks = arrayFrom(breaksResult.breaks).map((item) => enrichBreakPoint(item, tour, graph));
-  return {
-    corridor,
-    lunchZones,
-    breaks,
-    intent: {
-      topPersona: intentDistribution.topPersona || surfaced.diagnostics?.topPersona || "Balanced",
-      ambiguous: Boolean(intentDistribution.ambiguous),
-      primary: arrayFrom(surfaced.primary),
-      serendipity: arrayFrom(surfaced.serendipity),
-      topPersonas,
-    },
-    overlays: {
-      lunchZones,
-      breaks,
-      corridorSuggestions: corridor.suggestions,
-      corridorAutoInclude: corridor.autoInclude,
-    },
-  };
-}
-
-
-function wasmFailureResult(error, uiOptions = {}, advanced = false, stage = "plan") {
-  reportShimErrorOnce(stage, error);
-  const result = infeasibleResult("wasm-unavailable", uiOptions, advanced);
-  const message = `WebAssembly is required for the leisure planner: ${errorMessage(error)}`;
-  result.routeWarning = message;
-  result.statusWarning = message;
-  result.wasmUnavailable = true;
-  return result;
-}
-
 function errorMessage(error) {
   return String(error?.message || error || "unknown error");
-}
-
-function fromWasm(value) {
-  return value;
-}
-
-function optionsForWasm(options) {
-  return { ...options };
 }
 
 function computeTzOffsetMinutes() {
@@ -465,29 +434,6 @@ function reportShimEvent(name, detail = {}) {
   } catch { /* no-op */ }
 }
 
-function isoString(value) {
-  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString();
-  const date = value ? new Date(value) : null;
-  return date && !Number.isNaN(date.getTime()) ? date.toISOString() : null;
-}
-
-function emptyIntentDistribution() {
-  return { topPersona: "Balanced", ambiguous: false, effectiveTagVector: {}, entropy: 0, pastDismissedTags: {} };
-}
-
-function intentCandidateFromCorridorItem(item) {
-  return {
-    ...item,
-    id: item.id ?? item.poiId,
-    poiId: item.poiId ?? item.id,
-    kind: "poi",
-    name: item.name ?? item.poiName ?? item.poiId ?? item.id,
-    score: Number(item.score) || 0,
-    themes: item.themes ?? [],
-    categories: item.categories ?? [],
-  };
-}
-
 function leisureEndNodeOverride() {
   try {
     const value = globalThis.localStorage?.getItem(LEISURE_PLANNER_END_NODE_KEY);
@@ -496,4 +442,3 @@ function leisureEndNodeOverride() {
     return null;
   }
 }
-

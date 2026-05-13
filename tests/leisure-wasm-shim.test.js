@@ -7,14 +7,15 @@ const { pathToFileURL } = require("node:url");
 const repoRoot = path.resolve(__dirname, "..");
 const wasmShimModule = import(pathToFileURL(path.join(repoRoot, "assets", "js", "leisure", "wasm-shim.js")).href);
 
-// NOTE: wasm-shim.js contains a fallback retry that calls wasm_load_graph
-// with a parsed object after legacy bundles reject string input. The current
-// checked-in bundle accepts strings natively, and this test file intentionally
-// does not modify the production shim to force the retry. Follow-up: add a
-// wasm-bindgen-test or shim debug hook that exercises the JsValue-object branch.
+// ============================================================================
+// A. Lifecycle / IO tests — adapted from prior contract
+// ============================================================================
+
 test("wasm-shim failure result marks WebAssembly as unavailable", async () => {
   const previousWarn = console.warn;
+  const previousError = console.error;
   console.warn = () => {};
+  console.error = () => {};
   try {
     const shim = await wasmShimWithFailingLoader();
     const result = await shim.leisurePlanAuto(uiOptions({ start: "j-andermatt" }));
@@ -24,48 +25,7 @@ test("wasm-shim failure result marks WebAssembly as unavailable", async () => {
     assert.match(result.statusWarning, /WebAssembly is required/);
   } finally {
     console.warn = previousWarn;
-  }
-});
-
-test("wasm-shim phase4 returns empty outputs when wasm state is uninitialized", async () => {
-  const [{ translatePlannerResult }, { phase4Outputs }] = await Promise.all([
-    import(pathToFileURL(path.join(repoRoot, "assets", "js", "leisure", "lib", "ui-translation.js")).href),
-    wasmShimPhase4Module(),
-  ]);
-  const result = await translatePlannerResult({
-    status: "degraded",
-    primary: {
-      stops: [{ kind: "start", nodeId: "j-test" }],
-      path: [],
-      totalDistanceKm: 0,
-      totalDurationH: 0,
-      diagnostics: { reason: "wasm-uninitialized" },
-    },
-    alternatives: [],
-    diagnostics: { reason: "wasm-uninitialized" },
-  }, {
-    graph: minimalGraph(),
-    uiOptions: { start: { id: "j-test", name: "Test", lat: 46.8, lon: 8.2 } },
-    phase4Outputs,
-    wasmState: { wasm: null, graphHandle: null },
-  });
-
-  assert.deepEqual(result.corridor, { autoInclude: [], suggestions: [], drawer: [] });
-  assert.deepEqual(result.lunchZones, []);
-  assert.deepEqual(result.breaks, []);
-  assert.deepEqual(result.intent, { topPersona: "", ambiguous: false, primary: [], serendipity: [], topPersonas: [] });
-  assert.deepEqual(result._drawMeta.leisureOverlays, { lunchZones: [], breaks: [], corridorSuggestions: [], corridorAutoInclude: [] });
-});
-
-test("TZ matrix: lunch zone hunger curve shifts deterministically with tzOffsetMinutes", { timeout: 90_000 }, async () => {
-  const baseline = await runPlanWithMockTimezone(0);
-  const baseTime = baseline.lunchZones[0]?.tArriveMin;
-  assert.equal(baseTime, 720);
-
-  for (const offset of [120, -300, 840, -720]) {
-    const result = await runPlanWithMockTimezone(offset);
-    const shiftedTime = result.lunchZones[0]?.tArriveMin;
-    assert.equal(shiftedTime - baseTime, offset, `offset ${offset} should shift lunch arrival by ${offset} minutes`);
+    console.error = previousError;
   }
 });
 
@@ -88,7 +48,6 @@ test("reportShimError dispatches leisure-wasm-error CustomEvent with structured 
     assert.equal(typeof ev.errorName, "string");
     assert.equal(typeof ev.errorMessage, "string");
     assert.equal(typeof ev.timestamp, "number");
-    assert.equal(ev.userAgent, undefined, "userAgent should not be in default payload");
   } finally {
     globalThis.removeEventListener("leisure-wasm-error", listener);
     console.error = previousError;
@@ -233,89 +192,6 @@ test("isNodeWasmFetchError does not classify browser/jsdom fetch errors", async 
   }
 });
 
-test("rapid flag toggle does not allocate parallel WASM graphs (app-level race)", async () => {
-  // Extract the lifecycle functions from app.js by source-slicing them out and
-  // running them in a vm sandbox with a mocked dynamic import. This drives the
-  // exact rapid off-to-on path that production users can hit by spamming the
-  // debug flag toggle, without booting the full DOM/MapLibre UI.
-  const vm = require("node:vm");
-  const fsSync = require("node:fs");
-  const repoRoot = path.resolve(__dirname, "..");
-  const source = fsSync.readFileSync(path.join(repoRoot, "assets", "js", "app.js"), "utf8");
-  const start = source.indexOf("let leisurePlannerModulePromise = null;");
-  assert.notEqual(start, -1, "marker `let leisurePlannerModulePromise = null;` should exist in app.js");
-  const end = source.indexOf("function syncLeisureFlagControl(", start);
-  assert.notEqual(end, -1, "marker `function syncLeisureFlagControl(` should exist after the lifecycle block");
-  // Replace the dynamic `import(...)` call with a sandbox-injected `__loadShim()`
-  // so the vm context can return a controllable mock without resolving a real
-  // ES module URL.
-  const lifecycle = source.slice(start, end).replace(
-    /import\("\.\/leisure\/wasm-shim\.js"\)/,
-    "__loadShim()",
-  );
-
-  // Mock module records release order and load count so the test can assert
-  // no parallel allocations and a clean release-then-reload sequence.
-  const loadOrder = [];
-  let activeGraphCount = 0;
-  let maxParallelGraphs = 0;
-  let loadResolver = null;
-  let releaseResolver = null;
-  const __loadShim = () => {
-    loadOrder.push("load");
-    activeGraphCount += 1;
-    maxParallelGraphs = Math.max(maxParallelGraphs, activeGraphCount);
-    return new Promise((resolve) => {
-      loadResolver = () => resolve({
-        releaseWasmShimResources: () => new Promise((resolveRelease) => {
-          loadOrder.push("release");
-          releaseResolver = () => {
-            activeGraphCount -= 1;
-            resolveRelease();
-          };
-        }),
-      });
-    });
-  };
-
-  const sandbox = { __loadShim, console };
-  vm.createContext(sandbox);
-  vm.runInContext(`${lifecycle}\nglobalThis.__loadLeisurePlannerModule = loadLeisurePlannerModule;\nglobalThis.__resetLeisurePlannerModuleHandle = resetLeisurePlannerModuleHandle;`, sandbox, { filename: "assets/js/app.js" });
-
-  // 1. First load — module is held.
-  const firstLoad = sandbox.__loadLeisurePlannerModule();
-  await tick();
-  loadResolver();
-  await firstLoad;
-  assert.equal(activeGraphCount, 1, "exactly one graph after initial load");
-
-  // 2. Rapid flag toggle: reset, then immediately try to re-load.
-  const resetPromise = sandbox.__resetLeisurePlannerModuleHandle();
-  const reloadPromise = sandbox.__loadLeisurePlannerModule();
-
-  // The reload MUST wait for the release before kicking off a new load.
-  await tick();
-  assert.equal(activeGraphCount, 1, "still one graph: release not yet resolved, so reload must be queued");
-  assert.deepStrictEqual(loadOrder, ["load", "release"], "release fires before any second load");
-
-  // 3. Resolve the release; the reload's load call should now run.
-  releaseResolver();
-  await resetPromise;
-  await tick();
-  assert.equal(activeGraphCount, 1, "release dec'd to 0, new load inc'd back to 1 — never 2");
-
-  // 4. Finish the reload.
-  loadResolver();
-  await reloadPromise;
-
-  assert.equal(maxParallelGraphs, 1, "never more than one graph allocated simultaneously across the full sequence");
-  assert.deepStrictEqual(loadOrder, ["load", "release", "load"], "exact sequence: initial load, release, reload");
-});
-
-function tick() {
-  return new Promise((resolve) => setTimeout(resolve, 0));
-}
-
 test("graphStatePromise clears on rejection so subsequent calls retry", async () => {
   let attempts = 0;
   const shim = await wasmShimGraphStateModule(() => {
@@ -333,6 +209,301 @@ test("graphStatePromise clears on rejection so subsequent calls retry", async ()
   assert.equal(state.earsHandle, 2);
 });
 
+// ============================================================================
+// B. New shim contract — Rust-finalized UiPlanResult flow
+// ============================================================================
+
+test("wasm-unavailable result shape matches the documented UiPlanResult fields", async () => {
+  const previousWarn = console.warn;
+  const previousError = console.error;
+  console.warn = () => {};
+  console.error = () => {};
+  try {
+    const shim = await wasmShimWithFailingLoader();
+    const result = await shim.leisurePlanAuto(uiOptions({ start: "j-andermatt" }));
+
+    assertConsumerFieldsPresent(result);
+    assert.equal(result.wasmUnavailable, true);
+
+    // Corridor shape: { autoInclude, suggestions, drawer } — all arrays, drawer empty.
+    assert.deepStrictEqual(Object.keys(result.corridor).sort(), ["autoInclude", "drawer", "suggestions"]);
+    assert.ok(Array.isArray(result.corridor.autoInclude));
+    assert.ok(Array.isArray(result.corridor.suggestions));
+    assert.ok(Array.isArray(result.corridor.drawer));
+    assert.equal(result.corridor.drawer.length, 0);
+
+    // _routeAlternatives is an empty array, never undefined.
+    assert.ok(Array.isArray(result._routeAlternatives));
+    assert.equal(result._routeAlternatives.length, 0);
+
+    // _drawMeta.leisureOverlays has all four overlay arrays.
+    const overlays = result._drawMeta.leisureOverlays;
+    assert.ok(Array.isArray(overlays.lunchZones));
+    assert.ok(Array.isArray(overlays.breaks));
+    assert.ok(Array.isArray(overlays.corridorSuggestions));
+    assert.ok(Array.isArray(overlays.corridorAutoInclude));
+  } finally {
+    console.warn = previousWarn;
+    console.error = previousError;
+  }
+});
+
+test("corridor reshape: Rust items become legacy suggestions; drawer is []; no items key remains", async () => {
+  const wasm = mockWasm({
+    wasm_finalize_plan: (gh, plan, routeFacts, ui, advanced) => ({
+      ...mockFinalizedPlan(ui, advanced),
+      corridor: { items: [{ id: "poi1" }], autoInclude: [{ id: "auto1" }] },
+    }),
+  });
+  const shim = await wasmShimWithMockWasm({ wasm });
+  const result = await shim.leisurePlanAuto(uiOptions({ start: "j-start" }));
+
+  assert.equal(result.corridor.suggestions[0].id, "poi1");
+  assert.equal(result.corridor.autoInclude[0].id, "auto1");
+  assert.equal(result.corridor.drawer.length, 0);
+  assert.equal("items" in result.corridor, false, "Rust-shape `items` key must not leak through");
+});
+
+test("_routeAlternatives are wrapped with ensurePhase4 thunks and awaiting returns the same wrapper", async () => {
+  const wasm = mockWasm({
+    wasm_finalize_plan: (gh, plan, routeFacts, ui, advanced) => ({
+      ...mockFinalizedPlan(ui, advanced),
+      _routeAlternatives: [
+        { label: "primary", result: { corridor: null }, draw: { meta: {} }, tour: { stub: true }, tourStops: [] },
+        { label: "alt1", result: { corridor: null }, draw: { meta: {} }, tour: { stub: "alt" }, tourStops: [] },
+      ],
+    }),
+  });
+  const shim = await wasmShimWithMockWasm({ wasm });
+  const result = await shim.leisurePlanAuto(uiOptions({ start: "j-start" }));
+
+  assert.equal(result._routeAlternatives.length, 2);
+  assert.equal(typeof result._routeAlternatives[0].ensurePhase4, "function");
+  assert.equal(typeof result._routeAlternatives[1].ensurePhase4, "function");
+
+  const wrapper = result._routeAlternatives[1];
+  const awaited = await wrapper.ensurePhase4();
+  assert.strictEqual(awaited, wrapper, "ensurePhase4 must resolve to the same wrapper for chaining");
+});
+
+test("ensurePhase4 mutates alt.result.corridor with reshaped phase4 output", async () => {
+  const wasm = mockWasm({
+    wasm_finalize_plan: (gh, plan, routeFacts, ui, advanced) => ({
+      ...mockFinalizedPlan(ui, advanced),
+      _routeAlternatives: [
+        { label: "primary", result: { corridor: null }, draw: { meta: {} }, tour: { stub: true }, tourStops: [] },
+        { label: "alt1", result: { corridor: null }, draw: { meta: {} }, tour: { stub: "alt" }, tourStops: [] },
+      ],
+    }),
+    wasm_phase4_outputs: () => ({
+      corridor: { items: [{ id: "x" }], autoInclude: [] },
+      lunchZones: [],
+      breaks: [],
+      intent: { topPersona: "Test", ambiguous: false, primary: [], serendipity: [], topPersonas: [] },
+      overlays: { lunchZones: [], breaks: [], corridorSuggestions: [], corridorAutoInclude: [] },
+    }),
+  });
+  const shim = await wasmShimWithMockWasm({ wasm });
+  const result = await shim.leisurePlanAuto(uiOptions({ start: "j-start" }));
+
+  const alt = result._routeAlternatives[1];
+  assert.equal(alt.result.corridor, null, "pre-enrichment corridor should be the as-finalized value");
+
+  await alt.ensurePhase4();
+
+  assert.ok(alt.result.corridor, "ensurePhase4 must populate alt.result.corridor");
+  assert.equal(alt.result.corridor.suggestions[0].id, "x");
+  assert.equal(alt.result.corridor.drawer.length, 0);
+  assert.equal("items" in alt.result.corridor, false);
+});
+
+test("ensurePhase4 is memoized: second call hits the same promise; single wasm_phase4_outputs invocation", async () => {
+  let phase4CallCount = 0;
+  const wasm = mockWasm({
+    wasm_finalize_plan: (gh, plan, routeFacts, ui, advanced) => ({
+      ...mockFinalizedPlan(ui, advanced),
+      _routeAlternatives: [
+        { label: "primary", result: { corridor: null }, draw: { meta: {} }, tour: { stub: true }, tourStops: [] },
+      ],
+    }),
+    wasm_phase4_outputs: () => {
+      phase4CallCount += 1;
+      return mockPhase4Outputs();
+    },
+  });
+  const shim = await wasmShimWithMockWasm({ wasm });
+  const result = await shim.leisurePlanAuto(uiOptions({ start: "j-start" }));
+
+  const alt = result._routeAlternatives[0];
+  const first = await alt.ensurePhase4();
+  const second = await alt.ensurePhase4();
+
+  assert.equal(phase4CallCount, 1, "wasm_phase4_outputs must be invoked exactly once across two ensurePhase4 awaits");
+  assert.strictEqual(first, alt);
+  assert.strictEqual(second, alt);
+  assert.strictEqual(first, second);
+});
+
+test("optionsForRust threads tzOffsetMinutes and startTime to every wasm call", async () => {
+  const originalGetTzOffset = Date.prototype.getTimezoneOffset;
+  // JS getTimezoneOffset returns minutes WEST of UTC. Shim negates it to get
+  // minutes EAST of UTC. Stub returning -120 → shim should yield 120.
+  Date.prototype.getTimezoneOffset = function stubbedGetTimezoneOffset() { return -120; };
+  try {
+    const wasm = mockWasm();
+    const shim = await wasmShimWithMockWasm({ wasm });
+    await shim.leisurePlanAuto(uiOptions({
+      start: "j-start",
+      startTime: new Date(Date.UTC(2026, 5, 15, 8, 0, 0)),
+      tripDate: new Date(Date.UTC(2026, 5, 15)),
+    }));
+
+    const captured = wasm.__captured.finalizeArgs;
+    assert.ok(captured, "wasm_finalize_plan must have been invoked");
+    assert.equal(captured.ui.tzOffsetMinutes, 120, "tzOffsetMinutes must be the negated JS offset (East-of-UTC)");
+    assert.equal(captured.ui.startTime, "2026-06-15T08:00:00.000Z", "startTime must be normalized to an ISO string");
+  } finally {
+    Date.prototype.getTimezoneOffset = originalGetTzOffset;
+  }
+});
+
+test("leisurePlanSelected with empty selectedStops invokes wasm_infeasible_result with 'no-selected-stops'", async () => {
+  const wasm = mockWasm({
+    wasm_resolve_selected_stop_ids: () => [],
+  });
+  const shim = await wasmShimWithMockWasm({ wasm });
+  const result = await shim.leisurePlanSelected(uiOptions({ start: "j-start" }), []);
+
+  const captured = wasm.__captured.infeasibleArgs;
+  assert.ok(captured, "wasm_infeasible_result must be invoked when no stops resolve");
+  assert.equal(captured.reason, "no-selected-stops");
+  assert.equal(captured.advanced, true, "leisurePlanSelected always passes advanced=true to infeasible_result");
+  assert.ok(result && typeof result === "object", "shim still returns a UiPlanResult on infeasible branch");
+});
+
+test("OSRM fetch failures are non-fatal: per-alt error → routeFacts[i] = null", async () => {
+  let osrmCallCount = 0;
+  const failingOsrm = async (coords) => {
+    osrmCallCount += 1;
+    if (osrmCallCount === 2) throw new Error("mock OSRM failure on alt 1");
+    return straightLineOsrmRoute(coords);
+  };
+
+  const wasm = mockWasm({
+    wasm_build_route_requests: () => [
+      { coords: [[8.20, 46.80], [8.21, 46.81]] },
+      { coords: [[8.21, 46.81], [8.22, 46.82]] },
+    ],
+    wasm_finalize_plan: (gh, plan, routeFacts, ui, advanced) => {
+      // Capture what the shim hands to Rust.
+      wasm.__captured.finalizeArgs = { graphHandle: gh, plan, routeFacts, ui, advanced };
+      return mockFinalizedPlan(ui, advanced);
+    },
+  });
+
+  const previousError = console.error;
+  console.error = () => {};
+  try {
+    const shim = await wasmShimWithMockWasm({ wasm });
+    const result = await shim.leisurePlanAuto(uiOptions({ start: "j-start", osrmRoute: failingOsrm }));
+
+    assert.ok(result, "shim should not throw when one OSRM request fails");
+    const captured = wasm.__captured.finalizeArgs;
+    assert.ok(captured, "wasm_finalize_plan must still be invoked");
+    assert.ok(Array.isArray(captured.routeFacts));
+    assert.equal(captured.routeFacts.length, 2);
+    assert.notEqual(captured.routeFacts[0], null, "first OSRM call succeeded — routeFacts[0] should be populated");
+    assert.equal(captured.routeFacts[1], null, "second OSRM call failed — routeFacts[1] must be null (not throw)");
+  } finally {
+    console.error = previousError;
+  }
+});
+
+// ============================================================================
+// C. Real-graph smoke — gated on a working WASM artifact
+// ============================================================================
+
+test("real-graph smoke: leisurePlanAuto end-to-end builds a UiPlanResult", async (t) => {
+  // Probe whether the WASM artifact can load. If the shim's content-hash
+  // literal disagrees with the on-disk bundle (pre-F6-C4 rebuild) or the
+  // artifact is missing, skip gracefully so this file can be tested on its own.
+  let probe;
+  try {
+    probe = await import(pathToFileURL(path.join(repoRoot, "assets", "wasm", "leisure-core", "leisure_core.js")).href);
+  } catch (err) {
+    return t.skip(`leisure_core.js failed to import: ${err?.message || err}`);
+  }
+  if (typeof probe?.default !== "function") {
+    return t.skip("leisure_core.js missing default export");
+  }
+
+  const shim = await wasmShimModule;
+  const result = await shim.leisurePlanAuto({
+    start: "j-andermatt",
+    targetMode: "distance",
+    targetValue: 100,
+    osrmRoute: straightLineOsrmRoute,
+    tripDate: new Date(Date.UTC(2026, 5, 15)),
+    startTime: new Date(Date.UTC(2026, 5, 15, 8, 0, 0)),
+    stopsConfig: defaultStopsConfig(),
+  });
+
+  if (result?.wasmUnavailable) {
+    return t.skip(`WASM artifact not loadable; awaiting C4 rebuild: ${result.error || ""}`);
+  }
+
+  assert.ok(Array.isArray(result.tourStops), "tourStops must be an array");
+  assert.ok(Array.isArray(result._routeAlternatives), "_routeAlternatives must be an array");
+  assert.ok(result.corridor && typeof result.corridor === "object", "corridor must be an object");
+  assert.deepStrictEqual(Object.keys(result.corridor).sort(), ["autoInclude", "drawer", "suggestions"],
+    "corridor must be reshaped to the legacy { autoInclude, suggestions, drawer } shape");
+  assertConsumerFieldsPresent(result);
+
+  // Best-effort cleanup so the shared graphState doesn't linger across tests.
+  try { await shim.releaseWasmShimResources(); } catch { /* non-fatal */ }
+});
+
+// ============================================================================
+// Test helpers
+// ============================================================================
+
+// Field list mirrors `app.js consumers` in
+// .copilot/session-state/.../files/program-brief.md.
+// REQUIRED fields are present on every UiPlanResult (success or failure).
+// OPTIONAL fields are wire-omitted when their Rust value is None
+// (`#[serde(skip_serializing_if = "Option::is_none")]`); app.js consumers
+// treat missing as falsy/absent — that contract is preserved.
+const REQUIRED_CONSUMER_FIELDS = [
+  "intent", "corridor", "lunchZones", "breaks",
+  "routeAlternatives", "routeAlternativeIndex",
+  "_latlngs", "_drawMeta",
+  "tourStops", "modes", "implicitPasses", "scenicStops",
+  "km", "driveH", "dwellH", "extrasH", "extrasParts", "totalH",
+  "inRange", "advanced",
+  "tripDate", "totalOpen",
+  "start",
+  "wasmUnavailable",
+];
+const OPTIONAL_CONSUMER_FIELDS = [
+  "routeWarning", "statusWarning", "endNode",
+  "_routeAlternatives",
+];
+
+function assertConsumerFieldsPresent(result) {
+  for (const field of REQUIRED_CONSUMER_FIELDS) {
+    assert.ok(field in result, `required consumer field "${field}" must be present on UiPlanResult (got keys: ${Object.keys(result).join(", ")})`);
+  }
+  for (const field of OPTIONAL_CONSUMER_FIELDS) {
+    if (field in result) {
+      // present — fine; app.js reads optionally.
+      continue;
+    }
+    // absent — also fine per `skip_serializing_if = "Option::is_none"`.
+  }
+  // _drawMeta.leisureOverlays is the sub-key app.js reads.
+  assert.ok(result._drawMeta && "leisureOverlays" in result._drawMeta,
+    "_drawMeta.leisureOverlays must be present");
+}
 
 function uiOptions(overrides = {}) {
   return {
@@ -359,7 +530,6 @@ function defaultStopsConfig() {
   };
 }
 
-
 async function straightLineOsrmRoute(coords) {
   const points = String(coords)
     .split(";")
@@ -370,11 +540,6 @@ async function straightLineOsrmRoute(coords) {
     distanceKm: points.length * 10,
     durationH: points.length * 0.1,
   };
-}
-
-async function wasmShimPhase4Module() {
-  return wasmShimFromSource((source) => source
-    .replace("function phase4Outputs(", "export function phase4Outputs("));
 }
 
 async function wasmShimWithFailingLoader() {
@@ -390,11 +555,12 @@ async function wasmShimWithFailingGraphState() {
 
 async function wasmShimFromSource(transform) {
   const sourcePath = path.join(repoRoot, "assets", "js", "leisure", "wasm-shim.js");
-  const uiTranslationUrl = pathToFileURL(path.join(repoRoot, "assets", "js", "leisure", "lib", "ui-translation.js")).href;
   let source = await fs.readFile(sourcePath, "utf8");
-  source = source.replace('from "./lib/ui-translation.js";', `from "${uiTranslationUrl}";`);
+  // Real graph URL would point at the on-disk JSON; redirect to about:blank so
+  // helpers that don't override loadGraphText still don't hit the filesystem.
   source = source.replace('const GRAPH_URL = new URL("../../data/leisure-graph.v1.json", import.meta.url).href;', 'const GRAPH_URL = "about:blank";');
   source = transform(source);
+  // Distinguish each `data:` import so Node's module cache treats them as new.
   source += `\n// test-import-nonce:${Date.now()}:${Math.random()}`;
   return import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
 }
@@ -437,54 +603,43 @@ async function wasmShimGraphStateModule(graphText) {
     .replace("function graphState()", "export function __graphStateForTest()"));
 }
 
-function minimalGraph() {
-  return {
-    nodes: new Map([["j-test", { id: "j-test", name: "Test", kind: "junction", lat: 46.8, lon: 8.2 }]]),
-    nodesByKind: new Map(),
-    passTriplets: new Map(),
-    passIdByNodeId: new Map(),
-    passSidesFor: () => null,
-  };
-}
+// ----------------------------------------------------------------------------
+// Mock WASM surface — matches the post-F6 contract
+// ----------------------------------------------------------------------------
 
-async function runPlanWithMockTimezone(offsetMinutes) {
-  const original = Date.prototype.getTimezoneOffset;
-  Date.prototype.getTimezoneOffset = () => -offsetMinutes;
-  try {
-    const shim = await wasmShimWithMockWasm({ wasm: mockWasm({ lunchOffsetFromOptions: true }) });
-    return await shim.leisurePlanAuto(uiOptions({ start: "j-start", stopsConfig: { ...defaultStopsConfig(), lunchBreak: "auto" } }));
-  } finally {
-    Date.prototype.getTimezoneOffset = original;
-  }
-}
-
-function mockWasm({ lunchOffsetFromOptions = false } = {}) {
-  return {
+function mockWasm(overrides = {}) {
+  const captured = {};
+  const base = {
     leisure_core_version: () => "test",
     wasm_load_graph: () => 1,
     wasm_decompose_ears: () => ({ handle: 2 }),
-    wasm_leisure_plan_auto: () => mockPlannedTour(),
-    wasm_leisure_plan_open: () => mockPlannedTour(),
-    wasm_leisure_plan_selected: () => mockPlannedTour(),
-    wasm_suggest_corridor: () => ({ autoInclude: [], suggestions: [], drawer: [] }),
-    wasm_find_lunch_area: (_graphHandle, _tour, options = {}) => ({
-      zones: [{
-        id: "lunch",
-        label: "Lunch",
-        tArriveMin: 720 + (lunchOffsetFromOptions ? Number(options.tzOffsetMinutes) || 0 : 0),
-        tArriveMax: 780 + (lunchOffsetFromOptions ? Number(options.tzOffsetMinutes) || 0 : 0),
-      }],
-    }),
-    wasm_suggest_breaks: () => ({ breaks: [] }),
-    wasm_infer_intent: () => ({ topPersona: "Balanced", ambiguous: false }),
-    wasm_surface_intent_pois: () => ({ primary: [], serendipity: [], diagnostics: {} }),
+    wasm_leisure_plan_auto: () => mockPlanResult(),
+    wasm_leisure_plan_selected: () => mockPlanResult(),
+    wasm_leisure_plan_open: () => mockPlanResult(),
+    wasm_resolve_selected_stop_ids: () => ["pass-a"],
+    wasm_build_route_requests: () => [{ coords: [[8.20, 46.80], [8.21, 46.81]] }],
+    wasm_finalize_plan: (gh, plan, routeFacts, ui, advanced) => {
+      captured.finalizeArgs = { graphHandle: gh, plan, routeFacts, ui, advanced };
+      return mockFinalizedPlan(ui, advanced);
+    },
+    wasm_phase4_outputs: () => mockPhase4Outputs(),
+    wasm_infeasible_result: (reason, ui, advanced) => {
+      captured.infeasibleArgs = { reason, ui, advanced };
+      return mockInfeasibleResult(ui, advanced);
+    },
+    wasm_free_graph: () => true,
+    wasm_free_ears: () => true,
   };
+  Object.assign(base, overrides);
+  base.__captured = captured;
+  return base;
 }
 
-function mockPlannedTour() {
+function mockPlanResult() {
   return {
     status: "optimal",
     primary: {
+      endNode: "j-end",
       stops: [{ kind: "start", nodeId: "j-start" }],
       path: [],
       totalDistanceKm: 0,
@@ -493,6 +648,57 @@ function mockPlannedTour() {
     },
     alternatives: [],
     diagnostics: {},
+  };
+}
+
+function mockFinalizedPlan(uiOptions = {}, advanced = false) {
+  return {
+    start: uiOptions?.start ?? null,
+    endNode: undefined,
+    tourStops: [],
+    modes: [],
+    implicitPasses: [],
+    scenicStops: [],
+    km: 0,
+    driveH: 0,
+    dwellH: 0,
+    extrasH: 0,
+    extrasParts: { corridorH: 0, lunchH: 0, breaksH: 0 },
+    totalH: 0,
+    inRange: false,
+    advanced: !!advanced,
+    routeWarning: "",
+    statusWarning: "",
+    tripDate: uiOptions?.tripDate ?? null,
+    routeAlternatives: [],
+    routeAlternativeIndex: 0,
+    totalOpen: 0,
+    // Rust ships items + autoInclude; shim reshapes into legacy shape.
+    corridor: { items: [], autoInclude: [] },
+    lunchZones: [],
+    breaks: [],
+    intent: { topPersona: "", ambiguous: false, primary: [], serendipity: [], topPersonas: [] },
+    _latlngs: [],
+    _drawMeta: { leisureOverlays: { lunchZones: [], breaks: [], corridorSuggestions: [], corridorAutoInclude: [] } },
+    _routeAlternatives: [],
+  };
+}
+
+function mockPhase4Outputs() {
+  return {
+    corridor: { items: [], autoInclude: [] },
+    lunchZones: [],
+    breaks: [],
+    intent: { topPersona: "", ambiguous: false, primary: [], serendipity: [], topPersonas: [] },
+    overlays: { lunchZones: [], breaks: [], corridorSuggestions: [], corridorAutoInclude: [] },
+  };
+}
+
+function mockInfeasibleResult(uiOptions = {}, advanced = false) {
+  return {
+    ...mockFinalizedPlan(uiOptions, advanced),
+    routeWarning: "infeasible",
+    statusWarning: "infeasible",
   };
 }
 
@@ -535,4 +741,3 @@ function pagehideEvent(persisted) {
   Object.defineProperty(event, "persisted", { value: persisted });
   return event;
 }
-

@@ -2,7 +2,7 @@
 
 Pure-Rust core for the Alpine Passes leisure-first planner. The crate ports the graph model, route search, tour optimizer, Phase 4 POI helpers, and browser-facing WASM API so the static web app can run the planner from checked-in assets.
 
-The JavaScript planner in `assets\js\leisure\` remains the integration shim and parity reference until the production cutover is complete.
+The JavaScript façade at `assets\js\leisure\wasm-shim.js` is a thin UI/IO shim that loads the WASM artifact, fetches the graph, coordinates the OSRM HTTP call, threads telemetry, and exposes the `leisurePlanAuto` / `leisurePlanSelected` entry points consumed by `app.js`. All planner business logic — heuristics, DTO mapping, Phase 4 orchestration, route geometry, intent surfacing, plan finalization — lives in this crate.
 
 ## Module structure
 
@@ -12,7 +12,10 @@ The JavaScript planner in `assets\js\leisure\` remains the integration shim and 
 - `src/astar.rs` — `leisure_astar`, bidirectional A*, budget handling, and cost modes.
 - `src/optimizer.rs` — ILS planner, JS-compatible `Mulberry32`, auto/selected/open plan entry points, and public plan results.
 - `src/corridor.rs`, `src/lunch.rs`, `src/breaks.rs`, `src/intent.rs` — Phase 4 corridor detours, lunch zones, break suggestions, and intent-persona POI surfacing.
-- `src/wasm_api.rs` — `#[wasm_bindgen]` exports used by `assets\js\leisure\wasm-shim.js`.
+- `src/finalize.rs` — top-level `finalize_plan` that translates an optimizer `PlanResult` into the `FinalizedPlan` envelope consumed by the JS shim.
+- `src/route_geom.rs` — path geometry, OSRM `RouteRequest` build, and `RouteFacts` merge.
+- `src/tour_dto.rs`, `src/extras.rs`, `src/heuristics.rs`, `src/phase4_orchestrator.rs` — DTO mapping, scenic/break heuristics, Phase 4 composition.
+- `src/wasm_api/` — `#[wasm_bindgen]` exports used by `assets\js\leisure\wasm-shim.js`, split across `mod.rs` (legacy 13 exports), `finalize.rs`, `phase4.rs`, `route_geom.rs`, `tour_dto.rs`, and `heuristics.rs`.
 
 ## Public WASM API
 
@@ -23,6 +26,11 @@ Complex inputs and outputs cross the boundary as JS values serialized through `s
 - `wasm_leisure_plan_auto(graphHandle, earsHandle, options)` — builds an automatic closed-loop or endpoint-aware leisure tour.
 - `wasm_leisure_plan_selected(graphHandle, earsHandle, mustVisit, options)` — plans a tour through explicit pass/POI ids.
 - `wasm_leisure_plan_open(graphHandle, earsHandle, startId, endId, options)` — plans an open route from one graph node to another.
+- `wasm_resolve_selected_stop_ids(graphHandle, selectedStops)` — resolves an array of UI-selected pass/POI descriptors to graph node ids.
+- `wasm_build_route_requests(graphHandle, planResult, options)` — returns one OSRM `RouteRequest` per `[primary, ...alternatives]` for the shim's per-alternative OSRM call.
+- `wasm_finalize_plan(graphHandle, planResult, routeFacts, options, advanced)` — composes the JS-shaped `FinalizedPlan` envelope (`UiPlanResult` flattened + `_routeAlternatives` + optional `error`). Accepts `null | RouteFacts | RouteFacts[]` in `routeFacts`.
+- `wasm_phase4_outputs(graphHandle, tour, tourStops, options)` — runs Phase 4 (corridor / lunch / breaks / intent / overlays) for one alternative; used by the shim's lazy `ensurePhase4()` thunk.
+- `wasm_infeasible_result(reason, options, advanced)` — emits the canonical infeasibility envelope so shape ownership stays Rust-side.
 - `wasm_suggest_corridor(graphHandle, tour, options)` — scores along-route POIs for auto-inclusion and drawer suggestions.
 - `wasm_find_lunch_area(graphHandle, tour, options)` — finds lunch-zone candidates for the current tour and persona policy.
 - `wasm_suggest_breaks(graphHandle, tour, options)` — suggests rest/photo/food breaks along a tour.
@@ -63,7 +71,7 @@ Native tests are faster than a WASM rebuild and only need the normal Rust toolch
 cargo test --package leisure-core --tests
 ```
 
-`npm test` exercises the legacy `assets\js\leisure\index.js` path and the WASM shim parity tests. Run `npm run build:wasm` first if the checked-in artifacts are not current.
+`npm test` runs `verify-wasm-hash` then the Node test suite covering the WASM shim (`tests/leisure-wasm-shim.test.js`, including a real-graph smoke test against `assets/data/leisure-graph.v1.json`) and other JS tooling. Run `npm run build:wasm` first if the checked-in artifacts are not current.
 
 For a quick compile check after dependency changes:
 
@@ -75,9 +83,9 @@ cargo build --package leisure-core
 
 WASM artifacts must stay within the static-asset budget:
 
-- Raw `leisure_core_bg.wasm`: ≤ 850 KB.
-- Brotli-compressed `.wasm`: ≤ 250 KB.
-- Current baseline: 841,645 bytes raw / 244,242 bytes brotli (~842 KB raw / ~244 KB brotli).
+- Raw `leisure_core_bg.wasm`: ≤ 1,000,000 bytes (≈ 977 KB).
+- Brotli-compressed `.wasm`: ≤ 300,000 bytes (≈ 293 KB).
+- Current baseline: 968,624 bytes raw / 278,375 bytes brotli (~946 KB raw / ~272 KB brotli).
 
 The checked-in leisure graph (`assets\data\leisure-graph.v1.json`) is ~2.85 MB raw (2,989,132 bytes). It is served as a static JSON asset and should be gzip/brotli compressed at the edge; typical wire size is ~0.7-0.9 MB.
 

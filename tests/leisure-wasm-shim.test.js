@@ -288,12 +288,88 @@ test("isNodeWasmFetchError does not classify browser/jsdom fetch errors", async 
   }
 });
 
-test.skip("rapid flag toggle does not allocate parallel WASM graphs (app-level race)", () => {
-  // TODO: app.js is currently a browser script with DOM/MapLibre side effects and
-  // no narrow import seam for setLeisurePlannerFlag/resetLeisurePlannerModuleHandle.
-  // Keep this skipped until an app harness can drive the real rapid off-to-on flag
-  // path without evaluating the full production UI.
+test("rapid flag toggle does not allocate parallel WASM graphs (app-level race)", async () => {
+  // Extract the lifecycle functions from app.js by source-slicing them out and
+  // running them in a vm sandbox with a mocked dynamic import. This drives the
+  // exact rapid off-to-on path that production users can hit by spamming the
+  // debug flag toggle, without booting the full DOM/MapLibre UI.
+  const vm = require("node:vm");
+  const fsSync = require("node:fs");
+  const repoRoot = path.resolve(__dirname, "..");
+  const source = fsSync.readFileSync(path.join(repoRoot, "assets", "js", "app.js"), "utf8");
+  const start = source.indexOf("let leisurePlannerModulePromise = null;");
+  assert.notEqual(start, -1, "marker `let leisurePlannerModulePromise = null;` should exist in app.js");
+  const end = source.indexOf("function syncLeisureFlagControl(", start);
+  assert.notEqual(end, -1, "marker `function syncLeisureFlagControl(` should exist after the lifecycle block");
+  // Replace the dynamic `import(...)` call with a sandbox-injected `__loadShim()`
+  // so the vm context can return a controllable mock without resolving a real
+  // ES module URL.
+  const lifecycle = source.slice(start, end).replace(
+    /import\("\.\/leisure\/wasm-shim\.js"\)/,
+    "__loadShim()",
+  );
+
+  // Mock module records release order and load count so the test can assert
+  // no parallel allocations and a clean release-then-reload sequence.
+  const loadOrder = [];
+  let activeGraphCount = 0;
+  let maxParallelGraphs = 0;
+  let loadResolver = null;
+  let releaseResolver = null;
+  const __loadShim = () => {
+    loadOrder.push("load");
+    activeGraphCount += 1;
+    maxParallelGraphs = Math.max(maxParallelGraphs, activeGraphCount);
+    return new Promise((resolve) => {
+      loadResolver = () => resolve({
+        releaseWasmShimResources: () => new Promise((resolveRelease) => {
+          loadOrder.push("release");
+          releaseResolver = () => {
+            activeGraphCount -= 1;
+            resolveRelease();
+          };
+        }),
+      });
+    });
+  };
+
+  const sandbox = { __loadShim, console };
+  vm.createContext(sandbox);
+  vm.runInContext(`${lifecycle}\nglobalThis.__loadLeisurePlannerModule = loadLeisurePlannerModule;\nglobalThis.__resetLeisurePlannerModuleHandle = resetLeisurePlannerModuleHandle;`, sandbox, { filename: "assets/js/app.js" });
+
+  // 1. First load — module is held.
+  const firstLoad = sandbox.__loadLeisurePlannerModule();
+  await tick();
+  loadResolver();
+  await firstLoad;
+  assert.equal(activeGraphCount, 1, "exactly one graph after initial load");
+
+  // 2. Rapid flag toggle: reset, then immediately try to re-load.
+  const resetPromise = sandbox.__resetLeisurePlannerModuleHandle();
+  const reloadPromise = sandbox.__loadLeisurePlannerModule();
+
+  // The reload MUST wait for the release before kicking off a new load.
+  await tick();
+  assert.equal(activeGraphCount, 1, "still one graph: release not yet resolved, so reload must be queued");
+  assert.deepStrictEqual(loadOrder, ["load", "release"], "release fires before any second load");
+
+  // 3. Resolve the release; the reload's load call should now run.
+  releaseResolver();
+  await resetPromise;
+  await tick();
+  assert.equal(activeGraphCount, 1, "release dec'd to 0, new load inc'd back to 1 — never 2");
+
+  // 4. Finish the reload.
+  loadResolver();
+  await reloadPromise;
+
+  assert.equal(maxParallelGraphs, 1, "never more than one graph allocated simultaneously across the full sequence");
+  assert.deepStrictEqual(loadOrder, ["load", "release", "load"], "exact sequence: initial load, release, reload");
 });
+
+function tick() {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
 
 test("graphStatePromise clears on rejection so subsequent calls retry", async () => {
   let attempts = 0;

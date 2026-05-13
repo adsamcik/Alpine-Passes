@@ -5,6 +5,7 @@ pub mod breaks;
 pub mod corridor;
 pub mod ears;
 pub mod extras;
+pub mod finalize;
 pub mod graph;
 pub mod heuristics;
 pub mod intent;

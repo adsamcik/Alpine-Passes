@@ -1,0 +1,83 @@
+# Rebuilds the leisure-core WASM artifact from source and diffs the result
+# against the committed binary under `assets/wasm/leisure-core/`. Catches
+# stale committed WASM that doesn't match its Rust source.
+#
+# Auto-runs when any input to the WASM build changes (Rust sources, Cargo
+# manifests, the build script, or this workflow itself). Also available via
+# manual dispatch for ad-hoc verification.
+#
+# wasm-bindgen-cli + wasm-pack install takes 3-5 min, so this workflow stays
+# separate from the always-on `Tests` workflow to keep PR/push feedback fast.
+
+name: Verify WASM rebuild
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "crates/leisure-core/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "tools/leisure/build-wasm.mjs"
+      - ".github/workflows/wasm-verify.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "crates/leisure-core/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "tools/leisure/build-wasm.mjs"
+      - ".github/workflows/wasm-verify.yml"
+  workflow_dispatch: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-wasm-rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        # Pinned to match the local contributor toolchain (see test.yml).
+        uses: dtolnay/rust-toolchain@1.93.1
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.x"
+
+      - name: Cache Cargo registry and build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-wasm-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-wasm-
+
+      - name: Install wasm-bindgen-cli 0.2.118
+        run: cargo install wasm-bindgen-cli --version 0.2.118 --locked
+
+      - name: Install wasm-pack 0.14.0
+        run: cargo install wasm-pack --version 0.14.0 --locked
+
+      - name: Install binaryen (wasm-opt)
+        run: npm install --no-save binaryen
+
+      - name: Rebuild WASM artifacts
+        run: npm run build:wasm
+
+      - name: Verify committed artifacts match rebuild
+        # If the committed binary doesn't byte-match a fresh rebuild, the
+        # diff will be non-empty and this step fails. The author needs to
+        # run `npm run build:wasm` locally and commit the regenerated
+        # `assets/wasm/leisure-core/*` alongside their Rust source change.
+        run: git diff --exit-code -- assets/wasm/leisure-core/ assets/js/leisure/wasm-shim.js

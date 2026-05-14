@@ -119,7 +119,7 @@ async function run() {
   // Reach into the leisure module and inspect the cached plan result for shape.
   // Use coordinates (not dropdown id) — this is what the real app passes via currentStart().
   const shapeCheck = await page.evaluate(async () => {
-    const mod = await import("/assets/js/leisure/wasm-shim.js");
+    const mod = await import(new URL("assets/js/leisure/wasm-shim.js", document.baseURI).href);
     if (!mod) return { error: "shim module not importable" };
     const start = { name: "Lucerne", lat: 47.0502, lon: 8.3093 };
     const r = await mod.leisurePlanAuto({ start, targetMode: "distance", targetValue: 200, kAlternatives: 3 });
@@ -161,7 +161,7 @@ async function run() {
 
   // Exercise the lazy phase4 enrichment on alt[1] if it exists.
   const lazyCheck = await page.evaluate(async () => {
-    const mod = await import("/assets/js/leisure/wasm-shim.js");
+    const mod = await import(new URL("assets/js/leisure/wasm-shim.js", document.baseURI).href);
     const start = { name: "Lucerne", lat: 47.0502, lon: 8.3093 };
     const r = await mod.leisurePlanAuto({ start, targetMode: "distance", targetValue: 200, kAlternatives: 3 });
     const alts = r?._routeAlternatives ?? [];

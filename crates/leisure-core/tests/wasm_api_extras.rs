@@ -12,9 +12,7 @@ use leisure_core::tour_dto::SelectedStop;
 use leisure_core::ui_options::UiOptions;
 use leisure_core::wasm_api::route_geom::build_route_requests;
 use leisure_core::wasm_api::tour_dto::{resolve_selected_stop_ids, RawSelectedStop};
-use leisure_core::{
-    BudgetFit, LeisureGraph, NodeId, PublicStop, ThemeCoverage, UiPoint,
-};
+use leisure_core::{BudgetFit, LeisureGraph, NodeId, PublicStop, ThemeCoverage, UiPoint};
 use serde_json::{json, Value};
 
 // ---------------------------------------------------------------------------
@@ -146,12 +144,20 @@ fn build_route_requests_three_stop_tour_emits_lon_lat_pairs() {
 
     assert_eq!(requests.len(), 1, "primary-only plan ⇒ one request");
     let coords = &requests[0].coords;
-    assert!(coords.len() >= 3, "expected ≥3 coords for A→B→C, got {}", coords.len());
+    assert!(
+        coords.len() >= 3,
+        "expected ≥3 coords for A→B→C, got {}",
+        coords.len()
+    );
     // Verify [lon, lat] order on the first coord (start = (46.0, 7.0)).
     assert_eq!(coords[0], [7.0, 46.0], "first coord must be [lon, lat]");
     // Walk down the path: each pair is [lon, lat].
     let last = coords.last().expect("tour has coords");
-    assert_eq!(last, &[9.0, 48.0], "last coord must be [lon=9, lat=48] for C");
+    assert_eq!(
+        last,
+        &[9.0, 48.0],
+        "last coord must be [lon=9, lat=48] for C"
+    );
 }
 
 #[test]
@@ -165,17 +171,26 @@ fn build_route_requests_emits_one_per_alternative_in_order() {
     ]);
     let primary = public_tour(
         "B",
-        vec![public_stop("A", 46.0, 7.0, 0), public_stop("B", 47.0, 8.0, 1)],
+        vec![
+            public_stop("A", 46.0, 7.0, 0),
+            public_stop("B", 47.0, 8.0, 1),
+        ],
         vec!["A", "B"],
     );
     let alt1 = public_tour(
         "C",
-        vec![public_stop("A", 46.0, 7.0, 0), public_stop("C", 48.0, 9.0, 1)],
+        vec![
+            public_stop("A", 46.0, 7.0, 0),
+            public_stop("C", 48.0, 9.0, 1),
+        ],
         vec!["A", "C"],
     );
     let alt2 = public_tour(
         "B",
-        vec![public_stop("C", 48.0, 9.0, 0), public_stop("B", 47.0, 8.0, 1)],
+        vec![
+            public_stop("C", 48.0, 9.0, 0),
+            public_stop("B", 47.0, 8.0, 1),
+        ],
         vec!["C", "B"],
     );
     let pr = plan_result(PlanStatus::Ok, Some(primary), vec![alt1, alt2]);
@@ -231,7 +246,10 @@ fn build_route_requests_falls_back_to_first_stop_when_ui_start_absent() {
     ]);
     let primary = public_tour(
         "B",
-        vec![public_stop("A", 46.0, 7.0, 0), public_stop("B", 47.0, 8.0, 1)],
+        vec![
+            public_stop("A", 46.0, 7.0, 0),
+            public_stop("B", 47.0, 8.0, 1),
+        ],
         vec!["A", "B"],
     );
     let pr = plan_result(PlanStatus::Ok, Some(primary), vec![]);
@@ -257,12 +275,10 @@ fn resolve_selected_stop_ids_passes_ids_through_and_drops_empty_descriptors() {
     // through verbatim (graph membership is NOT required), while empty
     // / fully-empty descriptors are dropped.
     let graph = pass_graph_fixture();
-    let raw = vec![
-        RawSelectedStop {
-            id: Some("totally-unknown".to_owned()),
-            ..Default::default()
-        },
-    ];
+    let raw = vec![RawSelectedStop {
+        id: Some("totally-unknown".to_owned()),
+        ..Default::default()
+    }];
     let resolved = resolve_selected_stop_ids(&graph, &raw);
     assert_eq!(
         resolved,

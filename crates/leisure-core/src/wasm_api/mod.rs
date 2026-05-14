@@ -36,11 +36,11 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, HashSet};
 use wasm_bindgen::prelude::*;
 
+pub mod finalize;
 pub mod heuristics;
 pub mod phase4;
 pub mod route_geom;
 pub mod tour_dto;
-pub mod finalize;
 
 fn to_js_value<T: Serialize>(value: &T) -> Result<JsValue, JsValue> {
     let serializer = Serializer::new().serialize_maps_as_objects(true);
@@ -602,9 +602,7 @@ fn parse_plan_options(graph: &LeisureGraph, value: JsValue) -> Result<PlanOption
     // translation step (matches the JS behaviour the pre-migration shim provided).
     if options.budget_seconds.is_none() && options.budget_km.is_none() {
         if let Some(mode) = input.target_mode {
-            let raw = input
-                .target_value
-                .filter(|v| v.is_finite() && *v > 0.0);
+            let raw = input.target_value.filter(|v| v.is_finite() && *v > 0.0);
             match mode {
                 crate::ui_options::TargetMode::Time => {
                     options.budget_seconds = Some(raw.unwrap_or(6.0) * 3600.0);

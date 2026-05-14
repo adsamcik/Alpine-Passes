@@ -245,8 +245,7 @@ fn infeasible_result_diagnostics_default_null_when_plan_result_none() {
 #[test]
 fn wasm_failure_result_sets_wasm_unavailable_and_warnings() {
     let opts = UiOptions::default();
-    let env =
-        leisure_core::finalize::wasm_failure_result("module fetch failed", &opts, false);
+    let env = leisure_core::finalize::wasm_failure_result("module fetch failed", &opts, false);
     assert!(env.plan.wasm_unavailable);
     assert_eq!(env.plan.status, "infeasible");
     assert_eq!(env.plan.reason.as_deref(), Some("wasm-unavailable"));
@@ -268,7 +267,14 @@ fn wasm_failure_result_sets_wasm_unavailable_and_warnings() {
 fn planner_stop_from_public_round_trip_pass() {
     let graph = pass_graph();
     let mut stop = public_stop(
-        "p-stelvio", "p-stelvio", "pass", "Stelvio", 46.5, 10.45, 1, false,
+        "p-stelvio",
+        "p-stelvio",
+        "pass",
+        "Stelvio",
+        46.5,
+        10.45,
+        1,
+        false,
     );
     stop.themes = vec!["alpine".to_owned()];
     stop.pass_id = Some("p-stelvio".to_owned());
@@ -393,9 +399,7 @@ fn normalize_start_coord_falls_back_to_tour_first_stop_when_nan() {
 fn normalize_start_none_synthesizes_from_tour_or_empty() {
     let tour = public_tour(
         "B",
-        vec![public_stop(
-            "A", "A", "junction", "A", 7.0, 8.0, 0, false,
-        )],
+        vec![public_stop("A", "A", "junction", "A", 7.0, 8.0, 0, false)],
     );
     let with_tour = h::normalize_start(None, None, Some(&tour));
     match with_tour {
@@ -425,9 +429,7 @@ fn normalize_start_none_synthesizes_from_tour_or_empty() {
 fn result_end_node_open_tour_returns_tour_end() {
     let tour = public_tour(
         "B",
-        vec![public_stop(
-            "A", "A", "junction", "A", 0.0, 0.0, 0, false,
-        )],
+        vec![public_stop("A", "A", "junction", "A", 0.0, 0.0, 0, false)],
     );
     let start = UiPoint::Id("A".to_owned());
     let end = h::result_end_node(&tour, &start);
@@ -442,7 +444,9 @@ fn result_end_node_closed_tour_returns_start_id() {
     // end_node empty → closed
     let tour = public_tour(
         "",
-        vec![public_stop("n1", "n1", "junction", "n1", 0.0, 0.0, 0, false)],
+        vec![public_stop(
+            "n1", "n1", "junction", "n1", 0.0, 0.0, 0, false,
+        )],
     );
     let start = UiPoint::Id("n1".to_owned());
     let end = h::result_end_node(&tour, &start);
@@ -453,7 +457,9 @@ fn result_end_node_closed_tour_returns_start_id() {
 fn result_end_node_closed_tour_with_coord_start_returns_start() {
     let tour = public_tour(
         "",
-        vec![public_stop("n1", "n1", "junction", "n1", 0.0, 0.0, 0, false)],
+        vec![public_stop(
+            "n1", "n1", "junction", "n1", 0.0, 0.0, 0, false,
+        )],
     );
     let start = UiPoint::Coord {
         lat: 9.0,
@@ -536,7 +542,6 @@ fn alternative_draw_meta_serializes_camel_case() {
     assert!(obj.contains_key("driveH"));
     assert!(obj.contains_key("dwellH"));
 }
-
 
 // ===========================================================================
 // F5-C2 — translate_tour tests
@@ -715,7 +720,10 @@ mod translate_tour_tests {
         let tour = open_tour();
         let ctx = ctx_basic(&graph, &ui, PlanStatus::Ok, false, None);
         let alt = translate_tour(&tour, 0, &ctx);
-        assert_eq!(alt.result.route_warning.as_deref(), Some(APPROX_ROUTE_WARNING));
+        assert_eq!(
+            alt.result.route_warning.as_deref(),
+            Some(APPROX_ROUTE_WARNING)
+        );
     }
 
     #[test]
@@ -825,8 +833,7 @@ mod translate_tour_tests {
         let tour = open_tour();
         let ctx = ctx_basic(&graph, &ui, PlanStatus::Ok, false, None);
         let alt = translate_tour(&tour, 0, &ctx);
-        let expected =
-            round_hours(alt.result.drive_h + alt.result.dwell_h + alt.result.extras_h);
+        let expected = round_hours(alt.result.drive_h + alt.result.dwell_h + alt.result.extras_h);
         assert_eq!(alt.result.total_h, expected);
     }
 
@@ -1244,9 +1251,18 @@ mod finalize_plan_tests {
         let env = finalize_plan(&plan, &[], &ui, &graph, false);
         let v = serde_json::to_value(&env).expect("serialize");
         let obj = v.as_object().expect("object");
-        assert_eq!(obj.get("status").and_then(|x| x.as_str()), Some("infeasible"));
-        assert_eq!(obj.get("reason").and_then(|x| x.as_str()), Some("missing-start"));
-        assert_eq!(obj.get("error").and_then(|x| x.as_str()), Some("missing-start"));
+        assert_eq!(
+            obj.get("status").and_then(|x| x.as_str()),
+            Some("infeasible")
+        );
+        assert_eq!(
+            obj.get("reason").and_then(|x| x.as_str()),
+            Some("missing-start")
+        );
+        assert_eq!(
+            obj.get("error").and_then(|x| x.as_str()),
+            Some("missing-start")
+        );
         // No alternatives serialized for infeasible envelopes.
         assert!(!obj.contains_key("_routeAlternatives"));
     }
@@ -1309,9 +1325,7 @@ mod finalize_plan_tests {
         let _persona = primary_intent.top_persona.as_str();
         // At least one alternative carries a non-Null serialized tour for F6.
         assert!(
-            env.alternatives_internal
-                .iter()
-                .any(|a| !a.tour.is_null()),
+            env.alternatives_internal.iter().any(|a| !a.tour.is_null()),
             "expected at least one non-Null serialized tour"
         );
         // Cross-reference summaries length matches the alternative count.
@@ -1398,4 +1412,3 @@ mod finalize_plan_tests {
         }
     }
 }
-

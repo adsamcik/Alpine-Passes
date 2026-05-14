@@ -668,10 +668,7 @@ fn real_planned_tour(graph: &LeisureGraph) -> PublicTour {
         .iter()
         .enumerate()
         .map(|(order, id)| {
-            let node = graph
-                .nodes
-                .get(&NodeId::from(*id))
-                .expect("checked above");
+            let node = graph.nodes.get(&NodeId::from(*id)).expect("checked above");
             PublicStop {
                 id: (*id).to_owned(),
                 node_id: node.id.clone(),
@@ -769,7 +766,10 @@ fn phase4_outputs_real_graph_happy_path() {
     );
     // Overlay/outer mirror invariant (ADR-F4-003 + F4-C2 contract).
     assert_eq!(out.overlays.corridor_suggestions, out.corridor.items);
-    assert_eq!(out.overlays.corridor_auto_include, out.corridor.auto_include);
+    assert_eq!(
+        out.overlays.corridor_auto_include,
+        out.corridor.auto_include
+    );
     assert_eq!(out.overlays.lunch_zones, out.lunch_zones);
     assert_eq!(out.overlays.breaks, out.breaks);
     // Top-persona always populated (real value or "Balanced" fallback).
@@ -835,7 +835,13 @@ fn phase4_outputs_real_graph_happy_path() {
         .get("intent")
         .and_then(|v| v.as_object())
         .expect("intent must be a JSON object");
-    for key in ["topPersona", "ambiguous", "primary", "serendipity", "topPersonas"] {
+    for key in [
+        "topPersona",
+        "ambiguous",
+        "primary",
+        "serendipity",
+        "topPersonas",
+    ] {
         assert!(
             intent_obj.contains_key(key),
             "intent missing `{key}`; got keys: {:?}",

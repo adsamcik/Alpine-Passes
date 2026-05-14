@@ -35,7 +35,8 @@ pub fn build_route_requests(
         return Vec::new();
     };
 
-    let start = crate::finalize::normalize_start(ui_options.start.as_ref(), Some(graph), Some(primary));
+    let start =
+        crate::finalize::normalize_start(ui_options.start.as_ref(), Some(graph), Some(primary));
 
     let tours = std::iter::once(primary).chain(plan_result.alternatives.iter());
     tours

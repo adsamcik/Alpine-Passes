@@ -19,8 +19,8 @@ use crate::optimizer::{PlanResult, PlanStatus, PublicStop, PublicTour};
 use crate::phase4_orchestrator::phase4_outputs;
 use crate::route_geom::{merge_route_facts, route_points};
 use crate::tour_dto::{
-    derive_modes, display_stops, implicit_passes_from_path, map_leisure_stop, open_route_tour_stops,
-    EndNode, PlannerStopInput,
+    derive_modes, display_stops, implicit_passes_from_path, map_leisure_stop,
+    open_route_tour_stops, EndNode, PlannerStopInput,
 };
 use crate::types::{
     UiCorridor, UiDrawMeta, UiExtrasParts, UiIntentSurface, UiOverlays, UiPhase4Outputs,
@@ -209,7 +209,10 @@ pub(crate) fn default_ui_plan_result() -> UiPlanResult {
 /// permissive bag-of-optionals) so F2 mappers can consume it. See
 /// ADR-F5-002. The `_graph` parameter is accepted for forward-compat with
 /// future enrichment (e.g. backfilling categories from a node lookup).
-pub(crate) fn planner_stop_from_public(stop: &PublicStop, _graph: &LeisureGraph) -> PlannerStopInput {
+pub(crate) fn planner_stop_from_public(
+    stop: &PublicStop,
+    _graph: &LeisureGraph,
+) -> PlannerStopInput {
     PlannerStopInput {
         kind: Some(stop.kind.clone()),
         id: Some(stop.id.clone()),
@@ -528,8 +531,8 @@ pub fn translate_tour(
         },
     };
 
-    let extras_json = serde_json::to_value(serde_extras_view(&extras_output))
-        .unwrap_or(serde_json::Value::Null);
+    let extras_json =
+        serde_json::to_value(serde_extras_view(&extras_output)).unwrap_or(serde_json::Value::Null);
     let stops_config_json = ctx
         .ui_options
         .stops
@@ -675,10 +678,7 @@ pub fn finalize_plan(
         return infeasible_result(&reason, ui_options, advanced, Some(plan_result), total_open);
     }
 
-    let primary = plan_result
-        .primary
-        .as_ref()
-        .expect("primary checked above");
+    let primary = plan_result.primary.as_ref().expect("primary checked above");
     let tours: Vec<&PublicTour> = std::iter::once(primary)
         .chain(plan_result.alternatives.iter())
         .collect();

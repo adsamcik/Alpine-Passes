@@ -75,9 +75,27 @@ jobs:
       - name: Rebuild WASM artifacts
         run: npm run build:wasm
 
-      - name: Verify committed artifacts match rebuild
-        # If the committed binary doesn't byte-match a fresh rebuild, the
-        # diff will be non-empty and this step fails. The author needs to
-        # run `npm run build:wasm` locally and commit the regenerated
-        # `assets/wasm/leisure-core/*` alongside their Rust source change.
-        run: git diff --exit-code -- assets/wasm/leisure-core/ assets/js/leisure/wasm-shim.js
+      # Strict diff on text artifacts that ARE deterministic across build
+      # platforms: wasm-bindgen JS glue + d.ts + the mirrored crate README +
+      # the WASM_CONTENT_HASH stamp in the shim. If any of these drift from
+      # the committed copies, the contributor forgot to run
+      # `npm run build:wasm` after a Rust source change.
+      - name: Verify deterministic artifacts match rebuild
+        run: |
+          git diff --exit-code -- \
+            assets/wasm/leisure-core/leisure_core.js \
+            assets/wasm/leisure-core/leisure_core.d.ts \
+            assets/wasm/leisure-core/leisure_core_bg.wasm.d.ts \
+            assets/wasm/leisure-core/README.md \
+            assets/wasm/leisure-core/package.json \
+            assets/js/leisure/wasm-shim.js
+
+      # The .wasm binary itself contains platform-dependent bytes
+      # (LLVM/linker output, build epoch, etc.) even with --remap-path-prefix
+      # and reproducible release flags. The committed binary's integrity is
+      # already enforced by `npm test` → `verify-wasm-hash.mjs`. This step
+      # is informational only; a non-empty diff here means the binary differs
+      # from a fresh CI rebuild but is NOT a publish-blocker.
+      - name: Informational — binary diff (non-blocking)
+        continue-on-error: true
+        run: git diff --exit-code -- assets/wasm/leisure-core/leisure_core_bg.wasm

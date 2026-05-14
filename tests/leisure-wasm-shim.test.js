@@ -419,6 +419,52 @@ test("OSRM fetch failures are non-fatal: per-alt error → routeFacts[i] = null"
   }
 });
 
+test("ensurePhase4 after releaseWasmShimResources no-ops silently: no enrichment, no leisure-wasm-error", async () => {
+  const restoreEvents = installCustomEventTarget();
+  const errorEvents = [];
+  const errorListener = (event) => errorEvents.push(event.detail);
+  globalThis.addEventListener("leisure-wasm-error", errorListener);
+
+  const previousError = console.error;
+  console.error = () => {};
+
+  let phase4CallCount = 0;
+  const wasm = mockWasm({
+    wasm_finalize_plan: (gh, plan, routeFacts, ui, advanced) => ({
+      ...mockFinalizedPlan(ui, advanced),
+      _routeAlternatives: [
+        { label: "primary", result: { corridor: null }, draw: { meta: {} }, tour: { stub: true }, tourStops: [] },
+      ],
+    }),
+    wasm_phase4_outputs: () => {
+      phase4CallCount += 1;
+      return mockPhase4Outputs();
+    },
+  });
+
+  try {
+    const shim = await wasmShimWithMockWasm({ wasm });
+    const result = await shim.leisurePlanAuto(uiOptions({ start: "j-start" }));
+    const alt = result._routeAlternatives[0];
+
+    // Simulate BFCache restore / leisure-toggle: release all WASM resources.
+    await shim.releaseWasmShimResources();
+    await Promise.resolve();
+
+    // Stale ensurePhase4 click after release must be a silent no-op.
+    const awaited = await alt.ensurePhase4();
+
+    assert.strictEqual(awaited, alt, "ensurePhase4 must resolve to the same wrapper for chaining");
+    assert.equal(phase4CallCount, 0, "wasm_phase4_outputs must NOT be called on a tombstoned handle");
+    assert.equal(alt.result.corridor, null, "alt.result must not be enriched after release");
+    assert.equal(errorEvents.length, 0, "no leisure-wasm-error event must fire for a stale-state no-op");
+  } finally {
+    globalThis.removeEventListener("leisure-wasm-error", errorListener);
+    console.error = previousError;
+    restoreEvents();
+  }
+});
+
 // ============================================================================
 // C. Real-graph smoke — gated on a working WASM artifact
 // ============================================================================

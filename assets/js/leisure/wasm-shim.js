@@ -140,7 +140,7 @@ async function initializeGraphState() {
   const ears = wasm.wasm_decompose_ears(graphHandle);
   const earsHandle = Number.isInteger(ears) ? ears : ears?.handle;
   if (!Number.isInteger(earsHandle)) throw new Error("Invalid WASM ears handle");
-  return { wasm, graphHandle, earsHandle, ears };
+  return { wasm, graphHandle, earsHandle, ears, released: false };
 }
 
 async function loadGraphText(url) {
@@ -190,6 +190,9 @@ export async function releaseWasmShimResources() {
   wasmReadyPromise = null;
   try {
     const state = await pending;
+    // Mark released BEFORE freeing handles so any in-flight ensurePhase4
+    // thunks that check this flag can no-op silently without an error event.
+    state.released = true;
     try {
       if (state?.wasm && Number.isInteger(state.earsHandle)) state.wasm.wasm_free_ears(state.earsHandle);
     } catch (error) {
@@ -282,13 +285,21 @@ function withLazyAlternativeEnrichment(finalized, state, uiForRust) {
     Object.defineProperty(wrappedAlt, "tour", { value: alt.tour, enumerable: false });
     Object.defineProperty(wrappedAlt, "tourStops", { value: alt.tourStops, enumerable: false });
     wrappedAlt.ensurePhase4 = function ensurePhase4() {
+      // Guard: if the WASM state was released (e.g. BFCache restore + leisure-
+      // toggle, or beforeunload), skip silently without firing an error event.
+      // The handle is tombstoned; calling wasm_phase4_outputs would throw.
+      if (state.released) return Promise.resolve(wrappedAlt);
       if (!phase4Promise) {
         phase4Promise = (async () => {
           try {
+            // Re-check inside the async boundary in case release raced here.
+            if (state.released) return;
             const phase4 = state.wasm.wasm_phase4_outputs(
               state.graphHandle, alt.tour, alt.tourStops, uiForRust);
             applyPhase4InPlace(wrappedAlt.result, wrappedAlt.draw?.meta, phase4);
           } catch (err) {
+            // If release happened mid-thunk, swallow silently.
+            if (state.released) return;
             reportShimError("phase4-enrich", err);
           }
         })();

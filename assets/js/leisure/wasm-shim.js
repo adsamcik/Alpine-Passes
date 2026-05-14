@@ -6,7 +6,7 @@ const GRAPH_URL = new URL("../../data/leisure-graph.v1.json", import.meta.url).h
 const FETCH_TIMEOUT_MS = 20_000;
 // Auto-updated by tools/leisure/build-wasm.mjs at build time. Used to
 // cache-bust the WASM binary against stale glue JS on deploys.
-const WASM_CONTENT_HASH = "2bb5d9ced3cf";
+const WASM_CONTENT_HASH = "4bb04d8b177c";
 const SHIM_REPORTED = Symbol.for("alpine.leisure.shimReported");
 
 let graphStatePromise = null;
@@ -325,9 +325,27 @@ function reshapeForLegacyAppJs(result) {
   if (Array.isArray(result?._routeAlternatives)) {
     for (const alt of result._routeAlternatives) {
       if (alt?.result?.corridor) alt.result.corridor = reshapeCorridor(alt.result.corridor);
+      if (alt?.result) alt.result.tripDate = reshapeTripDate(alt.result.tripDate);
     }
   }
+  if (result) result.tripDate = reshapeTripDate(result.tripDate);
   return result;
+}
+
+// Rust serialises trip_date as an ISO `YYYY-MM-DD` string (Option<String>).
+// Legacy app.js consumes `r.tripDate` as a Date object (calls .getFullYear()
+// etc. via formatTripDate/daysBetweenDates). Coerce here so the shim
+// preserves the pre-migration contract.
+function reshapeTripDate(value) {
+  if (value == null || value instanceof Date) return value ?? null;
+  if (typeof value !== "string") return null;
+  const m = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) {
+    const date = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function reshapeCorridor(corridor) {

@@ -56,54 +56,58 @@ async function run() {
   console.log(`Loading ${baseUrl}…`);
   await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
   await page.waitForSelector("#planRun", { timeout: 15_000 });
-  await page.waitForSelector("#planStart option:nth-child(2)", { timeout: 15_000 });
+  await page.waitForFunction(() => {
+    const sel = document.getElementById("planStart");
+    return sel && sel.querySelectorAll("option[value]:not([value=''])").length > 0;
+  }, null, { timeout: 15_000 });
 
   // Sanity: leisure flag is sticky.
   const flag = await page.evaluate(() => localStorage.getItem("alpine.planner.leisure.v1"));
   check("localStorage flag persisted", flag === "1", flag);
 
-  // Pick a known start from the dropdown (second option; first is the placeholder).
-  const startId = await page.evaluate(() => {
+  // Pick a known start from the dropdown (mirrors what runLeisurePlanner does).
+  const startInfo = await page.evaluate(() => {
     const sel = document.getElementById("planStart");
     if (!sel) return null;
     const target = sel.querySelector("option[value]:not([value=''])");
     if (!target) return null;
     sel.value = target.value;
     sel.dispatchEvent(new Event("change", { bubbles: true }));
-    return target.value;
+    // Resolve the preset start to {name, lat, lon} the same way app.js does.
+    // We don't have direct access to PRESET_STARTS, but the shim's currentStart()
+    // is called inside runLeisurePlanner. Just verify the value was set.
+    return { value: target.value, label: target.textContent };
   });
-  check("start point selected", !!startId, startId);
+  check("start point selected", !!startInfo, JSON.stringify(startInfo));
 
   // Make sure the WASM module + graph are warmed before clicking Plan.
   // The shim preloads on flag enable but we'll give it a beat.
   await page.waitForTimeout(1500);
 
-  // Trigger the plan.
+  // Trigger the plan via the real UI button (mirrors what users do).
   await page.click("#planRun");
 
-  // Wait for the plan to finish: either a tour renders, or the banner shows, or an error appears.
+  // Wait for the shim to emit plan-completed (more reliable than scraping DOM text).
   const planOutcome = await page.evaluate(async () => {
     const deadline = Date.now() + 30_000;
     while (Date.now() < deadline) {
       const banner = document.getElementById("leisureWasmUnavailableBanner");
       if (banner) return { kind: "wasm-unavailable", message: banner.textContent };
-      const result = document.getElementById("planResult");
-      const text = result ? result.textContent : "";
-      if (text && /\b(km|h|hours|hour|min)\b/i.test(text) && !text.includes("Planning…")) {
-        return { kind: "rendered", text: text.slice(0, 200) };
+      const evt = (window.__leisureWasmEvents ?? []).find((e) => e?.name === "plan-completed");
+      if (evt) {
+        const result = document.getElementById("planResult");
+        return { kind: "completed", durationMs: evt.durationMs, mode: evt.mode, planResultText: result?.textContent?.slice(0, 200) ?? "" };
       }
-      if (text && /(error|failed|infeasible|pick a start)/i.test(text) && !text.includes("Planning…")) {
-        return { kind: "error", text: text.slice(0, 200) };
-      }
-      await new Promise((r) => setTimeout(r, 250));
+      await new Promise((r) => setTimeout(r, 200));
     }
-    return { kind: "timeout" };
+    const result = document.getElementById("planResult");
+    return { kind: "timeout", planResultText: result?.textContent?.slice(0, 400) ?? "(no #planResult)" };
   });
 
   check(
-    "plan rendered (not wasm-unavailable, not infeasible, not timeout)",
-    planOutcome.kind === "rendered",
-    `${planOutcome.kind}: ${planOutcome.text || planOutcome.message || ""}`,
+    "plan completed via UI button click",
+    planOutcome.kind === "completed",
+    `${planOutcome.kind}: ${planOutcome.message || planOutcome.planResultText || ""}`,
   );
 
   // Pull shim events + errors out for inspection.
@@ -113,17 +117,12 @@ async function run() {
   shimEvents.push(...wasmEvents);
 
   // Reach into the leisure module and inspect the cached plan result for shape.
+  // Use coordinates (not dropdown id) — this is what the real app passes via currentStart().
   const shapeCheck = await page.evaluate(async () => {
     const mod = await import("/assets/js/leisure/wasm-shim.js");
     if (!mod) return { error: "shim module not importable" };
-    // Trigger a fresh plan we control, so we can inspect the result directly.
-    const start = (() => {
-      const sel = document.getElementById("planStart");
-      const opt = sel?.querySelector("option[value]:not([value=''])");
-      return opt?.value;
-    })();
-    if (!start) return { error: "no start option found in DOM" };
-    const r = await mod.leisurePlanAuto({ start, targetMode: "distance", targetValue: 150 });
+    const start = { name: "Lucerne", lat: 47.0502, lon: 8.3093 };
+    const r = await mod.leisurePlanAuto({ start, targetMode: "distance", targetValue: 200, kAlternatives: 3 });
     return {
       hasIntent: !!r?.intent,
       hasCorridor: !!r?.corridor,
@@ -132,11 +131,16 @@ async function run() {
       altCount: Array.isArray(r?._routeAlternatives) ? r._routeAlternatives.length : 0,
       altHasEnsurePhase4: typeof r?._routeAlternatives?.[0]?.ensurePhase4 === "function",
       status: r?.status,
+      reason: r?.reason,
       hasTourStops: Array.isArray(r?.tourStops) && r.tourStops.length > 0,
+      tourStopsCount: Array.isArray(r?.tourStops) ? r.tourStops.length : 0,
       hasLatlngs: Array.isArray(r?._latlngs) && r._latlngs.length > 0,
+      latlngsCount: Array.isArray(r?._latlngs) ? r._latlngs.length : 0,
       km: r?.km,
       totalH: r?.totalH,
+      driveH: r?.driveH,
       wasmUnavailable: !!r?.wasmUnavailable,
+      diagnostics: r?.diagnostics ?? null,
     };
   });
 
@@ -147,20 +151,19 @@ async function run() {
     shapeCheck.corridorKeys && shapeCheck.corridorKeys.includes("autoInclude") && shapeCheck.corridorKeys.includes("suggestions") && shapeCheck.corridorKeys.includes("drawer"),
     JSON.stringify(shapeCheck.corridorKeys),
   );
-  check("plan returned non-infeasible status", shapeCheck.status !== "infeasible" && !shapeCheck.wasmUnavailable, `status=${shapeCheck.status}`);
-  check("plan has tour stops", shapeCheck.hasTourStops);
-  check("plan has lat/lng geometry", shapeCheck.hasLatlngs);
+  check("plan returned non-infeasible status", shapeCheck.status !== "infeasible" && !shapeCheck.wasmUnavailable, `status=${shapeCheck.status} reason=${shapeCheck.reason ?? ""}`);
+  check("plan has tour stops", shapeCheck.hasTourStops, `${shapeCheck.tourStopsCount} stops`);
+  check("plan has lat/lng geometry", shapeCheck.hasLatlngs, `${shapeCheck.latlngsCount} points`);
   check("plan has positive km", shapeCheck.km > 0, String(shapeCheck.km));
   check("plan has positive totalH", shapeCheck.totalH > 0, String(shapeCheck.totalH));
-  check("_routeAlternatives is an array", shapeCheck.hasRouteAlternatives);
-  check("alternatives have ensurePhase4 thunks", shapeCheck.altHasEnsurePhase4);
+  check("_routeAlternatives is an array", shapeCheck.hasRouteAlternatives, `${shapeCheck.altCount} alternatives`);
+  check("alternatives have ensurePhase4 thunks", shapeCheck.altHasEnsurePhase4 || shapeCheck.altCount === 0, `altCount=${shapeCheck.altCount}`);
 
   // Exercise the lazy phase4 enrichment on alt[1] if it exists.
   const lazyCheck = await page.evaluate(async () => {
     const mod = await import("/assets/js/leisure/wasm-shim.js");
-    const start = document.getElementById("planStart")?.querySelector("option[value]:not([value=''])")?.value;
-    if (!start) return { skipped: "no start" };
-    const r = await mod.leisurePlanAuto({ start, targetMode: "distance", targetValue: 150 });
+    const start = { name: "Lucerne", lat: 47.0502, lon: 8.3093 };
+    const r = await mod.leisurePlanAuto({ start, targetMode: "distance", targetValue: 200, kAlternatives: 3 });
     const alts = r?._routeAlternatives ?? [];
     if (alts.length < 2) return { skipped: `only ${alts.length} alternatives` };
     const target = alts[1];

@@ -505,6 +505,17 @@ test("real-graph smoke: leisurePlanAuto end-to-end builds a UiPlanResult", async
     "corridor must be reshaped to the legacy { autoInclude, suggestions, drawer } shape");
   assertConsumerFieldsPresent(result);
 
+  // Semantic gates — these would have caught the parse_plan_options budget-derivation
+  // regression where targetMode/targetValue weren't translated to budgetKm/budgetSeconds.
+  assert.notStrictEqual(result.status, "infeasible",
+    `plan should not be infeasible for a sane 100km auto request (reason=${result.reason ?? ""})`);
+  assert.ok(result.km > 0, `plan should have positive km, got ${result.km}`);
+  assert.ok(result.totalH > 0, `plan should have positive totalH, got ${result.totalH}`);
+  assert.ok(result.tourStops.length > 0, "plan should produce at least one tour stop");
+  // tripDate must be coerced back to a Date object for legacy app.js (calls .getFullYear() etc).
+  assert.ok(result.tripDate instanceof Date,
+    `result.tripDate must be a Date (legacy app.js calls .getFullYear() on it); got ${typeof result.tripDate}`);
+
   // Best-effort cleanup so the shared graphState doesn't linger across tests.
   try { await shim.releaseWasmShimResources(); } catch { /* non-fatal */ }
 });

@@ -552,6 +552,8 @@ struct PlanOptionsInput {
     end_node: Option<PlanPointInput>,
     budget_seconds: Option<f64>,
     budget_km: Option<f64>,
+    target_mode: Option<crate::ui_options::TargetMode>,
+    target_value: Option<f64>,
     themes: Option<Value>,
     personas: Option<Value>,
     forbidden_pass_ids: Option<Value>,
@@ -594,6 +596,25 @@ fn parse_plan_options(graph: &LeisureGraph, value: JsValue) -> Result<PlanOption
         .transpose()?;
     options.budget_seconds = input.budget_seconds.filter(|value| value.is_finite());
     options.budget_km = input.budget_km.filter(|value| value.is_finite());
+    // If neither explicit budget is supplied but a UI-shaped targetMode/targetValue
+    // pair is present, derive the budget the same way `heuristics::optimizer_options`
+    // does. This lets the JS shim pass `UiOptions` directly without an explicit
+    // translation step (matches the JS behaviour the pre-migration shim provided).
+    if options.budget_seconds.is_none() && options.budget_km.is_none() {
+        if let Some(mode) = input.target_mode {
+            let raw = input
+                .target_value
+                .filter(|v| v.is_finite() && *v > 0.0);
+            match mode {
+                crate::ui_options::TargetMode::Time => {
+                    options.budget_seconds = Some(raw.unwrap_or(6.0) * 3600.0);
+                }
+                crate::ui_options::TargetMode::Distance => {
+                    options.budget_km = Some(raw.unwrap_or(200.0));
+                }
+            }
+        }
+    }
     options.themes = strings_from_optional_value(input.themes.as_ref());
     options.personas = strings_from_optional_value(input.personas.as_ref());
     options.forbidden_pass_ids = strings_from_optional_value(input.forbidden_pass_ids.as_ref());

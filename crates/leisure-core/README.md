@@ -1,6 +1,6 @@
 # leisure-core
 
-Pure-Rust core for the Alpine Passes leisure-first planner. The crate ports the graph model, route search, tour optimizer, Phase 4 POI helpers, and browser-facing WASM API so the static web app can run the planner from checked-in assets.
+Pure-Rust core for the Itinera leisure-first planner. The crate ports the graph model, route search, tour optimizer, Phase 4 POI helpers, and browser-facing WASM API so the static web app can run the planner from checked-in assets.
 
 The JavaScript façade at `assets\js\leisure\wasm-shim.js` is a thin UI/IO shim that loads the WASM artifact, fetches the graph, coordinates the OSRM HTTP call, threads telemetry, and exposes the `leisurePlanAuto` / `leisurePlanSelected` entry points consumed by `app.js`. All planner business logic — heuristics, DTO mapping, Phase 4 orchestration, route geometry, intent surfacing, plan finalization — lives in this crate.
 

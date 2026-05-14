@@ -1,4 +1,4 @@
-// Canonical serde types for the Alpine Passes leisure graph JSON schema.
+// Canonical serde types for the Itinera leisure graph JSON schema.
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;

@@ -9439,7 +9439,7 @@ function buildTourGpx(tour = null) {
 
   const now = new Date().toISOString();
   const startName = start.name || "Start";
-  const tourName = `Alpine Passes — ${startName}`;
+  const tourName = `Itinera — ${startName}`;
   const desc = [
     `${stops.length} stops`,
     typeof totalKm === "number" ? `${Math.round(totalKm)} km` : null,

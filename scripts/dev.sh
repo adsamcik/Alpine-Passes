@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Starts the Alpine Passes local dev server.
+# Starts the Itinera local dev server.
 # Thin wrapper around tools/dev_server.py — forwards all arguments.
 #
 # Usage:

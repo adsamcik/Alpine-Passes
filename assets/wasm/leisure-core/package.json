@@ -1,7 +1,7 @@
 {
   "name": "leisure-core",
   "type": "module",
-  "description": "Rust/WASM core for the Alpine Passes leisure-first planner",
+  "description": "Rust/WASM core for the Itinera leisure-first planner",
   "version": "0.1.0",
   "files": [
     "leisure_core_bg.wasm",

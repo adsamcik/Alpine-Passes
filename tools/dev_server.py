@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Local development server for the Alpine Passes static app.
+"""Local development server for the Itinera static app.
 
 Serves the repository root over HTTP with no-cache headers so edits to
 JS/CSS/HTML show up on reload without bumping the `?v=` query string.
@@ -49,7 +49,7 @@ def _handler_factory(directory: Path):
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Alpine Passes local dev server")
+    parser = argparse.ArgumentParser(description="Itinera local dev server")
     parser.add_argument("--port", type=int, default=8765, help="Port to listen on (default: 8765)")
     parser.add_argument("--host", default="127.0.0.1", help="Host to bind (default: 127.0.0.1)")
     parser.add_argument("--no-open", action="store_true", help="Do not open the browser automatically")

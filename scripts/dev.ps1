@@ -1,7 +1,7 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-    Starts the Alpine Passes local dev server.
+    Starts the Itinera local dev server.
 
 .DESCRIPTION
     Thin wrapper around tools/dev_server.py. Forwards all arguments

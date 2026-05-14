@@ -2,7 +2,7 @@
 name = "leisure-core"
 version = "0.1.0"
 edition = "2021"
-description = "Rust/WASM core for the Alpine Passes leisure-first planner"
+description = "Rust/WASM core for the Itinera leisure-first planner"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

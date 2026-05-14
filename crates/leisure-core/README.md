@@ -83,9 +83,28 @@ cargo build --package leisure-core
 
 WASM artifacts must stay within the static-asset budget:
 
-- Raw `leisure_core_bg.wasm`: ≤ 1,000,000 bytes (≈ 977 KB).
-- Brotli-compressed `.wasm`: ≤ 300,000 bytes (≈ 293 KB).
-- Current baseline: 968,624 bytes raw / 278,375 bytes brotli (~946 KB raw / ~272 KB brotli).
+- Raw `leisure_core_bg.wasm`: ≤ 1,500,000 bytes (≈ 1.43 MB).
+- Brotli-compressed `.wasm`: ≤ 450,000 bytes (≈ 440 KB).
+- Current baseline: 969,295 bytes raw / 278,429 bytes brotli (~947 KB raw / ~272 KB brotli).
+
+Rationale: the leisure WASM module is **already lazy at the feature-flag
+level** — only users who toggle `alpine.planner.leisure.v1` in localStorage
+ever fetch it. The budget exists as a canary against unintentional code-size
+growth, not as a hosting cap (GitHub Pages has no per-file limit). The
+post-migration baseline (~970 KB raw / ~278 KB brotli) reflects the full
+Rust planner + Phase 4 orchestration + finalize layer; the 1.5 MB / 450 KB
+budgets give ~55%/~62% headroom for future Rust additions before action is
+required.
+
+If you genuinely need more headroom, **prefer trimming before splitting**:
+audit `wasm-opt -Oz` output, prune unused `serde` derives, replace
+monomorphized `Vec<String>` paths with `&[&str]` where ownership permits,
+and consider `wasm-snip` on known-unused entry points. Splitting the crate
+into multiple lazy-loaded `.wasm` modules is mechanically possible (separate
+`wasm-bindgen` crates per module) but carries real complexity — separate
+hashes, separate runtimes, JS-marshalled inter-module calls, two cache
+keys, doubled build pipeline — and saves little in practice because Phase 4
+runs eagerly for the primary alternative on every plan.
 
 The checked-in leisure graph (`assets\data\leisure-graph.v1.json`) is ~2.85 MB raw (2,989,132 bytes). It is served as a static JSON asset and should be gzip/brotli compressed at the edge; typical wire size is ~0.7-0.9 MB.
 

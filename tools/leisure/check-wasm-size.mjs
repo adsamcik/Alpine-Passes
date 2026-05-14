@@ -6,8 +6,8 @@ import { statSync, readFileSync } from "node:fs";
 import { brotliCompressSync, constants as zlibConstants } from "node:zlib";
 
 const WASM_PATH = "assets/wasm/leisure-core/leisure_core_bg.wasm";
-const BUDGET_RAW = 1_000_000;      // 1 MB raw; ~23% above the current ~810 KB baseline.
-const BUDGET_BROTLI = 300_000;     // ~293 KB wire size; ~28% above the current ~235 KB baseline.
+const BUDGET_RAW = 1_500_000;      // 1.5 MB raw; ~55% above the post-F1-F6 ~970 KB baseline.
+const BUDGET_BROTLI = 450_000;     // ~440 KB wire size; ~62% above the post-F1-F6 ~278 KB baseline.
 
 function main() {
   let stat;

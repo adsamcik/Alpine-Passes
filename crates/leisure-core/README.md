@@ -15,7 +15,7 @@ The JavaScript façade at `assets\js\leisure\wasm-shim.js` is a thin UI/IO shim 
 - `src/finalize.rs` — top-level `finalize_plan` that translates an optimizer `PlanResult` into the `FinalizedPlan` envelope consumed by the JS shim.
 - `src/route_geom.rs` — path geometry, OSRM `RouteRequest` build, and `RouteFacts` merge.
 - `src/tour_dto.rs`, `src/extras.rs`, `src/heuristics.rs`, `src/phase4_orchestrator.rs` — DTO mapping, scenic/break heuristics, Phase 4 composition.
-- `src/wasm_api/` — `#[wasm_bindgen]` exports used by `assets\js\leisure\wasm-shim.js`, split across `mod.rs` (legacy 13 exports), `finalize.rs`, `phase4.rs`, `route_geom.rs`, `tour_dto.rs`, and `heuristics.rs`.
+- `src/wasm_api/` — `#[wasm_bindgen]` exports used by `assets\js\leisure\wasm-shim.js`, split across `mod.rs` (13 core planner exports), `finalize.rs`, `phase4.rs`, `route_geom.rs`, `tour_dto.rs`, and `heuristics.rs`.
 
 ## Public WASM API
 

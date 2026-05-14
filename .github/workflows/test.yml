@@ -1,0 +1,111 @@
+# Runs cargo fmt --check + cargo build + cargo test + npm test on every push
+# to main and every PR targeting main. npm test transitively runs
+# verify-wasm-hash (committed artifact integrity) and check-wasm-size (size
+# budget), so the committed WASM is verified without a full rebuild.
+#
+# A second job (verify-wasm-rebuild) rebuilds the WASM from source and diffs
+# the result against the committed artifacts to catch stale binaries. It is
+# gated to workflow_dispatch only — wasm-pack + wasm-bindgen-cli installation
+# adds ~3-5 min and is not needed on every PR to verify the committed artifact.
+
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.x"
+
+      - name: Cache Cargo registry and build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Format check
+        run: cargo fmt --package leisure-core -- --check
+
+      - name: Build check
+        run: cargo build --package leisure-core
+
+      - name: Rust tests
+        run: cargo test --package leisure-core --tests
+
+      - name: Install binaryen (wasm-opt)
+        run: npm install --no-save binaryen
+
+      - name: Node tests
+        run: npm test
+
+  verify-wasm-rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Gated to manual dispatch only — wasm-pack and wasm-bindgen-cli install
+    # adds several minutes and is unnecessary for routine PR verification.
+    # Run manually when regenerating WASM artifacts to confirm no drift.
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.x"
+
+      - name: Cache Cargo registry and build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-wasm-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-wasm-
+
+      - name: Install wasm-bindgen-cli 0.2.118
+        run: cargo install wasm-bindgen-cli --version 0.2.118 --locked
+
+      - name: Install wasm-pack 0.14.0
+        run: cargo install wasm-pack --version 0.14.0 --locked
+
+      - name: Install binaryen (wasm-opt)
+        run: npm install --no-save binaryen
+
+      - name: Rebuild WASM artifacts
+        run: npm run build:wasm
+
+      - name: Verify committed artifacts match rebuild
+        run: git diff --exit-code -- assets/wasm/leisure-core/

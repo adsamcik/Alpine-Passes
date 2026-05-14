@@ -136,7 +136,7 @@ max-age` very short on the WASM file.
 
 The graph JSON is ~2.85 MB uncompressed. Edge gzip/brotli compression typically reduces this to ~0.7-0.9 MB. Ensure your host's compression is enabled for `application/json` (default on GitHub Pages).
 
-The WASM binary is 841,645 bytes raw / 244,242 bytes brotli (~842 KB raw / ~244 KB brotli). `wasm-opt` strips unused symbols; further size optimization is dominated by the embedded ear / corridor / lunch / break / intent code.
+The WASM binary is 968,624 bytes raw / 278,375 bytes brotli (~946 KB raw / ~272 KB brotli). `wasm-opt` strips unused symbols; further size optimization is dominated by the embedded ear / corridor / lunch / break / intent code and the migrated UI translation layer (heuristics / tour DTO / extras / route geometry / Phase 4 orchestration / finalize).
 
 ### Browser support
 

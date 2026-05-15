@@ -66,3 +66,12 @@ jobs:
 
       - name: Node tests
         run: npm test
+
+      # Verify the committed JS bundle matches a fresh rebuild. The bundle
+      # is plain text concatenation with LF normalization, so it should be
+      # byte-deterministic across platforms.
+      - name: Rebuild JS bundle
+        run: npm run build:bundle
+
+      - name: Verify bundle matches commit
+        run: git diff --exit-code -- assets/js/itinera.bundle.js index.html

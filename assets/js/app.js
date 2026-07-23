@@ -123,7 +123,7 @@ function elevationEstimate(elev, seasonal, date = new Date()) {
     estimated: true,
     stateText: `Typical season: ${label}` + (seasonal ? " · road marked seasonal" : ""),
     info: `No pass-specific road policy is available. This status is estimated from elevation (${elev} m), ` +
-          `the evaluated month and broad Alpine seasonal patterns — verify locally before driving.`,
+          `the evaluated month and broad elevation-based seasonal patterns — verify locally before driving.`,
     source: "estimate",
     sourceLabel: "elevation/month",
   };
@@ -138,13 +138,16 @@ const ALPS_INPUT = ALPS_RAW.filter(d => pointInAlps(d.lo, d.la));
 if (ALPS_INPUT.length !== ALPS_RAW.length) {
   console.info(`Filtered ${ALPS_RAW.length - ALPS_INPUT.length} non-Alpine entries (kept ${ALPS_INPUT.length}/${ALPS_RAW.length}).`);
 }
-/* Japan passes are curated (not OSM-derived) and live outside the Alps polygon,
-   so they bypass pointInAlps() but share the ALPS_RAW schema and merge into the
-   same in-memory PASSES array as Alpine passes. */
+/* Curated pass sets live outside the Alps polygon, so they bypass
+   pointInAlps() but share the ALPS_RAW schema and merge into the same
+   in-memory PASSES array as Alpine passes. */
 const JAPAN_PASSES_INPUT = ((typeof JAPAN_PASSES !== "undefined" && Array.isArray(JAPAN_PASSES))
   ? JAPAN_PASSES
   : []);
-const PASSES_RAW_INPUT = [...ALPS_INPUT, ...JAPAN_PASSES_INPUT];
+const UK_IRELAND_PASSES_INPUT = ((typeof UK_IRELAND_PASSES !== "undefined" && Array.isArray(UK_IRELAND_PASSES))
+  ? UK_IRELAND_PASSES
+  : []);
+const PASSES_RAW_INPUT = [...ALPS_INPUT, ...JAPAN_PASSES_INPUT, ...UK_IRELAND_PASSES_INPUT];
 const PASS_CAMS_MAP = (typeof window !== "undefined" && window.PASS_CAMS) || {};
 function scenicPointFromRaw(raw, fallbackName = "Scenic stop", fallbackKind = "viewpoint") {
   if (!raw) return null;
@@ -224,6 +227,8 @@ const PASSES = PASSES_RAW_INPUT.map((d, i) => {
     confidence: d.cf || "",
     wikiLang: d.wl || "en",
     wikiTitle: d.wt || fullName.replace(/\s+/g, "_"),
+    passCountry: d.co || "",
+    passRegion: d.region || "",
     iconAsset: scenicIconAsset,
     scenicIconAsset,
     symbolIconAsset,
@@ -259,7 +264,7 @@ PASSES.forEach(p => {
 const PASS_BY_ID = new Map(PASSES.map(p => [p.id, p]));
 
 document.getElementById("passCount").textContent = PASSES.length.toLocaleString();
-/* ─────────────────────── Alpine POI datasets ───────────────────────
+/* ─────────────────────────── POI datasets ───────────────────────────
    Loaded from per-country POI files (`swiss-pois.js`, `french-pois.js`,
    …). All files share the schema described in `swiss-pois.js`.
    POIs are normalised into the same field shape as PASSES so the
@@ -278,6 +283,8 @@ const POI_RAW = [
   ...((typeof ITALY_POIS    !== "undefined" && Array.isArray(ITALY_POIS))    ? ITALY_POIS    : []),
   ...((typeof AUSTRIAN_POIS !== "undefined" && Array.isArray(AUSTRIAN_POIS)) ? AUSTRIAN_POIS : []),
   ...((typeof JAPAN_POIS    !== "undefined" && Array.isArray(JAPAN_POIS))    ? JAPAN_POIS    : []),
+  ...((typeof UK_POIS       !== "undefined" && Array.isArray(UK_POIS))       ? UK_POIS       : []),
+  ...((typeof IRISH_POIS    !== "undefined" && Array.isArray(IRISH_POIS))    ? IRISH_POIS    : []),
 ];
 const POIS = POI_RAW.map((d, i) => ({
   id: "poi" + i,
@@ -535,7 +542,7 @@ function poiAccessHtml(poi) {
 /* Static taxonomy used by the POI picker filter dropdowns. */
 const POI_CATEGORY_LABELS = {
   "mountain-summit":     "Mountain summit",
-  "alpine-lake":         "Alpine lake",
+  "alpine-lake":         "Mountain / scenic lake",
   "waterfall-gorge":     "Waterfall / gorge",
   "glacier":             "Glacier",
   "old-town":            "Old town",
@@ -1737,7 +1744,7 @@ function stateIconId(state, estimated = false) {
 }
 
 const PASS_SOURCE_ID = "itinera-passes";
-const POI_SOURCE_ID = "swiss-pois";
+const POI_SOURCE_ID = "itinera-pois";
 const ROUTE_SOURCE_ID = "planned-route";
 const START_SOURCE_ID = "planned-start";
 const LEISURE_ZONE_SOURCE_ID = "leisure-zones";
@@ -2177,6 +2184,8 @@ function passFeature(p) {
       state: view.state,
       estimated: !!view.estimated,
       quality: p.quality || 0,
+      country: p.passCountry || "",
+      region: p.passRegion || "",
       tourIndex: badge,
       tourLabel: badge ? String(badge) : "",
     },
@@ -2194,6 +2203,8 @@ function poiFeature(p) {
       kind: "poi",
       name: p.name,
       category: p.poiCategory || "",
+      country: p.poiCountry || "",
+      region: p.poiRegion || "",
       plannable: isPlannablePoi(p),
       quality: p.quality || 0,
       tourIndex: badge,
@@ -2222,12 +2233,17 @@ function currentPoiMapFeatures() {
   );
 }
 
-/* Scenic drives (multi-waypoint LineStrings). Currently Japan-only.
+/* Scenic drives (multi-waypoint LineStrings).
    Two FeatureCollections feed two MapLibre layers: a line layer for the
    route polyline, and a circle+label layer for the named waypoints. */
-const SCENIC_DRIVES_RAW = ((typeof JAPAN_SCENIC_DRIVES !== "undefined" && Array.isArray(JAPAN_SCENIC_DRIVES))
-  ? JAPAN_SCENIC_DRIVES
-  : []);
+const SCENIC_DRIVES_RAW = [
+  ...((typeof JAPAN_SCENIC_DRIVES !== "undefined" && Array.isArray(JAPAN_SCENIC_DRIVES))
+    ? JAPAN_SCENIC_DRIVES
+    : []),
+  ...((typeof UK_IRELAND_SCENIC_DRIVES !== "undefined" && Array.isArray(UK_IRELAND_SCENIC_DRIVES))
+    ? UK_IRELAND_SCENIC_DRIVES
+    : []),
+];
 
 function currentScenicDriveLineFeatures() {
   return {
@@ -5306,6 +5322,7 @@ function buildPopupHtml(p, status, wiki) {
         ${qualityStars(p.quality)}
       </div>
       ${p.alt ? `<div class="popup-alt">${escapeHtml(p.alt)}</div>` : ""}
+      ${p.passRegion ? `<div class="popup-meta">${escapeHtml(p.passRegion)}</div>` : ""}
       <div class="popup-status">
         <span class="popup-elev">${p.elev} m</span>
         ${stateLine}
@@ -5572,6 +5589,25 @@ const PRESET_STARTS = {
   takayama:   { name: "Takayama",                 lat: 36.1404, lon: 137.2531 },
   nagasaki:   { name: "Nagasaki",                 lat: 32.7503, lon: 129.8779 },
   matsuyama:  { name: "Matsuyama",                lat: 33.8392, lon: 132.7656 },
+  /* Great Britain and Ireland starting points. */
+  edinburgh:  { name: "Edinburgh",                lat: 55.9533, lon: -3.1883 },
+  inverness:  { name: "Inverness",                lat: 57.4778, lon: -4.2247 },
+  fortwilliam:{ name: "Fort William",             lat: 56.8198, lon: -5.1052 },
+  glasgow:    { name: "Glasgow",                  lat: 55.8642, lon: -4.2518 },
+  keswick:    { name: "Keswick",                  lat: 54.6013, lon: -3.1347 },
+  york:       { name: "York",                     lat: 53.9590, lon: -1.0815 },
+  bath:       { name: "Bath",                     lat: 51.3811, lon: -2.3590 },
+  cardiff:    { name: "Cardiff",                  lat: 51.4816, lon: -3.1791 },
+  llanberis:  { name: "Llanberis",                lat: 53.1180, lon: -4.1270 },
+  brecon:     { name: "Brecon",                   lat: 51.9460, lon: -3.3900 },
+  belfast:    { name: "Belfast",                  lat: 54.5973, lon: -5.9301 },
+  derry:      { name: "Derry",                    lat: 54.9966, lon: -7.3086 },
+  dublin:     { name: "Dublin",                   lat: 53.3498, lon: -6.2603 },
+  galway:     { name: "Galway",                   lat: 53.2707, lon: -9.0568 },
+  killarney:  { name: "Killarney",                lat: 52.0599, lon: -9.5044 },
+  cork:       { name: "Cork",                     lat: 51.8985, lon: -8.4756 },
+  sligo:      { name: "Sligo",                    lat: 54.2766, lon: -8.4761 },
+  donegal:    { name: "Donegal",                  lat: 54.6540, lon: -8.1100 },
 };
 let customStart = null; // {name, lat, lon}
 
@@ -5830,12 +5866,12 @@ if (passStopMinEl) {
     .filter(Boolean)
     .forEach(el => el.addEventListener("input", onStopsChange));
 }
-/* Curated theme set surfaced as chips — full list is 19 but most users
-   only need these. The candidate filter still accepts any theme via the
-   advanced-mode multi-region picker. */
+/* Curated theme set surfaced as chips. The advanced picker exposes every
+   dataset theme; these are the most useful cross-region trip intents. */
 const CURATED_PREF_THEMES = [
   "unesco", "family-friendly", "photogenic", "iconic",
-  "panoramic-view", "historic", "food-drink",
+  "panoramic-view", "historic", "food-drink", "prehistoric",
+  "coastal", "island", "whisky", "dark-sky",
   "hidden-gem", "swimmable", "winter-sport",
 ];
 const THEME_LABELS = {
@@ -5846,6 +5882,11 @@ const THEME_LABELS = {
   "panoramic-view": "Panoramic view",
   "historic": "Historic",
   "food-drink": "Food & drink",
+  "prehistoric": "Prehistoric",
+  "coastal": "Coastal",
+  "island": "Island",
+  "whisky": "Whisky",
+  "dark-sky": "Dark sky",
   "hidden-gem": "Hidden gem",
   "swimmable": "Swimmable",
   "winter-sport": "Winter sport",
@@ -5855,10 +5896,10 @@ function themeLabel(key) {
 }
 const POI_PRESETS = {
   family:   { cats: ["viewpoint-panorama","alpine-lake","scenic-railway","funicular","special-experience","museum-cultural"], themes: ["family-friendly"], minScore: 7, maxCount: 4, label: "Family day · score 7+ · max 4" },
-  cultural: { cats: ["castle-fortress","monastery-church","old-town","museum-cultural"], themes: ["unesco","historic"], minScore: 7, maxCount: 4, label: "Cultural tour · score 7+ · max 4" },
-  photo:    { cats: ["viewpoint-panorama","alpine-lake","mountain-summit","glacier","waterfall-gorge"], themes: ["photogenic","iconic"], minScore: 8, maxCount: 3, label: "Photo tour · score 8+ · max 3" },
+  cultural: { cats: ["castle-fortress","monastery-church","old-town","historic-district","museum-cultural"], themes: ["unesco","historic","prehistoric"], minScore: 7, maxCount: 4, label: "Cultural tour · score 7+ · max 4" },
+  photo:    { cats: ["viewpoint-panorama","alpine-lake","mountain-summit","glacier","waterfall-gorge","geology-cave","national-park"], themes: ["photogenic","iconic","coastal"], minScore: 8, maxCount: 3, label: "Photo tour · score 8+ · max 3" },
   hidden:   { cats: [], themes: ["hidden-gem"], minScore: 6, maxCount: 3, label: "Hidden gems · score 6+ · max 3" },
-  wine:     { cats: ["wine-region","village","old-town"], themes: ["food-drink"], minScore: 6, maxCount: 4, label: "Wine & food · score 6+ · max 4" },
+  wine:     { cats: ["wine-region","village","old-town","special-experience","food-market"], themes: ["food-drink","whisky"], minScore: 6, maxCount: 4, label: "Food & drink · score 6+ · max 4" },
   reset:    { cats: [], themes: [], minScore: 6, maxCount: 3, label: "Default · any category · any theme · score 6+ · max 3" },
 };
 /* Active presets — multi-select with union semantics. Clicking a preset
@@ -6169,7 +6210,7 @@ function setAdvancedNote(message = advancedDefaultNote(), warn = false) {
 }
 function passPickerMatches(p, q) {
   if (!q) return true;
-  return `${p.name} ${p.alt || ""}`.toLowerCase().includes(q);
+  return `${p.name} ${p.alt || ""} ${p.passRegion || ""} ${p.passCountry || ""}`.toLowerCase().includes(q);
 }
 function poiPickerMatches(p, q) {
   if (!q) return true;
@@ -6238,7 +6279,7 @@ function renderAdvancedPicker() {
       ${passIconHtml(p, "pass-art-icon picker symbol", "symbol")}
       <span>
         <span class="pass-picker-name">${escapeHtml(p.name)} ${qualityStarsCompact(p.quality)}</span>
-        <span class="pass-picker-meta">${p.elev} m · ${escapeHtml(label)} · ${escapeHtml(source)}</span>
+        <span class="pass-picker-meta">${p.elev} m${p.passRegion ? ` · ${escapeHtml(p.passRegion)}` : ""} · ${escapeHtml(label)} · ${escapeHtml(source)}</span>
       </span>
     </label>`;
   }).join("") + (items.length > shown.length
@@ -8616,8 +8657,17 @@ async function planSelectedTour() {
   drawPlannedTour(start, baseTourStops, null, { driveH: result.h, dwellH, extras: advExtras, stopsConfig });
 }
 
+function leisurePlannerSupportsRequest() {
+  const start = currentStart();
+  if (!start || !pointInAlps(start.lon, start.lat)) return false;
+  if (!advancedModeEl.checked) return true;
+  return selectedAdvancedStops().every(stop => pointInAlps(stop.lon, stop.lat));
+}
+
 async function planTour() {
-  if (isLeisurePlannerEnabled()) {
+  /* The checked-in leisure graph is Alpine-scoped. Global datasets use the
+     legacy road-matrix planner until regional leisure graphs are available. */
+  if (isLeisurePlannerEnabled() && leisurePlannerSupportsRequest()) {
     await runLeisurePlanner({ advanced: !!advancedModeEl.checked });
     return;
   }
@@ -8634,7 +8684,7 @@ async function planTour() {
   const targetMode  = planTargetMode();
   const targetValue = planTargetValue();
   const targetTol   = planTargetTolerance();
-  const AVG_SPEED_KMH = 55; /* Alpine driving average — used only for
+  const AVG_SPEED_KMH = 55; /* Mountain-road driving average — used only for
                                candidate haversine pre-filter and km-equiv
                                composite ranking in time mode. */
   const budgetKmEquiv = targetMode === "time"
@@ -8675,8 +8725,8 @@ async function planTour() {
 
   /* Pre-filter candidates by haversine distance.  Cap firmly at
      budgetKmEquiv x 0.55 so the planner can't reach for famous-but-distant
-     passes and produce a wildly out-of-budget tour.  No silent fallback
-     that broadens to all-of-Alps. */
+     passes and produce a wildly out-of-budget tour. No silent fallback
+     that broadens to the global pass set. */
   const upperHaversine = budgetKmEquiv * 0.55;
   let passCands = allCands
     .map(p => ({ p, d: haversine(start, p) }))
@@ -10310,7 +10360,7 @@ function renderList(userTriggered = false) {
   const useSearch = q.length > 0;
 
   let items = useSearch
-    ? PASSES.filter(p => p.name.toLowerCase().includes(q) || (p.alt && p.alt.toLowerCase().includes(q)))
+    ? PASSES.filter(p => `${p.name} ${p.alt || ""} ${p.passRegion || ""} ${p.passCountry || ""}`.toLowerCase().includes(q))
     : PASSES.filter(inViewport);
   items = items.filter(passesAllFilters);
 
@@ -10351,7 +10401,7 @@ function renderList(userTriggered = false) {
         ${listIcon}
         <span>
           <div class="name">${p.name} ${qualityStarsCompact(p.quality)}</div>
-          <div class="meta">${p.elev} m · ${label} · ${sourceLabel} ${dist}</div>
+          <div class="meta">${p.elev} m${p.passRegion ? ` · ${escapeHtml(p.passRegion)}` : ""} · ${label} · ${sourceLabel} ${dist}</div>
         </span>
         <span class="alt" title="${escapeHtml(p.alt || "")}">${p.alt || ""}</span>
       </li>`;

@@ -46,6 +46,8 @@ function loadPoiData() {
     ["assets/js/italy-pois.js", "ITALY_POIS"],
     ["assets/js/austrian-pois.js", "AUSTRIAN_POIS"],
     ["assets/js/japan-pois.js", "JAPAN_POIS"],
+    ["assets/js/uk-pois.js", "UK_POIS"],
+    ["assets/js/irish-pois.js", "IRISH_POIS"],
   ];
   const sandbox = {};
   for (const [relPath, globalName] of files) {
@@ -59,6 +61,8 @@ function loadPoiData() {
     ...(sandbox.ITALY_POIS || []),
     ...(sandbox.AUSTRIAN_POIS || []),
     ...(sandbox.JAPAN_POIS || []),
+    ...(sandbox.UK_POIS || []),
+    ...(sandbox.IRISH_POIS || []),
   ];
 }
 

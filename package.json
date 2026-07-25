@@ -1,10 +1,15 @@
 {
   "private": true,
   "scripts": {
+    "build:nature": "node tools/nature/build.mjs",
     "build:wasm": "node tools/leisure/build-wasm.mjs",
     "build:bundle": "node tools/build-bundle.mjs",
-    "build": "npm run build:wasm && npm run build:bundle",
+    "build:site": "node tools/build-site.mjs",
+    "build": "npm run build:nature && npm run build:bundle && npm run build:site",
     "test": "node tools/leisure/verify-wasm-hash.mjs && node --test",
+    "test:nature": "node --test tests/nature-*.test.mjs",
+    "test:ui": "node --test tests/nature-ui.test.mjs tests/icon-assets.test.js tests/planner-regressions.test.js",
+    "benchmark:nature": "node tools/nature/benchmark.mjs",
     "verify:wasm-hash": "node tools/leisure/verify-wasm-hash.mjs",
     "check:wasm-size": "node tools/leisure/check-wasm-size.mjs",
     "postbuild:wasm": "node tools/leisure/check-wasm-size.mjs"

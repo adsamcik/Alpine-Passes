@@ -64,6 +64,14 @@ jobs:
       - name: Install binaryen (wasm-opt)
         run: npm install --no-save binaryen
 
+      - name: Rebuild nature artifacts
+        run: npm run build:nature
+
+      - name: Verify nature artifacts match commit
+        run: |
+          git diff --exit-code -- assets/data/nature
+          test -z "$(git status --porcelain --untracked-files=all -- assets/data/nature)"
+
       - name: Node tests
         run: npm test
 
@@ -75,3 +83,6 @@ jobs:
 
       - name: Verify bundle matches commit
         run: git diff --exit-code -- assets/js/itinera.bundle.js index.html
+
+      - name: Package production site
+        run: npm run build:site

@@ -1,0 +1,204 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import {
+  NatureUiError,
+  attachLinkedEntities,
+  buildMapFeatureCollections,
+  buildRegionOptions,
+  createDiscoveryDataSession,
+  entityCardModel,
+  filterAndRankEntities,
+  serializeTrailRouteGpx,
+} from "../assets/js/nature/app.mjs";
+
+const manifest = {
+  packages: [
+    { regionId: "uk-ireland", jurisdictionIds: ["GB", "GB-SCT"], url: "uk-0.json" },
+    { regionId: "uk-ireland", jurisdictionIds: ["GB", "GB-SCT"], url: "uk-1.json" },
+    { regionId: "japan", jurisdictionIds: ["JP"], url: "jp.json" },
+  ],
+};
+
+function entity(overrides = {}) {
+  return {
+    id: "nature:test-place",
+    entityType: "NaturalFeature",
+    names: [{ language: "en", kind: "primary", value: "Quiet waterfall" }],
+    jurisdictionIds: ["GB", "GB-SCT"],
+    geometry: { type: "Point", coordinates: [-4.2, 57.1] },
+    activities: ["walking"],
+    themes: ["waterfall", "forest"],
+    seasons: ["summer"],
+    access: { legal: "legal", modes: ["foot"] },
+    sensitivity: { action: "publish" },
+    quality: { confidence: 0.82, verificationStatus: "verified", flags: [] },
+    discovery: {
+      distinctiveness: 0.82,
+      regionalUniqueness: 0.77,
+      evidenceQuality: 0.83,
+      visitorProminence: 0.25,
+      routeCompatibility: 0.8,
+      seasonSuitability: 0.7,
+      itineraryVariety: 0.6,
+    },
+    sourceAssertions: [{ evidenceKind: "verified_official" }],
+    ...overrides,
+  };
+}
+
+function route(overrides = {}) {
+  return entity({
+    id: "route:test-hike",
+    entityType: "TrailRoute",
+    names: [{ language: "en", kind: "primary", value: "Ridge & Loch <Loop>" }],
+    geometry: {
+      type: "LineString",
+      coordinates: [[-4.2, 57.1, 30], [-4.1, 57.2, 90], [-4.0, 57.15, 40]],
+    },
+    geometryCompleteness: "complete",
+    navigationSuitability: true,
+    routeNature: "established",
+    journeyShape: "loop",
+    activities: ["walking", "hiking"],
+    metrics: { distanceMeters: 12_400, ascentMeters: 640, typicalDurationMinutes: 230 },
+    ...overrides,
+  });
+}
+
+test("manifest options derive one package choice per region and a cautious Scotland focus", () => {
+  const options = buildRegionOptions(manifest);
+  assert.deepEqual(options.map((option) => option.value), ["scotland", "japan", "uk-ireland"]);
+  assert.equal(options[0].packageRegionId, "uk-ireland");
+  assert.equal(options[0].jurisdictionId, "GB-SCT");
+  assert.match(options[0].label, /incomplete/i);
+  assert.equal(options.filter((option) => option.value === "uk-ireland").length, 1);
+});
+
+test("data session bootstrap is manifest-only until explicit activation", async () => {
+  const calls = [];
+  const scottish = entity();
+  const english = entity({ id: "nature:english", jurisdictionIds: ["GB", "GB-ENG"] });
+  const loader = {
+    async loadManifest() {
+      calls.push("manifest");
+      return manifest;
+    },
+    async loadRegion(regionId) {
+      calls.push(`region:${regionId}`);
+      return { regionId, entities: [scottish, english] };
+    },
+  };
+  const session = createDiscoveryDataSession(loader);
+  const initialized = await session.initialize();
+  assert.deepEqual(calls, ["manifest"], "initialization must not fetch a regional URL");
+  assert.equal(initialized.options[0].value, "scotland");
+
+  const loaded = await session.load("scotland");
+  assert.deepEqual(calls, ["manifest", "region:uk-ireland"]);
+  assert.deepEqual(loaded.entities.map((item) => item.id), [scottish.id]);
+});
+
+test("search, activity, time, interest and verified-access filters compose", () => {
+  const unknown = entity({
+    id: "nature:unknown-waterfall",
+    names: [{ language: "en", kind: "primary", value: "Remote waterfall" }],
+    access: { legal: "unknown", modes: ["foot"] },
+  });
+  const long = route({ id: "route:long", metrics: { typicalDurationMinutes: 600 } });
+  const results = filterAndRankEntities([entity(), unknown, long], {
+    query: "waterfall",
+    activity: "walking",
+    interest: "water",
+    timeBudgetMinutes: 240,
+    requireVerifiedAccess: true,
+  });
+  assert.deepEqual(results.map((item) => item.entity.id), ["nature:test-place"]);
+});
+
+test("cards state unknowns literally and include season plus route effort", () => {
+  const model = entityCardModel(route({
+    access: { legal: "unknown", modes: ["foot"] },
+    seasons: [],
+  }), { reasons: ["distinctive scenery"], uncertainties: ["legal public access is not verified"], score: 0.7 });
+  assert.equal(model.access, "Unknown — not verified");
+  assert.equal(model.season, "Season unknown");
+  assert.match(model.effort, /12 km/);
+  assert.match(model.effort, /640 m ascent/);
+  assert.deepEqual(model.uncertainties, ["legal public access is not verified"]);
+});
+
+test("linked access points and transport connections remain explicit entities", () => {
+  const access = entity({
+    id: "access:test",
+    entityType: "AccessPoint",
+    legalAccess: "unknown",
+    accessModes: ["car", "hiking"],
+  });
+  const transport = entity({ id: "transport:test", entityType: "TransportConnection" });
+  const trail = route({
+    accessPointIds: [access.id],
+    transportConnectionIds: [transport.id],
+  });
+  const joined = attachLinkedEntities(trail, new Map([
+    [trail.id, trail], [access.id, access], [transport.id, transport],
+  ]));
+  assert.deepEqual(joined.accessPoints.map((item) => item.id), [access.id]);
+  assert.deepEqual(joined.transportConnections.map((item) => item.id), [transport.id]);
+  assert.equal(joined.accessPoints[0].legalAccess, "unknown");
+});
+
+test("map collections render routes as lines and access/places as semantic points with caps", () => {
+  const access = entity({ id: "access:test", entityType: "AccessPoint" });
+  const collections = buildMapFeatureCollections([route(), access, entity()], null, { routes: 1, points: 1 });
+  assert.equal(collections.routes.features.length, 1);
+  assert.equal(collections.routes.features[0].geometry.type, "LineString");
+  assert.equal(collections.points.features.length, 1);
+  assert.equal(collections.points.features[0].geometry.type, "Point");
+  assert.notEqual(collections.routes.features[0].geometry.type, "Point");
+});
+
+test("nature map separates complete solid routes from dashed overview geometry", async () => {
+  const source = await readFile(new URL("../assets/js/nature/app.mjs", import.meta.url), "utf8");
+  assert.match(source, /routeLayer: "nature-discovery-route-lines"/);
+  assert.match(source, /overviewRouteLayer: "nature-discovery-overview-route-lines"/);
+  assert.match(source, /filter: \["==", \["get", "completeness"\], "complete"\]/);
+  assert.match(source, /filter: \["!=", \["get", "completeness"\], "complete"\]/);
+  assert.match(source, /"line-dasharray": \[2, 2\]/);
+  assert.doesNotMatch(source, /"line-dasharray": \["case"/);
+  assert.match(source, /this\.map\.on\("click", MAP_IDS\.routeLayer, selectFeature\)/);
+  assert.match(source, /this\.map\.on\("click", MAP_IDS\.overviewRouteLayer, selectFeature\)/);
+});
+
+test("GPX export is gated strictly by navigation suitability", () => {
+  const unsafe = route({ navigationSuitability: false });
+  assert.throws(
+    () => serializeTrailRouteGpx(unsafe),
+    (error) => error instanceof NatureUiError && error.code === "gpx_navigation_unsuitable",
+  );
+
+  const gpx = serializeTrailRouteGpx(route());
+  assert.match(gpx, /<trkseg>/);
+  assert.match(gpx, /lat="57\.1" lon="-4\.2"/);
+  assert.match(gpx, /Ridge &amp; Loch &lt;Loop&gt;/);
+});
+
+test("static page keeps Discover inside the document and makes it default", async () => {
+  const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const discover = html.indexOf('id="discoverPanel"');
+  const plan = html.indexOf('id="sidebarPanelPlan"');
+  const close = html.indexOf("</html>");
+  assert.ok(discover > 0 && discover < plan && plan < close);
+  assert.equal(html.slice(close + "</html>".length).trim(), "");
+  assert.match(html, /id="sidebarTabDiscover" checked/);
+  assert.doesNotMatch(html, /id="sidebarTabPlan" checked/);
+  assert.match(html, /name="itinera-routing-api" content="\/api\/routing\/v1"/);
+  assert.match(html, /type="module" src="assets\/js\/nature\/app\.mjs"/);
+  assert.doesNotMatch(html, /onsubmit=/i);
+});
+
+test("legacy app uses the installed routing bridge and contains no direct public OSRM call", async () => {
+  const source = await readFile(new URL("../assets/js/app.js", import.meta.url), "utf8");
+  assert.match(source, /window\.ItineraRouting/);
+  assert.doesNotMatch(source, /router\.project-osrm\.org/);
+});

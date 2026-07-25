@@ -3,9 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="Itinera — interactive map of mountain passes, scenic drives, and curated POIs across the Alps, Japan, Great Britain, and Ireland, with road status, opening hours, and a sightseeing tour planner.">
+<meta name="description" content="Itinera is a nature-travel discovery and trip-planning map for walks, complete hiking routes, scenic drives, access points, and evidence-aware places across supported regions.">
 <meta name="theme-color" content="#161a1d">
-<title>Itinera — scenic passes, drives & sights</title>
+<meta property="og:type" content="website">
+<meta property="og:title" content="Itinera — nature discovery, hiking routes &amp; scenic journeys">
+<meta property="og:description" content="Itinera is a nature-travel discovery and trip-planning map for walks, complete hiking routes, scenic drives, access points, and evidence-aware places across supported regions.">
+<meta property="og:image" content="__ITINERA_ORIGIN__/assets/og-itinera-nature.png">
+<meta property="og:image:width" content="1731">
+<meta property="og:image:height" content="909">
+<meta property="og:image:alt" content="Itinera Nature — Roads, trails, and the places between">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Itinera — nature discovery, hiking routes &amp; scenic journeys">
+<meta name="twitter:description" content="Itinera is a nature-travel discovery and trip-planning map for walks, complete hiking routes, scenic drives, access points, and evidence-aware places across supported regions.">
+<meta name="twitter:image" content="__ITINERA_ORIGIN__/assets/og-itinera-nature.png">
+<meta name="twitter:image:alt" content="Itinera Nature — Roads, trails, and the places between">
+<meta name="itinera-routing-api" content="/api/routing/v1">
+<title>Itinera — nature discovery, hiking routes & scenic journeys</title>
 <link rel="icon" href="assets/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="icon" href="assets/favicon-512.png" sizes="512x512" type="image/png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
@@ -17,34 +30,119 @@
 <script src="assets/vendor/maplibre/5.6.1/maplibre-gl.js?v=5.6.1" defer></script>
 
 <link rel="stylesheet" href="assets/css/site.css?v=itinera-1">
-<script src="assets/js/itinera.bundle.js?v=c2d4a5709842" defer></script>
+<script src="assets/js/itinera.bundle.js?v=44799b2090cf" defer></script>
+<script type="module" src="assets/js/nature/app.mjs"></script>
 </head>
 <body>
 
-<noscript class="noscript-warning">This map and tour planner needs JavaScript enabled.</noscript>
+<noscript class="noscript-warning">This nature discovery map and trip planner needs JavaScript enabled.</noscript>
 
-<aside class="app-sidebar" aria-label="Planner and pass list">
-  <input class="sidebar-tab-radio" type="radio" name="sidebarTab" id="sidebarTabPlan" checked>
+<aside class="app-sidebar" aria-label="Nature discovery, planner, and legacy inventory">
+  <input class="sidebar-tab-radio" type="radio" name="sidebarTab" id="sidebarTabDiscover" checked>
+  <input class="sidebar-tab-radio" type="radio" name="sidebarTab" id="sidebarTabPlan">
   <input class="sidebar-tab-radio" type="radio" name="sidebarTab" id="sidebarTabBrowse">
 
   <nav class="sidebar-tabs" aria-label="Sidebar sections">
     <div class="sidebar-tab-strip" role="tablist" aria-label="Planner sections">
+      <label class="sidebar-tab" for="sidebarTabDiscover" role="tab" aria-controls="discoverPanel">
+        <span class="sidebar-tab-main"><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#itinera-explore"></use></svg> Discover</span>
+        <span class="sidebar-tab-sub">Nature &amp; routes</span>
+      </label>
       <label class="sidebar-tab" for="sidebarTabPlan" role="tab" aria-controls="sidebarPanelPlan">
         <span class="sidebar-tab-main"><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#itinera-compass"></use></svg> Plan</span>
-        <span class="sidebar-tab-sub">Build a tour</span>
+        <span class="sidebar-tab-sub">Legacy tour</span>
       </label>
       <label class="sidebar-tab" for="sidebarTabBrowse" role="tab" aria-controls="sidebarPanelBrowse">
         <span class="sidebar-tab-main"><svg class="feature-icon" aria-hidden="true"><use href="assets/icons.svg#itinera-explore"></use></svg> Browse</span>
-        <span class="sidebar-tab-sub"><strong><span id="passCount">…</span></strong> passes · <strong><span id="poiCount">…</span></strong> sights</span>
+        <span class="sidebar-tab-sub"><strong><span id="passCount">…</span></strong> passes · <strong><span id="poiCount">…</span></strong> sights (legacy)</span>
       </label>
     </div>
-    <p class="sidebar-source-note">Live Swiss status · OSM rules and seasonal estimates elsewhere</p>
+    <p class="sidebar-source-note">Nature packages load only when requested · evidence and uncertainty stay visible</p>
   </nav>
 
   <div class="banner hidden" id="banner" role="status" aria-live="polite"></div>
 
   <div class="sidebar-scroll">
     <div class="sidebar-tab-panes">
+      <section class="sidebar-tab-panel sidebar-tab-panel-discover" id="discoverPanel" role="tabpanel" aria-labelledby="sidebarTabDiscover">
+        <header class="discover-intro">
+          <p class="eyebrow">Nature discovery</p>
+          <h1>Find a worthwhile way outdoors</h1>
+          <p>Explore natural places, full route geometries, trail access and scenic drives. Scotland is the starting focus; its coverage is expanding and is not complete.</p>
+        </header>
+
+        <form class="discover-controls" aria-label="Nature discovery filters">
+          <fieldset class="discover-region-fieldset">
+            <legend>Where</legend>
+            <label for="discoverRegion">Region</label>
+            <div class="discover-load-row">
+              <select id="discoverRegion" aria-describedby="discoverRegionHint">
+                <option>Loading regional manifest…</option>
+              </select>
+              <button id="discoverLoadRegion" type="button">Explore region</button>
+            </div>
+            <small id="discoverRegionHint">Only the small manifest loads initially. A regional package downloads after you activate Explore region.</small>
+          </fieldset>
+
+          <label class="discover-search-field" for="discoverSearch">
+            <span>Search</span>
+            <input id="discoverSearch" type="search" autocomplete="off" placeholder="Loch, coast, forest, route…">
+          </label>
+
+          <div class="discover-filter-grid">
+            <label for="discoverActivity">
+              <span>Intent / activity</span>
+              <select id="discoverActivity">
+                <option value="">Any activity</option>
+                <option value="walking">Walking</option>
+                <option value="hiking">Hiking</option>
+                <option value="scenic_driving">Scenic driving</option>
+              </select>
+            </label>
+            <label for="discoverTimeBudget">
+              <span>Time budget</span>
+              <select id="discoverTimeBudget">
+                <option value="">Any duration</option>
+                <option value="120">Up to 2 hours</option>
+                <option value="240">Up to 4 hours</option>
+                <option value="480">Up to 8 hours</option>
+              </select>
+            </label>
+            <label for="discoverInterest">
+              <span>Interest</span>
+              <select id="discoverInterest">
+                <option value="">Any landscape</option>
+                <option value="mountain">Mountains</option>
+                <option value="water">Waterfalls &amp; lakes</option>
+                <option value="coast">Coasts</option>
+                <option value="forest">Forests</option>
+                <option value="wildlife">Wildlife</option>
+                <option value="panorama">Panoramas</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="discover-toggle-grid">
+            <label class="check discover-toggle">
+              <input id="discoverHidden" type="checkbox">
+              <span>Hidden gems <em>Only when evidence and access justify them</em></span>
+            </label>
+            <label class="check discover-toggle">
+              <input id="discoverVerified" type="checkbox">
+              <span>Verified access only <em>Exclude unknown legal access</em></span>
+            </label>
+          </div>
+        </form>
+
+        <div class="discover-status is-loading" id="discoverStatus" role="status" aria-live="polite">Loading the regional manifest…</div>
+        <div class="discover-results-head">
+          <h2>Evidence-ranked results</h2>
+          <span id="discoverCount">Not loaded</span>
+        </div>
+        <ol class="discover-results" id="discoverResults" aria-label="Nature discovery results"></ol>
+        <section class="discover-detail" id="discoverDetail" aria-label="Selected place or route details" aria-live="polite" hidden></section>
+      </section>
+
       <section class="sidebar-tab-panel sidebar-tab-panel-plan" id="sidebarPanelPlan" role="tabpanel" aria-labelledby="sidebarTabPlan">
         <section class="planner" id="planner" aria-labelledby="planner-title">
           <div class="planner-intro">
@@ -403,7 +501,7 @@
   </div>
 </aside>
 
-<main id="map" aria-label="Interactive map of mountain passes, scenic drives, and sights"></main>
+<main id="map" aria-label="Interactive nature map with route lines, access points, mountain passes, scenic drives, and sights"></main>
 
 <footer class="site-footer">
   <span class="footer-status" id="updated"><span id="updatedText">Loading live status…</span><button id="refreshBtn" type="button"
@@ -411,9 +509,10 @@
   <span id="mapInfo">Vector map initialising…</span>
   <span class="footer-credits">Vector tiles © <a href="https://openfreemap.org/" target="_blank" rel="noopener">OpenFreeMap</a> /
         <a href="https://openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a> ·
-        Pass data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors ·
-        Status © <a href="https://www.alpen-paesse.ch/" target="_blank" rel="noopener">IG Alpenpässe</a> ·
-        Routing © <a href="http://project-osrm.org/" target="_blank" rel="noopener">OSRM</a> ·
+        Legacy pass data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors ·
+        Legacy status © <a href="https://www.alpen-paesse.ch/" target="_blank" rel="noopener">IG Alpenpässe</a> ·
+        Nature preview records retain per-record source and licence metadata ·
+        Routing uses the configured same-origin gateway ·
         Photos © <a href="https://commons.wikimedia.org/" target="_blank" rel="noopener">Wikimedia</a></span>
 </footer>
 </body>

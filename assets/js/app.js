@@ -1732,7 +1732,11 @@ const map = new maplibregl.Map({
   preserveDrawingBuffer: true,
 });
 window.alpineMap = map;
+window.ItineraApp = Object.assign(window.ItineraApp || {}, { map });
 map.getCanvas().classList.add("itinera-overlay-canvas");
+window.dispatchEvent(new CustomEvent("itinera-map-ready", {
+  detail: { map },
+}));
 
 map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-left");
 updateMapInfo(defaultBaseLayerName);
@@ -7067,11 +7071,11 @@ async function osrmTable(coordsStr) {
   const cached = cacheGet(key, OSRM_TABLE_TTL);
   if (cached) { console.log("osrm table: cache hit"); return cached; }
   return dedupe(key, async () => {
-    const url = `https://router.project-osrm.org/table/v1/driving/${coordsStr}?annotations=distance,duration`;
-    const r = await fetch(url);
-    const j = await r.json();
-    if (j.code !== "Ok") throw new Error("OSRM table " + j.code);
-    const out = { dist: j.distances, dur: j.durations };
+    const bridge = window.ItineraRouting;
+    if (!bridge?.table) {
+      throw new Error("Routing gateway unavailable. Configure the same-origin routing API.");
+    }
+    const out = await bridge.table(coordsStr);
     cacheSet(key, out);
     return out;
   });
@@ -7091,13 +7095,11 @@ async function osrmRoute(coordsStr, options = {}) {
   const cached = cacheGet(key, OSRM_ROUTE_TTL);
   if (cached) { console.log("osrm route: cache hit"); return cached; }
   return dedupe(key, async () => {
-    const altParam = wantsAlternatives ? "&alternatives=3" : "";
-    const url = `https://router.project-osrm.org/route/v1/driving/${coordsStr}?overview=full&geometries=geojson${altParam}`;
-    const r = await fetch(url);
-    const j = await r.json();
-    if (!j.routes || j.code !== "Ok") throw new Error("OSRM route " + j.code);
-    const routes = j.routes.map(normalizeOsrmRoute);
-    const out = { ...routes[0], routes };
+    const bridge = window.ItineraRouting;
+    if (!bridge?.route) {
+      throw new Error("Routing gateway unavailable. Configure the same-origin routing API.");
+    }
+    const out = await bridge.route(coordsStr, { alternatives: wantsAlternatives });
     cacheSet(key, out);
     return out;
   });

@@ -1,0 +1,527 @@
+// Deterministic browser smoke test for the manifest-first nature discovery UI.
+//
+// Starts an ephemeral static server, uses the repository's installed Playwright,
+// and replaces only the remote basemap style with a valid empty style. All other
+// external traffic is blocked so the checks never depend on live services.
+//
+// Invoke:
+//   node tools/nature/e2e-smoke.mjs
+//   node tools/nature/e2e-smoke.mjs --headed
+
+import { createServer } from "node:http";
+import { readFile, stat } from "node:fs/promises";
+import { dirname, extname, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
+import { chromium } from "playwright";
+
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const MANIFEST_PATH = resolve(REPO_ROOT, "assets/data/nature/manifest.v1.json");
+const args = parseArgs(process.argv.slice(2));
+const assertions = [];
+const pageErrors = [];
+const consoleErrors = [];
+const natureRequests = [];
+const externalRequests = [];
+const EMPTY_STYLE = JSON.stringify({
+  version: 8,
+  name: "Itinera offline QA",
+  glyphs: "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
+  sources: {},
+  layers: [],
+});
+
+function parseArgs(argv) {
+  const parsed = { headed: false };
+  for (const value of argv) {
+    if (value === "--headed") parsed.headed = true;
+    else throw new Error(`Unknown argument: ${value}`);
+  }
+  return parsed;
+}
+
+function check(name, condition, detail = "") {
+  const result = { name, ok: Boolean(condition), detail: String(detail || "") };
+  assertions.push(result);
+  console.log(`${result.ok ? "✓" : "✗"} ${name}${result.detail ? `  (${result.detail})` : ""}`);
+}
+
+function mimeType(pathname) {
+  return {
+    ".css": "text/css; charset=utf-8",
+    ".gpx": "application/gpx+xml",
+    ".html": "text/html; charset=utf-8",
+    ".ico": "image/x-icon",
+    ".js": "text/javascript; charset=utf-8",
+    ".json": "application/json; charset=utf-8",
+    ".map": "application/json; charset=utf-8",
+    ".mjs": "text/javascript; charset=utf-8",
+    ".png": "image/png",
+    ".svg": "image/svg+xml",
+    ".wasm": "application/wasm",
+    ".webp": "image/webp",
+  }[extname(pathname).toLowerCase()] || "application/octet-stream";
+}
+
+async function createLocalServer() {
+  const server = createServer(async (request, response) => {
+    try {
+      const requestUrl = new URL(request.url || "/", "http://127.0.0.1");
+      if (!["GET", "HEAD"].includes(request.method || "GET")) {
+        response.writeHead(405, { Allow: "GET, HEAD" });
+        response.end();
+        return;
+      }
+      if (requestUrl.pathname.startsWith("/api/routing/v1/")) {
+        const body = JSON.stringify({
+          error: {
+            code: "routing_not_configured",
+            message: "The browser smoke server has no routing upstream.",
+          },
+        });
+        response.writeHead(503, {
+          "Cache-Control": "no-store",
+          "Content-Type": "application/json; charset=utf-8",
+          "Content-Length": Buffer.byteLength(body),
+        });
+        response.end(request.method === "HEAD" ? undefined : body);
+        return;
+      }
+
+      const decoded = decodeURIComponent(requestUrl.pathname);
+      const requested = decoded === "/" ? "index.html" : decoded.replace(/^\/+/, "");
+      let filePath = resolve(REPO_ROOT, requested);
+      const outsideRoot = filePath !== REPO_ROOT
+        && !filePath.startsWith(`${REPO_ROOT}${sep}`);
+      if (outsideRoot) {
+        response.writeHead(403);
+        response.end();
+        return;
+      }
+
+      let info;
+      try {
+        info = await stat(filePath);
+      } catch {
+        info = null;
+      }
+      if (info?.isDirectory()) {
+        filePath = resolve(filePath, "index.html");
+        try {
+          info = await stat(filePath);
+        } catch {
+          info = null;
+        }
+      }
+      if (!info?.isFile() && !extname(requested)) {
+        filePath = resolve(REPO_ROOT, "index.html");
+        info = await stat(filePath);
+      }
+      if (!info?.isFile()) {
+        response.writeHead(404);
+        response.end();
+        return;
+      }
+
+      const body = await readFile(filePath);
+      response.writeHead(200, {
+        "Cache-Control": "no-store",
+        "Content-Type": mimeType(filePath),
+        "Content-Length": body.byteLength,
+        "X-Content-Type-Options": "nosniff",
+      });
+      response.end(request.method === "HEAD" ? undefined : body);
+    } catch (error) {
+      response.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
+      response.end(String(error?.message || error));
+    }
+  });
+  await new Promise((accept, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", accept);
+  });
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("Local server did not expose a TCP port");
+  return {
+    baseUrl: `http://127.0.0.1:${address.port}`,
+    close: () => new Promise((accept, reject) =>
+      server.close((error) => error ? reject(error) : accept())),
+  };
+}
+
+async function loadFixture() {
+  const manifest = JSON.parse(await readFile(MANIFEST_PATH, "utf8"));
+  const ukEntries = manifest.packages.filter((entry) => entry.regionId === "uk-ireland");
+  if (!ukEntries.length) throw new Error("Manifest has no uk-ireland regional package");
+  const ukDocuments = await Promise.all(ukEntries.map(async (entry) => ({
+    entry,
+    document: JSON.parse(await readFile(resolve(REPO_ROOT, entry.url), "utf8")),
+  })));
+  const route = ukDocuments
+    .flatMap(({ document }) => document.entities || [])
+    .find((entity) =>
+      entity.id === "route:gb-sct-quiraing-loop"
+      && entity.entityType === "TrailRoute"
+      && entity.geometryCompleteness === "complete")
+    || ukDocuments
+      .flatMap(({ document }) => document.entities || [])
+      .find((entity) =>
+        entity.entityType === "TrailRoute"
+        && entity.geometryCompleteness === "complete"
+        && entity.navigationSuitability === false
+        && entity.jurisdictionIds?.includes("GB-SCT"));
+  if (!route) throw new Error("UK package has no complete, non-navigation-suitable Scotland TrailRoute");
+  const name = route.names?.find((item) => item.kind === "primary")?.value
+    || route.names?.[0]?.value;
+  if (!name) throw new Error(`Route ${route.id} has no displayable name`);
+  return {
+    manifest,
+    ukPackagePaths: ukEntries.map((entry) => `/${entry.url}`),
+    route: { id: route.id, name },
+  };
+}
+
+async function sourceGeoJson(page, sourceId) {
+  return page.evaluate((id) => {
+    const source = window.ItineraApp?.map?.getSource?.(id);
+    const serialized = source?.serialize?.();
+    let data = source?._data ?? serialized?.data ?? null;
+    if (typeof data === "string") {
+      try {
+        data = JSON.parse(data);
+      } catch {
+        data = null;
+      }
+    }
+    return data;
+  }, sourceId);
+}
+
+async function run() {
+  const fixture = await loadFixture();
+  const local = await createLocalServer();
+  let browser;
+  try {
+    browser = await chromium.launch({ headless: !args.headed });
+    const context = await browser.newContext({
+      viewport: { width: 1280, height: 900 },
+      reducedMotion: "reduce",
+    });
+    const page = await context.newPage();
+
+    page.on("pageerror", (error) => pageErrors.push(String(error)));
+    page.on("console", (message) => {
+      if (message.type() === "error") consoleErrors.push(message.text());
+    });
+    page.on("request", (request) => {
+      const url = request.url();
+      const parsed = new URL(url);
+      if (parsed.origin === local.baseUrl && parsed.pathname.startsWith("/assets/data/nature/")) {
+        natureRequests.push(parsed.pathname);
+      }
+    });
+    await page.route("**/*", async (route) => {
+      const request = route.request();
+      const parsed = new URL(request.url());
+      if (parsed.origin === local.baseUrl) {
+        await route.continue();
+        return;
+      }
+      externalRequests.push(parsed.href);
+      if (parsed.hostname === "tiles.openfreemap.org"
+          && parsed.pathname.startsWith("/styles/")) {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: EMPTY_STYLE,
+        });
+        return;
+      }
+      if (parsed.hostname === "tiles.openfreemap.org"
+          && parsed.pathname.startsWith("/fonts/")) {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/x-protobuf",
+          body: Buffer.alloc(0),
+        });
+        return;
+      }
+      await route.abort("blockedbyclient");
+    });
+
+    console.log(`Loading ${local.baseUrl}/index.html`);
+    await page.goto(`${local.baseUrl}/index.html`, {
+      waitUntil: "domcontentloaded",
+      timeout: 30_000,
+    });
+    await page.waitForFunction(() =>
+      window.ItineraNature?.getStatus
+      && document.querySelector("#discoverStatus")?.textContent?.includes("Choose a region"),
+    null, { timeout: 20_000 });
+    await page.waitForTimeout(250);
+
+    const initialTabState = await page.evaluate(() => ({
+      discoverChecked: document.querySelector("#sidebarTabDiscover")?.checked,
+      discoverSelected: document.querySelector('label[for="sidebarTabDiscover"]')?.getAttribute("aria-selected"),
+      discoverVisible: !document.querySelector("#discoverPanel")?.hidden,
+      planHidden: document.querySelector("#sidebarPanelPlan")?.hidden,
+      browseHidden: document.querySelector("#sidebarPanelBrowse")?.hidden,
+    }));
+    check(
+      "Discover is the default, selected sidebar tab",
+      initialTabState.discoverChecked
+        && initialTabState.discoverSelected === "true"
+        && initialTabState.discoverVisible
+        && initialTabState.planHidden
+        && initialTabState.browseHidden,
+      JSON.stringify(initialTabState),
+    );
+
+    const initialNaturePaths = [...new Set(natureRequests)];
+    check(
+      "initial nature request includes the manifest",
+      initialNaturePaths.includes("/assets/data/nature/manifest.v1.json"),
+      initialNaturePaths.join(", "),
+    );
+    check(
+      "initial nature bootstrap downloads no regional package",
+      initialNaturePaths.every((path) => !path.startsWith("/assets/data/nature/packages/")),
+      initialNaturePaths.join(", "),
+    );
+
+    const regionState = await page.evaluate(() => ({
+      value: document.querySelector("#discoverRegion")?.value,
+      label: document.querySelector("#discoverRegion option:checked")?.textContent,
+      button: document.querySelector("#discoverLoadRegion")?.textContent,
+    }));
+    check(
+      "Scotland priority coverage is selected",
+      regionState.value === "scotland"
+        && /Scotland/.test(regionState.label || "")
+        && regionState.button === "Explore Scotland",
+      JSON.stringify(regionState),
+    );
+
+    const requestCountBeforeExplore = natureRequests.length;
+    await page.getByRole("button", { name: "Explore Scotland" }).click();
+    await page.waitForFunction(() =>
+      window.ItineraNature?.getStatus?.().region === "scotland"
+      && window.ItineraNature.getStatus().entityCount > 0
+      && document.querySelectorAll(".discover-card").length > 0,
+    null, { timeout: 20_000 });
+
+    const packageRequests = [...new Set(
+      natureRequests
+        .slice(requestCountBeforeExplore)
+        .filter((path) => path.startsWith("/assets/data/nature/packages/")),
+    )].sort();
+    const expectedUkRequests = [...fixture.ukPackagePaths].sort();
+    check(
+      "Explore Scotland loads only the advertised UK package set",
+      JSON.stringify(packageRequests) === JSON.stringify(expectedUkRequests),
+      `requested=${packageRequests.join(", ")} expected=${expectedUkRequests.join(", ")}`,
+    );
+    const loadedState = await page.evaluate(() => window.ItineraNature.getStatus());
+    check(
+      "Scotland renders evidence-ranked results",
+      loadedState.region === "scotland"
+        && loadedState.entityCount > 0
+        && loadedState.resultCount > 0,
+      JSON.stringify(loadedState),
+    );
+
+    await page.selectOption("#discoverActivity", "hiking");
+    await page.fill("#discoverSearch", fixture.route.name);
+    await page.waitForFunction((routeName) => {
+      const cards = [...document.querySelectorAll(".discover-card-title")];
+      return cards.some((card) => card.textContent === routeName);
+    }, fixture.route.name, { timeout: 10_000 });
+    const filteredCards = await page.locator(".discover-card-title").allTextContents();
+    check(
+      "activity and text filters find the complete Scotland hike",
+      filteredCards.includes(fixture.route.name)
+        && filteredCards.length >= 1
+        && filteredCards.length < loadedState.resultCount,
+      filteredCards.join(" | "),
+    );
+
+    const routeButton = page.getByRole("button", {
+      name: `Show ${fixture.route.name} details and geometry`,
+      exact: true,
+    });
+    await routeButton.click();
+    await page.waitForFunction((routeName) =>
+      document.querySelector(".discover-detail-title")?.textContent === routeName,
+    fixture.route.name, { timeout: 10_000 });
+    await page.waitForFunction(() =>
+      Boolean(window.ItineraApp?.map?.getSource?.("nature-discovery-routes")),
+    null, { timeout: 10_000 });
+
+    const detailState = await page.evaluate(() => ({
+      title: document.querySelector(".discover-detail-title")?.textContent,
+      focused: document.activeElement?.classList.contains("discover-detail-title"),
+      gpxDisabled: document.querySelector(".discover-gpx-action")?.disabled,
+      gpxSafety: document.querySelector(".discover-gpx-safety")?.textContent,
+    }));
+    check(
+      "selecting a route opens and focuses its detail",
+      detailState.title === fixture.route.name && detailState.focused,
+      JSON.stringify(detailState),
+    );
+    check(
+      "GPX stays disabled for generalized non-navigation geometry",
+      detailState.gpxDisabled && /GPX disabled/.test(detailState.gpxSafety || ""),
+      JSON.stringify(detailState),
+    );
+
+    const routeGeoJson = await sourceGeoJson(page, "nature-discovery-routes");
+    const selectedFeature = routeGeoJson?.features?.find((feature) =>
+      feature.id === fixture.route.id || feature.properties?.id === fixture.route.id);
+    const coordinates = selectedFeature?.geometry?.coordinates;
+    const hasLineCoordinates = selectedFeature?.geometry?.type === "LineString"
+      ? Array.isArray(coordinates) && coordinates.length >= 2
+      : selectedFeature?.geometry?.type === "MultiLineString"
+        && Array.isArray(coordinates)
+        && coordinates.some((line) => Array.isArray(line) && line.length >= 2);
+    check(
+      "complete TrailRoute is delivered to the map as selected route GeoJSON",
+      selectedFeature?.properties?.selected === true
+        && selectedFeature?.properties?.completeness === "complete"
+        && hasLineCoordinates,
+      selectedFeature
+        ? `${selectedFeature.geometry?.type}; ${selectedFeature.properties?.completeness}; selected=${selectedFeature.properties?.selected}`
+        : "feature missing",
+    );
+
+    await page.evaluate(() => {
+      const map = window.ItineraApp.map;
+      map.setStyle({
+        version: 8,
+        name: "Itinera style-reload QA",
+        glyphs: "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
+        sources: {},
+        layers: [],
+      });
+    });
+    await page.waitForTimeout(1_000);
+    const reloadState = await page.evaluate(() => {
+      const map = window.ItineraApp?.map;
+      const style = map?.getStyle?.() || {};
+      const layerIds = style.layers?.map((layer) => layer.id) || [];
+      return {
+        sourceIds: Object.keys(style.sources || {}),
+        routeLayerCount: layerIds.filter((id) => id === "nature-discovery-route-lines").length,
+        overviewLayerCount: layerIds.filter((id) => id === "nature-discovery-overview-route-lines").length,
+        loaded: map?.loaded?.(),
+      };
+    });
+    check(
+      "style reload recreates each nature route layer exactly once",
+      reloadState.routeLayerCount === 1 && reloadState.overviewLayerCount === 1,
+      JSON.stringify(reloadState),
+    );
+
+    await page.locator('label[for="sidebarTabDiscover"]').focus();
+    await page.keyboard.press("ArrowRight");
+    const planTabState = await page.evaluate(() => ({
+      activeId: document.activeElement?.getAttribute("for"),
+      discoverSelected: document.querySelector('label[for="sidebarTabDiscover"]')?.getAttribute("aria-selected"),
+      planSelected: document.querySelector('label[for="sidebarTabPlan"]')?.getAttribute("aria-selected"),
+      planVisible: !document.querySelector("#sidebarPanelPlan")?.hidden,
+    }));
+    check(
+      "arrow-key tab navigation selects and focuses Plan",
+      planTabState.activeId === "sidebarTabPlan"
+        && planTabState.discoverSelected === "false"
+        && planTabState.planSelected === "true"
+        && planTabState.planVisible,
+      JSON.stringify(planTabState),
+    );
+    await page.keyboard.press("Home");
+    const tabStops = await page.evaluate(() => ({
+      activeId: document.activeElement?.getAttribute("for"),
+      discoverSelected: document.querySelector('label[for="sidebarTabDiscover"]')?.getAttribute("aria-selected"),
+      tabIndexes: [...document.querySelectorAll(".sidebar-tab")].map((node) => node.tabIndex),
+    }));
+    check(
+      "Home returns focus to Discover with one tab stop",
+      tabStops.activeId === "sidebarTabDiscover"
+        && tabStops.discoverSelected === "true"
+        && tabStops.tabIndexes.filter((value) => value === 0).length === 1
+        && tabStops.tabIndexes.filter((value) => value === -1).length === 2,
+      JSON.stringify(tabStops),
+    );
+    await page.keyboard.press("Tab");
+    const focusAfterTab = await page.evaluate(() => ({
+      id: document.activeElement?.id,
+      tag: document.activeElement?.tagName,
+    }));
+    check(
+      "Tab advances from the active sidebar tab into Discover controls",
+      focusAfterTab.id === "discoverRegion",
+      JSON.stringify(focusAfterTab),
+    );
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForTimeout(100);
+    const mobileOverflow = await page.evaluate(() => {
+      const root = document.documentElement;
+      const body = document.body;
+      const panel = document.querySelector("#discoverPanel");
+      const sidebar = document.querySelector(".app-sidebar");
+      return {
+        rootClient: root.clientWidth,
+        rootScroll: root.scrollWidth,
+        bodyClient: body.clientWidth,
+        bodyScroll: body.scrollWidth,
+        panelClient: panel?.clientWidth,
+        panelScroll: panel?.scrollWidth,
+        sidebarClient: sidebar?.clientWidth,
+        sidebarScroll: sidebar?.scrollWidth,
+      };
+    });
+    const within = (scroll, client) =>
+      Number.isFinite(scroll) && Number.isFinite(client) && scroll <= client + 1;
+    check(
+      "390 px mobile viewport has no horizontal overflow",
+      within(mobileOverflow.rootScroll, mobileOverflow.rootClient)
+        && within(mobileOverflow.bodyScroll, mobileOverflow.bodyClient)
+        && within(mobileOverflow.panelScroll, mobileOverflow.panelClient)
+        && within(mobileOverflow.sidebarScroll, mobileOverflow.sidebarClient),
+      JSON.stringify(mobileOverflow),
+    );
+
+    check("no uncaught page errors", pageErrors.length === 0, pageErrors.join(" | "));
+    const relevantConsoleErrors = consoleErrors.filter((message) =>
+      !/favicon|ERR_BLOCKED_BY_CLIENT|Failed to load resource/i.test(message));
+    check(
+      "no application console errors",
+      relevantConsoleErrors.length === 0,
+      relevantConsoleErrors.join(" | "),
+    );
+    check(
+      "remote dependencies were intercepted",
+      externalRequests.every((url) => !url.startsWith(local.baseUrl)),
+      `${externalRequests.length} external request(s) handled offline`,
+    );
+
+    await context.close();
+  } finally {
+    await browser?.close();
+    await local.close();
+  }
+
+  const failed = assertions.filter((assertion) => !assertion.ok);
+  console.log(`\n${assertions.length - failed.length}/${assertions.length} assertions passed.`);
+  if (failed.length) {
+    console.log("Failures:");
+    for (const failure of failed) {
+      console.log(`  - ${failure.name}${failure.detail ? `: ${failure.detail}` : ""}`);
+    }
+    process.exitCode = 1;
+  }
+}
+
+run().catch((error) => {
+  console.error("Nature e2e smoke errored:", error);
+  process.exitCode = 2;
+});

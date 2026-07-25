@@ -1,0 +1,1618 @@
+{
+  "fixtureVersion": "1.0.0",
+  "description": "Canonical successful and compatibility journey fixtures.",
+  "scenarios": [
+    {
+      "id": "alpine-drive-compatibility",
+      "purpose": "Legacy Alpine scenic-drive metadata remains available after canonical migration.",
+      "request": {
+        "origin": [
+          12.79,
+          47.07
+        ],
+        "departureTime": "2026-07-15T07:00:00Z"
+      },
+      "experience": {
+        "schemaVersion": "1.0.0",
+        "id": "drive:at-grossglockner-legacy-compatible",
+        "entityType": "TrailRoute",
+        "jurisdictionIds": [
+          "at-2",
+          "at-5"
+        ],
+        "names": [
+          {
+            "language": "de",
+            "value": "Großglockner-Hochalpenstraße",
+            "kind": "primary"
+          },
+          {
+            "language": "en",
+            "value": "Grossglockner High Alpine Road",
+            "kind": "translated"
+          }
+        ],
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              12.81,
+              47.08
+            ],
+            [
+              12.84,
+              47.09
+            ],
+            [
+              12.88,
+              47.075
+            ]
+          ]
+        },
+        "sourceAssertions": [
+          {
+            "id": "assertion:drive:at-grossglockner-legacy-compatible",
+            "sourceId": "fixture:journeys",
+            "fieldPath": "/geometry",
+            "evidenceKind": "maintainer_curated",
+            "verificationStatus": "verified",
+            "confidence": 0.96,
+            "observedAt": "2026-07-01T00:00:00Z"
+          }
+        ],
+        "quality": {
+          "confidence": 0.96,
+          "verificationStatus": "verified",
+          "assessedAt": "2026-07-01",
+          "freshness": "current",
+          "flags": []
+        },
+        "sensitivity": {
+          "action": "publish"
+        },
+        "routeNature": "scenic_drive",
+        "geometryCompleteness": "complete",
+        "navigationSuitability": false,
+        "activities": [
+          "scenic_driving"
+        ],
+        "journeyShape": "point_to_point",
+        "access": {
+          "legal": "legal",
+          "modes": [
+            "car"
+          ]
+        },
+        "metrics": {
+          "distanceMeters": 6900,
+          "ascentMeters": 410,
+          "typicalDurationMinutes": 35
+        },
+        "accessPointIds": [],
+        "transportConnectionIds": [],
+        "conditionRefs": [],
+        "restrictionRefs": [],
+        "hazardRefs": [],
+        "accessPoints": [],
+        "transportConnections": [],
+        "conditions": [],
+        "restrictions": [],
+        "hazards": [],
+        "originalSourceIds": [
+          {
+            "sourceId": "legacy-passes-v1",
+            "recordId": "grossglockner"
+          }
+        ],
+        "compatibility": {
+          "legacyEntityKind": "mountain_pass",
+          "legacyId": "grossglockner",
+          "routingProfile": "car",
+          "preserves": [
+            "stable_id",
+            "approach_geometry",
+            "summit_metadata"
+          ]
+        }
+      },
+      "expected": {
+        "routingProfiles": [
+          "car"
+        ],
+        "legacyId": "grossglockner"
+      }
+    },
+    {
+      "id": "scotland-drive-foot-established-loop",
+      "purpose": "Drive, park, walk to a complete established loop, walk back, and return by car.",
+      "request": {
+        "origin": [
+          -5.105,
+          56.82
+        ],
+        "departureTime": "2026-07-15T07:00:00Z",
+        "accessMode": "car",
+        "returnStrategy": "return_to_vehicle"
+      },
+      "experience": {
+        "schemaVersion": "1.0.0",
+        "id": "trail:scotland-established-loop",
+        "entityType": "TrailRoute",
+        "jurisdictionIds": [
+          "gb-sct"
+        ],
+        "names": [
+          {
+            "language": "en",
+            "value": "Mamores established circuit",
+            "kind": "primary"
+          }
+        ],
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -5.012,
+              56.78
+            ],
+            [
+              -5,
+              56.81
+            ],
+            [
+              -5.04,
+              56.82
+            ],
+            [
+              -5.06,
+              56.79
+            ],
+            [
+              -5.012,
+              56.78
+            ]
+          ]
+        },
+        "sourceAssertions": [
+          {
+            "id": "assertion:trail:scotland-established-loop",
+            "sourceId": "fixture:journeys",
+            "fieldPath": "/geometry",
+            "evidenceKind": "maintainer_curated",
+            "verificationStatus": "verified",
+            "confidence": 0.96,
+            "observedAt": "2026-07-01T00:00:00Z"
+          }
+        ],
+        "quality": {
+          "confidence": 0.96,
+          "verificationStatus": "verified",
+          "assessedAt": "2026-07-01",
+          "freshness": "current",
+          "flags": []
+        },
+        "sensitivity": {
+          "action": "publish"
+        },
+        "routeNature": "established",
+        "geometryCompleteness": "complete",
+        "navigationSuitability": true,
+        "activities": [
+          "hiking"
+        ],
+        "journeyShape": "loop",
+        "access": {
+          "legal": "legal",
+          "modes": [
+            "car",
+            "foot",
+            "hiking"
+          ]
+        },
+        "metrics": {
+          "distanceMeters": 12400,
+          "ascentMeters": 830,
+          "typicalDurationMinutes": 210
+        },
+        "accessPointIds": [
+          "access:scotland-glen-nevis"
+        ],
+        "transportConnectionIds": [],
+        "conditionRefs": [],
+        "restrictionRefs": [],
+        "hazardRefs": [],
+        "accessPoints": [
+          {
+            "schemaVersion": "1.0.0",
+            "id": "access:scotland-glen-nevis",
+            "entityType": "AccessPoint",
+            "jurisdictionIds": [
+              "gb-sct"
+            ],
+            "names": [
+              {
+                "language": "en",
+                "value": "Glen Nevis public car park",
+                "kind": "primary"
+              }
+            ],
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -5.02,
+                56.775
+              ]
+            },
+            "sourceAssertions": [
+              {
+                "id": "assertion:access:scotland-glen-nevis",
+                "sourceId": "fixture:journeys",
+                "fieldPath": "/geometry",
+                "evidenceKind": "maintainer_curated",
+                "verificationStatus": "verified",
+                "confidence": 0.96,
+                "observedAt": "2026-07-01T00:00:00Z"
+              }
+            ],
+            "quality": {
+              "confidence": 0.96,
+              "verificationStatus": "verified",
+              "assessedAt": "2026-07-01",
+              "freshness": "current",
+              "flags": []
+            },
+            "sensitivity": {
+              "action": "publish"
+            },
+            "accessModes": [
+              "car"
+            ],
+            "legalAccess": "legal",
+            "transferMinutes": 10,
+            "parking": {
+              "name": "Glen Nevis public car park",
+              "stoppingAllowed": true,
+              "closesLocal": "23:00"
+            }
+          }
+        ],
+        "transportConnections": [],
+        "conditions": [],
+        "restrictions": [],
+        "hazards": [],
+        "originalSourceIds": [
+          {
+            "sourceId": "fixture:walkhighlands",
+            "recordId": "mamores-loop"
+          }
+        ]
+      },
+      "expected": {
+        "modes": [
+          "drive",
+          "park_or_transfer",
+          "walk_connector",
+          "hike",
+          "walk_connector",
+          "drive"
+        ],
+        "routingProfiles": [
+          "car",
+          "foot",
+          "foot",
+          "car"
+        ]
+      }
+    },
+    {
+      "id": "scotland-point-to-point-timed-transport",
+      "purpose": "A point-to-point Scottish hike uses a verified timed bus to return to the vehicle.",
+      "request": {
+        "origin": [
+          -4.9,
+          56.72
+        ],
+        "departureTime": "2026-07-15T08:00:00Z",
+        "accessMode": "car",
+        "returnStrategy": "return_to_vehicle"
+      },
+      "experience": {
+        "schemaVersion": "1.0.0",
+        "id": "trail:scotland-point-to-point",
+        "entityType": "TrailRoute",
+        "jurisdictionIds": [
+          "gb-sct"
+        ],
+        "names": [
+          {
+            "language": "en",
+            "value": "Rannoch point-to-point crossing",
+            "kind": "primary"
+          }
+        ],
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -4.72,
+              56.75
+            ],
+            [
+              -4.69,
+              56.78
+            ],
+            [
+              -4.65,
+              56.8
+            ],
+            [
+              -4.62,
+              56.82
+            ]
+          ]
+        },
+        "sourceAssertions": [
+          {
+            "id": "assertion:trail:scotland-point-to-point",
+            "sourceId": "fixture:journeys",
+            "fieldPath": "/geometry",
+            "evidenceKind": "maintainer_curated",
+            "verificationStatus": "verified",
+            "confidence": 0.96,
+            "observedAt": "2026-07-01T00:00:00Z"
+          }
+        ],
+        "quality": {
+          "confidence": 0.96,
+          "verificationStatus": "verified",
+          "assessedAt": "2026-07-01",
+          "freshness": "current",
+          "flags": []
+        },
+        "sensitivity": {
+          "action": "publish"
+        },
+        "routeNature": "established",
+        "geometryCompleteness": "complete",
+        "navigationSuitability": true,
+        "activities": [
+          "hiking"
+        ],
+        "journeyShape": "point_to_point",
+        "access": {
+          "legal": "legal",
+          "modes": [
+            "car",
+            "foot",
+            "hiking"
+          ]
+        },
+        "metrics": {
+          "distanceMeters": 15100,
+          "ascentMeters": 720,
+          "typicalDurationMinutes": 240
+        },
+        "accessPointIds": [
+          "access:scotland-rannoch-start"
+        ],
+        "transportConnectionIds": [
+          "transport:scotland-return-bus"
+        ],
+        "conditionRefs": [],
+        "restrictionRefs": [],
+        "hazardRefs": [],
+        "accessPoints": [
+          {
+            "schemaVersion": "1.0.0",
+            "id": "access:scotland-rannoch-start",
+            "entityType": "AccessPoint",
+            "jurisdictionIds": [
+              "gb-sct"
+            ],
+            "names": [
+              {
+                "language": "en",
+                "value": "Rannoch trailhead parking",
+                "kind": "primary"
+              }
+            ],
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -4.72,
+                56.75
+              ]
+            },
+            "sourceAssertions": [
+              {
+                "id": "assertion:access:scotland-rannoch-start",
+                "sourceId": "fixture:journeys",
+                "fieldPath": "/geometry",
+                "evidenceKind": "maintainer_curated",
+                "verificationStatus": "verified",
+                "confidence": 0.96,
+                "observedAt": "2026-07-01T00:00:00Z"
+              }
+            ],
+            "quality": {
+              "confidence": 0.96,
+              "verificationStatus": "verified",
+              "assessedAt": "2026-07-01",
+              "freshness": "current",
+              "flags": []
+            },
+            "sensitivity": {
+              "action": "publish"
+            },
+            "accessModes": [
+              "car"
+            ],
+            "legalAccess": "legal",
+            "transferMinutes": 10,
+            "parking": {
+              "name": "Public parking",
+              "stoppingAllowed": true,
+              "closesLocal": "23:00"
+            }
+          }
+        ],
+        "transportConnections": [
+          {
+            "schemaVersion": "1.0.0",
+            "id": "transport:scotland-return-bus",
+            "entityType": "TransportConnection",
+            "jurisdictionIds": [
+              "gb-sct"
+            ],
+            "names": [
+              {
+                "language": "en",
+                "value": "Return bus to Rannoch trailhead",
+                "kind": "primary"
+              }
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  -4.62,
+                  56.82
+                ],
+                [
+                  -4.72,
+                  56.75
+                ]
+              ]
+            },
+            "sourceAssertions": [
+              {
+                "id": "assertion:transport:scotland-return-bus",
+                "sourceId": "fixture:journeys",
+                "fieldPath": "/geometry",
+                "evidenceKind": "maintainer_curated",
+                "verificationStatus": "verified",
+                "confidence": 0.96,
+                "observedAt": "2026-07-01T00:00:00Z"
+              }
+            ],
+            "quality": {
+              "confidence": 0.96,
+              "verificationStatus": "verified",
+              "assessedAt": "2026-07-01",
+              "freshness": "current",
+              "flags": []
+            },
+            "sensitivity": {
+              "action": "publish"
+            },
+            "transportMode": "bus",
+            "direction": "return",
+            "endpointIds": [
+              "transport:scotland-return-bus:a",
+              "transport:scotland-return-bus:b"
+            ],
+            "typicalDurationMinutes": 42,
+            "schedule": {
+              "timezone": "Europe/London",
+              "departuresLocal": [
+                "17:30",
+                "20:30",
+                "23:55"
+              ],
+              "lastDepartureLocal": "23:55",
+              "freshness": "current"
+            },
+            "distanceMeters": 14500,
+            "operating": true
+          }
+        ],
+        "conditions": [],
+        "restrictions": [],
+        "hazards": []
+      },
+      "expected": {
+        "modes": [
+          "drive",
+          "park_or_transfer",
+          "hike",
+          "bus",
+          "drive"
+        ],
+        "routingProfiles": [
+          "car",
+          "car"
+        ],
+        "scheduledMode": "bus"
+      }
+    },
+    {
+      "id": "coastal-point-to-point",
+      "purpose": "A complete coastal route ends at a different, explicitly arranged pickup.",
+      "request": {
+        "origin": [
+          -5.05,
+          51.65
+        ],
+        "departureTime": "2026-07-15T08:00:00Z",
+        "accessMode": "car",
+        "returnStrategy": "different_pickup"
+      },
+      "experience": {
+        "schemaVersion": "1.0.0",
+        "id": "trail:pembrokeshire-coastal-stage",
+        "entityType": "TrailRoute",
+        "jurisdictionIds": [
+          "gb-wls"
+        ],
+        "names": [
+          {
+            "language": "en",
+            "value": "Pembrokeshire Coast Path stage",
+            "kind": "primary"
+          }
+        ],
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -5.11,
+              51.67
+            ],
+            [
+              -5.145,
+              51.685
+            ],
+            [
+              -5.18,
+              51.7
+            ],
+            [
+              -5.22,
+              51.715
+            ]
+          ]
+        },
+        "sourceAssertions": [
+          {
+            "id": "assertion:trail:pembrokeshire-coastal-stage",
+            "sourceId": "fixture:journeys",
+            "fieldPath": "/geometry",
+            "evidenceKind": "maintainer_curated",
+            "verificationStatus": "verified",
+            "confidence": 0.96,
+            "observedAt": "2026-07-01T00:00:00Z"
+          }
+        ],
+        "quality": {
+          "confidence": 0.96,
+          "verificationStatus": "verified",
+          "assessedAt": "2026-07-01",
+          "freshness": "current",
+          "flags": []
+        },
+        "sensitivity": {
+          "action": "publish"
+        },
+        "routeNature": "established",
+        "geometryCompleteness": "complete",
+        "navigationSuitability": true,
+        "activities": [
+          "hiking"
+        ],
+        "journeyShape": "point_to_point",
+        "access": {
+          "legal": "legal",
+          "modes": [
+            "car",
+            "foot",
+            "hiking"
+          ]
+        },
+        "metrics": {
+          "distanceMeters": 13200,
+          "ascentMeters": 380,
+          "typicalDurationMinutes": 210
+        },
+        "accessPointIds": [
+          "access:pembrokeshire-coast-start"
+        ],
+        "transportConnectionIds": [],
+        "conditionRefs": [],
+        "restrictionRefs": [],
+        "hazardRefs": [],
+        "accessPoints": [
+          {
+            "schemaVersion": "1.0.0",
+            "id": "access:pembrokeshire-coast-start",
+            "entityType": "AccessPoint",
+            "jurisdictionIds": [
+              "gb-wls"
+            ],
+            "names": [
+              {
+                "language": "en",
+                "value": "Pembrokeshire coast trailhead",
+                "kind": "primary"
+              }
+            ],
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -5.11,
+                51.67
+              ]
+            },
+            "sourceAssertions": [
+              {
+                "id": "assertion:access:pembrokeshire-coast-start",
+                "sourceId": "fixture:journeys",
+                "fieldPath": "/geometry",
+                "evidenceKind": "maintainer_curated",
+                "verificationStatus": "verified",
+                "confidence": 0.96,
+                "observedAt": "2026-07-01T00:00:00Z"
+              }
+            ],
+            "quality": {
+              "confidence": 0.96,
+              "verificationStatus": "verified",
+              "assessedAt": "2026-07-01",
+              "freshness": "current",
+              "flags": []
+            },
+            "sensitivity": {
+              "action": "publish"
+            },
+            "accessModes": [
+              "car"
+            ],
+            "legalAccess": "legal",
+            "transferMinutes": 10,
+            "parking": {
+              "name": "Public parking",
+              "stoppingAllowed": true,
+              "closesLocal": "23:00"
+            }
+          }
+        ],
+        "transportConnections": [],
+        "conditions": [],
+        "restrictions": [],
+        "hazards": []
+      },
+      "expected": {
+        "modes": [
+          "drive",
+          "park_or_transfer",
+          "hike",
+          "pickup"
+        ],
+        "routingProfiles": [
+          "car"
+        ]
+      }
+    },
+    {
+      "id": "island-ferry-return",
+      "purpose": "An island point-to-point hike uses a scheduled ferry for the return leg.",
+      "request": {
+        "origin": [
+          -5.1,
+          55.55
+        ],
+        "departureTime": "2026-07-15T08:00:00Z",
+        "accessMode": "car",
+        "returnStrategy": "return_to_vehicle"
+      },
+      "experience": {
+        "schemaVersion": "1.0.0",
+        "id": "trail:arran-island-crossing",
+        "entityType": "TrailRoute",
+        "jurisdictionIds": [
+          "gb-sct"
+        ],
+        "names": [
+          {
+            "language": "en",
+            "value": "Arran island ridge crossing",
+            "kind": "primary"
+          }
+        ],
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -5.14,
+              55.58
+            ],
+            [
+              -5.165,
+              55.6
+            ],
+            [
+              -5.18,
+              55.62
+            ],
+            [
+              -5.2,
+              55.64
+            ]
+          ]
+        },
+        "sourceAssertions": [
+          {
+            "id": "assertion:trail:arran-island-crossing",
+            "sourceId": "fixture:journeys",
+            "fieldPath": "/geometry",
+            "evidenceKind": "maintainer_curated",
+            "verificationStatus": "verified",
+            "confidence": 0.96,
+            "observedAt": "2026-07-01T00:00:00Z"
+          }
+        ],
+        "quality": {
+          "confidence": 0.96,
+          "verificationStatus": "verified",
+          "assessedAt": "2026-07-01",
+          "freshness": "current",
+          "flags": []
+        },
+        "sensitivity": {
+          "action": "publish"
+        },
+        "routeNature": "established",
+        "geometryCompleteness": "complete",
+        "navigationSuitability": true,
+        "activities": [
+          "hiking"
+        ],
+        "journeyShape": "point_to_point",
+        "access": {
+          "legal": "legal",
+          "modes": [
+            "car",
+            "foot",
+            "hiking"
+          ]
+        },
+        "metrics": {
+          "distanceMeters": 11800,
+          "ascentMeters": 650,
+          "typicalDurationMinutes": 225
+        },
+        "accessPointIds": [
+          "access:arran-ferry-trailhead"
+        ],
+        "transportConnectionIds": [
+          "transport:arran-return-ferry"
+        ],
+        "conditionRefs": [],
+        "restrictionRefs": [],
+        "hazardRefs": [],
+        "accessPoints": [
+          {
+            "schemaVersion": "1.0.0",
+            "id": "access:arran-ferry-trailhead",
+            "entityType": "AccessPoint",
+            "jurisdictionIds": [
+              "gb-sct"
+            ],
+            "names": [
+              {
+                "language": "en",
+                "value": "Arran trailhead parking",
+                "kind": "primary"
+              }
+            ],
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -5.14,
+                55.58
+              ]
+            },
+            "sourceAssertions": [
+              {
+                "id": "assertion:access:arran-ferry-trailhead",
+                "sourceId": "fixture:journeys",
+                "fieldPath": "/geometry",
+                "evidenceKind": "maintainer_curated",
+                "verificationStatus": "verified",
+                "confidence": 0.96,
+                "observedAt": "2026-07-01T00:00:00Z"
+              }
+            ],
+            "quality": {
+              "confidence": 0.96,
+              "verificationStatus": "verified",
+              "assessedAt": "2026-07-01",
+              "freshness": "current",
+              "flags": []
+            },
+            "sensitivity": {
+              "action": "publish"
+            },
+            "accessModes": [
+              "car"
+            ],
+            "legalAccess": "legal",
+            "transferMinutes": 10,
+            "parking": {
+              "name": "Public parking",
+              "stoppingAllowed": true,
+              "closesLocal": "23:00"
+            }
+          }
+        ],
+        "transportConnections": [
+          {
+            "schemaVersion": "1.0.0",
+            "id": "transport:arran-return-ferry",
+            "entityType": "TransportConnection",
+            "jurisdictionIds": [
+              "gb-sct"
+            ],
+            "names": [
+              {
+                "language": "en",
+                "value": "Island return ferry",
+                "kind": "primary"
+              }
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  -5.2,
+                  55.64
+                ],
+                [
+                  -5.14,
+                  55.58
+                ]
+              ]
+            },
+            "sourceAssertions": [
+              {
+                "id": "assertion:transport:arran-return-ferry",
+                "sourceId": "fixture:journeys",
+                "fieldPath": "/geometry",
+                "evidenceKind": "maintainer_curated",
+                "verificationStatus": "verified",
+                "confidence": 0.96,
+                "observedAt": "2026-07-01T00:00:00Z"
+              }
+            ],
+            "quality": {
+              "confidence": 0.96,
+              "verificationStatus": "verified",
+              "assessedAt": "2026-07-01",
+              "freshness": "current",
+              "flags": []
+            },
+            "sensitivity": {
+              "action": "publish"
+            },
+            "transportMode": "ferry",
+            "direction": "return",
+            "endpointIds": [
+              "transport:arran-return-ferry:a",
+              "transport:arran-return-ferry:b"
+            ],
+            "typicalDurationMinutes": 35,
+            "schedule": {
+              "timezone": "Europe/London",
+              "departuresLocal": [
+                "18:00",
+                "21:00",
+                "23:55"
+              ],
+              "lastDepartureLocal": "23:55",
+              "freshness": "current"
+            },
+            "distanceMeters": 9200,
+            "operating": true
+          }
+        ],
+        "conditions": [],
+        "restrictions": [],
+        "hazards": []
+      },
+      "expected": {
+        "modes": [
+          "drive",
+          "park_or_transfer",
+          "hike",
+          "ferry",
+          "drive"
+        ],
+        "routingProfiles": [
+          "car",
+          "car"
+        ],
+        "scheduledMode": "ferry"
+      }
+    },
+    {
+      "id": "japan-endonym-romanization-seasonal-access",
+      "purpose": "Japanese endonym and romanization survive delivery; an out-of-season closure remains traceable without blocking summer travel.",
+      "request": {
+        "origin": [
+          138.8,
+          35.3
+        ],
+        "departureTime": "2026-07-15T08:00:00+09:00",
+        "accessMode": "car",
+        "returnStrategy": "return_to_vehicle"
+      },
+      "experience": {
+        "schemaVersion": "1.0.0",
+        "id": "trail:japan-aokigahara-established-loop",
+        "entityType": "TrailRoute",
+        "jurisdictionIds": [
+          "jp-19"
+        ],
+        "names": [
+          {
+            "language": "ja",
+            "value": "青木ヶ原樹海自然歩道",
+            "kind": "primary",
+            "script": "Jpan"
+          },
+          {
+            "language": "ja-Latn",
+            "value": "Aokigahara Jukai Shizen Hodō",
+            "kind": "romanized",
+            "script": "Latn"
+          },
+          {
+            "language": "en",
+            "value": "Aokigahara Forest Nature Trail",
+            "kind": "translated",
+            "script": "Latn"
+          }
+        ],
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              138.73,
+              35.36
+            ],
+            [
+              138.745,
+              35.37
+            ],
+            [
+              138.752,
+              35.354
+            ],
+            [
+              138.737,
+              35.346
+            ],
+            [
+              138.73,
+              35.36
+            ]
+          ]
+        },
+        "sourceAssertions": [
+          {
+            "id": "assertion:trail:japan-aokigahara-established-loop",
+            "sourceId": "fixture:journeys",
+            "fieldPath": "/geometry",
+            "evidenceKind": "maintainer_curated",
+            "verificationStatus": "verified",
+            "confidence": 0.96,
+            "observedAt": "2026-07-01T00:00:00Z"
+          }
+        ],
+        "quality": {
+          "confidence": 0.96,
+          "verificationStatus": "verified",
+          "assessedAt": "2026-07-01",
+          "freshness": "current",
+          "flags": [
+            "seasonal_access"
+          ]
+        },
+        "sensitivity": {
+          "action": "publish"
+        },
+        "routeNature": "established",
+        "geometryCompleteness": "complete",
+        "navigationSuitability": true,
+        "activities": [
+          "walking",
+          "hiking"
+        ],
+        "journeyShape": "loop",
+        "access": {
+          "legal": "legal",
+          "modes": [
+            "car",
+            "foot",
+            "hiking"
+          ]
+        },
+        "metrics": {
+          "distanceMeters": 7600,
+          "ascentMeters": 180,
+          "typicalDurationMinutes": 150
+        },
+        "accessPointIds": [
+          "access:japan-fuji-five-lakes"
+        ],
+        "transportConnectionIds": [],
+        "conditionRefs": [
+          "condition:japan-winter-seasonal-gate"
+        ],
+        "restrictionRefs": [],
+        "hazardRefs": [],
+        "accessPoints": [
+          {
+            "schemaVersion": "1.0.0",
+            "id": "access:japan-fuji-five-lakes",
+            "entityType": "AccessPoint",
+            "jurisdictionIds": [
+              "jp-19"
+            ],
+            "names": [
+              {
+                "language": "ja",
+                "value": "富士山麓登山口",
+                "kind": "primary",
+                "script": "Jpan"
+              },
+              {
+                "language": "en",
+                "value": "Fuji foothill trailhead",
+                "kind": "translated",
+                "script": "Latn"
+              }
+            ],
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                138.73,
+                35.36
+              ]
+            },
+            "sourceAssertions": [
+              {
+                "id": "assertion:access:japan-fuji-five-lakes",
+                "sourceId": "fixture:journeys",
+                "fieldPath": "/geometry",
+                "evidenceKind": "maintainer_curated",
+                "verificationStatus": "verified",
+                "confidence": 0.96,
+                "observedAt": "2026-07-01T00:00:00Z"
+              }
+            ],
+            "quality": {
+              "confidence": 0.96,
+              "verificationStatus": "verified",
+              "assessedAt": "2026-07-01",
+              "freshness": "current",
+              "flags": []
+            },
+            "sensitivity": {
+              "action": "publish"
+            },
+            "accessModes": [
+              "car"
+            ],
+            "legalAccess": "legal",
+            "transferMinutes": 10,
+            "parking": {
+              "name": "Public parking",
+              "stoppingAllowed": true,
+              "closesLocal": "23:00"
+            }
+          }
+        ],
+        "transportConnections": [],
+        "conditions": [
+          {
+            "schemaVersion": "1.0.0",
+            "id": "condition:japan-winter-seasonal-gate",
+            "entityType": "Condition",
+            "jurisdictionIds": [
+              "jp-19"
+            ],
+            "names": [
+              {
+                "language": "en",
+                "value": "Winter seasonal trail closure",
+                "kind": "primary"
+              }
+            ],
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                138.73,
+                35.36
+              ]
+            },
+            "sourceAssertions": [
+              {
+                "id": "assertion:condition:japan-winter-seasonal-gate",
+                "sourceId": "fixture:journeys",
+                "fieldPath": "/geometry",
+                "evidenceKind": "maintainer_curated",
+                "verificationStatus": "verified",
+                "confidence": 0.96,
+                "observedAt": "2026-07-01T00:00:00Z"
+              }
+            ],
+            "quality": {
+              "confidence": 0.96,
+              "verificationStatus": "verified",
+              "assessedAt": "2026-07-01",
+              "freshness": "current",
+              "flags": []
+            },
+            "sensitivity": {
+              "action": "publish"
+            },
+            "conditionKind": "seasonal_gate",
+            "state": "seasonal",
+            "accessState": "closed",
+            "effectiveFrom": "2026-12-01T00:00:00+09:00",
+            "effectiveUntil": "2027-04-30T23:59:59+09:00",
+            "checkedAt": "2026-07-01T00:00:00Z"
+          }
+        ],
+        "restrictions": [],
+        "hazards": []
+      },
+      "expected": {
+        "modes": [
+          "drive",
+          "park_or_transfer",
+          "hike",
+          "drive"
+        ],
+        "routingProfiles": [
+          "car",
+          "car"
+        ],
+        "conditionRef": "condition:japan-winter-seasonal-gate"
+      }
+    },
+    {
+      "id": "cross-border-established-route",
+      "purpose": "A full route geometry and all jurisdiction identifiers survive a cross-border itinerary.",
+      "request": {
+        "origin": [
+          6.8,
+          45.9
+        ],
+        "departureTime": "2026-07-15T06:00:00Z",
+        "accessMode": "car",
+        "returnStrategy": "different_pickup"
+      },
+      "experience": {
+        "schemaVersion": "1.0.0",
+        "id": "trail:france-italy-cross-border-stage",
+        "entityType": "TrailRoute",
+        "jurisdictionIds": [
+          "fr-ara",
+          "it-23"
+        ],
+        "names": [
+          {
+            "language": "fr",
+            "value": "Étape transfrontalière du Mont-Blanc",
+            "kind": "primary"
+          },
+          {
+            "language": "it",
+            "value": "Tappa transfrontaliera del Monte Bianco",
+            "kind": "official"
+          },
+          {
+            "language": "en",
+            "value": "Mont Blanc cross-border stage",
+            "kind": "translated"
+          }
+        ],
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              6.86,
+              45.92
+            ],
+            [
+              6.93,
+              45.9
+            ],
+            [
+              7.01,
+              45.87
+            ],
+            [
+              7.08,
+              45.82
+            ]
+          ]
+        },
+        "sourceAssertions": [
+          {
+            "id": "assertion:trail:france-italy-cross-border-stage",
+            "sourceId": "fixture:journeys",
+            "fieldPath": "/geometry",
+            "evidenceKind": "maintainer_curated",
+            "verificationStatus": "verified",
+            "confidence": 0.96,
+            "observedAt": "2026-07-01T00:00:00Z"
+          }
+        ],
+        "quality": {
+          "confidence": 0.96,
+          "verificationStatus": "verified",
+          "assessedAt": "2026-07-01",
+          "freshness": "current",
+          "flags": []
+        },
+        "sensitivity": {
+          "action": "publish"
+        },
+        "routeNature": "established",
+        "geometryCompleteness": "complete",
+        "navigationSuitability": true,
+        "activities": [
+          "hiking"
+        ],
+        "journeyShape": "point_to_point",
+        "access": {
+          "legal": "legal",
+          "modes": [
+            "car",
+            "foot",
+            "hiking"
+          ]
+        },
+        "metrics": {
+          "distanceMeters": 19400,
+          "ascentMeters": 1050,
+          "typicalDurationMinutes": 360
+        },
+        "accessPointIds": [
+          "access:france-mont-blanc-start"
+        ],
+        "transportConnectionIds": [],
+        "conditionRefs": [],
+        "restrictionRefs": [],
+        "hazardRefs": [],
+        "accessPoints": [
+          {
+            "schemaVersion": "1.0.0",
+            "id": "access:france-mont-blanc-start",
+            "entityType": "AccessPoint",
+            "jurisdictionIds": [
+              "fr-ara"
+            ],
+            "names": [
+              {
+                "language": "en",
+                "value": "French cross-border trailhead",
+                "kind": "primary"
+              }
+            ],
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                6.86,
+                45.92
+              ]
+            },
+            "sourceAssertions": [
+              {
+                "id": "assertion:access:france-mont-blanc-start",
+                "sourceId": "fixture:journeys",
+                "fieldPath": "/geometry",
+                "evidenceKind": "maintainer_curated",
+                "verificationStatus": "verified",
+                "confidence": 0.96,
+                "observedAt": "2026-07-01T00:00:00Z"
+              }
+            ],
+            "quality": {
+              "confidence": 0.96,
+              "verificationStatus": "verified",
+              "assessedAt": "2026-07-01",
+              "freshness": "current",
+              "flags": []
+            },
+            "sensitivity": {
+              "action": "publish"
+            },
+            "accessModes": [
+              "car"
+            ],
+            "legalAccess": "legal",
+            "transferMinutes": 10,
+            "parking": {
+              "name": "Public parking",
+              "stoppingAllowed": true,
+              "closesLocal": "23:00"
+            }
+          }
+        ],
+        "transportConnections": [],
+        "conditions": [],
+        "restrictions": [],
+        "hazards": []
+      },
+      "expected": {
+        "modes": [
+          "drive",
+          "park_or_transfer",
+          "hike",
+          "pickup"
+        ],
+        "routingProfiles": [
+          "car"
+        ],
+        "jurisdictionIds": [
+          "fr-ara",
+          "it-23"
+        ]
+      }
+    },
+    {
+      "id": "multiple-trailheads-select-verified",
+      "purpose": "A verified legal trailhead is selected over a closer unverified stopping place.",
+      "request": {
+        "origin": [
+          -116.2,
+          51.36
+        ],
+        "departureTime": "2026-07-15T08:00:00-06:00",
+        "accessMode": "car",
+        "returnStrategy": "return_to_vehicle"
+      },
+      "experience": {
+        "schemaVersion": "1.0.0",
+        "id": "trail:banff-multiple-trailheads-loop",
+        "entityType": "TrailRoute",
+        "jurisdictionIds": [
+          "ca-ab"
+        ],
+        "names": [
+          {
+            "language": "en",
+            "value": "Banff multiple-trailhead loop",
+            "kind": "primary"
+          }
+        ],
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -116.18,
+              51.38
+            ],
+            [
+              -116.155,
+              51.395
+            ],
+            [
+              -116.17,
+              51.41
+            ],
+            [
+              -116.195,
+              51.397
+            ],
+            [
+              -116.18,
+              51.38
+            ]
+          ]
+        },
+        "sourceAssertions": [
+          {
+            "id": "assertion:trail:banff-multiple-trailheads-loop",
+            "sourceId": "fixture:journeys",
+            "fieldPath": "/geometry",
+            "evidenceKind": "maintainer_curated",
+            "verificationStatus": "verified",
+            "confidence": 0.96,
+            "observedAt": "2026-07-01T00:00:00Z"
+          }
+        ],
+        "quality": {
+          "confidence": 0.96,
+          "verificationStatus": "verified",
+          "assessedAt": "2026-07-01",
+          "freshness": "current",
+          "flags": []
+        },
+        "sensitivity": {
+          "action": "publish"
+        },
+        "routeNature": "established",
+        "geometryCompleteness": "complete",
+        "navigationSuitability": true,
+        "activities": [
+          "hiking"
+        ],
+        "journeyShape": "loop",
+        "access": {
+          "legal": "legal",
+          "modes": [
+            "car",
+            "foot",
+            "hiking"
+          ]
+        },
+        "metrics": {
+          "distanceMeters": 9800,
+          "ascentMeters": 520,
+          "typicalDurationMinutes": 190
+        },
+        "accessPointIds": [
+          "access:banff-unverified-shoulder",
+          "access:banff-verified-parking"
+        ],
+        "transportConnectionIds": [],
+        "conditionRefs": [],
+        "restrictionRefs": [],
+        "hazardRefs": [],
+        "accessPoints": [
+          {
+            "schemaVersion": "1.0.0",
+            "id": "access:banff-unverified-shoulder",
+            "entityType": "AccessPoint",
+            "jurisdictionIds": [
+              "ca-ab"
+            ],
+            "names": [
+              {
+                "language": "en",
+                "value": "Unverified roadside shoulder",
+                "kind": "primary"
+              }
+            ],
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -116.18,
+                51.38
+              ]
+            },
+            "sourceAssertions": [
+              {
+                "id": "assertion:access:banff-unverified-shoulder",
+                "sourceId": "fixture:journeys",
+                "fieldPath": "/geometry",
+                "evidenceKind": "maintainer_curated",
+                "verificationStatus": "verified",
+                "confidence": 0.96,
+                "observedAt": "2026-07-01T00:00:00Z"
+              }
+            ],
+            "quality": {
+              "confidence": 0.96,
+              "verificationStatus": "verified",
+              "assessedAt": "2026-07-01",
+              "freshness": "current",
+              "flags": []
+            },
+            "sensitivity": {
+              "action": "publish"
+            },
+            "accessModes": [
+              "car"
+            ],
+            "legalAccess": "unknown",
+            "transferMinutes": 10,
+            "parking": {
+              "name": "Unverified shoulder",
+              "stoppingAllowed": true,
+              "closesLocal": "23:00"
+            }
+          },
+          {
+            "schemaVersion": "1.0.0",
+            "id": "access:banff-verified-parking",
+            "entityType": "AccessPoint",
+            "jurisdictionIds": [
+              "ca-ab"
+            ],
+            "names": [
+              {
+                "language": "en",
+                "value": "Verified public trailhead",
+                "kind": "primary"
+              }
+            ],
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -116.185,
+                51.377
+              ]
+            },
+            "sourceAssertions": [
+              {
+                "id": "assertion:access:banff-verified-parking",
+                "sourceId": "fixture:journeys",
+                "fieldPath": "/geometry",
+                "evidenceKind": "maintainer_curated",
+                "verificationStatus": "verified",
+                "confidence": 0.96,
+                "observedAt": "2026-07-01T00:00:00Z"
+              }
+            ],
+            "quality": {
+              "confidence": 0.96,
+              "verificationStatus": "verified",
+              "assessedAt": "2026-07-01",
+              "freshness": "current",
+              "flags": []
+            },
+            "sensitivity": {
+              "action": "publish"
+            },
+            "accessModes": [
+              "car"
+            ],
+            "legalAccess": "legal",
+            "transferMinutes": 10,
+            "parking": {
+              "name": "Public parking",
+              "stoppingAllowed": true,
+              "closesLocal": "23:00"
+            }
+          }
+        ],
+        "transportConnections": [],
+        "conditions": [],
+        "restrictions": [],
+        "hazards": []
+      },
+      "expected": {
+        "modes": [
+          "drive",
+          "park_or_transfer",
+          "walk_connector",
+          "hike",
+          "walk_connector",
+          "drive"
+        ],
+        "routingProfiles": [
+          "car",
+          "foot",
+          "foot",
+          "car"
+        ],
+        "accessPointId": "access:banff-verified-parking"
+      }
+    }
+  ]
+}

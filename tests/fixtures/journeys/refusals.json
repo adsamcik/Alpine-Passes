@@ -1,0 +1,1369 @@
+{
+  "fixtureVersion": "1.0.0",
+  "description": "Canonical refusal fixtures for access, safety, parking, and service cutoffs.",
+  "scenarios": [
+    {
+      "id": "remote-north-america-unknown-access",
+      "request": {
+        "origin": [
+          -138.3,
+          61.25
+        ],
+        "departureTime": "2026-07-25T08:00:00-07:00",
+        "accessMode": "car",
+        "returnStrategy": "return_to_vehicle"
+      },
+      "experience": {
+        "schemaVersion": "1.0.0",
+        "id": "trail:yukon-remote-unknown-access",
+        "entityType": "TrailRoute",
+        "jurisdictionIds": [
+          "ca-yt"
+        ],
+        "names": [
+          {
+            "language": "en",
+            "value": "Remote Yukon ridge",
+            "kind": "primary"
+          }
+        ],
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -138.2,
+              61.3
+            ],
+            [
+              -138.15,
+              61.33
+            ],
+            [
+              -138.2,
+              61.3
+            ]
+          ]
+        },
+        "sourceAssertions": [
+          {
+            "id": "assertion:trail:yukon-remote-unknown-access",
+            "sourceId": "fixture:journeys",
+            "fieldPath": "/geometry",
+            "evidenceKind": "maintainer_curated",
+            "verificationStatus": "verified",
+            "confidence": 0.72,
+            "observedAt": "2026-07-01T00:00:00Z"
+          }
+        ],
+        "quality": {
+          "confidence": 0.72,
+          "verificationStatus": "partially_verified",
+          "assessedAt": "2026-07-01",
+          "freshness": "current",
+          "flags": []
+        },
+        "sensitivity": {
+          "action": "publish"
+        },
+        "routeNature": "established",
+        "geometryCompleteness": "complete",
+        "navigationSuitability": true,
+        "activities": [
+          "hiking"
+        ],
+        "journeyShape": "loop",
+        "access": {
+          "legal": "unknown",
+          "modes": [
+            "car",
+            "foot",
+            "hiking"
+          ]
+        },
+        "metrics": {
+          "distanceMeters": 9300,
+          "ascentMeters": 700,
+          "typicalDurationMinutes": 260
+        },
+        "accessPointIds": [
+          "access:yukon-remote-unknown"
+        ],
+        "transportConnectionIds": [],
+        "conditionRefs": [],
+        "restrictionRefs": [],
+        "hazardRefs": [],
+        "accessPoints": [
+          {
+            "schemaVersion": "1.0.0",
+            "id": "access:yukon-remote-unknown",
+            "entityType": "AccessPoint",
+            "jurisdictionIds": [
+              "ca-yt"
+            ],
+            "names": [
+              {
+                "language": "en",
+                "value": "Unverified remote access",
+                "kind": "primary"
+              }
+            ],
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -138.2,
+                61.3
+              ]
+            },
+            "sourceAssertions": [
+              {
+                "id": "assertion:access:yukon-remote-unknown",
+                "sourceId": "fixture:journeys",
+                "fieldPath": "/geometry",
+                "evidenceKind": "maintainer_curated",
+                "verificationStatus": "verified",
+                "confidence": 0.96,
+                "observedAt": "2026-07-01T00:00:00Z"
+              }
+            ],
+            "quality": {
+              "confidence": 0.96,
+              "verificationStatus": "verified",
+              "assessedAt": "2026-07-01",
+              "freshness": "current",
+              "flags": []
+            },
+            "sensitivity": {
+              "action": "publish"
+            },
+            "accessModes": [
+              "car"
+            ],
+            "legalAccess": "unknown",
+            "transferMinutes": 10
+          }
+        ],
+        "transportConnections": [],
+        "conditions": [],
+        "restrictions": [],
+        "hazards": []
+      },
+      "expected": {
+        "errorCode": "unknown_access",
+        "routingCallsBeforeRefusal": 0
+      }
+    },
+    {
+      "id": "seasonal-closure-refusal",
+      "request": {
+        "origin": [
+          8.45,
+          61.55
+        ],
+        "departureTime": "2027-01-15T08:00:00+01:00",
+        "accessMode": "car",
+        "returnStrategy": "return_to_vehicle"
+      },
+      "experience": {
+        "schemaVersion": "1.0.0",
+        "id": "trail:norway-seasonally-closed",
+        "entityType": "TrailRoute",
+        "jurisdictionIds": [
+          "no-34"
+        ],
+        "names": [
+          {
+            "language": "en",
+            "value": "Seasonally closed Norwegian trail",
+            "kind": "primary"
+          }
+        ],
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              8.55,
+              61.6
+            ],
+            [
+              8.59,
+              61.62
+            ],
+            [
+              8.55,
+              61.6
+            ]
+          ]
+        },
+        "sourceAssertions": [
+          {
+            "id": "assertion:trail:norway-seasonally-closed",
+            "sourceId": "fixture:journeys",
+            "fieldPath": "/geometry",
+            "evidenceKind": "maintainer_curated",
+            "verificationStatus": "verified",
+            "confidence": 0.96,
+            "observedAt": "2026-07-01T00:00:00Z"
+          }
+        ],
+        "quality": {
+          "confidence": 0.96,
+          "verificationStatus": "verified",
+          "assessedAt": "2026-07-01",
+          "freshness": "current",
+          "flags": [
+            "seasonal_access"
+          ]
+        },
+        "sensitivity": {
+          "action": "publish"
+        },
+        "routeNature": "established",
+        "geometryCompleteness": "complete",
+        "navigationSuitability": true,
+        "activities": [
+          "hiking"
+        ],
+        "journeyShape": "loop",
+        "access": {
+          "legal": "legal",
+          "modes": [
+            "car",
+            "foot",
+            "hiking"
+          ]
+        },
+        "metrics": {
+          "distanceMeters": 7100,
+          "ascentMeters": 390,
+          "typicalDurationMinutes": 160
+        },
+        "accessPointIds": [
+          "access:norway-winter-start"
+        ],
+        "transportConnectionIds": [],
+        "conditionRefs": [
+          "condition:norway-winter-trail-closure"
+        ],
+        "restrictionRefs": [],
+        "hazardRefs": [],
+        "accessPoints": [
+          {
+            "schemaVersion": "1.0.0",
+            "id": "access:norway-winter-start",
+            "entityType": "AccessPoint",
+            "jurisdictionIds": [
+              "no-34"
+            ],
+            "names": [
+              {
+                "language": "en",
+                "value": "Norway winter trailhead",
+                "kind": "primary"
+              }
+            ],
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                8.55,
+                61.6
+              ]
+            },
+            "sourceAssertions": [
+              {
+                "id": "assertion:access:norway-winter-start",
+                "sourceId": "fixture:journeys",
+                "fieldPath": "/geometry",
+                "evidenceKind": "maintainer_curated",
+                "verificationStatus": "verified",
+                "confidence": 0.96,
+                "observedAt": "2026-07-01T00:00:00Z"
+              }
+            ],
+            "quality": {
+              "confidence": 0.96,
+              "verificationStatus": "verified",
+              "assessedAt": "2026-07-01",
+              "freshness": "current",
+              "flags": []
+            },
+            "sensitivity": {
+              "action": "publish"
+            },
+            "accessModes": [
+              "car"
+            ],
+            "legalAccess": "legal",
+            "transferMinutes": 10,
+            "parking": {
+              "name": "Public parking",
+              "stoppingAllowed": true,
+              "closesLocal": "23:00"
+            }
+          }
+        ],
+        "transportConnections": [],
+        "conditions": [
+          {
+            "schemaVersion": "1.0.0",
+            "id": "condition:norway-winter-trail-closure",
+            "entityType": "Condition",
+            "jurisdictionIds": [
+              "no-34"
+            ],
+            "names": [
+              {
+                "language": "en",
+                "value": "Official winter trail closure",
+                "kind": "primary"
+              }
+            ],
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                8.55,
+                61.6
+              ]
+            },
+            "sourceAssertions": [
+              {
+                "id": "assertion:condition:norway-winter-trail-closure",
+                "sourceId": "fixture:journeys",
+                "fieldPath": "/geometry",
+                "evidenceKind": "maintainer_curated",
+                "verificationStatus": "verified",
+                "confidence": 0.96,
+                "observedAt": "2026-07-01T00:00:00Z"
+              }
+            ],
+            "quality": {
+              "confidence": 0.96,
+              "verificationStatus": "verified",
+              "assessedAt": "2026-07-01",
+              "freshness": "current",
+              "flags": []
+            },
+            "sensitivity": {
+              "action": "publish"
+            },
+            "conditionKind": "trail_closure",
+            "state": "seasonal",
+            "accessState": "closed",
+            "effectiveFrom": "2026-11-01T00:00:00+01:00",
+            "effectiveUntil": "2027-05-31T23:59:59+02:00",
+            "checkedAt": "2026-10-15T00:00:00Z"
+          }
+        ],
+        "restrictions": [],
+        "hazards": []
+      },
+      "expected": {
+        "errorCode": "route_closed",
+        "routingCallsBeforeRefusal": 0
+      }
+    },
+    {
+      "id": "unsafe-live-condition-refusal",
+      "request": {
+        "origin": [
+          -119.65,
+          37.7
+        ],
+        "departureTime": "2026-07-25T08:00:00-07:00",
+        "accessMode": "car",
+        "returnStrategy": "return_to_vehicle"
+      },
+      "experience": {
+        "schemaVersion": "1.0.0",
+        "id": "trail:us-active-unsafe-condition",
+        "entityType": "TrailRoute",
+        "jurisdictionIds": [
+          "us-ca"
+        ],
+        "names": [
+          {
+            "language": "en",
+            "value": "Wildfire-affected ridge trail",
+            "kind": "primary"
+          }
+        ],
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -119.55,
+              37.74
+            ],
+            [
+              -119.5,
+              37.76
+            ],
+            [
+              -119.55,
+              37.74
+            ]
+          ]
+        },
+        "sourceAssertions": [
+          {
+            "id": "assertion:trail:us-active-unsafe-condition",
+            "sourceId": "fixture:journeys",
+            "fieldPath": "/geometry",
+            "evidenceKind": "maintainer_curated",
+            "verificationStatus": "verified",
+            "confidence": 0.96,
+            "observedAt": "2026-07-01T00:00:00Z"
+          }
+        ],
+        "quality": {
+          "confidence": 0.96,
+          "verificationStatus": "verified",
+          "assessedAt": "2026-07-01",
+          "freshness": "current",
+          "flags": []
+        },
+        "sensitivity": {
+          "action": "publish"
+        },
+        "routeNature": "established",
+        "geometryCompleteness": "complete",
+        "navigationSuitability": true,
+        "activities": [
+          "hiking"
+        ],
+        "journeyShape": "loop",
+        "access": {
+          "legal": "legal",
+          "modes": [
+            "car",
+            "foot",
+            "hiking"
+          ]
+        },
+        "metrics": {
+          "distanceMeters": 8900,
+          "ascentMeters": 600,
+          "typicalDurationMinutes": 230
+        },
+        "accessPointIds": [
+          "access:us-wildfire-start"
+        ],
+        "transportConnectionIds": [],
+        "conditionRefs": [
+          "condition:us-active-wildfire"
+        ],
+        "restrictionRefs": [],
+        "hazardRefs": [],
+        "accessPoints": [
+          {
+            "schemaVersion": "1.0.0",
+            "id": "access:us-wildfire-start",
+            "entityType": "AccessPoint",
+            "jurisdictionIds": [
+              "us-ca"
+            ],
+            "names": [
+              {
+                "language": "en",
+                "value": "Yosemite-area trailhead",
+                "kind": "primary"
+              }
+            ],
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -119.55,
+                37.74
+              ]
+            },
+            "sourceAssertions": [
+              {
+                "id": "assertion:access:us-wildfire-start",
+                "sourceId": "fixture:journeys",
+                "fieldPath": "/geometry",
+                "evidenceKind": "maintainer_curated",
+                "verificationStatus": "verified",
+                "confidence": 0.96,
+                "observedAt": "2026-07-01T00:00:00Z"
+              }
+            ],
+            "quality": {
+              "confidence": 0.96,
+              "verificationStatus": "verified",
+              "assessedAt": "2026-07-01",
+              "freshness": "current",
+              "flags": []
+            },
+            "sensitivity": {
+              "action": "publish"
+            },
+            "accessModes": [
+              "car"
+            ],
+            "legalAccess": "legal",
+            "transferMinutes": 10,
+            "parking": {
+              "name": "Public parking",
+              "stoppingAllowed": true,
+              "closesLocal": "23:00"
+            }
+          }
+        ],
+        "transportConnections": [],
+        "conditions": [
+          {
+            "schemaVersion": "1.0.0",
+            "id": "condition:us-active-wildfire",
+            "entityType": "Condition",
+            "jurisdictionIds": [
+              "us-ca"
+            ],
+            "names": [
+              {
+                "language": "en",
+                "value": "Active wildfire closure",
+                "kind": "primary"
+              }
+            ],
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -119.55,
+                37.74
+              ]
+            },
+            "sourceAssertions": [
+              {
+                "id": "assertion:condition:us-active-wildfire",
+                "sourceId": "fixture:journeys",
+                "fieldPath": "/geometry",
+                "evidenceKind": "maintainer_curated",
+                "verificationStatus": "verified",
+                "confidence": 0.96,
+                "observedAt": "2026-07-01T00:00:00Z"
+              }
+            ],
+            "quality": {
+              "confidence": 0.96,
+              "verificationStatus": "verified",
+              "assessedAt": "2026-07-01",
+              "freshness": "current",
+              "flags": []
+            },
+            "sensitivity": {
+              "action": "publish"
+            },
+            "conditionKind": "fire",
+            "state": "live",
+            "severity": "extreme",
+            "blocking": true,
+            "unsafe": true,
+            "effectiveFrom": "2026-07-20T00:00:00-07:00",
+            "effectiveUntil": "2026-08-15T23:59:59-07:00",
+            "checkedAt": "2026-07-24T18:00:00Z"
+          }
+        ],
+        "restrictions": [],
+        "hazards": []
+      },
+      "expected": {
+        "errorCode": "unsafe_condition",
+        "routingCallsBeforeRefusal": 0
+      }
+    },
+    {
+      "id": "active-private-restriction-refusal",
+      "request": {
+        "origin": [
+          -2.2,
+          54.45
+        ],
+        "departureTime": "2026-07-25T08:00:00+01:00",
+        "accessMode": "car",
+        "returnStrategy": "return_to_vehicle"
+      },
+      "experience": {
+        "schemaVersion": "1.0.0",
+        "id": "trail:england-active-private-restriction",
+        "entityType": "TrailRoute",
+        "jurisdictionIds": [
+          "gb-eng"
+        ],
+        "names": [
+          {
+            "language": "en",
+            "value": "Temporarily restricted moorland route",
+            "kind": "primary"
+          }
+        ],
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -2.1,
+              54.5
+            ],
+            [
+              -2.06,
+              54.52
+            ],
+            [
+              -2.1,
+              54.5
+            ]
+          ]
+        },
+        "sourceAssertions": [
+          {
+            "id": "assertion:trail:england-active-private-restriction",
+            "sourceId": "fixture:journeys",
+            "fieldPath": "/geometry",
+            "evidenceKind": "maintainer_curated",
+            "verificationStatus": "verified",
+            "confidence": 0.96,
+            "observedAt": "2026-07-01T00:00:00Z"
+          }
+        ],
+        "quality": {
+          "confidence": 0.96,
+          "verificationStatus": "verified",
+          "assessedAt": "2026-07-01",
+          "freshness": "current",
+          "flags": []
+        },
+        "sensitivity": {
+          "action": "publish"
+        },
+        "routeNature": "established",
+        "geometryCompleteness": "complete",
+        "navigationSuitability": true,
+        "activities": [
+          "hiking"
+        ],
+        "journeyShape": "loop",
+        "access": {
+          "legal": "legal",
+          "modes": [
+            "car",
+            "foot",
+            "hiking"
+          ]
+        },
+        "metrics": {
+          "distanceMeters": 8000,
+          "ascentMeters": 450,
+          "typicalDurationMinutes": 180
+        },
+        "accessPointIds": [
+          "access:england-restricted-start"
+        ],
+        "transportConnectionIds": [],
+        "conditionRefs": [],
+        "restrictionRefs": [
+          "restriction:england-private-land"
+        ],
+        "hazardRefs": [],
+        "accessPoints": [
+          {
+            "schemaVersion": "1.0.0",
+            "id": "access:england-restricted-start",
+            "entityType": "AccessPoint",
+            "jurisdictionIds": [
+              "gb-eng"
+            ],
+            "names": [
+              {
+                "language": "en",
+                "value": "Public approach car park",
+                "kind": "primary"
+              }
+            ],
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -2.1,
+                54.5
+              ]
+            },
+            "sourceAssertions": [
+              {
+                "id": "assertion:access:england-restricted-start",
+                "sourceId": "fixture:journeys",
+                "fieldPath": "/geometry",
+                "evidenceKind": "maintainer_curated",
+                "verificationStatus": "verified",
+                "confidence": 0.96,
+                "observedAt": "2026-07-01T00:00:00Z"
+              }
+            ],
+            "quality": {
+              "confidence": 0.96,
+              "verificationStatus": "verified",
+              "assessedAt": "2026-07-01",
+              "freshness": "current",
+              "flags": []
+            },
+            "sensitivity": {
+              "action": "publish"
+            },
+            "accessModes": [
+              "car"
+            ],
+            "legalAccess": "legal",
+            "transferMinutes": 10,
+            "parking": {
+              "name": "Public parking",
+              "stoppingAllowed": true,
+              "closesLocal": "23:00"
+            }
+          }
+        ],
+        "transportConnections": [],
+        "conditions": [],
+        "restrictions": [
+          {
+            "schemaVersion": "1.0.0",
+            "id": "restriction:england-private-land",
+            "entityType": "Restriction",
+            "jurisdictionIds": [
+              "gb-eng"
+            ],
+            "names": [
+              {
+                "language": "en",
+                "value": "Temporary private-land prohibition",
+                "kind": "primary"
+              }
+            ],
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -2.1,
+                54.5
+              ]
+            },
+            "sourceAssertions": [
+              {
+                "id": "assertion:restriction:england-private-land",
+                "sourceId": "fixture:journeys",
+                "fieldPath": "/geometry",
+                "evidenceKind": "maintainer_curated",
+                "verificationStatus": "verified",
+                "confidence": 0.96,
+                "observedAt": "2026-07-01T00:00:00Z"
+              }
+            ],
+            "quality": {
+              "confidence": 0.96,
+              "verificationStatus": "verified",
+              "assessedAt": "2026-07-01",
+              "freshness": "current",
+              "flags": []
+            },
+            "sensitivity": {
+              "action": "publish"
+            },
+            "authoritySourceId": "fixture:authority",
+            "restrictionKind": "private_land",
+            "state": "scheduled",
+            "effect": "private",
+            "blocking": true,
+            "effectiveFrom": "2026-07-01T00:00:00+01:00",
+            "effectiveUntil": "2026-08-31T23:59:59+01:00"
+          }
+        ],
+        "hazards": []
+      },
+      "expected": {
+        "errorCode": "active_restriction",
+        "routingCallsBeforeRefusal": 0
+      }
+    },
+    {
+      "id": "critical-unknown-technical-route-refusal",
+      "request": {
+        "origin": [
+          -5.05,
+          56.65
+        ],
+        "departureTime": "2026-07-25T08:00:00+01:00",
+        "accessMode": "car",
+        "returnStrategy": "return_to_vehicle"
+      },
+      "experience": {
+        "schemaVersion": "1.0.0",
+        "id": "trail:scotland-critical-condition-unknown",
+        "entityType": "TrailRoute",
+        "jurisdictionIds": [
+          "gb-sct"
+        ],
+        "names": [
+          {
+            "language": "en",
+            "value": "Technical Scottish scramble",
+            "kind": "primary"
+          }
+        ],
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -4.95,
+              56.68
+            ],
+            [
+              -4.92,
+              56.71
+            ],
+            [
+              -4.95,
+              56.68
+            ]
+          ]
+        },
+        "sourceAssertions": [
+          {
+            "id": "assertion:trail:scotland-critical-condition-unknown",
+            "sourceId": "fixture:journeys",
+            "fieldPath": "/geometry",
+            "evidenceKind": "maintainer_curated",
+            "verificationStatus": "verified",
+            "confidence": 0.96,
+            "observedAt": "2026-07-01T00:00:00Z"
+          }
+        ],
+        "quality": {
+          "confidence": 0.96,
+          "verificationStatus": "verified",
+          "assessedAt": "2026-07-01",
+          "freshness": "current",
+          "flags": [
+            "critical_condition_unknown"
+          ]
+        },
+        "sensitivity": {
+          "action": "publish"
+        },
+        "routeNature": "established",
+        "geometryCompleteness": "complete",
+        "navigationSuitability": true,
+        "activities": [
+          "hiking",
+          "scrambling"
+        ],
+        "journeyShape": "loop",
+        "access": {
+          "legal": "legal",
+          "modes": [
+            "car",
+            "foot",
+            "hiking"
+          ]
+        },
+        "metrics": {
+          "distanceMeters": 7800,
+          "ascentMeters": 760,
+          "typicalDurationMinutes": 280
+        },
+        "accessPointIds": [
+          "access:scotland-critical-start"
+        ],
+        "transportConnectionIds": [],
+        "conditionRefs": [],
+        "restrictionRefs": [],
+        "hazardRefs": [
+          "hazard:scotland-exposure-unknown"
+        ],
+        "accessPoints": [
+          {
+            "schemaVersion": "1.0.0",
+            "id": "access:scotland-critical-start",
+            "entityType": "AccessPoint",
+            "jurisdictionIds": [
+              "gb-sct"
+            ],
+            "names": [
+              {
+                "language": "en",
+                "value": "Scramble route car park",
+                "kind": "primary"
+              }
+            ],
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -4.95,
+                56.68
+              ]
+            },
+            "sourceAssertions": [
+              {
+                "id": "assertion:access:scotland-critical-start",
+                "sourceId": "fixture:journeys",
+                "fieldPath": "/geometry",
+                "evidenceKind": "maintainer_curated",
+                "verificationStatus": "verified",
+                "confidence": 0.96,
+                "observedAt": "2026-07-01T00:00:00Z"
+              }
+            ],
+            "quality": {
+              "confidence": 0.96,
+              "verificationStatus": "verified",
+              "assessedAt": "2026-07-01",
+              "freshness": "current",
+              "flags": []
+            },
+            "sensitivity": {
+              "action": "publish"
+            },
+            "accessModes": [
+              "car"
+            ],
+            "legalAccess": "legal",
+            "transferMinutes": 10,
+            "parking": {
+              "name": "Public parking",
+              "stoppingAllowed": true,
+              "closesLocal": "23:00"
+            }
+          }
+        ],
+        "transportConnections": [],
+        "conditions": [],
+        "restrictions": [],
+        "hazards": [
+          {
+            "schemaVersion": "1.0.0",
+            "id": "hazard:scotland-exposure-unknown",
+            "entityType": "Hazard",
+            "jurisdictionIds": [
+              "gb-sct"
+            ],
+            "names": [
+              {
+                "language": "en",
+                "value": "Exposed scrambling condition",
+                "kind": "primary"
+              }
+            ],
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -4.95,
+                56.68
+              ]
+            },
+            "sourceAssertions": [
+              {
+                "id": "assertion:hazard:scotland-exposure-unknown",
+                "sourceId": "fixture:journeys",
+                "fieldPath": "/geometry",
+                "evidenceKind": "maintainer_curated",
+                "verificationStatus": "verified",
+                "confidence": 0.96,
+                "observedAt": "2026-07-01T00:00:00Z"
+              }
+            ],
+            "quality": {
+              "confidence": 0.96,
+              "verificationStatus": "verified",
+              "assessedAt": "2026-07-01",
+              "freshness": "current",
+              "flags": []
+            },
+            "sensitivity": {
+              "action": "publish"
+            },
+            "hazardKind": "exposure",
+            "severity": "unknown"
+          }
+        ],
+        "difficulty": {
+          "originalScale": "SAC",
+          "originalGrade": "T5",
+          "normalizedBand": "technical"
+        }
+      },
+      "expected": {
+        "errorCode": "critical_condition_unknown",
+        "routingCallsBeforeRefusal": 0
+      }
+    },
+    {
+      "id": "parking-closes-before-return",
+      "request": {
+        "origin": [
+          -3.9,
+          56.55
+        ],
+        "departureTime": "2026-07-25T12:00:00+01:00",
+        "accessMode": "car",
+        "returnStrategy": "return_to_vehicle"
+      },
+      "experience": {
+        "schemaVersion": "1.0.0",
+        "id": "trail:scotland-parking-closes-before-return",
+        "entityType": "TrailRoute",
+        "jurisdictionIds": [
+          "gb-sct"
+        ],
+        "names": [
+          {
+            "language": "en",
+            "value": "Long estate circuit",
+            "kind": "primary"
+          }
+        ],
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -3.8,
+              56.6
+            ],
+            [
+              -3.75,
+              56.63
+            ],
+            [
+              -3.8,
+              56.6
+            ]
+          ]
+        },
+        "sourceAssertions": [
+          {
+            "id": "assertion:trail:scotland-parking-closes-before-return",
+            "sourceId": "fixture:journeys",
+            "fieldPath": "/geometry",
+            "evidenceKind": "maintainer_curated",
+            "verificationStatus": "verified",
+            "confidence": 0.96,
+            "observedAt": "2026-07-01T00:00:00Z"
+          }
+        ],
+        "quality": {
+          "confidence": 0.96,
+          "verificationStatus": "verified",
+          "assessedAt": "2026-07-01",
+          "freshness": "current",
+          "flags": []
+        },
+        "sensitivity": {
+          "action": "publish"
+        },
+        "routeNature": "established",
+        "geometryCompleteness": "complete",
+        "navigationSuitability": true,
+        "activities": [
+          "hiking"
+        ],
+        "journeyShape": "loop",
+        "access": {
+          "legal": "legal",
+          "modes": [
+            "car",
+            "foot",
+            "hiking"
+          ]
+        },
+        "metrics": {
+          "distanceMeters": 18000,
+          "ascentMeters": 900,
+          "typicalDurationMinutes": 360
+        },
+        "accessPointIds": [
+          "access:scotland-early-closing"
+        ],
+        "transportConnectionIds": [],
+        "conditionRefs": [],
+        "restrictionRefs": [],
+        "hazardRefs": [],
+        "accessPoints": [
+          {
+            "schemaVersion": "1.0.0",
+            "id": "access:scotland-early-closing",
+            "entityType": "AccessPoint",
+            "jurisdictionIds": [
+              "gb-sct"
+            ],
+            "names": [
+              {
+                "language": "en",
+                "value": "Early-closing estate car park",
+                "kind": "primary"
+              }
+            ],
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -3.8,
+                56.6
+              ]
+            },
+            "sourceAssertions": [
+              {
+                "id": "assertion:access:scotland-early-closing",
+                "sourceId": "fixture:journeys",
+                "fieldPath": "/geometry",
+                "evidenceKind": "maintainer_curated",
+                "verificationStatus": "verified",
+                "confidence": 0.96,
+                "observedAt": "2026-07-01T00:00:00Z"
+              }
+            ],
+            "quality": {
+              "confidence": 0.96,
+              "verificationStatus": "verified",
+              "assessedAt": "2026-07-01",
+              "freshness": "current",
+              "flags": []
+            },
+            "sensitivity": {
+              "action": "publish"
+            },
+            "accessModes": [
+              "car"
+            ],
+            "legalAccess": "legal",
+            "transferMinutes": 10,
+            "parking": {
+              "name": "Early-closing estate car park",
+              "stoppingAllowed": true,
+              "closesLocal": "00:01"
+            }
+          }
+        ],
+        "transportConnections": [],
+        "conditions": [],
+        "restrictions": [],
+        "hazards": []
+      },
+      "expected": {
+        "errorCode": "parking_closed_before_return",
+        "routingCallsBeforeRefusal": 1
+      }
+    },
+    {
+      "id": "missed-final-service",
+      "request": {
+        "origin": [
+          -4.4,
+          56.95
+        ],
+        "departureTime": "2026-07-25T12:00:00+01:00",
+        "accessMode": "car",
+        "returnStrategy": "return_to_vehicle"
+      },
+      "experience": {
+        "schemaVersion": "1.0.0",
+        "id": "trail:scotland-missed-final-service",
+        "entityType": "TrailRoute",
+        "jurisdictionIds": [
+          "gb-sct"
+        ],
+        "names": [
+          {
+            "language": "en",
+            "value": "Long crossing after final bus",
+            "kind": "primary"
+          }
+        ],
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -4.3,
+              57
+            ],
+            [
+              -4.25,
+              57.03
+            ],
+            [
+              -4.18,
+              57.08
+            ]
+          ]
+        },
+        "sourceAssertions": [
+          {
+            "id": "assertion:trail:scotland-missed-final-service",
+            "sourceId": "fixture:journeys",
+            "fieldPath": "/geometry",
+            "evidenceKind": "maintainer_curated",
+            "verificationStatus": "verified",
+            "confidence": 0.96,
+            "observedAt": "2026-07-01T00:00:00Z"
+          }
+        ],
+        "quality": {
+          "confidence": 0.96,
+          "verificationStatus": "verified",
+          "assessedAt": "2026-07-01",
+          "freshness": "current",
+          "flags": []
+        },
+        "sensitivity": {
+          "action": "publish"
+        },
+        "routeNature": "established",
+        "geometryCompleteness": "complete",
+        "navigationSuitability": true,
+        "activities": [
+          "hiking"
+        ],
+        "journeyShape": "point_to_point",
+        "access": {
+          "legal": "legal",
+          "modes": [
+            "car",
+            "foot",
+            "hiking"
+          ]
+        },
+        "metrics": {
+          "distanceMeters": 20500,
+          "ascentMeters": 980,
+          "typicalDurationMinutes": 300
+        },
+        "accessPointIds": [
+          "access:scotland-last-service-start"
+        ],
+        "transportConnectionIds": [
+          "transport:scotland-final-service"
+        ],
+        "conditionRefs": [],
+        "restrictionRefs": [],
+        "hazardRefs": [],
+        "accessPoints": [
+          {
+            "schemaVersion": "1.0.0",
+            "id": "access:scotland-last-service-start",
+            "entityType": "AccessPoint",
+            "jurisdictionIds": [
+              "gb-sct"
+            ],
+            "names": [
+              {
+                "language": "en",
+                "value": "Point-to-point start car park",
+                "kind": "primary"
+              }
+            ],
+            "geometry": {
+              "type": "Point",
+              "coordinates": [
+                -4.3,
+                57
+              ]
+            },
+            "sourceAssertions": [
+              {
+                "id": "assertion:access:scotland-last-service-start",
+                "sourceId": "fixture:journeys",
+                "fieldPath": "/geometry",
+                "evidenceKind": "maintainer_curated",
+                "verificationStatus": "verified",
+                "confidence": 0.96,
+                "observedAt": "2026-07-01T00:00:00Z"
+              }
+            ],
+            "quality": {
+              "confidence": 0.96,
+              "verificationStatus": "verified",
+              "assessedAt": "2026-07-01",
+              "freshness": "current",
+              "flags": []
+            },
+            "sensitivity": {
+              "action": "publish"
+            },
+            "accessModes": [
+              "car"
+            ],
+            "legalAccess": "legal",
+            "transferMinutes": 10,
+            "parking": {
+              "name": "Public parking",
+              "stoppingAllowed": true,
+              "closesLocal": "23:00"
+            }
+          }
+        ],
+        "transportConnections": [
+          {
+            "schemaVersion": "1.0.0",
+            "id": "transport:scotland-final-service",
+            "entityType": "TransportConnection",
+            "jurisdictionIds": [
+              "gb-sct"
+            ],
+            "names": [
+              {
+                "language": "en",
+                "value": "Final return bus",
+                "kind": "primary"
+              }
+            ],
+            "geometry": {
+              "type": "LineString",
+              "coordinates": [
+                [
+                  -4.18,
+                  57.08
+                ],
+                [
+                  -4.3,
+                  57
+                ]
+              ]
+            },
+            "sourceAssertions": [
+              {
+                "id": "assertion:transport:scotland-final-service",
+                "sourceId": "fixture:journeys",
+                "fieldPath": "/geometry",
+                "evidenceKind": "maintainer_curated",
+                "verificationStatus": "verified",
+                "confidence": 0.96,
+                "observedAt": "2026-07-01T00:00:00Z"
+              }
+            ],
+            "quality": {
+              "confidence": 0.96,
+              "verificationStatus": "verified",
+              "assessedAt": "2026-07-01",
+              "freshness": "current",
+              "flags": []
+            },
+            "sensitivity": {
+              "action": "publish"
+            },
+            "transportMode": "bus",
+            "direction": "return",
+            "endpointIds": [
+              "transport:scotland-final-service:a",
+              "transport:scotland-final-service:b"
+            ],
+            "typicalDurationMinutes": 40,
+            "schedule": {
+              "timezone": "Europe/London",
+              "lastDepartureLocal": "00:01",
+              "freshness": "current"
+            },
+            "distanceMeters": 16200,
+            "operating": true
+          }
+        ],
+        "conditions": [],
+        "restrictions": [],
+        "hazards": []
+      },
+      "expected": {
+        "errorCode": "missed_last_transport",
+        "routingCallsBeforeRefusal": 1
+      }
+    }
+  ]
+}

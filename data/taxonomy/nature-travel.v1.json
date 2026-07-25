@@ -1,0 +1,412 @@
+{
+  "schemaVersion": "1.0.0",
+  "taxonomyId": "itinera-nature-travel",
+  "title": "Itinera nature-travel taxonomy",
+  "status": "governed",
+  "keyStyle": "lowercase_snake_case",
+  "entityFamilies": [
+    {
+      "id": "discoverable_geography",
+      "entityTypes": ["Place", "NaturalFeature", "ProtectedArea"],
+      "purpose": "Named destinations, physical nature features, and designated areas."
+    },
+    {
+      "id": "established_route_structure",
+      "entityTypes": ["TrailRoute", "RouteStage", "RouteVariant", "TrailSegment"],
+      "purpose": "Named routes, ordered stages, alternatives, and physical line segments."
+    },
+    {
+      "id": "access_and_movement",
+      "entityTypes": ["AccessPoint", "TransportConnection"],
+      "purpose": "Entrances, trailheads, parking, transfers, stations, landings, and linked transport."
+    },
+    {
+      "id": "visitor_support",
+      "entityTypes": ["Amenity"],
+      "purpose": "Huts, bothies, shelters, water, toilets, campsites, visitor centres, and support features."
+    },
+    {
+      "id": "time_dependent_governance",
+      "entityTypes": ["Condition", "Restriction", "PermitRequirement", "OpeningSchedule", "Price"],
+      "purpose": "Current or scheduled state, legal and operational limits, permits, hours, and cost."
+    },
+    {
+      "id": "safety",
+      "entityTypes": ["Hazard"],
+      "purpose": "Exposure, snow, glacier, tide, wildlife, remoteness, navigation, and other hazard evidence."
+    },
+    {
+      "id": "evidence_and_presentation",
+      "entityTypes": ["MediaAsset", "LocalizedName", "Source", "SourceAssertion", "Geometry", "QualityAssessment"],
+      "purpose": "Traceable names, media, provenance, geometry, and uncertainty."
+    },
+    {
+      "id": "territorial_authority",
+      "entityTypes": ["Jurisdiction"],
+      "purpose": "National, subnational, Indigenous, protected-area, municipal, and unusual territorial authority."
+    }
+  ],
+  "classificationGroups": [
+    {
+      "id": "mountains_and_geology",
+      "label": "Mountains and geology",
+      "normalizedKeys": [
+        "mountain",
+        "peak",
+        "summit",
+        "ridge",
+        "saddle",
+        "mountain_pass",
+        "valley",
+        "basin",
+        "cirque",
+        "canyon",
+        "ravine",
+        "gorge",
+        "cliff",
+        "escarpment",
+        "sea_cliff",
+        "rock_tower",
+        "natural_arch",
+        "hoodoo",
+        "boulder_field",
+        "rock_formation",
+        "cave",
+        "cavern",
+        "lava_tube",
+        "karst",
+        "sinkhole",
+        "ice_cave",
+        "volcano",
+        "caldera",
+        "crater",
+        "lava_field",
+        "fumarole",
+        "hot_spring",
+        "geyser",
+        "geothermal_feature",
+        "glacier",
+        "icefield",
+        "snowfield",
+        "glacier_viewpoint",
+        "desert",
+        "badlands"
+      ]
+    },
+    {
+      "id": "inland_water",
+      "label": "Inland water",
+      "normalizedKeys": [
+        "waterfall",
+        "cascade",
+        "rapids",
+        "spring",
+        "river",
+        "river_viewpoint",
+        "lake",
+        "tarn",
+        "reservoir",
+        "wetland",
+        "marsh",
+        "bog",
+        "delta"
+      ]
+    },
+    {
+      "id": "coast_and_islands",
+      "label": "Coast and islands",
+      "normalizedKeys": [
+        "beach",
+        "dune",
+        "cove",
+        "coastline",
+        "lagoon",
+        "tide_pool",
+        "sea_stack",
+        "blowhole",
+        "natural_harbour",
+        "island",
+        "islet",
+        "peninsula",
+        "headland",
+        "remote_coastline",
+        "fjord",
+        "tide_feature"
+      ]
+    },
+    {
+      "id": "habitats_and_seasonal_nature",
+      "label": "Habitats and seasonal nature",
+      "normalizedKeys": [
+        "forest",
+        "ancient_woodland",
+        "notable_tree",
+        "grove",
+        "rainforest",
+        "bamboo_forest",
+        "cloud_forest",
+        "grassland",
+        "meadow",
+        "heath",
+        "moorland",
+        "tundra",
+        "steppe",
+        "wildflower_site",
+        "autumn_foliage",
+        "wildlife_observation_area",
+        "birding_site",
+        "migration_area",
+        "observation_hide",
+        "dark_sky_site",
+        "aurora_viewing_area",
+        "seasonal_nature"
+      ]
+    },
+    {
+      "id": "designated_landscapes",
+      "label": "Protected and ecologically important areas",
+      "normalizedKeys": [
+        "national_park",
+        "nature_reserve",
+        "strict_nature_reserve",
+        "protected_landscape",
+        "wilderness_area",
+        "roadless_area",
+        "geopark",
+        "marine_protected_area",
+        "biosphere_reserve",
+        "ramsar_site",
+        "natura_2000_site",
+        "wildlife_refuge"
+      ]
+    },
+    {
+      "id": "views_and_experiences",
+      "label": "Views and nature experiences",
+      "normalizedKeys": [
+        "viewpoint",
+        "panorama",
+        "scenic_corridor",
+        "nature_interpretation_site",
+        "observation_tower"
+      ]
+    },
+    {
+      "id": "route_experiences",
+      "label": "Routes and outdoor experiences",
+      "normalizedKeys": [
+        "short_walk",
+        "walking_route",
+        "nature_trail",
+        "interpretive_trail",
+        "day_hike",
+        "hiking_route",
+        "multi_day_hike",
+        "long_distance_trail",
+        "pilgrimage_route",
+        "historic_walking_route",
+        "ridge_walk",
+        "coastal_path",
+        "accessible_nature_route",
+        "boardwalk_route",
+        "scrambling_route",
+        "alpine_trail",
+        "via_ferrata_route",
+        "snowshoe_route",
+        "winter_route",
+        "scenic_drive",
+        "scenic_road_section",
+        "mountain_road",
+        "ferry_linked_itinerary",
+        "rail_linked_itinerary",
+        "cable_linked_itinerary"
+      ]
+    },
+    {
+      "id": "access_and_support",
+      "label": "Access and supporting infrastructure",
+      "normalizedKeys": [
+        "trailhead",
+        "entrance",
+        "parking",
+        "park_and_ride",
+        "transport_stop",
+        "ferry_terminal",
+        "boat_landing",
+        "mountain_transport",
+        "visitor_centre",
+        "ranger_station",
+        "mountain_hut",
+        "bothy",
+        "shelter",
+        "emergency_shelter",
+        "campsite",
+        "backcountry_campsite",
+        "bivouac_area",
+        "toilet",
+        "drinking_water",
+        "food",
+        "fuel",
+        "charging",
+        "picnic_area",
+        "waste_facility",
+        "viewpoint_platform",
+        "bridge",
+        "boardwalk",
+        "gate",
+        "barrier",
+        "permit_checkpoint",
+        "emergency_exit",
+        "bailout_route",
+        "alternate_trailhead"
+      ]
+    },
+    {
+      "id": "natural_cultural_crossover",
+      "label": "Natural-cultural crossover",
+      "normalizedKeys": [
+        "contextual_site",
+        "ruin",
+        "archaeological_site",
+        "lighthouse",
+        "remote_coastal_structure",
+        "historic_mountain_route",
+        "engineering_work",
+        "traditional_landscape",
+        "sacred_landscape",
+        "pilgrimage_landscape",
+        "scenic_railway",
+        "nature_museum",
+        "interpretation_centre"
+      ]
+    }
+  ],
+  "classificationAliases": [
+    {"alias": "alpine_lake", "target": "lake", "status": "legacy_migration"},
+    {"alias": "art_island", "target": "contextual_site", "status": "legacy_review_required"},
+    {"alias": "bridge_engineering", "target": "engineering_work", "status": "legacy_migration"},
+    {"alias": "buddhist_temple", "target": "sacred_landscape", "status": "legacy_review_required"},
+    {"alias": "castle_fortress", "target": "contextual_site", "status": "legacy_review_required"},
+    {"alias": "food_market", "target": "contextual_site", "status": "legacy_review_required"},
+    {"alias": "funicular", "target": "mountain_transport", "status": "legacy_migration"},
+    {"alias": "geology_cave", "target": "cave", "status": "legacy_migration"},
+    {"alias": "historic_district", "target": "contextual_site", "status": "legacy_review_required"},
+    {"alias": "monastery_church", "target": "sacred_landscape", "status": "legacy_review_required"},
+    {"alias": "mountain_summit", "target": "summit", "status": "legacy_migration"},
+    {"alias": "museum_cultural", "target": "contextual_site", "status": "legacy_review_required"},
+    {"alias": "old_town", "target": "contextual_site", "status": "legacy_review_required"},
+    {"alias": "onsen_town", "target": "hot_spring", "status": "legacy_review_required"},
+    {"alias": "pop_culture_site", "target": "contextual_site", "status": "legacy_review_required"},
+    {"alias": "post_town", "target": "historic_mountain_route", "status": "legacy_review_required"},
+    {"alias": "shinto_shrine", "target": "sacred_landscape", "status": "legacy_review_required"},
+    {"alias": "spa_wellness", "target": "hot_spring", "status": "legacy_review_required"},
+    {"alias": "special_experience", "target": "contextual_site", "status": "legacy_review_required"},
+    {"alias": "traditional_garden", "target": "traditional_landscape", "status": "legacy_review_required"},
+    {"alias": "viewpoint_panorama", "target": "panorama", "status": "legacy_migration"},
+    {"alias": "village", "target": "contextual_site", "status": "legacy_review_required"},
+    {"alias": "waterfall_gorge", "target": "waterfall", "status": "ambiguous_legacy_review_required"},
+    {"alias": "wine_region", "target": "traditional_landscape", "status": "legacy_review_required"}
+  ],
+  "activities": [
+    "walking",
+    "hiking",
+    "scrambling",
+    "via_ferrata",
+    "snowshoe",
+    "winter_walking",
+    "scenic_driving",
+    "accessible_nature"
+  ],
+  "accessModes": [
+    "car",
+    "foot",
+    "hiking",
+    "transit",
+    "ferry",
+    "cable_transport",
+    "bicycle"
+  ],
+  "routeSemantics": {
+    "routeNature": ["established", "generated", "scenic_drive"],
+    "geometryCompleteness": ["complete", "partial", "overview_only"],
+    "journeyShape": ["loop", "out_and_back", "point_to_point", "network", "stage"],
+    "direction": ["both", "forward", "reverse", "one_way"],
+    "establishedRouteRule": "Established routes require complete LineString or MultiLineString geometry and an explicit navigation-suitability decision."
+  },
+  "nameKinds": ["primary", "official", "alternate", "translated", "romanized", "historic"],
+  "legalAccessStatuses": ["legal", "restricted", "private", "unknown"],
+  "evidenceKinds": [
+    "verified_official",
+    "structured_community",
+    "maintainer_curated",
+    "third_party_claim",
+    "derived",
+    "inference",
+    "estimate",
+    "unknown",
+    "stale",
+    "needs_physical_verification"
+  ],
+  "verificationStatuses": ["verified", "partially_verified", "unverified", "conflicting", "expired"],
+  "sensitivity": {
+    "actions": ["publish", "coarsen", "redact", "exclude"],
+    "protectedReasons": [
+      "ecological",
+      "nesting_or_breeding",
+      "cultural_or_sacred",
+      "archaeological",
+      "indigenous",
+      "private",
+      "source_obscured",
+      "environmental_harm",
+      "safety"
+    ],
+    "deliveryRules": {
+      "publish": "Ship the canonical record.",
+      "coarsen": "Ship only when sensitivity.publicGeometry is explicit, valid, and replaces the precise geometry.",
+      "redact": "Do not ship the record.",
+      "exclude": "Do not ship the record."
+    }
+  },
+  "hiddenDiscoveryPolicy": {
+    "classificationKeysForbidden": ["hidden_gem", "must_see", "instagrammable"],
+    "dimensions": [
+      "distinctiveness",
+      "regionalUniqueness",
+      "evidenceQuality",
+      "lowerProminence",
+      "routeCompatibility",
+      "seasonSuitability",
+      "accessFit",
+      "itineraryVariety"
+    ],
+    "minimumGates": {
+      "evidenceQuality": 0.6,
+      "distinctiveness": 0.55,
+      "accessFit": 0.45
+    },
+    "principle": "Obscurity alone is never positive evidence; unknown legal access reduces ranking and sensitive, private, or unsuitable technical records are ineligible."
+  },
+  "coverageStatuses": [
+    "Verified broad coverage",
+    "Verified partial coverage",
+    "Source available but not yet ingested",
+    "Structurally supported but unpopulated",
+    "Unknown",
+    "Excluded, with reason"
+  ],
+  "changeControl": {
+    "requires": [
+      "user_need",
+      "cross_jurisdiction_source_examples",
+      "existing_value_mapping",
+      "collision_and_deprecation_behavior",
+      "labels_and_translations",
+      "icon_and_rendering_impact",
+      "accessibility_copy",
+      "discovery_behavior",
+      "test_fixtures"
+    ],
+    "deprecationPolicy": "Deprecate through explicit aliases or migrations; never silently reinterpret a published normalized key."
+  }
+}

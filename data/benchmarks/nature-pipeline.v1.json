@@ -1,0 +1,319 @@
+{
+  "schemaVersion": "1.0.0",
+  "artifactType": "nature-pipeline-benchmark",
+  "generated": true,
+  "reproducibility": {
+    "command": "node tools/nature/benchmark.mjs",
+    "corpusBuildId": "2413863cfdeb500c",
+    "syntheticFixture": {
+      "generator": "createSyntheticActiveRegion",
+      "entityCount": 5000,
+      "seed": "deterministic-index-v1"
+    },
+    "search": {
+      "indexedDocumentsReused": true,
+      "warmupRounds": 3,
+      "measuredSamplesPerCorpus": 80,
+      "percentileMethod": "nearest-rank"
+    },
+    "compression": "node:zlib gzip level 9",
+    "timestampsOmitted": true
+  },
+  "environment": {
+    "runtime": {
+      "node": "v24.11.0",
+      "v8": "13.6.233.10-node.28",
+      "platform": "win32",
+      "architecture": "x64"
+    },
+    "hardware": {
+      "cpuModel": "13th Gen Intel(R) Core(TM) i3-1315U",
+      "logicalCpuCount": 8,
+      "totalSystemMemoryBytes": 51250061312
+    }
+  },
+  "corpus": {
+    "buildId": "2413863cfdeb500c",
+    "currentEntities": 4019,
+    "currentPackages": 10,
+    "syntheticActiveRegionEntities": 5000
+  },
+  "deliverySizes": {
+    "manifest": {
+      "rawBytes": 6026,
+      "gzipBytes": 1715,
+      "gzipToRawRatio": 0.2846
+    },
+    "initialNatureData": {
+      "components": [
+        "assets/data/nature/manifest.v1.json"
+      ],
+      "assumption": "Regional packages are lazy-loaded; the manifest is the only initial nature-data artifact.",
+      "rawBytes": 6026,
+      "gzipBytes": 1715
+    },
+    "regionalPackages": [
+      {
+        "regionId": "eu-alps",
+        "shardIndex": 0,
+        "shardCount": 4,
+        "file": "assets/data/nature/packages/eu-alps/36f6cad989d243eb.json",
+        "entities": 1019,
+        "rawBytes": 2497773,
+        "gzipBytes": 69943,
+        "gzipToRawRatio": 0.028
+      },
+      {
+        "regionId": "eu-alps",
+        "shardIndex": 1,
+        "shardCount": 4,
+        "file": "assets/data/nature/packages/eu-alps/052bc9334291d16f.json",
+        "entities": 686,
+        "rawBytes": 2498351,
+        "gzipBytes": 237637,
+        "gzipToRawRatio": 0.0951
+      },
+      {
+        "regionId": "eu-alps",
+        "shardIndex": 2,
+        "shardCount": 4,
+        "file": "assets/data/nature/packages/eu-alps/93a507f369c947c4.json",
+        "entities": 589,
+        "rawBytes": 2496603,
+        "gzipBytes": 247808,
+        "gzipToRawRatio": 0.0993
+      },
+      {
+        "regionId": "eu-alps",
+        "shardIndex": 3,
+        "shardCount": 4,
+        "file": "assets/data/nature/packages/eu-alps/326aac8175841237.json",
+        "entities": 119,
+        "rawBytes": 531033,
+        "gzipBytes": 52059,
+        "gzipToRawRatio": 0.098
+      },
+      {
+        "regionId": "japan",
+        "shardIndex": 0,
+        "shardCount": 2,
+        "file": "assets/data/nature/packages/japan/13b92d57f01a84bd.json",
+        "entities": 617,
+        "rawBytes": 2498119,
+        "gzipBytes": 219512,
+        "gzipToRawRatio": 0.0879
+      },
+      {
+        "regionId": "japan",
+        "shardIndex": 1,
+        "shardCount": 2,
+        "file": "assets/data/nature/packages/japan/b1d9a81972cdf270.json",
+        "entities": 433,
+        "rawBytes": 1968871,
+        "gzipBytes": 159171,
+        "gzipToRawRatio": 0.0808
+      },
+      {
+        "regionId": "north-america",
+        "shardIndex": 0,
+        "shardCount": 1,
+        "file": "assets/data/nature/packages/north-america/68f1b65976f4eb00.json",
+        "entities": 4,
+        "rawBytes": 6682,
+        "gzipBytes": 1683,
+        "gzipToRawRatio": 0.2519
+      },
+      {
+        "regionId": "norway",
+        "shardIndex": 0,
+        "shardCount": 1,
+        "file": "assets/data/nature/packages/norway/4cf7ee211b39bbc3.json",
+        "entities": 4,
+        "rawBytes": 5921,
+        "gzipBytes": 1547,
+        "gzipToRawRatio": 0.2613
+      },
+      {
+        "regionId": "switzerland",
+        "shardIndex": 0,
+        "shardCount": 1,
+        "file": "assets/data/nature/packages/switzerland/374a44b682319a73.json",
+        "entities": 305,
+        "rawBytes": 1382757,
+        "gzipBytes": 104832,
+        "gzipToRawRatio": 0.0758
+      },
+      {
+        "regionId": "uk-ireland",
+        "shardIndex": 0,
+        "shardCount": 1,
+        "file": "assets/data/nature/packages/uk-ireland/98541b3e84be0a84.json",
+        "entities": 243,
+        "rawBytes": 787764,
+        "gzipBytes": 59778,
+        "gzipToRawRatio": 0.0759
+      }
+    ],
+    "regionalPackageTotals": {
+      "rawBytes": 14673874,
+      "gzipBytes": 1153970,
+      "gzipToRawRatio": 0.0786,
+      "maximumRawBytes": 2498351
+    }
+  },
+  "indexedSearch": {
+    "current": {
+      "entityCount": 4019,
+      "documentCount": 4019,
+      "queryCount": 8,
+      "measuredSamples": 80,
+      "p50Milliseconds": 30.613,
+      "p95Milliseconds": 54.547,
+      "maximumMilliseconds": 63.902,
+      "minimumMilliseconds": 19.358,
+      "resultChecksum": 45096
+    },
+    "syntheticActiveRegion": {
+      "entityCount": 5000,
+      "documentCount": 5000,
+      "queryCount": 8,
+      "measuredSamples": 80,
+      "p50Milliseconds": 33.697,
+      "p95Milliseconds": 48.31,
+      "maximumMilliseconds": 59.436,
+      "minimumMilliseconds": 18.124,
+      "resultChecksum": 217570
+    },
+    "interpretation": "Timing is observational and is not a build failure gate."
+  },
+  "processMemory": {
+    "unit": "bytes",
+    "snapshots": {
+      "baseline": {
+        "rss": 55595008,
+        "heapTotal": 7921664,
+        "heapUsed": 5128392,
+        "external": 1950514,
+        "arrayBuffers": 27861
+      },
+      "afterCurrentCorpusLoad": {
+        "rss": 120418304,
+        "heapTotal": 70230016,
+        "heapUsed": 47796024,
+        "external": 8946463,
+        "arrayBuffers": 7048959
+      },
+      "afterCurrentSearchIndex": {
+        "rss": 206114816,
+        "heapTotal": 205840384,
+        "heapUsed": 82458320,
+        "external": 5201598,
+        "arrayBuffers": 806285
+      },
+      "beforeSyntheticSearchIndex": {
+        "rss": 265924608,
+        "heapTotal": 210296832,
+        "heapUsed": 108396752,
+        "external": 2703789,
+        "arrayBuffers": 806285
+      },
+      "afterSyntheticSearchIndex": {
+        "rss": 281952256,
+        "heapTotal": 225501184,
+        "heapUsed": 143289592,
+        "external": 2703789,
+        "arrayBuffers": 806285
+      }
+    },
+    "deltas": {
+      "currentCorpusLoadFromBaseline": {
+        "rss": 64823296,
+        "heapTotal": 62308352,
+        "heapUsed": 42667632,
+        "external": 6995949,
+        "arrayBuffers": 7021098
+      },
+      "currentIndexFromLoadedCorpus": {
+        "rss": 85696512,
+        "heapTotal": 135610368,
+        "heapUsed": 34662296,
+        "external": -3744865,
+        "arrayBuffers": -6242674
+      },
+      "syntheticIndex": {
+        "rss": 16027648,
+        "heapTotal": 15204352,
+        "heapUsed": 34892840,
+        "external": 0,
+        "arrayBuffers": 0
+      },
+      "totalFromBaseline": {
+        "rss": 226357248,
+        "heapTotal": 217579520,
+        "heapUsed": 138161200,
+        "external": 753275,
+        "arrayBuffers": 778424
+      }
+    },
+    "observational": true,
+    "enforced": false
+  },
+  "budgetEvaluation": {
+    "authoredDeterministic": [
+      {
+        "id": "manifest_raw_bytes",
+        "observed": 6026,
+        "limit": 64000,
+        "unit": "bytes",
+        "passed": true,
+        "enforced": true
+      },
+      {
+        "id": "initial_nature_data_raw_bytes",
+        "observed": 6026,
+        "limit": 64000,
+        "unit": "bytes",
+        "passed": true,
+        "enforced": true
+      },
+      {
+        "id": "maximum_regional_package_raw_bytes",
+        "observed": 2498351,
+        "limit": 2500000,
+        "unit": "bytes",
+        "passed": true,
+        "enforced": true
+      }
+    ],
+    "observational": [
+      {
+        "id": "current_indexed_search_p95",
+        "observed": 54.547,
+        "target": 50,
+        "unit": "milliseconds",
+        "withinTarget": false,
+        "observational": true,
+        "enforced": false
+      },
+      {
+        "id": "synthetic_5000_indexed_search_p95",
+        "observed": 48.31,
+        "target": 50,
+        "unit": "milliseconds",
+        "withinTarget": true,
+        "observational": true,
+        "enforced": false
+      }
+    ],
+    "deterministicFailures": 0,
+    "timingFailures": "not_applicable_observational_only"
+  },
+  "limitations": [
+    "Node microbenchmark only; it does not measure browser startup, Web Workers, IndexedDB, map rendering, interaction frames, network transfer, or routing.",
+    "Measurements use warm local files and an in-process prebuilt search index.",
+    "The synthetic region stresses 5,000 multilingual searchable entities but not complex route geometry, media decoding, or vector-tile rendering.",
+    "Process memory includes V8 allocator and garbage-collection noise; the benchmark does not force garbage collection.",
+    "Gzip level-9 size is measured locally and does not predict CDN Brotli size or transfer latency.",
+    "Timing and memory values are observational across hardware/runtime combinations and never fail the build."
+  ]
+}

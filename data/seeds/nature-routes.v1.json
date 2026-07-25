@@ -1,0 +1,345 @@
+{
+  "schemaVersion": "1.0.0",
+  "artifactType": "canonical-nature-route-seeds",
+  "generated": false,
+  "notes": [
+    "These records are architecture, ingestion, routing and UI fixtures; they do not establish regional coverage.",
+    "Every LineString is topology-complete for the named seed itinerary but deliberately generalized and not suitable for navigation.",
+    "Legal access, current conditions, exact alignment and transport operation remain unknown until authoritative sources are attached."
+  ],
+  "entities": [
+    {
+      "schemaVersion": "1.0.0",
+      "id": "route:gb-sct-quiraing-loop",
+      "entityType": "TrailRoute",
+      "jurisdictionIds": ["GB", "GB-SCT"],
+      "names": [{"language": "en", "value": "Quiraing hill circuit", "kind": "primary"}],
+      "geometry": {"type": "LineString", "coordinates": [[-6.2727, 57.6431], [-6.2655, 57.6402], [-6.2539, 57.6383], [-6.2496, 57.6435], [-6.2547, 57.6504], [-6.2652, 57.6511], [-6.2727, 57.6431]]},
+      "routeNature": "established",
+      "geometryCompleteness": "complete",
+      "navigationSuitability": false,
+      "activities": ["walking", "hiking"],
+      "journeyShape": "loop",
+      "accessPointIds": ["access:gb-sct-quiraing-car-park"],
+      "access": {"legal": "unknown", "modes": ["car", "foot", "hiking"]},
+      "summary": "Generalized circuit geometry for a well-known Skye hill walk; this seed is not a surveyed trail trace.",
+      "sourceAssertions": [{"sourceId": "manual-seed-routes", "sourceRecordId": "gb-sct-quiraing-loop", "fieldPath": "/", "evidenceKind": "maintainer_curated", "verificationStatus": "unverified", "confidence": 0.32, "retrievedAt": null, "notes": "Named-route, geometry, establishment, exact alignment, legal access and current condition all require authoritative verification. Geometry is generalized and not navigation-grade."}],
+      "quality": {"confidence": 0.32, "verificationStatus": "unverified", "assessedAt": "2026-07-26", "geometryConfidence": 0.32, "accessConfidence": 0.05, "freshness": "unknown", "flags": ["conditions_unknown", "generalized_geometry", "legal_access_unknown", "manual_seed", "not_navigation_grade"], "notes": "Suitable only for exercising complete-route and loop-planning behavior."},
+      "sensitivity": {"action": "publish", "reason": "Generalized geometry for a widely known visitor route; no sensitive feature is encoded."},
+      "originalSourceIds": [{"sourceId": "manual-seed-routes", "recordId": "gb-sct-quiraing-loop"}],
+      "deliveryRegions": ["uk-ireland"]
+    },
+    {
+      "schemaVersion": "1.0.0",
+      "id": "route:gb-sct-whw-kinlochleven-fort-william",
+      "entityType": "TrailRoute",
+      "jurisdictionIds": ["GB", "GB-SCT"],
+      "names": [{"language": "en", "value": "West Highland Way: Kinlochleven to Fort William", "kind": "primary"}],
+      "geometry": {"type": "LineString", "coordinates": [[-4.9613, 56.7149], [-4.977, 56.722], [-5.01, 56.742], [-5.047, 56.759], [-5.09, 56.77], [-5.127, 56.785], [-5.111, 56.802], [-5.1052, 56.8198]]},
+      "routeNature": "established",
+      "geometryCompleteness": "complete",
+      "navigationSuitability": false,
+      "activities": ["walking", "hiking"],
+      "journeyShape": "point_to_point",
+      "accessPointIds": ["access:gb-sct-kinlochleven", "access:gb-sct-fort-william"],
+      "transportConnectionIds": ["transport:gb-sct-kinlochleven-fort-william-bus"],
+      "access": {"legal": "unknown", "modes": ["foot", "hiking", "transit"]},
+      "summary": "Generalized final-stage geometry with an explicitly separate, unverified bus-return connection.",
+      "sourceAssertions": [{"sourceId": "manual-seed-routes", "sourceRecordId": "gb-sct-whw-kinlochleven-fort-william", "fieldPath": "/", "evidenceKind": "maintainer_curated", "verificationStatus": "unverified", "confidence": 0.34, "retrievedAt": null, "notes": "The named stage is represented as a generalized fixture. Exact trail alignment, legal access, conditions and bus operation require current authoritative sources."}],
+      "quality": {"confidence": 0.34, "verificationStatus": "unverified", "assessedAt": "2026-07-26", "geometryConfidence": 0.34, "accessConfidence": 0.05, "freshness": "unknown", "flags": ["conditions_unknown", "generalized_geometry", "legal_access_unknown", "manual_seed", "not_navigation_grade", "transport_schedule_unverified"], "notes": "Tests point-to-point hiking with a distinct transport return; it is not an operational itinerary."},
+      "sensitivity": {"action": "publish", "reason": "Generalized geometry for a widely known long-distance route stage."},
+      "originalSourceIds": [{"sourceId": "manual-seed-routes", "recordId": "gb-sct-whw-kinlochleven-fort-william"}],
+      "deliveryRegions": ["uk-ireland"]
+    },
+    {
+      "schemaVersion": "1.0.0",
+      "id": "route:jp-34-misen-momijidani",
+      "entityType": "TrailRoute",
+      "jurisdictionIds": ["JP", "JP-34"],
+      "names": [
+        {"language": "ja", "script": "Jpan", "value": "宮島桟橋から弥山（紅葉谷コース）", "kind": "primary"},
+        {"language": "ja-Latn", "script": "Latn", "value": "Miyajima Sanbashi kara Misen (Momijidani Kōsu)", "kind": "romanized"},
+        {"language": "en", "value": "Miyajima Pier to Mount Misen via Momijidani", "kind": "translated"}
+      ],
+      "geometry": {"type": "LineString", "coordinates": [[132.3197, 34.2996], [132.321, 34.296], [132.3238, 34.292], [132.325, 34.2865], [132.321, 34.281], [132.3198, 34.2794]]},
+      "routeNature": "established",
+      "geometryCompleteness": "complete",
+      "navigationSuitability": false,
+      "activities": ["walking", "hiking"],
+      "journeyShape": "point_to_point",
+      "accessPointIds": ["access:jp-34-miyajima-pier"],
+      "transportConnectionIds": ["transport:jp-34-miyajimaguchi-miyajima-ferry"],
+      "access": {"legal": "unknown", "modes": ["ferry", "foot", "hiking"]},
+      "summary": "Generalized ferry-to-mountain seed retaining Japanese, romanized and translated names.",
+      "sourceAssertions": [{"sourceId": "manual-seed-routes", "sourceRecordId": "jp-34-misen-momijidani", "fieldPath": "/", "evidenceKind": "maintainer_curated", "verificationStatus": "unverified", "confidence": 0.32, "retrievedAt": null, "notes": "The geometry and transliteration are maintainer fixtures. Trail alignment, volcanic/weather restrictions, legal access and ferry operation require current Japanese authoritative sources."}],
+      "quality": {"confidence": 0.32, "verificationStatus": "unverified", "assessedAt": "2026-07-26", "geometryConfidence": 0.3, "accessConfidence": 0.05, "freshness": "unknown", "flags": ["conditions_unknown", "generalized_geometry", "legal_access_unknown", "manual_seed", "not_navigation_grade", "transport_schedule_unverified"], "notes": "Tests multilingual route search and ferry-linked access without asserting an operating schedule."},
+      "sensitivity": {"action": "publish", "reason": "Generalized geometry for a widely known visitor destination."},
+      "originalSourceIds": [{"sourceId": "manual-seed-routes", "recordId": "jp-34-misen-momijidani"}],
+      "deliveryRegions": ["japan"]
+    },
+    {
+      "schemaVersion": "1.0.0",
+      "id": "route:no-mainland-besseggen-ridge",
+      "entityType": "TrailRoute",
+      "jurisdictionIds": ["NO", "NO-MAINLAND"],
+      "names": [{"language": "nb", "value": "Besseggen: Memurubu til Gjendesheim", "kind": "primary"}, {"language": "en", "value": "Besseggen ridge: Memurubu to Gjendesheim", "kind": "translated"}],
+      "geometry": {"type": "LineString", "coordinates": [[8.487, 61.549], [8.555, 61.538], [8.63, 61.528], [8.71, 61.518], [8.786, 61.512], [8.883, 61.504], [8.993, 61.494]]},
+      "routeNature": "established",
+      "geometryCompleteness": "complete",
+      "navigationSuitability": false,
+      "activities": ["hiking", "scrambling"],
+      "journeyShape": "point_to_point",
+      "accessPointIds": ["access:no-mainland-memurubu", "access:no-mainland-gjendesheim"],
+      "transportConnectionIds": ["transport:no-mainland-gjende-boat"],
+      "access": {"legal": "unknown", "modes": ["ferry", "foot", "hiking"]},
+      "summary": "Generalized ridge traverse paired with a separate, schedule-unknown Gjende boat connection.",
+      "sourceAssertions": [{"sourceId": "manual-seed-routes", "sourceRecordId": "no-mainland-besseggen-ridge", "fieldPath": "/", "evidenceKind": "maintainer_curated", "verificationStatus": "unverified", "confidence": 0.31, "retrievedAt": null, "notes": "Exact alignment, scrambling exposure, legal access, seasonal conditions and boat operation are not verified by this seed."}],
+      "quality": {"confidence": 0.31, "verificationStatus": "unverified", "assessedAt": "2026-07-26", "geometryConfidence": 0.3, "accessConfidence": 0.04, "freshness": "unknown", "flags": ["conditions_unknown", "generalized_geometry", "legal_access_unknown", "manual_seed", "not_navigation_grade", "technical_character_unverified", "transport_schedule_unverified"], "notes": "Tests a Norwegian point-to-point route where missing the boat could strand a user."},
+      "sensitivity": {"action": "publish", "reason": "Generalized geometry for a widely known hiking route."},
+      "originalSourceIds": [{"sourceId": "manual-seed-routes", "recordId": "no-mainland-besseggen-ridge"}],
+      "deliveryRegions": ["norway"]
+    },
+    {
+      "schemaVersion": "1.0.0",
+      "id": "route:ch-be-maennlichen-kleine-scheidegg",
+      "entityType": "TrailRoute",
+      "jurisdictionIds": ["CH", "CH-BE"],
+      "names": [{"language": "de", "value": "Panoramaweg Männlichen–Kleine Scheidegg", "kind": "primary"}, {"language": "en", "value": "Männlichen to Kleine Scheidegg Panorama Trail", "kind": "translated"}],
+      "geometry": {"type": "LineString", "coordinates": [[7.9385, 46.618], [7.943, 46.611], [7.948, 46.603], [7.953, 46.596], [7.958, 46.589], [7.961, 46.5847]]},
+      "routeNature": "established",
+      "geometryCompleteness": "complete",
+      "navigationSuitability": false,
+      "activities": ["walking", "hiking"],
+      "journeyShape": "point_to_point",
+      "accessPointIds": ["access:ch-be-maennlichen", "access:ch-be-kleine-scheidegg"],
+      "transportConnectionIds": ["transport:ch-be-wengen-maennlichen-gondola", "transport:ch-be-kleine-scheidegg-wengen-cog-railway"],
+      "access": {"legal": "unknown", "modes": ["cable_transport", "transit", "foot", "hiking"]},
+      "summary": "Generalized mountain walk with separate gondola approach and cog-rail return records.",
+      "sourceAssertions": [{"sourceId": "manual-seed-routes", "sourceRecordId": "ch-be-maennlichen-kleine-scheidegg", "fieldPath": "/", "evidenceKind": "maintainer_curated", "verificationStatus": "unverified", "confidence": 0.34, "retrievedAt": null, "notes": "Trail geometry, legal access, seasonal opening and both mountain-transport operations require official Swiss verification."}],
+      "quality": {"confidence": 0.34, "verificationStatus": "unverified", "assessedAt": "2026-07-26", "geometryConfidence": 0.33, "accessConfidence": 0.05, "freshness": "unknown", "flags": ["conditions_unknown", "generalized_geometry", "legal_access_unknown", "manual_seed", "not_navigation_grade", "transport_schedule_unverified"], "notes": "Tests explicit cable approach, hike and rail return legs."},
+      "sensitivity": {"action": "publish", "reason": "Generalized geometry for a widely known visitor route."},
+      "originalSourceIds": [{"sourceId": "manual-seed-routes", "recordId": "ch-be-maennlichen-kleine-scheidegg"}],
+      "deliveryRegions": ["switzerland"]
+    },
+    {
+      "schemaVersion": "1.0.0",
+      "id": "route:eu-fr-it-tmb-col-de-la-seigne",
+      "entityType": "TrailRoute",
+      "jurisdictionIds": ["EU", "FR", "IT"],
+      "names": [{"language": "fr", "value": "Tour du Mont-Blanc : Les Chapieux–Courmayeur par le col de la Seigne", "kind": "primary"}, {"language": "it", "value": "Tour del Monte Bianco: Les Chapieux–Courmayeur via Col de la Seigne", "kind": "translated"}, {"language": "en", "value": "Tour du Mont Blanc: Les Chapieux to Courmayeur via Col de la Seigne", "kind": "translated"}],
+      "geometry": {"type": "LineString", "coordinates": [[6.7338, 45.6957], [6.763, 45.713], [6.789, 45.733], [6.8074, 45.7507], [6.835, 45.761], [6.858, 45.765], [6.884, 45.771], [6.919, 45.786], [6.97, 45.792]]},
+      "routeNature": "established",
+      "geometryCompleteness": "complete",
+      "navigationSuitability": false,
+      "activities": ["walking", "hiking"],
+      "journeyShape": "point_to_point",
+      "accessPointIds": ["access:eu-fr-les-chapieux", "access:eu-it-courmayeur"],
+      "access": {"legal": "unknown", "modes": ["foot", "hiking"]},
+      "summary": "Generalized cross-border TMB segment used to test jurisdiction, border and route-continuity handling.",
+      "sourceAssertions": [{"sourceId": "manual-seed-routes", "sourceRecordId": "eu-fr-it-tmb-col-de-la-seigne", "fieldPath": "/", "evidenceKind": "maintainer_curated", "verificationStatus": "unverified", "confidence": 0.31, "retrievedAt": null, "notes": "Exact stage definition, alignment, border constraints, legal access, refuge services and conditions require French and Italian authoritative sources."}],
+      "quality": {"confidence": 0.31, "verificationStatus": "unverified", "assessedAt": "2026-07-26", "geometryConfidence": 0.3, "accessConfidence": 0.04, "freshness": "unknown", "flags": ["border_conditions_unknown", "conditions_unknown", "generalized_geometry", "legal_access_unknown", "manual_seed", "not_navigation_grade"], "notes": "Tests a complete LineString spanning two EU member states without implying operational readiness."},
+      "sensitivity": {"action": "publish", "reason": "Generalized geometry for a widely known long-distance route."},
+      "originalSourceIds": [{"sourceId": "manual-seed-routes", "recordId": "eu-fr-it-tmb-col-de-la-seigne"}],
+      "deliveryRegions": ["eu-alps"]
+    },
+    {
+      "schemaVersion": "1.0.0",
+      "id": "route:us-ak-harding-icefield-out-and-back",
+      "entityType": "TrailRoute",
+      "jurisdictionIds": ["US", "US-AK"],
+      "names": [{"language": "en", "value": "Harding Icefield Trail out-and-back", "kind": "primary"}],
+      "geometry": {"type": "LineString", "coordinates": [[-149.631, 60.188], [-149.645, 60.184], [-149.658, 60.178], [-149.674, 60.17], [-149.692, 60.163], [-149.71, 60.157], [-149.692, 60.163], [-149.674, 60.17], [-149.658, 60.178], [-149.645, 60.184], [-149.631, 60.188]]},
+      "routeNature": "established",
+      "geometryCompleteness": "complete",
+      "navigationSuitability": false,
+      "activities": ["hiking"],
+      "journeyShape": "out_and_back",
+      "accessPointIds": ["access:us-ak-exit-glacier-trailhead"],
+      "access": {"legal": "unknown", "modes": ["car", "foot", "hiking"]},
+      "summary": "Generalized Alaska out-and-back fixture; remote conditions and park restrictions are intentionally unresolved.",
+      "sourceAssertions": [{"sourceId": "manual-seed-routes", "sourceRecordId": "us-ak-harding-icefield-out-and-back", "fieldPath": "/", "evidenceKind": "maintainer_curated", "verificationStatus": "unverified", "confidence": 0.3, "retrievedAt": null, "notes": "Exact alignment, trailhead-road availability, park rules, wildlife, snow and rescue conditions require current US National Park Service evidence."}],
+      "quality": {"confidence": 0.3, "verificationStatus": "unverified", "assessedAt": "2026-07-26", "geometryConfidence": 0.29, "accessConfidence": 0.03, "freshness": "unknown", "flags": ["conditions_unknown", "generalized_geometry", "legal_access_unknown", "manual_seed", "not_navigation_grade", "remote_route"], "notes": "Tests a remote North American route; safety-critical unknowns must block favorable assumptions."},
+      "sensitivity": {"action": "publish", "reason": "Generalized geometry for a widely known park trail; no sensitive wildlife location is encoded."},
+      "originalSourceIds": [{"sourceId": "manual-seed-routes", "recordId": "us-ak-harding-icefield-out-and-back"}],
+      "deliveryRegions": ["north-america"]
+    },
+    {
+      "schemaVersion": "1.0.0",
+      "id": "route:ca-ab-plain-of-six-glaciers-out-and-back",
+      "entityType": "TrailRoute",
+      "jurisdictionIds": ["CA", "CA-AB"],
+      "names": [{"language": "en", "value": "Plain of Six Glaciers Trail out-and-back", "kind": "primary"}, {"language": "fr", "value": "Sentier de la Plaine-des-Six-Glaciers aller-retour", "kind": "translated"}],
+      "geometry": {"type": "LineString", "coordinates": [[-116.177, 51.417], [-116.19, 51.408], [-116.204, 51.397], [-116.218, 51.392], [-116.232, 51.389], [-116.249, 51.386], [-116.232, 51.389], [-116.218, 51.392], [-116.204, 51.397], [-116.19, 51.408], [-116.177, 51.417]]},
+      "routeNature": "established",
+      "geometryCompleteness": "complete",
+      "navigationSuitability": false,
+      "activities": ["walking", "hiking"],
+      "journeyShape": "out_and_back",
+      "accessPointIds": ["access:ca-ab-lake-louise-lakeshore"],
+      "access": {"legal": "unknown", "modes": ["transit", "foot", "hiking"]},
+      "summary": "Generalized Alberta out-and-back fixture with park access and shuttle details intentionally unresolved.",
+      "sourceAssertions": [{"sourceId": "manual-seed-routes", "sourceRecordId": "ca-ab-plain-of-six-glaciers-out-and-back", "fieldPath": "/", "evidenceKind": "maintainer_curated", "verificationStatus": "unverified", "confidence": 0.3, "retrievedAt": null, "notes": "Exact alignment, Parks Canada rules, reservations, shuttle access, wildlife restrictions and seasonal conditions require current official evidence."}],
+      "quality": {"confidence": 0.3, "verificationStatus": "unverified", "assessedAt": "2026-07-26", "geometryConfidence": 0.29, "accessConfidence": 0.03, "freshness": "unknown", "flags": ["conditions_unknown", "generalized_geometry", "legal_access_unknown", "manual_seed", "not_navigation_grade", "reservation_status_unknown"], "notes": "Tests Canadian park access without treating a missing permit or shuttle fact as favorable."},
+      "sensitivity": {"action": "publish", "reason": "Generalized geometry for a widely known park trail; no sensitive wildlife location is encoded."},
+      "originalSourceIds": [{"sourceId": "manual-seed-routes", "recordId": "ca-ab-plain-of-six-glaciers-out-and-back"}],
+      "deliveryRegions": ["north-america"]
+    },
+
+    {
+      "schemaVersion": "1.0.0", "id": "access:gb-sct-quiraing-car-park", "entityType": "AccessPoint", "jurisdictionIds": ["GB", "GB-SCT"],
+      "names": [{"language": "en", "value": "Quiraing roadside access", "kind": "primary"}], "geometry": {"type": "Point", "coordinates": [-6.2727, 57.6431]},
+      "accessModes": ["car", "foot", "hiking"], "legalAccess": "unknown",
+      "sourceAssertions": [{"sourceId": "manual-seed-routes", "sourceRecordId": "gb-sct-quiraing-car-park", "fieldPath": "/", "evidenceKind": "maintainer_curated", "verificationStatus": "unverified", "confidence": 0.25, "retrievedAt": null, "notes": "Generalized access position only; stopping legality, capacity, fees and opening are not asserted."}],
+      "quality": {"confidence": 0.25, "verificationStatus": "unverified", "assessedAt": "2026-07-26", "geometryConfidence": 0.28, "accessConfidence": 0.02, "freshness": "unknown", "flags": ["generalized_position", "legal_access_unknown", "manual_seed", "parking_rules_unknown"]},
+      "sensitivity": {"action": "publish", "reason": "Generalized public-facing route access area."}, "originalSourceIds": [{"sourceId": "manual-seed-routes", "recordId": "gb-sct-quiraing-car-park"}], "deliveryRegions": ["uk-ireland"]
+    },
+    {
+      "schemaVersion": "1.0.0", "id": "access:gb-sct-kinlochleven", "entityType": "AccessPoint", "jurisdictionIds": ["GB", "GB-SCT"],
+      "names": [{"language": "en", "value": "Kinlochleven route access", "kind": "primary"}], "geometry": {"type": "Point", "coordinates": [-4.9613, 56.7149]},
+      "accessModes": ["transit", "foot", "hiking"], "legalAccess": "unknown",
+      "sourceAssertions": [{"sourceId": "manual-seed-routes", "sourceRecordId": "gb-sct-kinlochleven", "fieldPath": "/", "evidenceKind": "maintainer_curated", "verificationStatus": "unverified", "confidence": 0.25, "retrievedAt": null, "notes": "Generalized route/transport interchange; legal access and stop details are not asserted."}],
+      "quality": {"confidence": 0.25, "verificationStatus": "unverified", "assessedAt": "2026-07-26", "geometryConfidence": 0.28, "accessConfidence": 0.02, "freshness": "unknown", "flags": ["generalized_position", "legal_access_unknown", "manual_seed", "transport_stop_unverified"]},
+      "sensitivity": {"action": "publish", "reason": "Generalized settlement-level access point."}, "originalSourceIds": [{"sourceId": "manual-seed-routes", "recordId": "gb-sct-kinlochleven"}], "deliveryRegions": ["uk-ireland"]
+    },
+    {
+      "schemaVersion": "1.0.0", "id": "access:gb-sct-fort-william", "entityType": "AccessPoint", "jurisdictionIds": ["GB", "GB-SCT"],
+      "names": [{"language": "en", "value": "Fort William route access", "kind": "primary"}], "geometry": {"type": "Point", "coordinates": [-5.1052, 56.8198]},
+      "accessModes": ["transit", "foot", "hiking"], "legalAccess": "unknown",
+      "sourceAssertions": [{"sourceId": "manual-seed-routes", "sourceRecordId": "gb-sct-fort-william", "fieldPath": "/", "evidenceKind": "maintainer_curated", "verificationStatus": "unverified", "confidence": 0.25, "retrievedAt": null, "notes": "Generalized route/transport interchange; legal access and stop details are not asserted."}],
+      "quality": {"confidence": 0.25, "verificationStatus": "unverified", "assessedAt": "2026-07-26", "geometryConfidence": 0.28, "accessConfidence": 0.02, "freshness": "unknown", "flags": ["generalized_position", "legal_access_unknown", "manual_seed", "transport_stop_unverified"]},
+      "sensitivity": {"action": "publish", "reason": "Generalized settlement-level access point."}, "originalSourceIds": [{"sourceId": "manual-seed-routes", "recordId": "gb-sct-fort-william"}], "deliveryRegions": ["uk-ireland"]
+    },
+    {
+      "schemaVersion": "1.0.0", "id": "transport:gb-sct-kinlochleven-fort-william-bus", "entityType": "TransportConnection", "jurisdictionIds": ["GB", "GB-SCT"],
+      "names": [{"language": "en", "value": "Kinlochleven–Fort William bus connection", "kind": "primary"}], "geometry": {"type": "LineString", "coordinates": [[-4.9613, 56.7149], [-5.1052, 56.8198]]},
+      "transportMode": "bus", "endpointIds": ["access:gb-sct-kinlochleven", "access:gb-sct-fort-william"], "schedule": {"lastDepartureLocal": null, "freshness": "unknown", "validFrom": null, "validUntil": null},
+      "sourceAssertions": [{"sourceId": "manual-seed-routes", "sourceRecordId": "gb-sct-kinlochleven-fort-william-bus", "fieldPath": "/", "evidenceKind": "unknown", "verificationStatus": "unverified", "confidence": 0.1, "retrievedAt": null, "notes": "A potential return mode is modeled for planner behavior. Operator, stops, route, dates, frequency, last departure and current operation are not asserted."}],
+      "quality": {"confidence": 0.1, "verificationStatus": "unverified", "assessedAt": "2026-07-26", "geometryConfidence": 0.1, "accessConfidence": 0.01, "freshness": "unknown", "flags": ["generalized_geometry", "manual_seed", "operation_unverified", "schedule_unknown"]},
+      "sensitivity": {"action": "publish", "reason": "Generalized connection between public settlements."}, "originalSourceIds": [{"sourceId": "manual-seed-routes", "recordId": "gb-sct-kinlochleven-fort-william-bus"}], "deliveryRegions": ["uk-ireland"]
+    },
+
+    {
+      "schemaVersion": "1.0.0", "id": "access:jp-34-miyajimaguchi-pier", "entityType": "AccessPoint", "jurisdictionIds": ["JP", "JP-34"],
+      "names": [{"language": "ja", "script": "Jpan", "value": "宮島口旅客ターミナル", "kind": "primary"}, {"language": "ja-Latn", "script": "Latn", "value": "Miyajimaguchi Ryokaku Tāminaru", "kind": "romanized"}, {"language": "en", "value": "Miyajimaguchi Passenger Terminal", "kind": "translated"}],
+      "geometry": {"type": "Point", "coordinates": [132.3028, 34.3121]}, "accessModes": ["transit", "ferry", "foot"], "legalAccess": "unknown",
+      "sourceAssertions": [{"sourceId": "manual-seed-routes", "sourceRecordId": "jp-34-miyajimaguchi-pier", "fieldPath": "/", "evidenceKind": "maintainer_curated", "verificationStatus": "unverified", "confidence": 0.25, "retrievedAt": null, "notes": "Generalized terminal position and maintainer transliteration; access and operating details require official verification."}],
+      "quality": {"confidence": 0.25, "verificationStatus": "unverified", "assessedAt": "2026-07-26", "geometryConfidence": 0.28, "accessConfidence": 0.02, "freshness": "unknown", "flags": ["generalized_position", "legal_access_unknown", "manual_seed", "transport_stop_unverified"]},
+      "sensitivity": {"action": "publish", "reason": "Generalized public transport terminal."}, "originalSourceIds": [{"sourceId": "manual-seed-routes", "recordId": "jp-34-miyajimaguchi-pier"}], "deliveryRegions": ["japan"]
+    },
+    {
+      "schemaVersion": "1.0.0", "id": "access:jp-34-miyajima-pier", "entityType": "AccessPoint", "jurisdictionIds": ["JP", "JP-34"],
+      "names": [{"language": "ja", "script": "Jpan", "value": "宮島桟橋", "kind": "primary"}, {"language": "ja-Latn", "script": "Latn", "value": "Miyajima Sanbashi", "kind": "romanized"}, {"language": "en", "value": "Miyajima Pier", "kind": "translated"}],
+      "geometry": {"type": "Point", "coordinates": [132.3197, 34.2996]}, "accessModes": ["ferry", "foot", "hiking"], "legalAccess": "unknown",
+      "sourceAssertions": [{"sourceId": "manual-seed-routes", "sourceRecordId": "jp-34-miyajima-pier", "fieldPath": "/", "evidenceKind": "maintainer_curated", "verificationStatus": "unverified", "confidence": 0.25, "retrievedAt": null, "notes": "Generalized terminal/route access position and maintainer transliteration; legal access and operating details require official verification."}],
+      "quality": {"confidence": 0.25, "verificationStatus": "unverified", "assessedAt": "2026-07-26", "geometryConfidence": 0.28, "accessConfidence": 0.02, "freshness": "unknown", "flags": ["generalized_position", "legal_access_unknown", "manual_seed", "transport_stop_unverified"]},
+      "sensitivity": {"action": "publish", "reason": "Generalized public-facing island terminal."}, "originalSourceIds": [{"sourceId": "manual-seed-routes", "recordId": "jp-34-miyajima-pier"}], "deliveryRegions": ["japan"]
+    },
+    {
+      "schemaVersion": "1.0.0", "id": "transport:jp-34-miyajimaguchi-miyajima-ferry", "entityType": "TransportConnection", "jurisdictionIds": ["JP", "JP-34"],
+      "names": [{"language": "ja", "script": "Jpan", "value": "宮島口・宮島航路", "kind": "primary"}, {"language": "ja-Latn", "script": "Latn", "value": "Miyajimaguchi–Miyajima Kōro", "kind": "romanized"}, {"language": "en", "value": "Miyajimaguchi–Miyajima ferry connection", "kind": "translated"}],
+      "geometry": {"type": "LineString", "coordinates": [[132.3028, 34.3121], [132.3197, 34.2996]]}, "transportMode": "ferry", "endpointIds": ["access:jp-34-miyajimaguchi-pier", "access:jp-34-miyajima-pier"], "schedule": {"lastDepartureLocal": null, "freshness": "unknown", "validFrom": null, "validUntil": null},
+      "sourceAssertions": [{"sourceId": "manual-seed-routes", "sourceRecordId": "jp-34-miyajimaguchi-miyajima-ferry", "fieldPath": "/", "evidenceKind": "maintainer_curated", "verificationStatus": "unverified", "confidence": 0.2, "retrievedAt": null, "notes": "Generalized ferry connection only. Operator, exact sailing line, accessibility, fare, timetable, first/last departure and current operation require official verification."}],
+      "quality": {"confidence": 0.2, "verificationStatus": "unverified", "assessedAt": "2026-07-26", "geometryConfidence": 0.18, "accessConfidence": 0.02, "freshness": "unknown", "flags": ["generalized_geometry", "manual_seed", "operation_unverified", "schedule_unknown"]},
+      "sensitivity": {"action": "publish", "reason": "Generalized public ferry connection."}, "originalSourceIds": [{"sourceId": "manual-seed-routes", "recordId": "jp-34-miyajimaguchi-miyajima-ferry"}], "deliveryRegions": ["japan"]
+    },
+
+    {
+      "schemaVersion": "1.0.0", "id": "access:no-mainland-memurubu", "entityType": "AccessPoint", "jurisdictionIds": ["NO", "NO-MAINLAND"],
+      "names": [{"language": "nb", "value": "Memurubu brygge og stiinnslag", "kind": "primary"}], "geometry": {"type": "Point", "coordinates": [8.487, 61.549]},
+      "accessModes": ["ferry", "foot", "hiking"], "legalAccess": "unknown",
+      "sourceAssertions": [{"sourceId": "manual-seed-routes", "sourceRecordId": "no-mainland-memurubu", "fieldPath": "/", "evidenceKind": "maintainer_curated", "verificationStatus": "unverified", "confidence": 0.24, "retrievedAt": null, "notes": "Generalized boat/trail interchange; landing, trail access and operating details are not asserted."}],
+      "quality": {"confidence": 0.24, "verificationStatus": "unverified", "assessedAt": "2026-07-26", "geometryConfidence": 0.27, "accessConfidence": 0.02, "freshness": "unknown", "flags": ["generalized_position", "legal_access_unknown", "manual_seed", "transport_stop_unverified"]},
+      "sensitivity": {"action": "publish", "reason": "Generalized public-facing route access area."}, "originalSourceIds": [{"sourceId": "manual-seed-routes", "recordId": "no-mainland-memurubu"}], "deliveryRegions": ["norway"]
+    },
+    {
+      "schemaVersion": "1.0.0", "id": "access:no-mainland-gjendesheim", "entityType": "AccessPoint", "jurisdictionIds": ["NO", "NO-MAINLAND"],
+      "names": [{"language": "nb", "value": "Gjendesheim brygge og stiinnslag", "kind": "primary"}], "geometry": {"type": "Point", "coordinates": [8.993, 61.494]},
+      "accessModes": ["car", "ferry", "foot", "hiking"], "legalAccess": "unknown",
+      "sourceAssertions": [{"sourceId": "manual-seed-routes", "sourceRecordId": "no-mainland-gjendesheim", "fieldPath": "/", "evidenceKind": "maintainer_curated", "verificationStatus": "unverified", "confidence": 0.24, "retrievedAt": null, "notes": "Generalized boat/trail interchange; parking, landing, trail access and operating details are not asserted."}],
+      "quality": {"confidence": 0.24, "verificationStatus": "unverified", "assessedAt": "2026-07-26", "geometryConfidence": 0.27, "accessConfidence": 0.02, "freshness": "unknown", "flags": ["generalized_position", "legal_access_unknown", "manual_seed", "parking_rules_unknown", "transport_stop_unverified"]},
+      "sensitivity": {"action": "publish", "reason": "Generalized public-facing route access area."}, "originalSourceIds": [{"sourceId": "manual-seed-routes", "recordId": "no-mainland-gjendesheim"}], "deliveryRegions": ["norway"]
+    },
+    {
+      "schemaVersion": "1.0.0", "id": "transport:no-mainland-gjende-boat", "entityType": "TransportConnection", "jurisdictionIds": ["NO", "NO-MAINLAND"],
+      "names": [{"language": "nb", "value": "Båtforbindelse Gjendesheim–Memurubu", "kind": "primary"}, {"language": "en", "value": "Gjendesheim–Memurubu boat connection", "kind": "translated"}],
+      "geometry": {"type": "LineString", "coordinates": [[8.993, 61.494], [8.487, 61.549]]}, "transportMode": "boat", "endpointIds": ["access:no-mainland-gjendesheim", "access:no-mainland-memurubu"], "schedule": {"lastDepartureLocal": null, "freshness": "unknown", "validFrom": null, "validUntil": null},
+      "sourceAssertions": [{"sourceId": "manual-seed-routes", "sourceRecordId": "no-mainland-gjende-boat", "fieldPath": "/", "evidenceKind": "maintainer_curated", "verificationStatus": "unverified", "confidence": 0.2, "retrievedAt": null, "notes": "Generalized boat connection only. Operator, route, booking, season, accessibility, timetable and last departure require official verification."}],
+      "quality": {"confidence": 0.2, "verificationStatus": "unverified", "assessedAt": "2026-07-26", "geometryConfidence": 0.17, "accessConfidence": 0.02, "freshness": "unknown", "flags": ["generalized_geometry", "manual_seed", "operation_unverified", "schedule_unknown"]},
+      "sensitivity": {"action": "publish", "reason": "Generalized public boat connection."}, "originalSourceIds": [{"sourceId": "manual-seed-routes", "recordId": "no-mainland-gjende-boat"}], "deliveryRegions": ["norway"]
+    },
+
+    {
+      "schemaVersion": "1.0.0", "id": "access:ch-be-wengen", "entityType": "AccessPoint", "jurisdictionIds": ["CH", "CH-BE"],
+      "names": [{"language": "de", "value": "Wengen Talstation", "kind": "primary"}], "geometry": {"type": "Point", "coordinates": [7.9207, 46.605]},
+      "accessModes": ["transit", "cable_transport", "foot"], "legalAccess": "unknown",
+      "sourceAssertions": [{"sourceId": "manual-seed-routes", "sourceRecordId": "ch-be-wengen", "fieldPath": "/", "evidenceKind": "maintainer_curated", "verificationStatus": "unverified", "confidence": 0.25, "retrievedAt": null, "notes": "Generalized interchange position; station access and operation require official verification."}],
+      "quality": {"confidence": 0.25, "verificationStatus": "unverified", "assessedAt": "2026-07-26", "geometryConfidence": 0.28, "accessConfidence": 0.02, "freshness": "unknown", "flags": ["generalized_position", "legal_access_unknown", "manual_seed", "transport_stop_unverified"]},
+      "sensitivity": {"action": "publish", "reason": "Generalized public transport interchange."}, "originalSourceIds": [{"sourceId": "manual-seed-routes", "recordId": "ch-be-wengen"}], "deliveryRegions": ["switzerland"]
+    },
+    {
+      "schemaVersion": "1.0.0", "id": "access:ch-be-maennlichen", "entityType": "AccessPoint", "jurisdictionIds": ["CH", "CH-BE"],
+      "names": [{"language": "de", "value": "Männlichen Bergstation und Wanderzugang", "kind": "primary"}], "geometry": {"type": "Point", "coordinates": [7.9385, 46.618]},
+      "accessModes": ["cable_transport", "foot", "hiking"], "legalAccess": "unknown",
+      "sourceAssertions": [{"sourceId": "manual-seed-routes", "sourceRecordId": "ch-be-maennlichen", "fieldPath": "/", "evidenceKind": "maintainer_curated", "verificationStatus": "unverified", "confidence": 0.25, "retrievedAt": null, "notes": "Generalized mountain-station/trail interchange; legal access and seasonal operation require official verification."}],
+      "quality": {"confidence": 0.25, "verificationStatus": "unverified", "assessedAt": "2026-07-26", "geometryConfidence": 0.28, "accessConfidence": 0.02, "freshness": "unknown", "flags": ["generalized_position", "legal_access_unknown", "manual_seed", "transport_stop_unverified"]},
+      "sensitivity": {"action": "publish", "reason": "Generalized public-facing mountain station."}, "originalSourceIds": [{"sourceId": "manual-seed-routes", "recordId": "ch-be-maennlichen"}], "deliveryRegions": ["switzerland"]
+    },
+    {
+      "schemaVersion": "1.0.0", "id": "access:ch-be-kleine-scheidegg", "entityType": "AccessPoint", "jurisdictionIds": ["CH", "CH-BE"],
+      "names": [{"language": "de", "value": "Kleine Scheidegg Bahnhof und Wanderzugang", "kind": "primary"}], "geometry": {"type": "Point", "coordinates": [7.961, 46.5847]},
+      "accessModes": ["transit", "foot", "hiking"], "legalAccess": "unknown",
+      "sourceAssertions": [{"sourceId": "manual-seed-routes", "sourceRecordId": "ch-be-kleine-scheidegg", "fieldPath": "/", "evidenceKind": "maintainer_curated", "verificationStatus": "unverified", "confidence": 0.25, "retrievedAt": null, "notes": "Generalized rail/trail interchange; legal access and seasonal operation require official verification."}],
+      "quality": {"confidence": 0.25, "verificationStatus": "unverified", "assessedAt": "2026-07-26", "geometryConfidence": 0.28, "accessConfidence": 0.02, "freshness": "unknown", "flags": ["generalized_position", "legal_access_unknown", "manual_seed", "transport_stop_unverified"]},
+      "sensitivity": {"action": "publish", "reason": "Generalized public-facing mountain station."}, "originalSourceIds": [{"sourceId": "manual-seed-routes", "recordId": "ch-be-kleine-scheidegg"}], "deliveryRegions": ["switzerland"]
+    },
+    {
+      "schemaVersion": "1.0.0", "id": "transport:ch-be-wengen-maennlichen-gondola", "entityType": "TransportConnection", "jurisdictionIds": ["CH", "CH-BE"],
+      "names": [{"language": "de", "value": "Gondelbahn Wengen–Männlichen", "kind": "primary"}, {"language": "en", "value": "Wengen–Männlichen gondola connection", "kind": "translated"}],
+      "geometry": {"type": "LineString", "coordinates": [[7.9207, 46.605], [7.9385, 46.618]]}, "transportMode": "gondola", "endpointIds": ["access:ch-be-wengen", "access:ch-be-maennlichen"], "schedule": {"lastDepartureLocal": null, "freshness": "unknown", "validFrom": null, "validUntil": null},
+      "sourceAssertions": [{"sourceId": "manual-seed-routes", "sourceRecordId": "ch-be-wengen-maennlichen-gondola", "fieldPath": "/", "evidenceKind": "maintainer_curated", "verificationStatus": "unverified", "confidence": 0.2, "retrievedAt": null, "notes": "Generalized cable connection only. Operator, exact terminals, season, maintenance closures, accessibility, fares and timetable require official verification."}],
+      "quality": {"confidence": 0.2, "verificationStatus": "unverified", "assessedAt": "2026-07-26", "geometryConfidence": 0.18, "accessConfidence": 0.02, "freshness": "unknown", "flags": ["generalized_geometry", "manual_seed", "operation_unverified", "schedule_unknown"]},
+      "sensitivity": {"action": "publish", "reason": "Generalized public mountain-transport connection."}, "originalSourceIds": [{"sourceId": "manual-seed-routes", "recordId": "ch-be-wengen-maennlichen-gondola"}], "deliveryRegions": ["switzerland"]
+    },
+    {
+      "schemaVersion": "1.0.0", "id": "transport:ch-be-kleine-scheidegg-wengen-cog-railway", "entityType": "TransportConnection", "jurisdictionIds": ["CH", "CH-BE"],
+      "names": [{"language": "de", "value": "Zahnradbahn Kleine Scheidegg–Wengen", "kind": "primary"}, {"language": "en", "value": "Kleine Scheidegg–Wengen cog-rail connection", "kind": "translated"}],
+      "geometry": {"type": "LineString", "coordinates": [[7.961, 46.5847], [7.9405, 46.591], [7.9207, 46.605]]}, "transportMode": "cog_railway", "endpointIds": ["access:ch-be-kleine-scheidegg", "access:ch-be-wengen"], "schedule": {"lastDepartureLocal": null, "freshness": "unknown", "validFrom": null, "validUntil": null},
+      "sourceAssertions": [{"sourceId": "manual-seed-routes", "sourceRecordId": "ch-be-kleine-scheidegg-wengen-cog-railway", "fieldPath": "/", "evidenceKind": "maintainer_curated", "verificationStatus": "unverified", "confidence": 0.2, "retrievedAt": null, "notes": "Generalized rail connection only. Operator, exact line, maintenance closures, accessibility, fares and timetable require official verification."}],
+      "quality": {"confidence": 0.2, "verificationStatus": "unverified", "assessedAt": "2026-07-26", "geometryConfidence": 0.18, "accessConfidence": 0.02, "freshness": "unknown", "flags": ["generalized_geometry", "manual_seed", "operation_unverified", "schedule_unknown"]},
+      "sensitivity": {"action": "publish", "reason": "Generalized public mountain-transport connection."}, "originalSourceIds": [{"sourceId": "manual-seed-routes", "recordId": "ch-be-kleine-scheidegg-wengen-cog-railway"}], "deliveryRegions": ["switzerland"]
+    },
+
+    {
+      "schemaVersion": "1.0.0", "id": "access:eu-fr-les-chapieux", "entityType": "AccessPoint", "jurisdictionIds": ["EU", "FR"],
+      "names": [{"language": "fr", "value": "Accès de randonnée des Chapieux", "kind": "primary"}], "geometry": {"type": "Point", "coordinates": [6.7338, 45.6957]},
+      "accessModes": ["transit", "foot", "hiking"], "legalAccess": "unknown",
+      "sourceAssertions": [{"sourceId": "manual-seed-routes", "sourceRecordId": "eu-fr-les-chapieux", "fieldPath": "/", "evidenceKind": "maintainer_curated", "verificationStatus": "unverified", "confidence": 0.24, "retrievedAt": null, "notes": "Generalized settlement-level route access; stopping, transit and legal trail access are not asserted."}],
+      "quality": {"confidence": 0.24, "verificationStatus": "unverified", "assessedAt": "2026-07-26", "geometryConfidence": 0.27, "accessConfidence": 0.02, "freshness": "unknown", "flags": ["generalized_position", "legal_access_unknown", "manual_seed", "transport_stop_unverified"]},
+      "sensitivity": {"action": "publish", "reason": "Generalized settlement-level access point."}, "originalSourceIds": [{"sourceId": "manual-seed-routes", "recordId": "eu-fr-les-chapieux"}], "deliveryRegions": ["eu-alps"]
+    },
+    {
+      "schemaVersion": "1.0.0", "id": "access:eu-it-courmayeur", "entityType": "AccessPoint", "jurisdictionIds": ["EU", "IT"],
+      "names": [{"language": "it", "value": "Accesso escursionistico di Courmayeur", "kind": "primary"}], "geometry": {"type": "Point", "coordinates": [6.97, 45.792]},
+      "accessModes": ["transit", "foot", "hiking"], "legalAccess": "unknown",
+      "sourceAssertions": [{"sourceId": "manual-seed-routes", "sourceRecordId": "eu-it-courmayeur", "fieldPath": "/", "evidenceKind": "maintainer_curated", "verificationStatus": "unverified", "confidence": 0.24, "retrievedAt": null, "notes": "Generalized settlement-level route access; stopping, transit and legal trail access are not asserted."}],
+      "quality": {"confidence": 0.24, "verificationStatus": "unverified", "assessedAt": "2026-07-26", "geometryConfidence": 0.27, "accessConfidence": 0.02, "freshness": "unknown", "flags": ["generalized_position", "legal_access_unknown", "manual_seed", "transport_stop_unverified"]},
+      "sensitivity": {"action": "publish", "reason": "Generalized settlement-level access point."}, "originalSourceIds": [{"sourceId": "manual-seed-routes", "recordId": "eu-it-courmayeur"}], "deliveryRegions": ["eu-alps"]
+    },
+    {
+      "schemaVersion": "1.0.0", "id": "access:us-ak-exit-glacier-trailhead", "entityType": "AccessPoint", "jurisdictionIds": ["US", "US-AK"],
+      "names": [{"language": "en", "value": "Exit Glacier trailhead area", "kind": "primary"}], "geometry": {"type": "Point", "coordinates": [-149.631, 60.188]},
+      "accessModes": ["car", "foot", "hiking"], "legalAccess": "unknown",
+      "sourceAssertions": [{"sourceId": "manual-seed-routes", "sourceRecordId": "us-ak-exit-glacier-trailhead", "fieldPath": "/", "evidenceKind": "maintainer_curated", "verificationStatus": "unverified", "confidence": 0.23, "retrievedAt": null, "notes": "Generalized trailhead area; road access, parking, hours, permits and legal trail access are not asserted."}],
+      "quality": {"confidence": 0.23, "verificationStatus": "unverified", "assessedAt": "2026-07-26", "geometryConfidence": 0.26, "accessConfidence": 0.01, "freshness": "unknown", "flags": ["generalized_position", "legal_access_unknown", "manual_seed", "parking_rules_unknown", "remote_access"]},
+      "sensitivity": {"action": "publish", "reason": "Generalized public-facing park trailhead area."}, "originalSourceIds": [{"sourceId": "manual-seed-routes", "recordId": "us-ak-exit-glacier-trailhead"}], "deliveryRegions": ["north-america"]
+    },
+    {
+      "schemaVersion": "1.0.0", "id": "access:ca-ab-lake-louise-lakeshore", "entityType": "AccessPoint", "jurisdictionIds": ["CA", "CA-AB"],
+      "names": [{"language": "en", "value": "Lake Louise lakeshore trail access", "kind": "primary"}, {"language": "fr", "value": "Accès au sentier au bord du lac Louise", "kind": "translated"}], "geometry": {"type": "Point", "coordinates": [-116.177, 51.417]},
+      "accessModes": ["transit", "foot", "hiking"], "legalAccess": "unknown",
+      "sourceAssertions": [{"sourceId": "manual-seed-routes", "sourceRecordId": "ca-ab-lake-louise-lakeshore", "fieldPath": "/", "evidenceKind": "maintainer_curated", "verificationStatus": "unverified", "confidence": 0.23, "retrievedAt": null, "notes": "Generalized route access; shuttle/reservation requirements, hours and legal trail access are not asserted."}],
+      "quality": {"confidence": 0.23, "verificationStatus": "unverified", "assessedAt": "2026-07-26", "geometryConfidence": 0.26, "accessConfidence": 0.01, "freshness": "unknown", "flags": ["generalized_position", "legal_access_unknown", "manual_seed", "reservation_status_unknown", "transport_stop_unverified"]},
+      "sensitivity": {"action": "publish", "reason": "Generalized public-facing park access area."}, "originalSourceIds": [{"sourceId": "manual-seed-routes", "recordId": "ca-ab-lake-louise-lakeshore"}], "deliveryRegions": ["north-america"]
+    }
+  ]
+}

@@ -1,0 +1,2760 @@
+{
+  "schemaVersion": "1.0.0",
+  "sources": [
+    {
+      "id": "legacy-alps-osm",
+      "name": "Legacy Alpine passes derived from OpenStreetMap plus manual enrichment",
+      "owner": "Alpine-Passes maintainers and OpenStreetMap contributors",
+      "authorityTier": "manual_curation",
+      "jurisdictionIds": [
+        "EU",
+        "CH"
+      ],
+      "themes": [
+        "places",
+        "names",
+        "roads",
+        "closures",
+        "media"
+      ],
+      "homepage": "https://github.com/adsamcik/Alpine-Passes",
+      "documentationUrl": "https://www.openstreetmap.org/copyright",
+      "retrieval": {
+        "method": "repository",
+        "format": [
+          "JavaScript"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "reference_versioned_release"
+      },
+      "licence": {
+        "id": "MIXED-ODBL-UNKNOWN",
+        "name": "ODbL-origin data mixed with undocumented enrichment and per-file media rights",
+        "url": "https://www.openstreetmap.org/copyright",
+        "attributionRequired": true,
+        "shareAlike": true,
+        "commercialUse": "unclear",
+        "compatibilityNotes": "Do not redistribute the mixed legacy collection as a newly approved source. Separate OSM-derived facts, maintainer text, and media; preserve ODbL provenance and evaluate each media asset."
+      },
+      "attribution": "Contains information from OpenStreetMap, which is made available under the Open Database License (ODbL); additional legacy content has not completed rights review.",
+      "updateCadence": "Legacy static repository data; no guaranteed refresh.",
+      "historicalAvailability": "Repository history only.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Not applicable to the checked-in snapshot; future OSM retrieval must use an approved bulk source rather than public production APIs.",
+      "schemaAssumptions": [
+        "Legacy pass records use compact, undocumented fields.",
+        "A pass point is not a hiking route or proof of lawful/current road access."
+      ],
+      "knownGaps": [
+        "No complete item-level lineage.",
+        "Manual descriptions and Wikimedia media are mixed into OSM-origin facts.",
+        "Coverage was curated for Alpine driving rather than jurisdiction completeness."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": false,
+        "criticality": "blocking"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "unclear",
+      "contact": null
+    },
+    {
+      "id": "legacy-curated-pois",
+      "name": "Legacy curated country POI arrays",
+      "owner": "Alpine-Passes maintainers with Wikipedia and Wikimedia-derived references",
+      "authorityTier": "manual_curation",
+      "jurisdictionIds": [
+        "AT",
+        "FR",
+        "IE",
+        "IT",
+        "JP",
+        "CH",
+        "GB"
+      ],
+      "themes": [
+        "places",
+        "names",
+        "media"
+      ],
+      "homepage": "https://github.com/adsamcik/Alpine-Passes",
+      "documentationUrl": "https://commons.wikimedia.org/wiki/Commons:Reusing_content_outside_Wikimedia",
+      "retrieval": {
+        "method": "repository",
+        "format": [
+          "JavaScript"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "reference_versioned_release"
+      },
+      "licence": {
+        "id": "MIXED-UNKNOWN",
+        "name": "Repository-authored records mixed with source and media rights that are not itemised",
+        "url": "https://github.com/adsamcik/Alpine-Passes",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "unclear",
+        "compatibilityNotes": "The repository MIT licence does not establish that every imported fact, description, image, or database selection can be redistributed. Complete item-level review before migration."
+      },
+      "attribution": "Legacy source; retain original Wikipedia/Wikimedia links and do not claim verified authoritative coverage.",
+      "updateCadence": "Legacy static repository data; no guaranteed refresh.",
+      "historicalAvailability": "Repository history only.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Not applicable.",
+      "schemaAssumptions": [
+        "Most hikes and attractions are represented as points.",
+        "Country arrays are editorial selections rather than completeness claims."
+      ],
+      "knownGaps": [
+        "No machine-readable licence or publisher per record.",
+        "No authoritative source identifiers.",
+        "No complete hiking-route geometry.",
+        "Geographic and thematic completeness are unknown."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": false,
+        "criticality": "blocking"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "unclear",
+      "contact": null
+    },
+    {
+      "id": "legacy-scenic-drives",
+      "name": "Legacy curated scenic drives",
+      "owner": "Alpine-Passes maintainers",
+      "authorityTier": "manual_curation",
+      "jurisdictionIds": [
+        "GB",
+        "IE",
+        "JP"
+      ],
+      "themes": [
+        "places",
+        "roads",
+        "media"
+      ],
+      "homepage": "https://github.com/adsamcik/Alpine-Passes",
+      "documentationUrl": "https://github.com/adsamcik/Alpine-Passes",
+      "retrieval": {
+        "method": "repository",
+        "format": [
+          "JavaScript"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "reference_versioned_release"
+      },
+      "licence": {
+        "id": "MIXED-UNKNOWN",
+        "name": "Repository-authored collection with undocumented upstream factual and media rights",
+        "url": "https://github.com/adsamcik/Alpine-Passes",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "unclear",
+        "compatibilityNotes": "Treat as migration evidence, not as an approved authoritative road dataset."
+      },
+      "attribution": "Legacy Alpine-Passes curation; upstream rights and current road status require verification.",
+      "updateCadence": "Legacy static repository data; no guaranteed refresh.",
+      "historicalAvailability": "Repository history only.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Not applicable.",
+      "schemaAssumptions": [
+        "A scenic-drive record is editorial and may not contain authoritative line geometry.",
+        "Road access and closures are time-dependent."
+      ],
+      "knownGaps": [
+        "No per-feature publisher or licence.",
+        "No completeness baseline.",
+        "No guaranteed current closure or vehicle legality data."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": false,
+        "criticality": "blocking"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "unclear",
+      "contact": null
+    },
+    {
+      "id": "legacy-poi-price-cache",
+      "name": "Legacy POI price and access cache",
+      "owner": "Alpine-Passes maintainers with item-level manual, Wikidata, and linked publisher sources",
+      "authorityTier": "manual_curation",
+      "jurisdictionIds": [
+        "AT",
+        "FR",
+        "IE",
+        "IT",
+        "JP",
+        "CH",
+        "GB"
+      ],
+      "themes": [
+        "prices",
+        "access",
+        "transport"
+      ],
+      "homepage": "https://github.com/adsamcik/Alpine-Passes/blob/main/assets/data/poi-prices.json",
+      "documentationUrl": "https://github.com/adsamcik/Alpine-Passes/blob/main/.github/workflows/refresh-poi-prices.yml",
+      "retrieval": {
+        "method": "repository",
+        "format": [
+          "JSON"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "reference_versioned_release"
+      },
+      "licence": {
+        "id": "MIXED-UNKNOWN",
+        "name": "Mixed legacy manual and Wikidata-derived assertions with item-level linked-source terms",
+        "url": "https://github.com/adsamcik/Alpine-Passes/blob/main/assets/data/poi-prices.json",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "unclear",
+        "compatibilityNotes": "Preserve source_kind, source_url, verified_at, and the full original cache entry. The repository licence does not establish rights in linked publisher content, and Wikidata/manual provenance does not establish legal access, current price, opening-hours, parking legality, or completeness."
+      },
+      "attribution": "Alpine-Passes legacy cache plus each entry’s source_url/source_kind; no endorsement or completeness claim.",
+      "updateCadence": "Workflow-refreshed cache with manual entries protected from automatic overwrite; cadence is not a freshness guarantee.",
+      "historicalAvailability": "Repository history and immutable commits.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Not applicable to the committed snapshot; upstream item-level sources retain their own limits and must not be scraped through this registry entry.",
+      "schemaAssumptions": [
+        "Cache keys are joined only to exact legacy POI names.",
+        "from_adult is a starting adult price, not a complete tariff.",
+        "Free-text notes and getting_there text are preserved without being parsed into schedules or legal access."
+      ],
+      "knownGaps": [
+        "No complete legal-access, opening-hours, tariff, concession, booking, parking-legality, or accessibility model.",
+        "Item-level sources and rights are mixed.",
+        "verified_at records cache review timing but does not upgrade canonical verification.",
+        "Unmatched cache keys must be reported and retained as migration evidence."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": false,
+        "criticality": "degraded"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "unclear",
+      "contact": null
+    },
+    {
+      "id": "manual-seed-routes",
+      "name": "Maintainer-created seed routes and migration fixtures",
+      "owner": "Alpine-Passes maintainers",
+      "authorityTier": "manual_curation",
+      "jurisdictionIds": [
+        "EU",
+        "GB",
+        "US",
+        "CA",
+        "JP",
+        "NO",
+        "CH"
+      ],
+      "themes": [
+        "trails",
+        "access",
+        "transport",
+        "roads"
+      ],
+      "homepage": "https://github.com/adsamcik/Alpine-Passes",
+      "documentationUrl": "https://github.com/adsamcik/Alpine-Passes",
+      "retrieval": {
+        "method": "repository",
+        "format": [
+          "GeoJSON",
+          "JSON",
+          "JavaScript"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "manual_evidence_bundle"
+      },
+      "licence": {
+        "id": "PROJECT-MIT-WITH-EVIDENCE-REVIEW",
+        "name": "Project-authored material subject to upstream evidence review",
+        "url": "https://github.com/adsamcik/Alpine-Passes/blob/main/LICENSE",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "unclear",
+        "compatibilityNotes": "The authored representation may be MIT, but copied or traced geometry and factual assertions retain upstream constraints. Promotion requires an evidence bundle."
+      },
+      "attribution": "Alpine-Passes maintainers; each route must retain upstream geometry and access evidence.",
+      "updateCadence": "Maintainer initiated.",
+      "historicalAvailability": "Repository history and review evidence bundles.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Not applicable.",
+      "schemaAssumptions": [
+        "Seed routes are examples until geometry, access, and operating constraints are independently validated."
+      ],
+      "knownGaps": [
+        "Manual seeds do not establish regional coverage.",
+        "Access, permits, closures, and transport schedules can expire."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": false,
+        "criticality": "blocking"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "unclear",
+      "contact": null
+    },
+    {
+      "id": "osm-global",
+      "name": "OpenStreetMap planet and regional extracts",
+      "owner": "OpenStreetMap contributors",
+      "authorityTier": "openstreetmap",
+      "jurisdictionIds": [
+        "EU",
+        "GB",
+        "US",
+        "CA",
+        "JP",
+        "NO",
+        "CH"
+      ],
+      "themes": [
+        "places",
+        "names",
+        "trails",
+        "access",
+        "transport",
+        "roads",
+        "accessibility"
+      ],
+      "homepage": "https://www.openstreetmap.org/",
+      "documentationUrl": "https://www.openstreetmap.org/copyright",
+      "retrieval": {
+        "method": "download",
+        "format": [
+          "PBF",
+          "OSC"
+        ],
+        "endpoint": "https://planet.openstreetmap.org/",
+        "snapshotPolicy": "retain_raw"
+      },
+      "licence": {
+        "id": "ODbL-1.0",
+        "name": "Open Database License 1.0",
+        "url": "https://opendatacommons.org/licenses/odbl/1-0/",
+        "attributionRequired": true,
+        "shareAlike": true,
+        "commercialUse": "allowed",
+        "compatibilityNotes": "Keep OSM-derived databases and lineage identifiable; comply with attribution, database share-alike, and produced-work requirements."
+      },
+      "attribution": "© OpenStreetMap contributors",
+      "updateCadence": "Minutely changesets; use pinned regional or planet snapshots for reproducibility.",
+      "historicalAvailability": "Planet history and replication diffs are available.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Do not depend on public tile, Nominatim, or Overpass endpoints for production bulk ingestion.",
+      "schemaAssumptions": [
+        "Tags are community assertions and vary by region.",
+        "A mapped way is not proof of legal access, safety, or current openness."
+      ],
+      "knownGaps": [
+        "Uneven completeness and tagging.",
+        "No authoritative guarantee.",
+        "Sensitive features may require suppression."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": true,
+        "criticality": "degraded"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "allowed_with_attribution",
+      "contact": null
+    },
+    {
+      "id": "wikidata",
+      "name": "Wikidata structured knowledge base",
+      "owner": "Wikimedia Foundation and Wikidata contributors",
+      "authorityTier": "structured_reference",
+      "jurisdictionIds": [
+        "EU",
+        "GB",
+        "US",
+        "CA",
+        "JP",
+        "NO",
+        "CH"
+      ],
+      "themes": [
+        "places",
+        "names"
+      ],
+      "homepage": "https://www.wikidata.org/",
+      "documentationUrl": "https://www.wikidata.org/wiki/Wikidata:Licensing",
+      "retrieval": {
+        "method": "sparql",
+        "format": [
+          "JSON",
+          "RDF"
+        ],
+        "endpoint": "https://query.wikidata.org/sparql",
+        "snapshotPolicy": "retain_content_hash_and_url"
+      },
+      "licence": {
+        "id": "CC0-1.0",
+        "name": "Creative Commons CC0 1.0",
+        "url": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "attributionRequired": false,
+        "shareAlike": false,
+        "commercialUse": "allowed",
+        "compatibilityNotes": "Although attribution is not legally required, retain Wikidata entity IDs and retrieval metadata for provenance."
+      },
+      "attribution": "Wikidata contributors",
+      "updateCadence": "Continuous; dumps are periodic.",
+      "historicalAvailability": "Revision history and dumps.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "SPARQL service is shared and can time out; use bounded queries, caching, and dumps for bulk work.",
+      "schemaAssumptions": [
+        "Statements can conflict or be unsourced.",
+        "Coordinates and classifications require authority cross-checks."
+      ],
+      "knownGaps": [
+        "Not an authoritative access or route source.",
+        "Coverage and language completeness vary."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": true,
+        "criticality": "optional"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "allowed",
+      "contact": null
+    },
+    {
+      "id": "wikimedia-commons",
+      "name": "Wikimedia Commons media repository",
+      "owner": "Individual media authors and Wikimedia contributors",
+      "authorityTier": "structured_reference",
+      "jurisdictionIds": [
+        "EU",
+        "GB",
+        "US",
+        "CA",
+        "JP",
+        "NO",
+        "CH"
+      ],
+      "themes": [
+        "media"
+      ],
+      "homepage": "https://commons.wikimedia.org/",
+      "documentationUrl": "https://commons.wikimedia.org/wiki/Commons:Reusing_content_outside_Wikimedia",
+      "retrieval": {
+        "method": "api",
+        "format": [
+          "JSON",
+          "media"
+        ],
+        "endpoint": "https://commons.wikimedia.org/w/api.php",
+        "snapshotPolicy": "retain_content_hash_and_url"
+      },
+      "licence": {
+        "id": "MIXED-PER-FILE",
+        "name": "Per-file Creative Commons, public-domain, or other free-content terms",
+        "url": "https://commons.wikimedia.org/wiki/Commons:Licensing",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "unclear",
+        "compatibilityNotes": "Persist author, source page, exact licence/version, attribution, modifications, and share-alike flag for every asset. Never infer a repository-wide licence."
+      },
+      "attribution": "Per-file attribution generated from Commons metadata.",
+      "updateCadence": "Continuous.",
+      "historicalAvailability": "File and metadata revision history.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "MediaWiki API etiquette and user-agent requirements apply; cache metadata and media derivatives.",
+      "schemaAssumptions": [
+        "Licence metadata is attached to each file and can change through community review."
+      ],
+      "knownGaps": [
+        "Depicted-subject accuracy is not guaranteed.",
+        "Personality, privacy, cultural, and sensitive-location review may still be required."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": true,
+        "criticality": "optional"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "unclear",
+      "contact": null
+    },
+    {
+      "id": "eea-natura-2000",
+      "name": "Natura 2000 spatial database",
+      "owner": "European Environment Agency and EU Member State authorities",
+      "authorityTier": "official_agency",
+      "jurisdictionIds": [
+        "EU"
+      ],
+      "themes": [
+        "protected_areas"
+      ],
+      "homepage": "https://www.eea.europa.eu/data-and-maps/data/external/natura-2000-data-the-european",
+      "documentationUrl": "https://www.eea.europa.eu/en/datahub/eea-data-policy",
+      "retrieval": {
+        "method": "download",
+        "format": [
+          "GeoPackage",
+          "Shapefile",
+          "CSV"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "retain_raw"
+      },
+      "licence": {
+        "id": "EEA-ODC-BY-OR-DATASET",
+        "name": "EEA standard reuse policy, normally ODC-BY or dataset-specific terms",
+        "url": "https://www.eea.europa.eu/en/datahub/eea-data-policy",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "allowed",
+        "compatibilityNotes": "Record the exact release metadata because Member State or third-party conditions can differ."
+      },
+      "attribution": "European Environment Agency and contributing national authorities; exact release attribution applies.",
+      "updateCadence": "Periodic EU reporting releases.",
+      "historicalAvailability": "Versioned releases and EEA metadata records.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Prefer versioned bulk downloads over repeated map-service requests.",
+      "schemaAssumptions": [
+        "Designation geometry is not a public-access polygon.",
+        "National authorities remain the legal source for current restrictions and boundaries."
+      ],
+      "knownGaps": [
+        "Covers Natura 2000, not every national or local protected designation.",
+        "Release lag can exist."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": true,
+        "criticality": "degraded"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "allowed_with_attribution",
+      "contact": null
+    },
+    {
+      "id": "inspire-geoportal",
+      "name": "INSPIRE Geoportal discovery catalogue",
+      "owner": "European Commission and EU spatial-data publishers",
+      "authorityTier": "official_portal",
+      "jurisdictionIds": [
+        "EU"
+      ],
+      "themes": [
+        "places",
+        "names",
+        "protected_areas",
+        "trails",
+        "access",
+        "transport",
+        "roads",
+        "conditions"
+      ],
+      "homepage": "https://inspire-geoportal.ec.europa.eu/",
+      "documentationUrl": "https://knowledge-base.inspire.ec.europa.eu/data-and-service-sharing_en",
+      "retrieval": {
+        "method": "manual",
+        "format": [
+          "ISO 19115 metadata",
+          "WMS",
+          "WFS",
+          "ATOM"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "manual_evidence_bundle"
+      },
+      "licence": {
+        "id": "MIXED-DATASET-SPECIFIC",
+        "name": "Publisher and dataset-specific INSPIRE conditions",
+        "url": "https://eur-lex.europa.eu/eli/dir/2007/2/oj/eng",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "unclear",
+        "compatibilityNotes": "INSPIRE discoverability or view access is not a reuse licence. Register the underlying dataset, publisher, and terms as a separate approved source."
+      },
+      "attribution": "Per underlying national or regional dataset.",
+      "updateCadence": "Continuous metadata aggregation.",
+      "historicalAvailability": "Depends on underlying publisher.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Underlying services can have authentication, fees, throttling, or view-only restrictions.",
+      "schemaAssumptions": [
+        "Catalogue records are discovery evidence only."
+      ],
+      "knownGaps": [
+        "Metadata quality and service availability vary.",
+        "No blanket redistribution permission."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": false,
+        "criticality": "optional"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "unclear",
+      "contact": null
+    },
+    {
+      "id": "usgs-pad-us",
+      "name": "Protected Areas Database of the United States 4",
+      "owner": "U.S. Geological Survey Gap Analysis Project",
+      "authorityTier": "official_agency",
+      "jurisdictionIds": [
+        "US"
+      ],
+      "themes": [
+        "protected_areas",
+        "access"
+      ],
+      "homepage": "https://www.usgs.gov/data/protected-areas-database-united-states-pad-us-4",
+      "documentationUrl": "https://www.usgs.gov/programs/gap-analysis-project/science/pad-us-help-system",
+      "retrieval": {
+        "method": "download",
+        "format": [
+          "GeoPackage",
+          "Geodatabase",
+          "Shapefile"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "retain_raw"
+      },
+      "licence": {
+        "id": "CC0-1.0",
+        "name": "Creative Commons CC0 1.0",
+        "url": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "attributionRequired": false,
+        "shareAlike": false,
+        "commercialUse": "allowed",
+        "compatibilityNotes": "Retain release/version and USGS provenance even though attribution is not required."
+      },
+      "attribution": "U.S. Geological Survey, Protected Areas Database of the United States.",
+      "updateCadence": "Versioned periodic releases.",
+      "historicalAvailability": "Versioned USGS releases.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Use published bulk releases.",
+      "schemaAssumptions": [
+        "Management category and public-access attributes require careful interpretation.",
+        "A protected boundary does not establish route access."
+      ],
+      "knownGaps": [
+        "Version-to-version changes can reflect GIS improvements.",
+        "Local current closures and rules are outside this dataset."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": true,
+        "criticality": "degraded"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "allowed",
+      "contact": null
+    },
+    {
+      "id": "usgs-gnis",
+      "name": "Geographic Names Information System domestic names",
+      "owner": "U.S. Board on Geographic Names and U.S. Geological Survey",
+      "authorityTier": "official_agency",
+      "jurisdictionIds": [
+        "US"
+      ],
+      "themes": [
+        "places",
+        "names"
+      ],
+      "homepage": "https://www.usgs.gov/us-board-on-geographic-names/download-gnis-data",
+      "documentationUrl": "https://www.usgs.gov/us-board-on-geographic-names",
+      "retrieval": {
+        "method": "download",
+        "format": [
+          "Text",
+          "CSV"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "retain_raw"
+      },
+      "licence": {
+        "id": "US-PUBLIC-DOMAIN",
+        "name": "United States federal public-domain data",
+        "url": "https://www.usgs.gov/data-management/data-licensing",
+        "attributionRequired": false,
+        "shareAlike": false,
+        "commercialUse": "allowed",
+        "compatibilityNotes": "Third-party annotations, if present, remain excluded; retain GNIS IDs and release date."
+      },
+      "attribution": "U.S. Geological Survey Geographic Names Information System.",
+      "updateCadence": "Approximately every other month.",
+      "historicalAvailability": "Current downloads; retain local immutable snapshots.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Use bulk downloads.",
+      "schemaAssumptions": [
+        "Feature classification and coordinate representational point do not describe access or full geometry."
+      ],
+      "knownGaps": [
+        "Not a trail, access, or conditions source.",
+        "Some historical names require cultural review."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": true,
+        "criticality": "degraded"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "allowed",
+      "contact": null
+    },
+    {
+      "id": "usgs-national-digital-trails",
+      "name": "USGS National Digital Trails dataset",
+      "owner": "U.S. Geological Survey with contributing land-management authorities",
+      "authorityTier": "official_agency",
+      "jurisdictionIds": [
+        "US"
+      ],
+      "themes": [
+        "trails",
+        "access"
+      ],
+      "homepage": "https://www.usgs.gov/national-digital-trails/data",
+      "documentationUrl": "https://www.usgs.gov/national-digital-trails/how-access-or-view-usgs-trails-dataset-0",
+      "retrieval": {
+        "method": "arcgis_rest",
+        "format": [
+          "Esri Feature Service",
+          "GeoJSON"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "retain_raw"
+      },
+      "licence": {
+        "id": "US-PUBLIC-DOMAIN",
+        "name": "United States federal public-domain data",
+        "url": "https://www.usgs.gov/data-management/data-licensing",
+        "attributionRequired": false,
+        "shareAlike": false,
+        "commercialUse": "allowed",
+        "compatibilityNotes": "Retain contributing agency and source-record metadata."
+      },
+      "attribution": "U.S. Geological Survey National Digital Trails and contributing agencies.",
+      "updateCadence": "Ongoing aggregation; cadence varies by contributing authority.",
+      "historicalAvailability": "Retain accepted state/national snapshots because service history is not a release archive.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "ArcGIS service limits apply; page and cache downloads.",
+      "schemaAssumptions": [
+        "Predominantly authoritative does not mean every segment is current or complete.",
+        "Source authority and route identity must survive conflation."
+      ],
+      "knownGaps": [
+        "Coverage is an ongoing national effort.",
+        "Closures, permits, surface, accessibility, and legal-use detail vary."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": true,
+        "criticality": "degraded"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "allowed",
+      "contact": null
+    },
+    {
+      "id": "usfs-enterprise-data",
+      "name": "US Forest Service Enterprise Data Warehouse roads, trails, and MVUM",
+      "owner": "U.S. Forest Service",
+      "authorityTier": "official_agency",
+      "jurisdictionIds": [
+        "US"
+      ],
+      "themes": [
+        "trails",
+        "access",
+        "roads",
+        "closures"
+      ],
+      "homepage": "https://data.fs.usda.gov/geodata/edw/datasets.php",
+      "documentationUrl": "https://data.fs.usda.gov/geodata/edw/datasets.php",
+      "retrieval": {
+        "method": "download",
+        "format": [
+          "Geodatabase",
+          "Shapefile",
+          "KML",
+          "ArcGIS REST"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "retain_raw"
+      },
+      "licence": {
+        "id": "US-PUBLIC-DOMAIN-WITH-EXCEPTIONS",
+        "name": "U.S. federal public-domain data with product-specific exceptions",
+        "url": "https://resources.data.gov/open-licenses/",
+        "attributionRequired": false,
+        "shareAlike": false,
+        "commercialUse": "allowed",
+        "compatibilityNotes": "Check every product for third-party or sensitive-field exclusions."
+      },
+      "attribution": "U.S. Forest Service.",
+      "updateCadence": "Dataset-specific.",
+      "historicalAvailability": "Dataset-specific; retain raw accepted snapshots.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Prefer bulk downloads; ArcGIS service pagination applies.",
+      "schemaAssumptions": [
+        "MVUM designation indicates legally designated motor-vehicle use, not physical suitability or current passability.",
+        "Forest-level attribute completeness varies."
+      ],
+      "knownGaps": [
+        "Not all rights-of-way data are public.",
+        "Temporary closures and field conditions require separate current sources."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": true,
+        "criticality": "degraded"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "allowed",
+      "contact": null
+    },
+    {
+      "id": "nps-data-api",
+      "name": "U.S. National Park Service Data API",
+      "owner": "U.S. National Park Service",
+      "authorityTier": "official_agency",
+      "jurisdictionIds": [
+        "US"
+      ],
+      "themes": [
+        "places",
+        "access",
+        "conditions",
+        "closures",
+        "permits",
+        "accessibility",
+        "prices",
+        "media"
+      ],
+      "homepage": "https://www.nps.gov/subjects/developer/api-documentation.htm",
+      "documentationUrl": "https://www.nps.gov/subjects/digital/nps-data-api.htm",
+      "retrieval": {
+        "method": "api",
+        "format": [
+          "JSON"
+        ],
+        "endpoint": "https://developer.nps.gov/api/v1/",
+        "snapshotPolicy": "retain_content_hash_and_url"
+      },
+      "licence": {
+        "id": "US-PUBLIC-DOMAIN-MIXED-CONTENT",
+        "name": "Federal public-domain data with possible third-party content and media",
+        "url": "https://www.nps.gov/aboutus/disclaimer.htm",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "unclear",
+        "compatibilityNotes": "Structured park data and media must be reviewed separately; government-hosted media can contain third-party rights."
+      },
+      "attribution": "National Park Service; per-record media credit and rights apply.",
+      "updateCadence": "Continuous agency updates.",
+      "historicalAvailability": "No guaranteed public history; retain timestamped responses.",
+      "authentication": {
+        "required": true,
+        "type": "API key",
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Published API limits apply; use server-side caching and backoff.",
+      "schemaAssumptions": [
+        "Alerts and operating information are time-sensitive.",
+        "The API is not a complete hiking-route geometry source."
+      ],
+      "knownGaps": [
+        "Only NPS units.",
+        "Media rights vary.",
+        "No complete trail network."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": false,
+        "criticality": "degraded"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "unclear",
+      "contact": null
+    },
+    {
+      "id": "canada-cpcad",
+      "name": "Canadian Protected and Conserved Areas Database",
+      "owner": "Environment and Climate Change Canada with provincial, territorial, and other authorities",
+      "authorityTier": "official_agency",
+      "jurisdictionIds": [
+        "CA"
+      ],
+      "themes": [
+        "protected_areas"
+      ],
+      "homepage": "https://open.canada.ca/data/en/dataset/6c343726-1e92-451a-876a-76e17d398a1c",
+      "documentationUrl": "https://open.canada.ca/en/open-government-licence-canada",
+      "retrieval": {
+        "method": "download",
+        "format": [
+          "File Geodatabase",
+          "ArcGIS REST",
+          "WMS"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "retain_raw"
+      },
+      "licence": {
+        "id": "OGL-CANADA-2.0",
+        "name": "Open Government Licence - Canada 2.0",
+        "url": "https://open.canada.ca/en/open-government-licence-canada",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "allowed",
+        "compatibilityNotes": "Excludes personal information, third-party rights, marks/logos, and other unlicensed IP."
+      },
+      "attribution": "Environment and Climate Change Canada, Canadian Protected and Conserved Areas Database; contributing authorities.",
+      "updateCadence": "Annual.",
+      "historicalAvailability": "Retain each annual release.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Prefer annual bulk packages; page ArcGIS requests.",
+      "schemaAssumptions": [
+        "Includes protected/conserved areas and recognised IPCAs.",
+        "Designation does not establish public access."
+      ],
+      "knownGaps": [
+        "Local operating conditions and permissions are outside scope.",
+        "Reporting dates vary among contributors."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": true,
+        "criticality": "degraded"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "allowed_with_attribution",
+      "contact": null
+    },
+    {
+      "id": "canada-open-maps",
+      "name": "Government of Canada Open Maps and GEO.ca",
+      "owner": "Government of Canada and federated provincial/territorial publishers",
+      "authorityTier": "official_portal",
+      "jurisdictionIds": [
+        "CA"
+      ],
+      "themes": [
+        "places",
+        "names",
+        "protected_areas",
+        "trails",
+        "access",
+        "transport",
+        "roads",
+        "conditions",
+        "hazards"
+      ],
+      "homepage": "https://open.canada.ca/en/about-open-maps",
+      "documentationUrl": "https://geo.ca/about-us/",
+      "retrieval": {
+        "method": "manual",
+        "format": [
+          "CKAN metadata",
+          "WMS",
+          "WFS",
+          "ArcGIS REST",
+          "static downloads"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "manual_evidence_bundle"
+      },
+      "licence": {
+        "id": "MIXED-USUALLY-OGL-CANADA",
+        "name": "Open Government Licence Canada or publisher-specific terms",
+        "url": "https://open.canada.ca/en/open-government-licence-canada",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "unclear",
+        "compatibilityNotes": "The catalog is a discovery family. Register and approve each underlying product separately."
+      },
+      "attribution": "Per underlying federal, provincial, territorial, Indigenous, or municipal publisher.",
+      "updateCadence": "Catalog continuous; product-specific.",
+      "historicalAvailability": "Product-specific.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Underlying service limits vary.",
+      "schemaAssumptions": [
+        "Catalog presence is not evidence of jurisdiction completeness or access rights."
+      ],
+      "knownGaps": [
+        "Provincial/territorial participation is uneven; Nunavut local recreation data is notably difficult to discover.",
+        "Licences and authority tiers vary."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": false,
+        "criticality": "optional"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "unclear",
+      "contact": null
+    },
+    {
+      "id": "canada-cgndb",
+      "name": "Canadian Geographical Names Database",
+      "owner": "Natural Resources Canada and federal, provincial, and territorial naming authorities",
+      "authorityTier": "official_agency",
+      "jurisdictionIds": [
+        "CA"
+      ],
+      "themes": [
+        "places",
+        "names"
+      ],
+      "homepage": "https://geonames.nrcan.gc.ca/search-place-names/unique",
+      "documentationUrl": "https://natural-resources.canada.ca/earth-sciences/geography/download-geographical-names-data",
+      "retrieval": {
+        "method": "download",
+        "format": [
+          "CSV",
+          "Shapefile",
+          "KML"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "retain_raw"
+      },
+      "licence": {
+        "id": "OGL-CANADA-2.0",
+        "name": "Open Government Licence - Canada 2.0",
+        "url": "https://open.canada.ca/en/open-government-licence-canada",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "allowed",
+        "compatibilityNotes": "Preserve stable identifiers, language, naming authority, and release metadata."
+      },
+      "attribution": "Natural Resources Canada, Canadian Geographical Names Database.",
+      "updateCadence": "Periodic.",
+      "historicalAvailability": "Retain downloaded releases.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Use published downloads for bulk work.",
+      "schemaAssumptions": [
+        "Official name points do not imply feature geometry or access.",
+        "Indigenous/local name handling must preserve source form and authority."
+      ],
+      "knownGaps": [
+        "Not a routes or conditions source.",
+        "Alternative and community names can require supplementary authority review."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": true,
+        "criticality": "degraded"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "allowed_with_attribution",
+      "contact": null
+    },
+    {
+      "id": "uk-os-open-data",
+      "name": "Ordnance Survey OpenData",
+      "owner": "Ordnance Survey",
+      "authorityTier": "official_agency",
+      "jurisdictionIds": [
+        "GB-ENG",
+        "GB-SCT",
+        "GB-WLS"
+      ],
+      "themes": [
+        "places",
+        "names",
+        "roads"
+      ],
+      "homepage": "https://www.ordnancesurvey.co.uk/products/open-data",
+      "documentationUrl": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+      "retrieval": {
+        "method": "download",
+        "format": [
+          "GeoPackage",
+          "Shapefile",
+          "GeoTIFF",
+          "GML"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "retain_raw"
+      },
+      "licence": {
+        "id": "OGL-UK-3.0",
+        "name": "Open Government Licence 3.0",
+        "url": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "allowed",
+        "compatibilityNotes": "Only products explicitly listed as OS OpenData are covered. Paid OS products are not implied."
+      },
+      "attribution": "Contains OS data © Crown copyright and database right.",
+      "updateCadence": "Product-specific.",
+      "historicalAvailability": "Product-specific; retain release/version metadata.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Bulk product and API-specific terms apply.",
+      "schemaAssumptions": [
+        "Covers Great Britain, not Northern Ireland.",
+        "Topographic depiction is not a legal public-rights-of-way record."
+      ],
+      "knownGaps": [
+        "No complete legal walking-rights or promoted-route network.",
+        "Do not substitute paid MasterMap data."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": true,
+        "criticality": "degraded"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "allowed_with_attribution",
+      "contact": null
+    },
+    {
+      "id": "uk-jncc-protected-areas",
+      "name": "JNCC UK protected-area datasets",
+      "owner": "Joint Nature Conservation Committee",
+      "authorityTier": "official_agency",
+      "jurisdictionIds": [
+        "GB"
+      ],
+      "themes": [
+        "protected_areas"
+      ],
+      "homepage": "https://jncc.gov.uk/our-work/uk-protected-area-datasets-for-download/",
+      "documentationUrl": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+      "retrieval": {
+        "method": "download",
+        "format": [
+          "Shapefile",
+          "GeoPackage"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "retain_raw"
+      },
+      "licence": {
+        "id": "OGL-UK-3.0-PER-DATASET",
+        "name": "Open Government Licence 3.0 where specified by the dataset",
+        "url": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "allowed",
+        "compatibilityNotes": "Use exact dataset attribution. National designations remain delegated to Natural England, NRW, NatureScot, and DAERA."
+      },
+      "attribution": "Joint Nature Conservation Committee; exact dataset attribution statement applies.",
+      "updateCadence": "Dataset-specific.",
+      "historicalAvailability": "Retain released downloads and metadata.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Use bulk downloads.",
+      "schemaAssumptions": [
+        "International and UK-wide designations do not replace devolved national designation datasets."
+      ],
+      "knownGaps": [
+        "Not a complete source for domestic protected areas, access, or current restrictions."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": true,
+        "criticality": "degraded"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "allowed_with_attribution",
+      "contact": null
+    },
+    {
+      "id": "uk-naptan",
+      "name": "National Public Transport Access Nodes",
+      "owner": "UK Department for Transport with local transport authorities",
+      "authorityTier": "official_agency",
+      "jurisdictionIds": [
+        "GB-ENG",
+        "GB-SCT",
+        "GB-WLS"
+      ],
+      "themes": [
+        "transport",
+        "accessibility"
+      ],
+      "homepage": "https://www.gov.uk/government/publications/national-public-transport-access-node-schema",
+      "documentationUrl": "https://www.planning.data.gov.uk/dataset/transport-access-node",
+      "retrieval": {
+        "method": "download",
+        "format": [
+          "XML",
+          "CSV"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "retain_raw"
+      },
+      "licence": {
+        "id": "OGL-UK-3.0",
+        "name": "Open Government Licence 3.0",
+        "url": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "allowed",
+        "compatibilityNotes": "Confirm geographic metadata and do not infer Northern Ireland coverage from Great Britain packages."
+      },
+      "attribution": "© Crown copyright and database right; Department for Transport and contributing authorities.",
+      "updateCadence": "Frequent authority submissions.",
+      "historicalAvailability": "Retain accepted snapshots because node IDs and attributes can change.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Use published bulk downloads.",
+      "schemaAssumptions": [
+        "Stops, stations, airports, and ferry terminals are access nodes, not proof that a useful service operates for the requested trip."
+      ],
+      "knownGaps": [
+        "Quality and update discipline vary by local authority.",
+        "Schedules, fares, accessibility, and disruptions require companion sources."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": true,
+        "criticality": "degraded"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "allowed_with_attribution",
+      "contact": null
+    },
+    {
+      "id": "england-definitive-rights-of-way",
+      "name": "England local highway authority definitive rights-of-way records",
+      "owner": "English local highway authorities",
+      "authorityTier": "official_law",
+      "jurisdictionIds": [
+        "GB-ENG"
+      ],
+      "themes": [
+        "trails",
+        "access",
+        "closures"
+      ],
+      "homepage": "https://www.gov.uk/guidance/public-rights-of-way-local-authority-responsibilities",
+      "documentationUrl": "https://www.gov.uk/guidance/public-rights-of-way-local-authority-responsibilities",
+      "retrieval": {
+        "method": "manual",
+        "format": [
+          "Definitive map",
+          "legal statement",
+          "local GIS service"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "manual_evidence_bundle"
+      },
+      "licence": {
+        "id": "MIXED-LOCAL-AUTHORITY",
+        "name": "Local authority and definitive-record-specific terms",
+        "url": "https://www.gov.uk/guidance/public-rights-of-way-local-authority-responsibilities",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "unclear",
+        "compatibilityNotes": "A downloadable compilation is not necessarily the legal definitive record or openly redistributable. Register each authority product and terms separately."
+      },
+      "attribution": "Relevant local highway authority and definitive-map edition.",
+      "updateCadence": "Authority-specific; legal modification orders can change the record.",
+      "historicalAvailability": "Definitive statements and legal orders are authority-specific.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Authority service conditions vary.",
+      "schemaAssumptions": [
+        "Legal status, geometry, temporary closure, and physical accessibility are distinct facts."
+      ],
+      "knownGaps": [
+        "No complete uniform openly licensed national geometry.",
+        "National compilations have missing authorities and are not the definitive legal record."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": false,
+        "criticality": "blocking"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "unclear",
+      "contact": null
+    },
+    {
+      "id": "scotland-core-paths",
+      "name": "Scotland Core Paths national aggregate",
+      "owner": "Scottish local and National Park access authorities via Spatial Hub Scotland",
+      "authorityTier": "official_agency",
+      "jurisdictionIds": [
+        "GB-SCT"
+      ],
+      "themes": [
+        "trails",
+        "access",
+        "accessibility"
+      ],
+      "homepage": "https://data.spatialhub.scot/dataset/?organization=improvement-service&tags=conservation&tags=planning&tags=transport+and+roads",
+      "documentationUrl": "https://www.gov.scot/policies/landscape-and-outdoor-access/public-access-to-land/",
+      "retrieval": {
+        "method": "download",
+        "format": [
+          "GeoJSON",
+          "Shapefile",
+          "WFS",
+          "WMS"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "retain_raw"
+      },
+      "licence": {
+        "id": "OGL-UK-3.0",
+        "name": "Open Government Licence 3.0",
+        "url": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "allowed",
+        "compatibilityNotes": "Preserve contributing access authority and plan status. Account access may be required for some Spatial Hub downloads; open and premium datasets differ."
+      },
+      "attribution": "Spatial Hub Scotland and the relevant Scottish access authority.",
+      "updateCadence": "Aggregate updated as contributing authorities publish revisions.",
+      "historicalAvailability": "Retain each accepted aggregate and source authority metadata.",
+      "authentication": {
+        "required": true,
+        "type": "Free Spatial Hub account may be required",
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Service terms and fair-use limits apply.",
+      "schemaAssumptions": [
+        "Core Paths are statutory planning routes but not the complete set of routes on which responsible access may be exercised.",
+        "Adoption and revision status must be retained."
+      ],
+      "knownGaps": [
+        "Completeness and attributes vary by authority.",
+        "Temporary closures, hazards, and suitability require separate sources."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": true,
+        "criticality": "degraded"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "allowed_with_attribution",
+      "contact": null
+    },
+    {
+      "id": "scotland-naturescot-data",
+      "name": "NatureScot data services and SiteLink",
+      "owner": "NatureScot",
+      "authorityTier": "official_agency",
+      "jurisdictionIds": [
+        "GB-SCT"
+      ],
+      "themes": [
+        "protected_areas",
+        "places",
+        "access",
+        "conditions"
+      ],
+      "homepage": "https://www.nature.scot/information-hub/naturescot-data-services",
+      "documentationUrl": "https://www.nature.scot/information-hub/naturescot-data-services",
+      "retrieval": {
+        "method": "manual",
+        "format": [
+          "Open Data Hub download",
+          "SiteLink",
+          "WMS",
+          "WFS"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "manual_evidence_bundle"
+      },
+      "licence": {
+        "id": "MIXED-PER-DATASET",
+        "name": "NatureScot dataset-specific open-data terms",
+        "url": "https://www.nature.scot/information-hub/naturescot-data-services",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "unclear",
+        "compatibilityNotes": "Approve the exact SiteLink/Open Data Hub product and attribution before ingestion; sensitive species data can be restricted."
+      },
+      "attribution": "NatureScot; exact product attribution and sensitivity conditions apply.",
+      "updateCadence": "Dataset-specific.",
+      "historicalAvailability": "Dataset-specific; retain raw accepted snapshots.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Service-specific.",
+      "schemaAssumptions": [
+        "Designation and nature data do not establish a route or unrestricted access."
+      ],
+      "knownGaps": [
+        "Some ecological records are sensitive or restricted.",
+        "Access and live conditions require separate authorities."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": true,
+        "criticality": "degraded"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "unclear",
+      "contact": null
+    },
+    {
+      "id": "scotland-traffic",
+      "name": "Traffic Scotland Developer Hub",
+      "owner": "Transport Scotland",
+      "authorityTier": "official_agency",
+      "jurisdictionIds": [
+        "GB-SCT"
+      ],
+      "themes": [
+        "roads",
+        "conditions",
+        "closures",
+        "weather"
+      ],
+      "homepage": "https://www.traffic.gov.scot/traffic-scotland-developer-hub",
+      "documentationUrl": "https://www.traffic.gov.scot/traffic-scotland-developer-hub",
+      "retrieval": {
+        "method": "api",
+        "format": [
+          "DATEX II",
+          "XML",
+          "camera metadata"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "retain_content_hash_and_url"
+      },
+      "licence": {
+        "id": "TRAFFIC-SCOTLAND-FEED-TERMS",
+        "name": "Traffic Scotland feed-specific terms",
+        "url": "https://www.traffic.gov.scot/traffic-scotland-developer-hub",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "unclear",
+        "compatibilityNotes": "Registration/approval and feed-specific attribution apply. No uptime guarantee; do not redistribute camera imagery without explicit rights."
+      },
+      "attribution": "Traffic Scotland / Transport Scotland; exact feed attribution applies.",
+      "updateCadence": "Near real time, feed-specific.",
+      "historicalAvailability": "No guaranteed archive; retain only where terms permit.",
+      "authentication": {
+        "required": true,
+        "type": "Developer registration or feed credential",
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Feed-specific limits and fair-use conditions.",
+      "schemaAssumptions": [
+        "Conditions are observations/events with validity windows, not permanent road properties."
+      ],
+      "knownGaps": [
+        "No uptime guarantee.",
+        "Local/private roads and non-reported incidents can be absent."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": false,
+        "criticality": "degraded"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "restricted",
+      "contact": null
+    },
+    {
+      "id": "scotland-sais",
+      "name": "Scottish Avalanche Information Service",
+      "owner": "Scottish Avalanche Information Service",
+      "authorityTier": "official_agency",
+      "jurisdictionIds": [
+        "GB-SCT"
+      ],
+      "themes": [
+        "conditions",
+        "hazards",
+        "avalanche",
+        "weather"
+      ],
+      "homepage": "https://www.sais.gov.uk/",
+      "documentationUrl": "https://www.sais.gov.uk/",
+      "retrieval": {
+        "method": "manual",
+        "format": [
+          "Web bulletin"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "retain_content_hash_and_url"
+      },
+      "licence": {
+        "id": "UNKNOWN-NO-APPROVED-REDISTRIBUTION",
+        "name": "No redistributable API or data licence approved in this review",
+        "url": "https://www.sais.gov.uk/",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "unclear",
+        "compatibilityNotes": "Start as link-only. Obtain explicit terms before ingesting, caching, transforming, or redistributing bulletin content."
+      },
+      "attribution": "Scottish Avalanche Information Service.",
+      "updateCadence": "Seasonal daily bulletins where operating.",
+      "historicalAvailability": "Website-specific; no approved redistribution archive.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "No approved automated retrieval; do not scrape.",
+      "schemaAssumptions": [
+        "A bulletin is region/time specific and safety critical."
+      ],
+      "knownGaps": [
+        "No approved API/licence.",
+        "Coverage is seasonal and regional.",
+        "Absence of a bulletin is not evidence of no avalanche risk."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": false,
+        "criticality": "blocking"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "prohibited",
+      "contact": null
+    },
+    {
+      "id": "wales-datamap",
+      "name": "DataMapWales",
+      "owner": "Welsh Government and contributing Welsh public bodies",
+      "authorityTier": "official_portal",
+      "jurisdictionIds": [
+        "GB-WLS"
+      ],
+      "themes": [
+        "places",
+        "protected_areas",
+        "access",
+        "roads",
+        "hazards"
+      ],
+      "homepage": "https://datamap.gov.wales/",
+      "documentationUrl": "https://datamap.gov.wales/info/what-we-do",
+      "retrieval": {
+        "method": "manual",
+        "format": [
+          "WMS",
+          "WFS",
+          "GeoJSON",
+          "Shapefile",
+          "GeoTIFF"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "manual_evidence_bundle"
+      },
+      "licence": {
+        "id": "MIXED-USUALLY-OGL-UK-3.0",
+        "name": "Dataset-specific, commonly Open Government Licence",
+        "url": "https://datamap.gov.wales/info/terms-conditions",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "unclear",
+        "compatibilityNotes": "The portal hosts partner data and restricted layers. Approve the exact dataset licence and attribution; public view access alone is insufficient."
+      },
+      "attribution": "Welsh Government or named partner publisher; exact dataset attribution applies.",
+      "updateCadence": "Dataset-specific.",
+      "historicalAvailability": "Dataset-specific.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "OWS and download limits are dataset/service specific.",
+      "schemaAssumptions": [
+        "Portal syntax checks do not validate content.",
+        "Open-access land and public-rights-of-way are distinct legal layers."
+      ],
+      "knownGaps": [
+        "Definitive rights-of-way records remain with local authorities.",
+        "Not every public catalogue item is open for download or reuse."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": true,
+        "criticality": "degraded"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "unclear",
+      "contact": "data@gov.wales"
+    },
+    {
+      "id": "ni-open-data",
+      "name": "OpenDataNI",
+      "owner": "Northern Ireland government departments and public-sector publishers",
+      "authorityTier": "official_portal",
+      "jurisdictionIds": [
+        "GB-NIR"
+      ],
+      "themes": [
+        "places",
+        "names",
+        "protected_areas",
+        "transport",
+        "roads",
+        "conditions"
+      ],
+      "homepage": "https://www.nidirect.gov.uk/services/opendatani-portal",
+      "documentationUrl": "https://www.nidirect.gov.uk/services/opendatani-portal",
+      "retrieval": {
+        "method": "manual",
+        "format": [
+          "CKAN metadata",
+          "CSV",
+          "JSON",
+          "API",
+          "spatial downloads"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "manual_evidence_bundle"
+      },
+      "licence": {
+        "id": "OGL-UK-3.0",
+        "name": "Open Government Licence 3.0 for data published on OpenDataNI",
+        "url": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "allowed",
+        "compatibilityNotes": "Register exact products. Land & Property Services/OSNI mapping outside explicitly open products can have separate terms."
+      },
+      "attribution": "Named Northern Ireland publisher under OGL.",
+      "updateCadence": "Dataset-specific.",
+      "historicalAvailability": "Dataset-specific.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Portal and underlying API limits vary.",
+      "schemaAssumptions": [
+        "Catalog data is not a complete recreation/access source."
+      ],
+      "knownGaps": [
+        "Detailed OSNI products can require a separate licence.",
+        "Trail and rights-of-way coverage is not established by the portal."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": true,
+        "criticality": "degraded"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "allowed_with_attribution",
+      "contact": null
+    },
+    {
+      "id": "ni-daera-natural-heritage",
+      "name": "DAERA Northern Ireland natural-heritage spatial datasets",
+      "owner": "Department of Agriculture, Environment and Rural Affairs",
+      "authorityTier": "official_agency",
+      "jurisdictionIds": [
+        "GB-NIR"
+      ],
+      "themes": [
+        "protected_areas",
+        "places",
+        "conditions"
+      ],
+      "homepage": "https://www.daera-ni.gov.uk/articles/download-digital-datasets",
+      "documentationUrl": "https://www.daera-ni.gov.uk/services/natural-environment-map-viewer",
+      "retrieval": {
+        "method": "download",
+        "format": [
+          "Shapefile",
+          "GML",
+          "map service"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "retain_raw"
+      },
+      "licence": {
+        "id": "DAERA-DATASET-SPECIFIC",
+        "name": "DAERA digital-dataset terms or OpenDataNI OGL where explicitly republished",
+        "url": "https://www.daera-ni.gov.uk/articles/download-digital-datasets",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "unclear",
+        "compatibilityNotes": "Review the download terms for each dataset and distinguish OpenDataNI copies from viewer-only layers."
+      },
+      "attribution": "DAERA/NIEA and named data partners.",
+      "updateCadence": "Dataset-specific.",
+      "historicalAvailability": "Retain accepted downloads and metadata.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Download/viewer-specific.",
+      "schemaAssumptions": [
+        "Surveyed habitat and species layers are not a complete record.",
+        "OSNI basemap rights do not transfer to derived exports."
+      ],
+      "knownGaps": [
+        "Natural Environment Map Viewer explicitly disclaims complete habitat/species coverage.",
+        "Does not supply complete trail geometry or access rights."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": true,
+        "criticality": "degraded"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "unclear",
+      "contact": "NIEA.GIS@daera-ni.gov.uk"
+    },
+    {
+      "id": "japan-gsi",
+      "name": "Geospatial Information Authority of Japan open geodata",
+      "owner": "Geospatial Information Authority of Japan",
+      "authorityTier": "official_agency",
+      "jurisdictionIds": [
+        "JP"
+      ],
+      "themes": [
+        "places",
+        "names",
+        "roads",
+        "trails"
+      ],
+      "homepage": "https://www.gsi.go.jp/ENGLISH/page_e30286.html",
+      "documentationUrl": "https://www.digital.go.jp/en/resources/open_data/public_data_license_v1.0",
+      "retrieval": {
+        "method": "download",
+        "format": [
+          "GML",
+          "GeoJSON",
+          "raster tiles",
+          "vector tiles"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "retain_raw"
+      },
+      "licence": {
+        "id": "JP-PDL-1.0-WITH-SURVEY-ACT",
+        "name": "Japan Public Data License 1.0 with GSI and Survey Act conditions",
+        "url": "https://www.digital.go.jp/en/resources/open_data/public_data_license_v1.0",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "allowed",
+        "compatibilityNotes": "Provide source and edited-content notice; inspect third-party annotations and whether Survey Act duplication/use approval applies."
+      },
+      "attribution": "Geospatial Information Authority of Japan; edited by Alpine-Passes where applicable.",
+      "updateCadence": "Product-specific.",
+      "historicalAvailability": "Product-specific; retain raw versioned snapshots.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Use published bulk products; tile/API terms and load limits apply.",
+      "schemaAssumptions": [
+        "Cartographic paths do not alone establish park permission or current safety.",
+        "Japanese source names must be preserved."
+      ],
+      "knownGaps": [
+        "Third-party exceptions and Survey Act approvals can apply.",
+        "Local routes and restrictions require prefectural/municipal sources."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": true,
+        "criticality": "degraded"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "allowed_with_attribution",
+      "contact": null
+    },
+    {
+      "id": "japan-gsi-gazetteer",
+      "name": "GSI Gazetteer of Japan",
+      "owner": "Geospatial Information Authority of Japan",
+      "authorityTier": "official_agency",
+      "jurisdictionIds": [
+        "JP"
+      ],
+      "themes": [
+        "places",
+        "names"
+      ],
+      "homepage": "https://www.gsi.go.jp/ENGLISH/pape_e300284.html",
+      "documentationUrl": "https://www.gsi.go.jp/ENGLISH/page_e30286.html",
+      "retrieval": {
+        "method": "download",
+        "format": [
+          "Gazetteer",
+          "CSV",
+          "PDF documentation"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "retain_raw"
+      },
+      "licence": {
+        "id": "JP-PDL-1.0",
+        "name": "Japan Public Data License 1.0",
+        "url": "https://www.digital.go.jp/en/resources/open_data/public_data_license_v1.0",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "allowed",
+        "compatibilityNotes": "Retain kanji, kana, standard romanization, feature type, coordinate, source, and edited-data notice."
+      },
+      "attribution": "Geospatial Information Authority of Japan; edited by Alpine-Passes where applicable.",
+      "updateCadence": "Periodic official editions.",
+      "historicalAvailability": "Retain each acquired edition.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Use published downloads.",
+      "schemaAssumptions": [
+        "Official names and romanization are separate localized-name assertions, not interchangeable display strings."
+      ],
+      "knownGaps": [
+        "Not every local or Indigenous name is represented.",
+        "Point coordinates are not full feature geometry."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": true,
+        "criticality": "degraded"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "allowed_with_attribution",
+      "contact": null
+    },
+    {
+      "id": "japan-mlit-national-land",
+      "name": "MLIT National Land Numerical Information",
+      "owner": "Ministry of Land, Infrastructure, Transport and Tourism",
+      "authorityTier": "official_agency",
+      "jurisdictionIds": [
+        "JP"
+      ],
+      "themes": [
+        "places",
+        "protected_areas",
+        "transport",
+        "roads"
+      ],
+      "homepage": "https://nlftp.mlit.go.jp/",
+      "documentationUrl": "https://nlftp.mlit.go.jp/ksj/other/agreement.html",
+      "retrieval": {
+        "method": "download",
+        "format": [
+          "GML",
+          "Shapefile",
+          "GeoJSON"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "retain_raw"
+      },
+      "licence": {
+        "id": "MIXED-PER-DATASET",
+        "name": "Dataset-specific terms, including CC BY 4.0 and legacy/custom conditions",
+        "url": "https://nlftp.mlit.go.jp/ksj/other/agreement.html",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "unclear",
+        "compatibilityNotes": "Never assign one portal-wide licence. Persist the exact indicator/product licence and third-party notices."
+      },
+      "attribution": "MLIT National Land Numerical Information; exact product attribution applies.",
+      "updateCadence": "Dataset-specific.",
+      "historicalAvailability": "Dataset-specific releases.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Bulk-download conditions apply.",
+      "schemaAssumptions": [
+        "Product schemas and licence generations differ."
+      ],
+      "knownGaps": [
+        "No single product supplies complete hiking routes or current access.",
+        "Legacy products can use non-standard terms."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": true,
+        "criticality": "degraded"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "unclear",
+      "contact": null
+    },
+    {
+      "id": "japan-moe-national-parks",
+      "name": "Japan Ministry of the Environment national parks information",
+      "owner": "Ministry of the Environment, Government of Japan",
+      "authorityTier": "official_agency",
+      "jurisdictionIds": [
+        "JP"
+      ],
+      "themes": [
+        "places",
+        "protected_areas",
+        "trails",
+        "access",
+        "closures",
+        "permits"
+      ],
+      "homepage": "https://www.env.go.jp/en/nature/nps/park/doc/index.html",
+      "documentationUrl": "https://www.env.go.jp/en/np/",
+      "retrieval": {
+        "method": "manual",
+        "format": [
+          "Web pages",
+          "PDF",
+          "park maps"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "manual_evidence_bundle"
+      },
+      "licence": {
+        "id": "JP-PDL-1.0-WITH-EXCEPTIONS",
+        "name": "Japan Public Data License 1.0 where applicable, with third-party and page-specific exceptions",
+        "url": "https://www.env.go.jp/en/mail.html",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "unclear",
+        "compatibilityNotes": "Approve specific datasets/pages. Park map imagery and third-party material may not be open data."
+      },
+      "attribution": "Ministry of the Environment, Government of Japan; exact page/product credit applies.",
+      "updateCadence": "Park and notice specific.",
+      "historicalAvailability": "No guaranteed structured archive; retain evidence snapshots where permitted.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "No approved bulk API; avoid scraping.",
+      "schemaAssumptions": [
+        "Official route maps, rules, closures, and difficulty systems are park-specific.",
+        "Off-trail travel can be prohibited."
+      ],
+      "knownGaps": [
+        "No single national route feed.",
+        "Detailed current information may be Japanese-only or managed locally."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": false,
+        "criticality": "blocking"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "unclear",
+      "contact": null
+    },
+    {
+      "id": "japan-jma-hazards",
+      "name": "Japan Meteorological Agency warnings and volcanic information",
+      "owner": "Japan Meteorological Agency",
+      "authorityTier": "official_agency",
+      "jurisdictionIds": [
+        "JP"
+      ],
+      "themes": [
+        "conditions",
+        "hazards",
+        "weather",
+        "volcanic",
+        "flood"
+      ],
+      "homepage": "https://www.jma.go.jp/jma/en/Activities/forecast.html",
+      "documentationUrl": "https://www.jma.go.jp/jma/en/mountaineers/mountaineers_index.html",
+      "retrieval": {
+        "method": "api",
+        "format": [
+          "XML",
+          "JSON",
+          "web bulletin"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "retain_content_hash_and_url"
+      },
+      "licence": {
+        "id": "JP-PDL-1.0-WITH-EXCEPTIONS",
+        "name": "Japan Public Data License 1.0 with JMA and third-party exceptions",
+        "url": "https://www.jma.go.jp/jma/en/copyright.html",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "allowed",
+        "compatibilityNotes": "Use exact feed terms, preserve warning semantics, and label transformed data."
+      },
+      "attribution": "Japan Meteorological Agency; transformed by Alpine-Passes where applicable.",
+      "updateCadence": "Near real time and bulletin-specific.",
+      "historicalAvailability": "Feed-specific; not all web products provide an archive.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Feed and service limits apply; cache server-side.",
+      "schemaAssumptions": [
+        "Warning levels and valid areas are official classifications that must not be normalized destructively.",
+        "Japanese detail can exceed English detail."
+      ],
+      "knownGaps": [
+        "No trail-specific safety guarantee.",
+        "Some detailed information is Japanese-only."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": false,
+        "criticality": "blocking"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "allowed_with_attribution",
+      "contact": null
+    },
+    {
+      "id": "norway-kartverket",
+      "name": "Kartverket open geodata and Geonorge services",
+      "owner": "Norwegian Mapping Authority",
+      "authorityTier": "official_agency",
+      "jurisdictionIds": [
+        "NO"
+      ],
+      "themes": [
+        "places",
+        "names",
+        "trails",
+        "roads"
+      ],
+      "homepage": "https://www.kartverket.no/en/api-and-data",
+      "documentationUrl": "https://www.kartverket.no/en/api-and-data/terms-of-use",
+      "retrieval": {
+        "method": "download",
+        "format": [
+          "GML",
+          "GeoJSON",
+          "SOSI",
+          "WFS",
+          "API"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "retain_raw"
+      },
+      "licence": {
+        "id": "NLOD-2.0-OR-PER-PRODUCT",
+        "name": "Norwegian Licence for Open Government Data or product-specific terms",
+        "url": "https://data.norge.no/nlod/en/2.0",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "allowed",
+        "compatibilityNotes": "Register exact products and source attribution; database rights and third-party sources can require additional notices."
+      },
+      "attribution": "Norwegian Mapping Authority; exact product attribution applies.",
+      "updateCadence": "Product-specific.",
+      "historicalAvailability": "Product-specific; retain raw accepted snapshots.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "API/service fair-use limits apply; use bulk downloads for ingestion.",
+      "schemaAssumptions": [
+        "Mapped hiking routes can have distributed custodianship.",
+        "Topography does not establish safe/legal travel."
+      ],
+      "knownGaps": [
+        "Local restrictions and conditions require separate sources.",
+        "Per-source terms vary."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": true,
+        "criticality": "degraded"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "allowed_with_attribution",
+      "contact": null
+    },
+    {
+      "id": "norway-naturbase",
+      "name": "Naturbase protected areas",
+      "owner": "Norwegian Environment Agency",
+      "authorityTier": "official_agency",
+      "jurisdictionIds": [
+        "NO-MAINLAND",
+        "SJ-SVALBARD",
+        "SJ-JAN-MAYEN"
+      ],
+      "themes": [
+        "protected_areas",
+        "access"
+      ],
+      "homepage": "https://kartkatalog.miljodirektoratet.no/dataset/Details/0?lang=en-us",
+      "documentationUrl": "https://data.norge.no/nlod/en/2.0",
+      "retrieval": {
+        "method": "download",
+        "format": [
+          "GML",
+          "GeoJSON",
+          "SOSI",
+          "WFS"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "retain_raw"
+      },
+      "licence": {
+        "id": "NLOD-2.0",
+        "name": "Norwegian Licence for Open Government Data 2.0",
+        "url": "https://data.norge.no/nlod/en/2.0",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "allowed",
+        "compatibilityNotes": "Preserve legal authority links; transformed former point features represented as small circles are not legal boundaries."
+      },
+      "attribution": "Norwegian Environment Agency, Naturbase.",
+      "updateCadence": "On-demand/current service updates.",
+      "historicalAvailability": "Retain accepted snapshots and metadata.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Use download services responsibly.",
+      "schemaAssumptions": [
+        "Protected-area geometry is not an access route.",
+        "Some legacy point-designations are cartographic approximations."
+      ],
+      "knownGaps": [
+        "Does not replace current regulations, closures, or Svalbard travel rules."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": true,
+        "criticality": "degraded"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "allowed_with_attribution",
+      "contact": null
+    },
+    {
+      "id": "norway-turrutebasen",
+      "name": "Norwegian national hiking-route database",
+      "owner": "Distributed municipalities, outdoor councils, associations, and Geonorge aggregation",
+      "authorityTier": "established_open_geodata",
+      "jurisdictionIds": [
+        "NO-MAINLAND"
+      ],
+      "themes": [
+        "trails",
+        "access"
+      ],
+      "homepage": "https://register.geonorge.no/mottaksordning-innsamling-geodata/rett-i-kartet-for-turruter",
+      "documentationUrl": "https://register.geonorge.no/mottaksordning-innsamling-geodata/rett-i-kartet-for-turruter",
+      "retrieval": {
+        "method": "manual",
+        "format": [
+          "Geonorge download",
+          "WFS",
+          "SOSI",
+          "GML"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "manual_evidence_bundle"
+      },
+      "licence": {
+        "id": "MIXED-NLOD-PER-CONTRIBUTOR",
+        "name": "Geonorge/NLOD and contributor-specific terms",
+        "url": "https://data.norge.no/nlod/en/2.0",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "unclear",
+        "compatibilityNotes": "Confirm the exact national product metadata and preserve contributing owner/custodian."
+      },
+      "attribution": "Geonorge and the contributing municipality, outdoor council, or route organisation.",
+      "updateCadence": "Contributor-specific.",
+      "historicalAvailability": "Retain accepted national snapshots.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Service-specific.",
+      "schemaAssumptions": [
+        "Ownership and maintenance authority are distributed.",
+        "Route presence does not guarantee waymarking, current condition, or winter suitability."
+      ],
+      "knownGaps": [
+        "Completeness and update cadence vary.",
+        "Svalbard and Jan Mayen require separate route/access research."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": true,
+        "criticality": "degraded"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "unclear",
+      "contact": null
+    },
+    {
+      "id": "norway-nve-hazards",
+      "name": "NVE avalanche forecasts and Regobs observations",
+      "owner": "Norwegian Water Resources and Energy Directorate",
+      "authorityTier": "official_agency",
+      "jurisdictionIds": [
+        "NO"
+      ],
+      "themes": [
+        "conditions",
+        "hazards",
+        "avalanche",
+        "flood",
+        "weather"
+      ],
+      "homepage": "https://api.nve.no/doc/",
+      "documentationUrl": "https://api.nve.no/doc/snoeskredvarsel/",
+      "retrieval": {
+        "method": "api",
+        "format": [
+          "JSON"
+        ],
+        "endpoint": "https://api.nve.no/",
+        "snapshotPolicy": "retain_content_hash_and_url"
+      },
+      "licence": {
+        "id": "NLOD-2.0",
+        "name": "Norwegian Licence for Open Government Data 2.0",
+        "url": "https://data.norge.no/nlod/en/2.0",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "allowed",
+        "compatibilityNotes": "Keep official forecasts distinct from community Regobs observations and label both clearly."
+      },
+      "attribution": "Norwegian Water Resources and Energy Directorate (NVE); observation contributor where applicable.",
+      "updateCadence": "Near real time and bulletin-specific.",
+      "historicalAvailability": "API-specific historical ranges.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Published API limits and fair use apply.",
+      "schemaAssumptions": [
+        "Regobs reports are community observations provided as-is.",
+        "Official warning areas and validity windows must be retained."
+      ],
+      "knownGaps": [
+        "Observation absence is not evidence of safety.",
+        "Forecasts do not replace local judgement."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": false,
+        "criticality": "blocking"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "allowed_with_attribution",
+      "contact": null
+    },
+    {
+      "id": "norway-npra-datex",
+      "name": "Norwegian Public Roads Administration DATEX II feeds",
+      "owner": "Norwegian Public Roads Administration",
+      "authorityTier": "official_agency",
+      "jurisdictionIds": [
+        "NO-MAINLAND"
+      ],
+      "themes": [
+        "roads",
+        "conditions",
+        "closures",
+        "weather"
+      ],
+      "homepage": "https://www.vegvesen.no/en/fag/technology/open-data/a-selection-of-open-data/what-is-datex/",
+      "documentationUrl": "https://www.vegvesen.no/en/fag/technology/open-data/",
+      "retrieval": {
+        "method": "api",
+        "format": [
+          "DATEX II XML"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "retain_content_hash_and_url"
+      },
+      "licence": {
+        "id": "NLOD-2.0",
+        "name": "Norwegian Licence for Open Government Data 2.0",
+        "url": "https://data.norge.no/nlod/en/2.0",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "allowed",
+        "compatibilityNotes": "Registration/access requirements and feed-specific conditions apply."
+      },
+      "attribution": "Norwegian Public Roads Administration.",
+      "updateCadence": "Near real time.",
+      "historicalAvailability": "Feed-specific; no complete archive assumed.",
+      "authentication": {
+        "required": true,
+        "type": "Feed registration",
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Feed-specific service limits.",
+      "schemaAssumptions": [
+        "Events have validity intervals and affected-location uncertainty."
+      ],
+      "knownGaps": [
+        "Private/local roads and unreported field conditions can be absent.",
+        "Not a permanent scenic-road classification."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": false,
+        "criticality": "degraded"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "allowed_with_attribution",
+      "contact": null
+    },
+    {
+      "id": "switzerland-swisstopo-ogd",
+      "name": "swisstopo Open Government Data",
+      "owner": "Federal Office of Topography swisstopo",
+      "authorityTier": "official_agency",
+      "jurisdictionIds": [
+        "CH"
+      ],
+      "themes": [
+        "places",
+        "names",
+        "roads",
+        "trails"
+      ],
+      "homepage": "https://www.swisstopo.admin.ch/en/free-geodata-ogd",
+      "documentationUrl": "https://www.geo.admin.ch/en/general-terms-of-use-fsdi",
+      "retrieval": {
+        "method": "download",
+        "format": [
+          "GeoPackage",
+          "GDB",
+          "GeoTIFF",
+          "API",
+          "vector tiles"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "retain_raw"
+      },
+      "licence": {
+        "id": "CH-OGD",
+        "name": "Swiss federal Open Government Data terms",
+        "url": "https://www.geo.admin.ch/en/general-terms-of-use-fsdi",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "allowed",
+        "compatibilityNotes": "Per-dataset legal restrictions and FSDI fair-use conditions remain. Prefer bulk downloads for ingestion."
+      },
+      "attribution": "Federal Office of Topography swisstopo; exact dataset source citation applies.",
+      "updateCadence": "Product-specific.",
+      "historicalAvailability": "Product-specific; retain editions.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "FSDI fair-use and API limits apply.",
+      "schemaAssumptions": [
+        "Topography and path depiction do not establish legal/current access."
+      ],
+      "knownGaps": [
+        "Cantonal restrictions and conditions require separate sources.",
+        "Cross-border products may include Liechtenstein."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": true,
+        "criticality": "degraded"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "allowed_with_attribution",
+      "contact": null
+    },
+    {
+      "id": "switzerland-swissnames3d",
+      "name": "swissNAMES3D",
+      "owner": "Federal Office of Topography swisstopo",
+      "authorityTier": "official_agency",
+      "jurisdictionIds": [
+        "CH"
+      ],
+      "themes": [
+        "places",
+        "names"
+      ],
+      "homepage": "https://www.swisstopo.admin.ch/en/landscape-model-swissnames3d",
+      "documentationUrl": "https://www.swisstopo.admin.ch/en/free-geodata-ogd",
+      "retrieval": {
+        "method": "download",
+        "format": [
+          "File Geodatabase",
+          "GeoPackage"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "retain_raw"
+      },
+      "licence": {
+        "id": "CH-OGD",
+        "name": "Swiss federal Open Government Data terms",
+        "url": "https://www.geo.admin.ch/en/general-terms-of-use-fsdi",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "allowed",
+        "compatibilityNotes": "Preserve multilingual forms and geometry type; filter Liechtenstein by authoritative target boundary."
+      },
+      "attribution": "Federal Office of Topography swisstopo, swissNAMES3D.",
+      "updateCadence": "Annual edition.",
+      "historicalAvailability": "Versioned yearly editions.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Use bulk edition downloads.",
+      "schemaAssumptions": [
+        "Point, line, and polygon name geometries must be preserved.",
+        "Language and official-name status are separate fields."
+      ],
+      "knownGaps": [
+        "Contains Liechtenstein, which is outside requested scope.",
+        "Not a routes/access source."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": true,
+        "criticality": "degraded"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "allowed_with_attribution",
+      "contact": null
+    },
+    {
+      "id": "switzerland-mobility-routes",
+      "name": "SwitzerlandMobility national route geometry",
+      "owner": "Federal Roads Office, cantons, and SwitzerlandMobility Foundation",
+      "authorityTier": "official_agency",
+      "jurisdictionIds": [
+        "CH"
+      ],
+      "themes": [
+        "trails",
+        "access",
+        "transport",
+        "accessibility"
+      ],
+      "homepage": "https://schweizmobil.ch/en/copyright",
+      "documentationUrl": "https://schweizmobil.ch/en/copyright",
+      "retrieval": {
+        "method": "download",
+        "format": [
+          "Open geodata route geometry"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "retain_raw"
+      },
+      "licence": {
+        "id": "CH-OGD-ROUTE-GEOMETRY",
+        "name": "Swiss Open Government Data terms for designated route geodata",
+        "url": "https://schweizmobil.ch/en/copyright",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "allowed",
+        "compatibilityNotes": "Open route geometry does not make route descriptions, photographs, maps, or partner point data open. Register each content class separately."
+      },
+      "attribution": "Federal Roads Office, canton, SwitzerlandMobility Foundation.",
+      "updateCadence": "Route-network release specific.",
+      "historicalAvailability": "Retain accepted releases.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Use approved open-data downloads, not website scraping.",
+      "schemaAssumptions": [
+        "Route identity and direction must be retained.",
+        "Current closures and operating transport require separate feeds."
+      ],
+      "knownGaps": [
+        "Point data and most editorial content have different/proprietary rights.",
+        "Local unpromoted paths are outside the national route collection."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": true,
+        "criticality": "degraded"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "allowed_with_attribution",
+      "contact": null
+    },
+    {
+      "id": "switzerland-slf-avalanche",
+      "name": "SLF avalanche bulletin and snow data service",
+      "owner": "WSL Institute for Snow and Avalanche Research SLF",
+      "authorityTier": "official_agency",
+      "jurisdictionIds": [
+        "CH"
+      ],
+      "themes": [
+        "conditions",
+        "hazards",
+        "avalanche",
+        "weather"
+      ],
+      "homepage": "https://www.slf.ch/en/services-and-products/slf-data-service/",
+      "documentationUrl": "https://www.slf.ch/en/avalanche-bulletin-and-snow-situation/",
+      "retrieval": {
+        "method": "api",
+        "format": [
+          "CAAML",
+          "GeoJSON"
+        ],
+        "endpoint": "https://aws.slf.ch/api/bulletin/caaml",
+        "snapshotPolicy": "retain_content_hash_and_url"
+      },
+      "licence": {
+        "id": "CC-BY-4.0",
+        "name": "Creative Commons Attribution 4.0",
+        "url": "https://creativecommons.org/licenses/by/4.0/",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "allowed",
+        "compatibilityNotes": "Preserve issue/validity time, language, warning region, danger level, and source; label transformations."
+      },
+      "attribution": "WSL Institute for Snow and Avalanche Research SLF.",
+      "updateCadence": "Bulletin-specific, typically daily or more often in season.",
+      "historicalAvailability": "Service-specific archives.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Published data-service limits and responsible caching apply.",
+      "schemaAssumptions": [
+        "Avalanche danger is spatially and temporally bounded.",
+        "Expired bulletins must never be treated as current."
+      ],
+      "knownGaps": [
+        "Does not replace local assessment.",
+        "Coverage and issuance frequency vary with season."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": false,
+        "criticality": "blocking"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "allowed_with_attribution",
+      "contact": null
+    },
+    {
+      "id": "switzerland-public-transport-gtfs",
+      "name": "Swiss public-transport timetable GTFS",
+      "owner": "Swiss public transport open-data platform and contributing operators",
+      "authorityTier": "official_portal",
+      "jurisdictionIds": [
+        "CH"
+      ],
+      "themes": [
+        "transport",
+        "accessibility"
+      ],
+      "homepage": "https://opentransportdata.swiss/en/cookbook/timetable-cookbook/gtfs/",
+      "documentationUrl": "https://opentransportdata.swiss/en/limits-and-costs/",
+      "retrieval": {
+        "method": "download",
+        "format": [
+          "GTFS"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "retain_raw"
+      },
+      "licence": {
+        "id": "CH-OGD-PER-DATASET",
+        "name": "Swiss public transport open-data terms",
+        "url": "https://opentransportdata.swiss/en/terms-of-use/",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "allowed",
+        "compatibilityNotes": "Check current dataset terms and operator attributions; identifiers can change."
+      },
+      "attribution": "Open data platform mobility Switzerland and contributing transport operators.",
+      "updateCadence": "Regular timetable exports.",
+      "historicalAvailability": "Retain imported schedules with service dates.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Published limits and costs apply.",
+      "schemaAssumptions": [
+        "Includes planned public transport and cable-lift services where supplied.",
+        "Current GTFS may omit shapes; do not invent route geometry.",
+        "IDs are not guaranteed stable across exports."
+      ],
+      "knownGaps": [
+        "Disruptions and real-time operation require companion feeds.",
+        "Shape and accessibility completeness vary."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": false,
+        "criticality": "degraded"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "allowed_with_attribution",
+      "contact": null
+    },
+    {
+      "id": "protected-planet-blocked",
+      "name": "Protected Planet / World Database on Protected Areas",
+      "owner": "UNEP-WCMC and IUCN",
+      "authorityTier": "established_open_geodata",
+      "jurisdictionIds": [
+        "EU",
+        "GB",
+        "US",
+        "CA",
+        "JP",
+        "NO",
+        "CH"
+      ],
+      "themes": [
+        "protected_areas"
+      ],
+      "homepage": "https://www.protectedplanet.net/",
+      "documentationUrl": "https://www.protectedplanet.net/en/legal",
+      "retrieval": {
+        "method": "manual",
+        "format": [
+          "Not approved for ingestion"
+        ],
+        "endpoint": null,
+        "snapshotPolicy": "manual_evidence_bundle"
+      },
+      "licence": {
+        "id": "PROTECTED-PLANET-RESTRICTED",
+        "name": "Protected Planet legal terms",
+        "url": "https://www.protectedplanet.net/en/legal",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "prohibited",
+        "compatibilityNotes": "Commercial use and redistribution/derivative use are restricted without permission. Use national open sources or obtain a separate agreement."
+      },
+      "attribution": "UNEP-WCMC and IUCN, only if use is separately authorised.",
+      "updateCadence": "Monthly/periodic service releases.",
+      "historicalAvailability": "Not applicable while blocked.",
+      "authentication": {
+        "required": true,
+        "type": "Permission or licensed access",
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Not approved for application ingestion.",
+      "schemaAssumptions": [
+        "Catalog availability does not grant product redistribution rights."
+      ],
+      "knownGaps": [
+        "Blocked for redistributable commercial delivery absent permission.",
+        "National source currentness and legal authority should take precedence."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": false,
+        "criticality": "blocking"
+      },
+      "lastSuccessfulRefresh": null,
+      "redistribution": "prohibited",
+      "contact": null
+    }
+  ]
+}

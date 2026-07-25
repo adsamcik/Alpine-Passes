@@ -1,0 +1,833 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://itinera.example/schemas/nature-domain.schema.json",
+  "title": "Itinera canonical nature-travel entity",
+  "description": "Readable canonical authoring and interchange model. Generated delivery packages may compact this model but must retain a reversible schema/version mapping.",
+  "oneOf": [
+    { "$ref": "#/$defs/place" },
+    { "$ref": "#/$defs/naturalFeature" },
+    { "$ref": "#/$defs/protectedArea" },
+    { "$ref": "#/$defs/trailRoute" },
+    { "$ref": "#/$defs/routeStage" },
+    { "$ref": "#/$defs/routeVariant" },
+    { "$ref": "#/$defs/trailSegment" },
+    { "$ref": "#/$defs/accessPoint" },
+    { "$ref": "#/$defs/transportConnection" },
+    { "$ref": "#/$defs/amenity" },
+    { "$ref": "#/$defs/condition" },
+    { "$ref": "#/$defs/restriction" },
+    { "$ref": "#/$defs/permitRequirement" },
+    { "$ref": "#/$defs/hazard" },
+    { "$ref": "#/$defs/openingSchedule" },
+    { "$ref": "#/$defs/price" },
+    { "$ref": "#/$defs/mediaAsset" },
+    { "$ref": "#/$defs/localizedNameEntity" },
+    { "$ref": "#/$defs/sourceEntity" },
+    { "$ref": "#/$defs/sourceAssertionEntity" },
+    { "$ref": "#/$defs/jurisdiction" },
+    { "$ref": "#/$defs/geometryEntity" },
+    { "$ref": "#/$defs/qualityAssessmentEntity" }
+  ],
+  "$defs": {
+    "entityType": {
+      "enum": [
+        "Place",
+        "NaturalFeature",
+        "ProtectedArea",
+        "TrailRoute",
+        "RouteStage",
+        "RouteVariant",
+        "TrailSegment",
+        "AccessPoint",
+        "TransportConnection",
+        "Amenity",
+        "Condition",
+        "Restriction",
+        "PermitRequirement",
+        "Hazard",
+        "OpeningSchedule",
+        "Price",
+        "MediaAsset",
+        "LocalizedName",
+        "Source",
+        "SourceAssertion",
+        "Jurisdiction",
+        "Geometry",
+        "QualityAssessment"
+      ]
+    },
+    "localizedName": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["language", "value", "kind"],
+      "properties": {
+        "language": {
+          "type": "string",
+          "description": "BCP 47 tag, or und when the source does not identify a language."
+        },
+        "script": { "type": "string" },
+        "value": { "type": "string", "minLength": 1 },
+        "kind": {
+          "enum": ["primary", "official", "alternate", "translated", "romanized", "historic"]
+        },
+        "sourceAssertionIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        }
+      }
+    },
+    "sourceAssertion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceId",
+        "fieldPath",
+        "evidenceKind",
+        "verificationStatus",
+        "confidence"
+      ],
+      "properties": {
+        "id": { "type": "string" },
+        "sourceId": { "type": "string", "minLength": 1 },
+        "sourceRecordId": { "type": ["string", "null"] },
+        "fieldPath": {
+          "type": "string",
+          "pattern": "^/",
+          "description": "JSON Pointer identifying the supported field."
+        },
+        "value": {},
+        "originalClassification": {},
+        "evidenceKind": {
+          "enum": [
+            "verified_official",
+            "structured_community",
+            "maintainer_curated",
+            "third_party_claim",
+            "derived",
+            "inference",
+            "estimate",
+            "unknown",
+            "stale",
+            "needs_physical_verification"
+          ]
+        },
+        "verificationStatus": {
+          "enum": ["verified", "partially_verified", "unverified", "conflicting", "expired"]
+        },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "observedAt": { "type": ["string", "null"], "format": "date-time" },
+        "validFrom": { "type": ["string", "null"], "format": "date-time" },
+        "validUntil": { "type": ["string", "null"], "format": "date-time" },
+        "retrievedAt": { "type": ["string", "null"], "format": "date-time" },
+        "notes": { "type": "string" }
+      }
+    },
+    "quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["confidence", "verificationStatus", "assessedAt", "flags"],
+      "properties": {
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "verificationStatus": {
+          "enum": ["verified", "partially_verified", "unverified", "conflicting", "expired"]
+        },
+        "assessedAt": { "type": "string", "format": "date" },
+        "geometryConfidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "accessConfidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "freshness": {
+          "enum": ["current", "aging", "stale", "expired", "unknown"]
+        },
+        "flags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "sensitivity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action"],
+      "properties": {
+        "action": { "enum": ["publish", "coarsen", "redact", "exclude"] },
+        "reason": { "type": "string" },
+        "coarseningRadiusMeters": { "type": "number", "minimum": 0 },
+        "authoritySourceId": { "type": "string" },
+        "publicGeometry": {
+          "$ref": "#/$defs/geometry",
+          "description": "Explicit delivery-safe geometry. The build replaces precise geometry with this value for coarsen records; it is never inferred."
+        }
+      }
+    },
+    "classification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["system", "original", "normalized"],
+      "properties": {
+        "system": { "type": "string" },
+        "original": { "type": "string" },
+        "normalized": { "type": "string" },
+        "sourceAssertionId": { "type": "string" }
+      }
+    },
+    "geometry": {
+      "oneOf": [
+        { "$ref": "#/$defs/point" },
+        { "$ref": "#/$defs/multiPoint" },
+        { "$ref": "#/$defs/lineString" },
+        { "$ref": "#/$defs/multiLineString" },
+        { "$ref": "#/$defs/polygon" },
+        { "$ref": "#/$defs/multiPolygon" }
+      ]
+    },
+    "position": {
+      "type": "array",
+      "prefixItems": [
+        { "type": "number", "minimum": -180, "maximum": 180 },
+        { "type": "number", "minimum": -90, "maximum": 90 }
+      ],
+      "minItems": 2,
+      "maxItems": 3
+    },
+    "linearRing": {
+      "type": "array",
+      "minItems": 4,
+      "items": { "$ref": "#/$defs/position" }
+    },
+    "point": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "coordinates"],
+      "properties": {
+        "type": { "const": "Point" },
+        "coordinates": { "$ref": "#/$defs/position" }
+      }
+    },
+    "multiPoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "coordinates"],
+      "properties": {
+        "type": { "const": "MultiPoint" },
+        "coordinates": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/position" },
+          "minItems": 1
+        }
+      }
+    },
+    "lineString": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "coordinates"],
+      "properties": {
+        "type": { "const": "LineString" },
+        "coordinates": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/position" },
+          "minItems": 2
+        }
+      }
+    },
+    "multiLineString": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "coordinates"],
+      "properties": {
+        "type": { "const": "MultiLineString" },
+        "coordinates": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/position" },
+            "minItems": 2
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "polygon": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "coordinates"],
+      "properties": {
+        "type": { "const": "Polygon" },
+        "coordinates": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/linearRing" },
+          "minItems": 1
+        }
+      }
+    },
+    "multiPolygon": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "coordinates"],
+      "properties": {
+        "type": { "const": "MultiPolygon" },
+        "coordinates": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/linearRing" },
+            "minItems": 1
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "common": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "id",
+        "entityType",
+        "jurisdictionIds",
+        "names",
+        "geometry",
+        "sourceAssertions",
+        "quality",
+        "sensitivity"
+      ],
+      "properties": {
+        "schemaVersion": { "const": "1.0.0" },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9:._-]{2,159}$"
+        },
+        "entityType": { "$ref": "#/$defs/entityType" },
+        "jurisdictionIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "names": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/localizedName" },
+          "minItems": 1
+        },
+        "geometry": { "$ref": "#/$defs/geometry" },
+        "classifications": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/classification" }
+        },
+        "summary": { "type": "string" },
+        "sourceAssertions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/sourceAssertion" },
+          "minItems": 1
+        },
+        "quality": { "$ref": "#/$defs/quality" },
+        "sensitivity": { "$ref": "#/$defs/sensitivity" },
+        "originalSourceIds": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["sourceId", "recordId"],
+            "properties": {
+              "sourceId": { "type": "string" },
+              "recordId": { "type": "string" }
+            }
+          }
+        },
+        "redirectFromIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        }
+      }
+    },
+    "place": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        {
+          "properties": {
+            "entityType": { "const": "Place" }
+          }
+        }
+      ]
+    },
+    "naturalFeature": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        {
+          "properties": {
+            "entityType": { "const": "NaturalFeature" }
+          }
+        }
+      ]
+    },
+    "protectedArea": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        {
+          "properties": {
+            "entityType": { "const": "ProtectedArea" },
+            "designation": { "type": "string" },
+            "iucnCategory": { "type": ["string", "null"] }
+          }
+        }
+      ]
+    },
+    "trailRoute": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        {
+          "type": "object",
+          "required": [
+            "routeNature",
+            "geometryCompleteness",
+            "navigationSuitability",
+            "activities",
+            "journeyShape",
+            "access"
+          ],
+          "properties": {
+            "entityType": { "const": "TrailRoute" },
+            "geometry": {
+              "oneOf": [
+                { "$ref": "#/$defs/lineString" },
+                { "$ref": "#/$defs/multiLineString" }
+              ]
+            },
+            "routeNature": { "enum": ["established", "generated", "scenic_drive"] },
+            "geometryCompleteness": { "enum": ["complete", "partial", "overview_only"] },
+            "navigationSuitability": { "type": "boolean" },
+            "activities": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "walking",
+                  "hiking",
+                  "scrambling",
+                  "via_ferrata",
+                  "snowshoe",
+                  "winter_walking",
+                  "scenic_driving",
+                  "accessible_nature"
+                ]
+              },
+              "minItems": 1,
+              "uniqueItems": true
+            },
+            "journeyShape": {
+              "enum": ["loop", "out_and_back", "point_to_point", "network", "stage"]
+            },
+            "direction": { "enum": ["both", "forward", "reverse", "one_way"] },
+            "stageIds": { "type": "array", "items": { "type": "string" } },
+            "variantIds": { "type": "array", "items": { "type": "string" } },
+            "segmentIds": { "type": "array", "items": { "type": "string" } },
+            "accessPointIds": { "type": "array", "items": { "type": "string" } },
+            "transportConnectionIds": { "type": "array", "items": { "type": "string" } },
+            "restrictionRefs": { "type": "array", "items": { "type": "string" } },
+            "hazardRefs": { "type": "array", "items": { "type": "string" } },
+            "metrics": {
+              "type": "object",
+              "properties": {
+                "distanceMeters": { "type": "number", "minimum": 0 },
+                "ascentMeters": { "type": "number", "minimum": 0 },
+                "descentMeters": { "type": "number", "minimum": 0 },
+                "typicalDurationMinutes": { "type": "number", "minimum": 0 },
+                "maximumGradePercent": { "type": "number", "minimum": 0 },
+                "sustainedGradePercent": { "type": "number", "minimum": 0 }
+              }
+            },
+            "difficulty": {
+              "type": "object",
+              "required": ["originalScale", "originalGrade"],
+              "properties": {
+                "originalScale": { "type": "string" },
+                "originalGrade": { "type": "string" },
+                "normalizedBand": {
+                  "enum": ["easy", "moderate", "strenuous", "technical", "expert", "unknown"]
+                },
+                "normalizationCaveat": { "type": "string" }
+              }
+            },
+            "access": {
+              "type": "object",
+              "required": ["legal", "modes"],
+              "properties": {
+                "legal": { "enum": ["legal", "restricted", "private", "unknown"] },
+                "modes": {
+                  "type": "array",
+                  "items": {
+                    "enum": ["car", "foot", "hiking", "transit", "ferry", "cable_transport", "bicycle"]
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "routeStage": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        {
+          "properties": {
+            "entityType": { "const": "RouteStage" },
+            "parentRouteId": { "type": "string" },
+            "sequence": { "type": "integer", "minimum": 1 }
+          },
+          "required": ["parentRouteId", "sequence"]
+        }
+      ]
+    },
+    "routeVariant": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        {
+          "properties": {
+            "entityType": { "const": "RouteVariant" },
+            "parentRouteId": { "type": "string" },
+            "variantKind": {
+              "enum": ["alternative", "approach", "excursion", "seasonal", "accessible", "emergency"]
+            }
+          },
+          "required": ["parentRouteId", "variantKind"]
+        }
+      ]
+    },
+    "trailSegment": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        {
+          "properties": {
+            "entityType": { "const": "TrailSegment" },
+            "geometry": {
+              "oneOf": [
+                { "$ref": "#/$defs/lineString" },
+                { "$ref": "#/$defs/multiLineString" }
+              ]
+            },
+            "surface": { "type": "string" },
+            "trailClass": { "type": "string" },
+            "visibility": { "type": "string" }
+          }
+        }
+      ]
+    },
+    "accessPoint": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        {
+          "type": "object",
+          "required": ["accessModes", "legalAccess"],
+          "properties": {
+            "entityType": { "const": "AccessPoint" },
+            "geometry": { "$ref": "#/$defs/point" },
+            "accessModes": {
+              "type": "array",
+              "items": {
+                "enum": ["car", "foot", "hiking", "transit", "ferry", "cable_transport", "bicycle"]
+              },
+              "minItems": 1,
+              "uniqueItems": true
+            },
+            "legalAccess": { "enum": ["legal", "restricted", "private", "unknown"] },
+            "parking": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "stoppingAllowed": { "type": ["boolean", "null"] },
+                "spaces": { "type": ["integer", "null"], "minimum": 0 },
+                "opensLocal": { "type": ["string", "null"] },
+                "closesLocal": { "type": ["string", "null"] },
+                "fee": { "type": ["boolean", "null"] }
+              }
+            },
+            "conditionRefs": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      ]
+    },
+    "transportConnection": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        {
+          "type": "object",
+          "required": ["transportMode", "endpointIds"],
+          "properties": {
+            "entityType": { "const": "TransportConnection" },
+            "transportMode": {
+              "enum": [
+                "ferry",
+                "bus",
+                "rail",
+                "tram",
+                "cable_car",
+                "gondola",
+                "funicular",
+                "cog_railway",
+                "boat",
+                "pickup"
+              ]
+            },
+            "endpointIds": {
+              "type": "array",
+              "items": { "type": "string" },
+              "minItems": 2
+            },
+            "direction": { "enum": ["outbound", "return", "both"] },
+            "typicalDurationMinutes": { "type": "number", "minimum": 0 },
+            "schedule": {
+              "type": "object",
+              "properties": {
+                "departuresLocal": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                },
+                "lastDepartureLocal": { "type": ["string", "null"] },
+                "freshness": { "enum": ["current", "aging", "stale", "expired", "unknown"] },
+                "validFrom": { "type": ["string", "null"], "format": "date" },
+                "validUntil": { "type": ["string", "null"], "format": "date" }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "amenity": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        {
+          "properties": {
+            "entityType": { "const": "Amenity" },
+            "amenityKind": {
+              "enum": [
+                "visitor_centre",
+                "ranger_station",
+                "hut",
+                "bothy",
+                "shelter",
+                "emergency_shelter",
+                "campsite",
+                "backcountry_campsite",
+                "bivouac",
+                "toilet",
+                "drinking_water",
+                "food",
+                "fuel",
+                "charging",
+                "picnic",
+                "waste",
+                "viewpoint_platform",
+                "tower",
+                "bridge",
+                "boardwalk"
+              ]
+            }
+          },
+          "required": ["amenityKind"]
+        }
+      ]
+    },
+    "condition": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        {
+          "properties": {
+            "entityType": { "const": "Condition" },
+            "conditionKind": {
+              "enum": [
+                "road_closure",
+                "trail_closure",
+                "fire",
+                "avalanche",
+                "flood",
+                "volcanic",
+                "wildlife",
+                "transport_operation",
+                "seasonal_gate",
+                "permit_availability",
+                "weather",
+                "tide",
+                "construction",
+                "emergency"
+              ]
+            },
+            "state": { "enum": ["live", "scheduled", "seasonal", "inferred", "unknown", "expired"] },
+            "effectiveFrom": { "type": ["string", "null"], "format": "date-time" },
+            "effectiveUntil": { "type": ["string", "null"], "format": "date-time" },
+            "checkedAt": { "type": ["string", "null"], "format": "date-time" }
+          },
+          "required": ["conditionKind", "state"]
+        }
+      ]
+    },
+    "restriction": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        {
+          "properties": {
+            "entityType": { "const": "Restriction" },
+            "restrictionKind": {
+              "enum": [
+                "mode",
+                "seasonal",
+                "time_window",
+                "dog",
+                "one_way",
+                "private_land",
+                "permit",
+                "quota",
+                "environmental",
+                "safety"
+              ]
+            },
+            "authoritySourceId": { "type": "string" }
+          },
+          "required": ["restrictionKind", "authoritySourceId"]
+        }
+      ]
+    },
+    "permitRequirement": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        {
+          "properties": {
+            "entityType": { "const": "PermitRequirement" },
+            "reservationRequired": { "type": ["boolean", "null"] },
+            "quotaApplies": { "type": ["boolean", "null"] },
+            "bookingUrl": { "type": ["string", "null"], "format": "uri" }
+          }
+        }
+      ]
+    },
+    "hazard": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        {
+          "properties": {
+            "entityType": { "const": "Hazard" },
+            "hazardKind": {
+              "enum": [
+                "exposure",
+                "scrambling",
+                "assisted",
+                "river_crossing",
+                "snow",
+                "glacier",
+                "rockfall",
+                "tide",
+                "wildlife",
+                "heat",
+                "remoteness",
+                "navigation"
+              ]
+            },
+            "severity": { "enum": ["low", "moderate", "high", "extreme", "unknown"] }
+          },
+          "required": ["hazardKind", "severity"]
+        }
+      ]
+    },
+    "openingSchedule": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        {
+          "properties": {
+            "entityType": { "const": "OpeningSchedule" },
+            "timezone": { "type": "string" },
+            "rule": { "type": "string" },
+            "scheduleKind": { "enum": ["live", "scheduled", "seasonal", "estimated", "unknown"] }
+          },
+          "required": ["scheduleKind"]
+        }
+      ]
+    },
+    "price": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        {
+          "properties": {
+            "entityType": { "const": "Price" },
+            "amount": { "type": ["number", "null"], "minimum": 0 },
+            "currency": { "type": ["string", "null"], "pattern": "^[A-Z]{3}$" },
+            "priceKind": { "enum": ["free", "fixed", "from", "range", "unknown"] }
+          },
+          "required": ["priceKind"]
+        }
+      ]
+    },
+    "mediaAsset": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        {
+          "properties": {
+            "entityType": { "const": "MediaAsset" },
+            "url": { "type": "string", "format": "uri" },
+            "mediaType": { "enum": ["image", "video", "audio", "document"] },
+            "licenceId": { "type": "string" },
+            "attribution": { "type": "string" }
+          },
+          "required": ["url", "mediaType", "licenceId", "attribution"]
+        }
+      ]
+    },
+    "localizedNameEntity": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        { "properties": { "entityType": { "const": "LocalizedName" } } }
+      ]
+    },
+    "sourceEntity": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        { "properties": { "entityType": { "const": "Source" } } }
+      ]
+    },
+    "sourceAssertionEntity": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        { "properties": { "entityType": { "const": "SourceAssertion" } } }
+      ]
+    },
+    "jurisdiction": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        {
+          "properties": {
+            "entityType": { "const": "Jurisdiction" },
+            "jurisdictionKind": {
+              "enum": [
+                "supranational",
+                "country",
+                "nation",
+                "state",
+                "province",
+                "territory",
+                "prefecture",
+                "district",
+                "tribal",
+                "indigenous",
+                "municipal",
+                "protected_area_authority",
+                "unusual"
+              ]
+            },
+            "parentJurisdictionId": { "type": ["string", "null"] }
+          },
+          "required": ["jurisdictionKind"]
+        }
+      ]
+    },
+    "geometryEntity": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        { "properties": { "entityType": { "const": "Geometry" } } }
+      ]
+    },
+    "qualityAssessmentEntity": {
+      "allOf": [
+        { "$ref": "#/$defs/common" },
+        { "properties": { "entityType": { "const": "QualityAssessment" } } }
+      ]
+    }
+  }
+}
+

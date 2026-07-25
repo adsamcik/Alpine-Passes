@@ -1,0 +1,185 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://itinera.example/schemas/source-registry.schema.json",
+  "title": "Itinera data-source registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "sources"],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/source" }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "owner",
+        "authorityTier",
+        "jurisdictionIds",
+        "themes",
+        "homepage",
+        "retrieval",
+        "licence",
+        "updateCadence",
+        "authentication",
+        "rateLimits",
+        "schemaAssumptions",
+        "knownGaps",
+        "failureBehaviour",
+        "lastSuccessfulRefresh",
+        "redistribution"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]+$"
+        },
+        "name": { "type": "string", "minLength": 1 },
+        "owner": { "type": "string", "minLength": 1 },
+        "authorityTier": {
+          "enum": [
+            "official_law",
+            "official_agency",
+            "official_portal",
+            "openstreetmap",
+            "established_open_geodata",
+            "structured_reference",
+            "official_tourism",
+            "trail_organisation",
+            "manual_curation"
+          ]
+        },
+        "jurisdictionIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "themes": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "places",
+              "names",
+              "protected_areas",
+              "trails",
+              "access",
+              "transport",
+              "roads",
+              "conditions",
+              "closures",
+              "hazards",
+              "weather",
+              "avalanche",
+              "fire",
+              "flood",
+              "volcanic",
+              "tide",
+              "permits",
+              "accessibility",
+              "media",
+              "prices"
+            ]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "homepage": { "type": "string", "format": "uri" },
+        "documentationUrl": { "type": ["string", "null"], "format": "uri" },
+        "retrieval": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["method", "format", "snapshotPolicy"],
+          "properties": {
+            "method": {
+              "enum": [
+                "download",
+                "api",
+                "ogc_api",
+                "wfs",
+                "arcgis_rest",
+                "sparql",
+                "repository",
+                "manual"
+              ]
+            },
+            "format": {
+              "type": "array",
+              "items": { "type": "string" },
+              "minItems": 1
+            },
+            "endpoint": { "type": ["string", "null"], "format": "uri" },
+            "snapshotPolicy": {
+              "enum": [
+                "retain_raw",
+                "retain_content_hash_and_url",
+                "reference_versioned_release",
+                "manual_evidence_bundle"
+              ]
+            }
+          }
+        },
+        "licence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "name", "url", "attributionRequired", "shareAlike", "commercialUse"],
+          "properties": {
+            "id": { "type": "string" },
+            "name": { "type": "string" },
+            "url": { "type": "string", "format": "uri" },
+            "attributionRequired": { "type": "boolean" },
+            "shareAlike": { "type": "boolean" },
+            "commercialUse": { "enum": ["allowed", "prohibited", "unclear"] },
+            "compatibilityNotes": { "type": "string" }
+          }
+        },
+        "attribution": { "type": "string" },
+        "updateCadence": { "type": "string" },
+        "historicalAvailability": { "type": "string" },
+        "authentication": {
+          "type": "object",
+          "required": ["required", "secretBrowserSafe"],
+          "properties": {
+            "required": { "type": "boolean" },
+            "type": { "type": ["string", "null"] },
+            "secretBrowserSafe": { "const": false }
+          }
+        },
+        "rateLimits": { "type": "string" },
+        "schemaAssumptions": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "knownGaps": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "failureBehaviour": {
+          "type": "object",
+          "required": ["isolateSource", "serveLastKnownGood", "criticality"],
+          "properties": {
+            "isolateSource": { "const": true },
+            "serveLastKnownGood": { "type": "boolean" },
+            "criticality": { "enum": ["optional", "degraded", "blocking"] }
+          }
+        },
+        "lastSuccessfulRefresh": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "redistribution": {
+          "enum": ["allowed", "allowed_with_attribution", "restricted", "prohibited", "unclear"]
+        },
+        "contact": { "type": ["string", "null"] }
+      }
+    }
+  }
+}
+

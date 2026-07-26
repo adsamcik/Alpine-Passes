@@ -5,6 +5,76 @@ The source registry is
 against
 [`schemas/source-registry.schema.json`](../../schemas/source-registry.schema.json).
 
+## Public access is not permission
+
+A publicly viewable page, searchable catalogue entry, map, social post, free API,
+or robots-allowed endpoint is only a discovery lead. It is not permission to
+copy, cache, adapt, trace, bulk-extract, or redistribute its facts, expression,
+geometry, or media. The exact product, release, terms, and third-party
+exceptions control.
+
+The registry separates disposition from allowed use:
+
+| `publicationDisposition` | Build meaning |
+|---|---|
+| `approved` | May contribute only the uses named in `approvedUses`, subject to the recorded product terms |
+| `lead_only` | May nominate or support an explicitly unverified discovery lead; cannot be the sole basis for a verified assertion |
+| `link_only` | May provide an outbound official link and an unverified lead; copied content and automated redistribution are prohibited |
+| `blocked` | Must not contribute to any public record, package, or runtime feed |
+
+`lead_only` and `link_only` do not authorize copying the underlying data,
+description, exact third-party geometry, or media. A public lead may contain
+only independently authored minimal metadata: a title, an outbound source URL,
+a coarse/general location only when that location is independently verified and
+rights-safe, and an explicit uncertainty label. A lead is not a claim that the
+place is worthwhile, accessible, safe, or factually verified.
+
+`approvedUses` is deliberately narrow: `discovery`, `fact_evidence`,
+`bulk_ingest`, `geometry`, `media`, `runtime_api`, and `dynamic_status` are
+independent permissions. Approval for facts does not approve photos or route
+geometry. Catalogue records remain leads until an exact underlying product is
+registered.
+
+## Zero-paid-rights gate
+
+The project does not buy data or media rights. Every source records a machine-
+checked `rightsCost` of `no_fee`, `paid`, or `unknown`; only `no_fee` can have an
+`approved` publication disposition. A publishable source must be verified
+public domain/CC0 or carry an explicit no-fee licence that permits the
+commercial copying, transformation, caching, and redistribution needed by the
+product. Attribution and share-alike are acceptable only where the delivery
+architecture can comply deterministically.
+
+Fail closed for paid or subscription rights, noncommercial, no-derivatives,
+display-only, no-cache, no-redistribution, unknown, or mixed third-party terms.
+Ordinary hosting and compute costs are operational expenses, not licence fees;
+a paid API/data-use entitlement is a prohibited rights dependency. Fair use,
+fair dealing, and similar exceptions are not routine production bases.
+
+## Facts, geometry, APIs, and media
+
+A bare fact may be manually restated only as a narrow field assertion with an
+exact evidence URL and no copied expression. Repeated or systematic extraction
+requires an approved bulk source. EU and UK database rights can apply even when
+individual facts are not protected by copyright.
+
+Coordinates, route lines, access polygons, and derived shapes require explicit
+`geometry` approval and transformation provenance. Never trace a proprietary
+map, tile, screenshot, or display-only layer. OpenStreetMap lineage stays
+separable so ODbL database/Produced Work obligations can be met.
+
+API access is evaluated independently from content rights. Authentication,
+rate limits, caching, retention, automation, display, and redistribution terms
+must all support the planned use. A free key does not imply those permissions.
+
+Media is always cleared per file. Store creator, title where supplied, source
+page, licence and version, required attribution, retrieval date, and
+modification notice. Every delivered file must also have `reviewStatus` set to
+`approved`, a valid nonempty `reviewedAt`, and explicit true values for
+`display`, `commercialUse`, `redistribution`, and `modificationsAllowed`. A
+collection licence, thumbnail, or hotlink does not cure missing file-level
+rights, privacy/personality rights, or third-party content.
+
 ## Source versus catalogue
 
 A catalogue or geoportal is a discovery aid. It is not an approved product
@@ -137,7 +207,12 @@ source, not an authoritative declaration of legal/current access.
 ## Manual and legacy sources
 
 `legacy-alps-osm`, `legacy-curated-pois`, `legacy-scenic-drives`, and
-`manual-seed-routes` are isolated migration inputs. They do not establish
+`manual-seed-routes` are isolated migration inputs. The user has confirmed the
+repository MIT licence for project-authored migration material, but that does
+not clear third-party-derived fields or media. Those fields remain quarantined
+or stripped, and the public preview may expose only independently authored,
+minimal, explicitly unverified lead metadata. It cannot expose exact
+third-party geometry or copied descriptions. These inputs do not establish
 verified coverage.
 
 Promote an individual legacy feature only after:

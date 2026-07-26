@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://itinera.example/schemas/nature-spatial-index.schema.json",
+  "title": "Itinera nature spatial index",
+  "description": "Content-addressed index for deterministic Web Mercator XYZ delivery at fixed zoom 8.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "artifactType",
+    "generated",
+    "zoom",
+    "cellCount",
+    "packageCount",
+    "cells",
+    "contentHash"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "artifactType": { "const": "nature-spatial-index" },
+    "generated": { "const": true },
+    "zoom": { "const": 8 },
+    "cellCount": { "type": "integer", "minimum": 0 },
+    "packageCount": { "type": "integer", "minimum": 0 },
+    "contentHash": { "$ref": "#/$defs/contentHash" },
+    "cells": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/cell" }
+    }
+  },
+  "$defs": {
+    "contentHash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "cell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cellId", "zoom", "x", "y", "entityCount", "packages"],
+      "properties": {
+        "cellId": {
+          "type": "string",
+          "pattern": "^8/(?:0|[1-9][0-9]{0,2})/(?:0|[1-9][0-9]{0,2})$"
+        },
+        "zoom": { "const": 8 },
+        "x": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "y": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "entityCount": { "type": "integer", "minimum": 1 },
+        "packages": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/package" }
+        }
+      }
+    },
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "shardIndex",
+        "shardCount",
+        "url",
+        "contentHash",
+        "bytes",
+        "entityCount"
+      ],
+      "properties": {
+        "shardIndex": { "type": "integer", "minimum": 0 },
+        "shardCount": { "type": "integer", "minimum": 1 },
+        "url": {
+          "type": "string",
+          "pattern": "^assets/data/nature/spatial/cells/8/[0-9]+/[0-9]+/[a-f0-9]{16}\\.json$"
+        },
+        "contentHash": { "$ref": "#/$defs/contentHash" },
+        "bytes": { "type": "integer", "minimum": 1, "maximum": 1000000 },
+        "entityCount": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

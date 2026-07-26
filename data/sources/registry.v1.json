@@ -1,5 +1,34 @@
 {
   "schemaVersion": "1.0.0",
+  "dataUsePolicy": {
+    "mitCodeBoundary": "The repository MIT licence covers only project-authored software and documentation; it does not license third-party facts, databases, geometry, text, media, maps, or feeds.",
+    "zeroPaidRights": {
+      "licenceFees": "prohibited",
+      "restrictiveRights": "prohibited",
+      "unknownRights": "fail_closed"
+    },
+    "publicationRules": {
+      "publishableDisposition": "approved",
+      "discoveryOnlyDispositions": [
+        "lead_only",
+        "link_only"
+      ],
+      "blockedDisposition": "blocked",
+      "prohibitions": [
+        "noncommercial_no_derivatives_display_only_or_no_redistribution_terms",
+        "paid_or_subscription_data_rights",
+        "proprietary_map_or_tile_tracing",
+        "publicly_viewable_without_explicit_reuse_basis",
+        "runtime_api_use_outside_documented_caching_and_retention_terms",
+        "unknown_or_mixed_third_party_rights"
+      ]
+    },
+    "mediaRules": [
+      "A source must be approved for media use and every file must carry its own creator, source page, licence and version, attribution, and modification record.",
+      "A collection, portal, page, thumbnail, or hotlink does not establish file-level reuse rights.",
+      "Unknown, noncommercial, no-derivatives, display-only, paid, or third-party media rights fail closed."
+    ]
+  },
   "sources": [
     {
       "id": "legacy-alps-osm",
@@ -60,6 +89,12 @@
         "criticality": "blocking"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "lead_only",
+      "rightsCost": "unknown",
+      "approvedUses": [
+        "discovery"
+      ],
+      "governanceRationale": "Quarantined migration input with mixed ODbL and undocumented enrichment; it may support only an unverified discovery preview until item-level evidence is rebuilt.",
       "redistribution": "unclear",
       "contact": null
     },
@@ -126,6 +161,12 @@
         "criticality": "blocking"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "lead_only",
+      "rightsCost": "unknown",
+      "approvedUses": [
+        "discovery"
+      ],
+      "governanceRationale": "Quarantined migration input with non-itemised factual, text, and media rights; it may support only an unverified discovery preview.",
       "redistribution": "unclear",
       "contact": null
     },
@@ -187,6 +228,12 @@
         "criticality": "blocking"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "lead_only",
+      "rightsCost": "unknown",
+      "approvedUses": [
+        "discovery"
+      ],
+      "governanceRationale": "Quarantined migration input with undocumented upstream factual and media rights; it may support only an unverified discovery preview.",
       "redistribution": "unclear",
       "contact": null
     },
@@ -254,6 +301,12 @@
         "criticality": "degraded"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "lead_only",
+      "rightsCost": "unknown",
+      "approvedUses": [
+        "discovery"
+      ],
+      "governanceRationale": "Quarantined legacy cache with mixed manual and linked-source assertions; prices and access remain unverified discovery leads.",
       "redistribution": "unclear",
       "contact": null
     },
@@ -320,6 +373,12 @@
         "criticality": "blocking"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "lead_only",
+      "rightsCost": "unknown",
+      "approvedUses": [
+        "discovery"
+      ],
+      "governanceRationale": "Project-authored planner fixtures whose names, geometry, access, transport, and conditions still require authoritative evidence; publish only as an unverified migration preview.",
       "redistribution": "unclear",
       "contact": null
     },
@@ -390,6 +449,14 @@
         "criticality": "degraded"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "approved",
+      "rightsCost": "no_fee",
+      "approvedUses": [
+        "discovery",
+        "fact_evidence",
+        "bulk_ingest",
+        "geometry"
+      ],
       "redistribution": "allowed_with_attribution",
       "contact": null
     },
@@ -454,6 +521,13 @@
         "criticality": "optional"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "approved",
+      "rightsCost": "no_fee",
+      "approvedUses": [
+        "discovery",
+        "fact_evidence",
+        "bulk_ingest"
+      ],
       "redistribution": "allowed",
       "contact": null
     },
@@ -516,6 +590,12 @@
         "criticality": "optional"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "lead_only",
+      "rightsCost": "unknown",
+      "approvedUses": [
+        "discovery"
+      ],
+      "governanceRationale": "Commons is a discovery repository with per-file rights; no file may publish until its exact licence and attribution are registered.",
       "redistribution": "unclear",
       "contact": null
     },
@@ -574,6 +654,14 @@
         "criticality": "degraded"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "approved",
+      "rightsCost": "no_fee",
+      "approvedUses": [
+        "discovery",
+        "fact_evidence",
+        "bulk_ingest",
+        "geometry"
+      ],
       "redistribution": "allowed_with_attribution",
       "contact": null
     },
@@ -639,6 +727,12 @@
         "criticality": "optional"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "lead_only",
+      "rightsCost": "unknown",
+      "approvedUses": [
+        "discovery"
+      ],
+      "governanceRationale": "INSPIRE is a catalogue and transport framework, not a reuse licence for every listed dataset.",
       "redistribution": "unclear",
       "contact": null
     },
@@ -698,6 +792,14 @@
         "criticality": "degraded"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "approved",
+      "rightsCost": "no_fee",
+      "approvedUses": [
+        "discovery",
+        "fact_evidence",
+        "bulk_ingest",
+        "geometry"
+      ],
       "redistribution": "allowed",
       "contact": null
     },
@@ -755,6 +857,14 @@
         "criticality": "degraded"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "approved",
+      "rightsCost": "no_fee",
+      "approvedUses": [
+        "discovery",
+        "fact_evidence",
+        "bulk_ingest",
+        "geometry"
+      ],
       "redistribution": "allowed",
       "contact": null
     },
@@ -813,6 +923,14 @@
         "criticality": "degraded"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "approved",
+      "rightsCost": "no_fee",
+      "approvedUses": [
+        "discovery",
+        "fact_evidence",
+        "bulk_ingest",
+        "geometry"
+      ],
       "redistribution": "allowed",
       "contact": null
     },
@@ -875,6 +993,14 @@
         "criticality": "degraded"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "approved",
+      "rightsCost": "no_fee",
+      "approvedUses": [
+        "discovery",
+        "fact_evidence",
+        "bulk_ingest",
+        "geometry"
+      ],
       "redistribution": "allowed",
       "contact": null
     },
@@ -939,6 +1065,12 @@
         "criticality": "degraded"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "lead_only",
+      "rightsCost": "unknown",
+      "approvedUses": [
+        "discovery"
+      ],
+      "governanceRationale": "The API can contain third-party and separately licensed media; exact fields and assets require product-level clearance.",
       "redistribution": "unclear",
       "contact": null
     },
@@ -997,6 +1129,14 @@
         "criticality": "degraded"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "approved",
+      "rightsCost": "no_fee",
+      "approvedUses": [
+        "discovery",
+        "fact_evidence",
+        "bulk_ingest",
+        "geometry"
+      ],
       "redistribution": "allowed_with_attribution",
       "contact": null
     },
@@ -1064,6 +1204,12 @@
         "criticality": "optional"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "lead_only",
+      "rightsCost": "unknown",
+      "approvedUses": [
+        "discovery"
+      ],
+      "governanceRationale": "Open Maps and GEO.ca are catalogues; approve the exact underlying product and licence before ingestion.",
       "redistribution": "unclear",
       "contact": null
     },
@@ -1123,6 +1269,14 @@
         "criticality": "degraded"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "approved",
+      "rightsCost": "no_fee",
+      "approvedUses": [
+        "discovery",
+        "fact_evidence",
+        "bulk_ingest",
+        "geometry"
+      ],
       "redistribution": "allowed_with_attribution",
       "contact": null
     },
@@ -1186,6 +1340,14 @@
         "criticality": "degraded"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "approved",
+      "rightsCost": "no_fee",
+      "approvedUses": [
+        "discovery",
+        "fact_evidence",
+        "bulk_ingest",
+        "geometry"
+      ],
       "redistribution": "allowed_with_attribution",
       "contact": null
     },
@@ -1241,6 +1403,14 @@
         "criticality": "degraded"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "approved",
+      "rightsCost": "no_fee",
+      "approvedUses": [
+        "discovery",
+        "fact_evidence",
+        "bulk_ingest",
+        "geometry"
+      ],
       "redistribution": "allowed_with_attribution",
       "contact": null
     },
@@ -1300,6 +1470,14 @@
         "criticality": "degraded"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "approved",
+      "rightsCost": "no_fee",
+      "approvedUses": [
+        "discovery",
+        "fact_evidence",
+        "bulk_ingest",
+        "geometry"
+      ],
       "redistribution": "allowed_with_attribution",
       "contact": null
     },
@@ -1359,6 +1537,12 @@
         "criticality": "blocking"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "lead_only",
+      "rightsCost": "unknown",
+      "approvedUses": [
+        "discovery"
+      ],
+      "governanceRationale": "Terms and legal status vary by highway authority and exact definitive-record product.",
       "redistribution": "unclear",
       "contact": null
     },
@@ -1420,6 +1604,14 @@
         "criticality": "degraded"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "approved",
+      "rightsCost": "no_fee",
+      "approvedUses": [
+        "discovery",
+        "fact_evidence",
+        "bulk_ingest",
+        "geometry"
+      ],
       "redistribution": "allowed_with_attribution",
       "contact": null
     },
@@ -1481,6 +1673,12 @@
         "criticality": "degraded"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "lead_only",
+      "rightsCost": "unknown",
+      "approvedUses": [
+        "discovery"
+      ],
+      "governanceRationale": "NatureScot services contain dataset-specific terms; register the exact product before ingestion.",
       "redistribution": "unclear",
       "contact": null
     },
@@ -1541,6 +1739,12 @@
         "criticality": "degraded"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "link_only",
+      "rightsCost": "unknown",
+      "approvedUses": [
+        "discovery"
+      ],
+      "governanceRationale": "Feed-specific restrictions are not approved for redistribution; retain only an outbound operational link until terms are cleared.",
       "redistribution": "restricted",
       "contact": null
     },
@@ -1600,6 +1804,12 @@
         "criticality": "blocking"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "link_only",
+      "rightsCost": "unknown",
+      "approvedUses": [
+        "discovery"
+      ],
+      "governanceRationale": "No approved automated redistribution licence was established; link to the official bulletin rather than copying it.",
       "redistribution": "prohibited",
       "contact": null
     },
@@ -1664,6 +1874,12 @@
         "criticality": "degraded"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "lead_only",
+      "rightsCost": "unknown",
+      "approvedUses": [
+        "discovery"
+      ],
+      "governanceRationale": "DataMapWales is a catalogue with dataset-specific terms; register the exact product before ingestion.",
       "redistribution": "unclear",
       "contact": "data@gov.wales"
     },
@@ -1728,6 +1944,12 @@
         "criticality": "degraded"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "lead_only",
+      "rightsCost": "unknown",
+      "approvedUses": [
+        "discovery"
+      ],
+      "governanceRationale": "OpenDataNI is a catalogue; its OGL posture aids discovery but the exact product must be registered before ingestion.",
       "redistribution": "allowed_with_attribution",
       "contact": null
     },
@@ -1788,6 +2010,12 @@
         "criticality": "degraded"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "lead_only",
+      "rightsCost": "unknown",
+      "approvedUses": [
+        "discovery"
+      ],
+      "governanceRationale": "DAERA spatial products have dataset-specific terms and must be cleared individually.",
       "redistribution": "unclear",
       "contact": "NIEA.GIS@daera-ni.gov.uk"
     },
@@ -1850,6 +2078,14 @@
         "criticality": "degraded"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "approved",
+      "rightsCost": "no_fee",
+      "approvedUses": [
+        "discovery",
+        "fact_evidence",
+        "bulk_ingest",
+        "geometry"
+      ],
       "redistribution": "allowed_with_attribution",
       "contact": null
     },
@@ -1908,6 +2144,14 @@
         "criticality": "degraded"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "approved",
+      "rightsCost": "no_fee",
+      "approvedUses": [
+        "discovery",
+        "fact_evidence",
+        "bulk_ingest",
+        "geometry"
+      ],
       "redistribution": "allowed_with_attribution",
       "contact": null
     },
@@ -1968,6 +2212,12 @@
         "criticality": "degraded"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "lead_only",
+      "rightsCost": "unknown",
+      "approvedUses": [
+        "discovery"
+      ],
+      "governanceRationale": "The portal mixes licence generations and product-specific exceptions; register the exact dataset first.",
       "redistribution": "unclear",
       "contact": null
     },
@@ -2031,6 +2281,12 @@
         "criticality": "blocking"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "lead_only",
+      "rightsCost": "unknown",
+      "approvedUses": [
+        "discovery"
+      ],
+      "governanceRationale": "Pages and products can include third-party and page-specific exceptions requiring item-level review.",
       "redistribution": "unclear",
       "contact": null
     },
@@ -2093,6 +2349,16 @@
         "criticality": "blocking"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "approved",
+      "rightsCost": "no_fee",
+      "approvedUses": [
+        "discovery",
+        "fact_evidence",
+        "bulk_ingest",
+        "geometry",
+        "runtime_api",
+        "dynamic_status"
+      ],
       "redistribution": "allowed_with_attribution",
       "contact": null
     },
@@ -2156,6 +2422,14 @@
         "criticality": "degraded"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "approved",
+      "rightsCost": "no_fee",
+      "approvedUses": [
+        "discovery",
+        "fact_evidence",
+        "bulk_ingest",
+        "geometry"
+      ],
       "redistribution": "allowed_with_attribution",
       "contact": null
     },
@@ -2217,6 +2491,14 @@
         "criticality": "degraded"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "approved",
+      "rightsCost": "no_fee",
+      "approvedUses": [
+        "discovery",
+        "fact_evidence",
+        "bulk_ingest",
+        "geometry"
+      ],
       "redistribution": "allowed_with_attribution",
       "contact": null
     },
@@ -2277,6 +2559,12 @@
         "criticality": "degraded"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "lead_only",
+      "rightsCost": "unknown",
+      "approvedUses": [
+        "discovery"
+      ],
+      "governanceRationale": "The aggregate includes distributed contributors and contributor-specific terms; owner-level completeness and rights must be resolved.",
       "redistribution": "unclear",
       "contact": null
     },
@@ -2337,6 +2625,16 @@
         "criticality": "blocking"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "approved",
+      "rightsCost": "no_fee",
+      "approvedUses": [
+        "discovery",
+        "fact_evidence",
+        "bulk_ingest",
+        "geometry",
+        "runtime_api",
+        "dynamic_status"
+      ],
       "redistribution": "allowed_with_attribution",
       "contact": null
     },
@@ -2395,6 +2693,16 @@
         "criticality": "degraded"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "approved",
+      "rightsCost": "no_fee",
+      "approvedUses": [
+        "discovery",
+        "fact_evidence",
+        "bulk_ingest",
+        "geometry",
+        "runtime_api",
+        "dynamic_status"
+      ],
       "redistribution": "allowed_with_attribution",
       "contact": null
     },
@@ -2457,6 +2765,14 @@
         "criticality": "degraded"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "approved",
+      "rightsCost": "no_fee",
+      "approvedUses": [
+        "discovery",
+        "fact_evidence",
+        "bulk_ingest",
+        "geometry"
+      ],
       "redistribution": "allowed_with_attribution",
       "contact": null
     },
@@ -2515,6 +2831,14 @@
         "criticality": "degraded"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "approved",
+      "rightsCost": "no_fee",
+      "approvedUses": [
+        "discovery",
+        "fact_evidence",
+        "bulk_ingest",
+        "geometry"
+      ],
       "redistribution": "allowed_with_attribution",
       "contact": null
     },
@@ -2574,6 +2898,14 @@
         "criticality": "degraded"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "approved",
+      "rightsCost": "no_fee",
+      "approvedUses": [
+        "discovery",
+        "fact_evidence",
+        "bulk_ingest",
+        "geometry"
+      ],
       "redistribution": "allowed_with_attribution",
       "contact": null
     },
@@ -2634,6 +2966,16 @@
         "criticality": "blocking"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "approved",
+      "rightsCost": "no_fee",
+      "approvedUses": [
+        "discovery",
+        "fact_evidence",
+        "bulk_ingest",
+        "geometry",
+        "runtime_api",
+        "dynamic_status"
+      ],
       "redistribution": "allowed_with_attribution",
       "contact": null
     },
@@ -2692,6 +3034,16 @@
         "criticality": "degraded"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "approved",
+      "rightsCost": "no_fee",
+      "approvedUses": [
+        "discovery",
+        "fact_evidence",
+        "bulk_ingest",
+        "geometry",
+        "runtime_api",
+        "dynamic_status"
+      ],
       "redistribution": "allowed_with_attribution",
       "contact": null
     },
@@ -2753,6 +3105,10 @@
         "criticality": "blocking"
       },
       "lastSuccessfulRefresh": null,
+      "publicationDisposition": "blocked",
+      "rightsCost": "paid",
+      "approvedUses": [],
+      "governanceRationale": "Protected Planet terms prohibit the required commercial redistribution without separate permission, which conflicts with the zero-paid-rights policy.",
       "redistribution": "prohibited",
       "contact": null
     }

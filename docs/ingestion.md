@@ -18,9 +18,12 @@ flowchart LR
     V --> N["Canonical validation"]
     I --> N
     N --> D["Stable-ID deduplication"]
-    D --> P["Delivery-region sharding and packaging"]
+    D --> R["Transitional delivery-region packaging"]
+    D --> C["Fixed z8 spatial-cell assignment and packaging"]
+    C --> X["Content-addressed spatial index"]
     D --> Q["Quality and coverage reports"]
-    P --> M["Manifest + content-addressed JSON"]
+    R --> M["Manifest + content-addressed JSON"]
+    X --> M
     Q --> M
 ```
 
@@ -38,7 +41,7 @@ The `build:nature` package script invokes the deterministic nature builder, and 
 
 `data/sources/registry.v1.json` describes exact publishers/products, retrieval and snapshot policy, licence, attribution, authentication, rate limits, schema assumptions, known gaps, failure behavior, last refresh, and redistribution status. `schemas/source-registry.schema.json` is the declarative contract; the builder also enforces required fields, `secretBrowserSafe: false`, isolated failure behavior, and unique source IDs.
 
-A registry entry is not publication approval. The lifecycle states documented in [Data source policy](data/source-policy.md) are governance states; the current registry schema does not yet persist a `lifecycle` field.
+A registry entry is not publication approval. The lifecycle states documented in [Data source policy](data/source-policy.md) are governance states; the current registry schema does not yet persist a `lifecycle` field. An approved `lead_only` extraction mode permits only independently authored minimal lead metadata; it never permits copying source text, geometry, or media.
 
 ### Jurisdiction registry
 
@@ -110,19 +113,35 @@ Validation does not prove source truth, geometry alignment, route continuity on 
 
 A successful build replaces `assets/data/nature/` outputs with:
 
-- `manifest.v1.json` — shard URLs, indexes/counts, hashes, byte sizes, bounds, jurisdiction lists, entity counts, attribution source IDs, and authored budgets;
-- `packages/<region>/<hash-prefix>.json` — one deterministic, byte-bounded shard of canonical regional entities plus full SHA-256;
+- `manifest.v1.json` — transitional regional package references, the spatial-index reference, hashes, byte sizes, counts, and authored budgets;
+- `packages/<region>/<hash-prefix>.json` — transitional deterministic, byte-bounded shards of canonical regional entities plus full SHA-256;
+- `spatial/index/<hash-prefix>.json` — the separate content-addressed index of populated fixed Web Mercator XYZ zoom-8 cells and their package references;
+- `spatial/cells/8/<x>/<y>/<hash-prefix>.json` — deterministic, content-addressed spatial-cell package shards;
 - `quality-report.v1.json` — validation, flags, missing attribution/access summaries, duplicate candidates, and adapter failures;
 - `coverage-report.v1.json` — authored jurisdiction coverage with processed inventory counts;
 - `sensitivity-report.v1.json` — sensitivity delivery actions, publication counts, and withheld/coarsened identity checks;
 - `ingestion-report.v1.json` — adapter results and inventories;
 - `legacy-id-redirects.v1.json` — old-to-canonical identity mapping.
 
-The builder writes a local `.staging` tree, then copies top-level reports and packages into the output. This protects against validation failure before replacement, but the final copy is not an atomic hosting release. Deployment must promote a complete release directory or equivalent version as one unit.
+The builder writes a local `.staging` tree, then copies reports, regional packages, and spatial artifacts into the output. This protects against validation failure before replacement, but the final copy is not an atomic hosting release. Deployment must promote a complete release directory or equivalent version as one unit.
 
-Within each delivery region, entities are sorted by ID and greedily divided into the largest deterministic prefixes that fit `regionalPackageBytes`. Every artifact declares zero-based `shardIndex` and common `shardCount`; the builder fails if any shard or single entity exceeds the limit. The browser validates all advertised shard identities and hashes, fetches them concurrently, and merges them into one logical region while rejecting conflicting duplicate IDs.
+Within each delivery region, entities are sorted by ID and greedily divided into the largest deterministic prefixes that fit `regionalPackageBytes`. Every artifact declares zero-based `shardIndex` and common `shardCount`; the builder fails if any shard or single entity exceeds the limit. These packages remain the current UI delivery path during transition: the browser loads a region only after explicit user activation.
 
-Shard hashes cover a canonical, recursively key-sorted JSON core. Hash validation detects corruption/mismatch; it does not establish publisher authenticity by itself because the manifest and packages are served from the same trust origin.
+The parallel spatial layout uses fixed Web Mercator XYZ cells at zoom 8. A point belongs to one cell. Line and polygon geometries are copied into the cells of their minimal antimeridian-aware bounding box; the builder fails rather than fan one entity out to more than 4,096 cells. This assignment preserves complete canonical geometry and therefore can duplicate an entity across cells. Each cell is deterministically sharded to the 1,000,000-byte `spatialCellPackageBytes` budget. The separate index is capped by the 2,000,000-byte `spatialIndexBytes` budget and is referenced from the manifest by content-addressed URL, exact byte count, and SHA-256.
+
+The browser's spatial API validates index and cell URL shape, advertised decoded byte count, canonical hash, schema/artifact identity, zoom, cell identity, and shard identity/count before accepting data. `loadViewport` treats `west > east` as a dateline-crossing viewport, defaults to at most 64 cells and 128 packages per call, deduplicates canonical IDs, and retains at most 128 verified cells in a least-recently-used cache. The current Discover UI does not yet use this call by default; it remains on explicit regional loading while the spatial path is measured and integrated.
+
+Content hashes cover canonical, recursively key-sorted JSON cores. Hash validation detects corruption/mismatch; it does not establish publisher authenticity by itself because the manifest, index, and packages are served from the same trust origin.
+
+Regional and spatial package trees currently contain duplicate delivery representations of the same canonical records. That transitional storage and any extra cross-cell line/polygon copies must be included in release-footprint, CDN, build-time, and browser-performance measurements; package budgets alone do not demonstrate efficient viewport delivery.
+
+The current 4,019-record generated corpus measures processed inventory only. It is not verified geographic, thematic, access, or route completeness, regardless of package layout or cell coverage.
+
+## Hike detail and export safety
+
+`TrailRoute` fields feed a readable detail view with five sections: At a glance, Route character, Getting there, Safety & conditions, and Data confidence. Missing distance, ascent/descent, duration, difficulty, terrain, season, hazards, current conditions, and legal access are stated as unknown rather than inferred.
+
+Export is deliberately asymmetric. Any route with a valid `LineString` or `MultiLineString` can be exported as GeoJSON, but the file labels geometry representation/completeness, navigation suitability, provenance, and the safety disclaimer. GPX additionally requires `geometryCompleteness: "complete"` and `navigationSuitability: true`; invalid line geometry is rejected in both formats. All 38 current `TrailRoute` records are unverified and navigation-unsuitable, so GPX is unavailable for every current route. Neither schema validation, a rendered line, nor either export format is field-safety certification.
 
 ## Source acquisition design
 

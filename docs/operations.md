@@ -5,10 +5,12 @@
 The repository currently contains three deployable concerns:
 
 1. the legacy static application (`index.html`, CSS, vendored MapLibre, concatenated JS, leisure graph, and WASM);
-2. generated static nature artifacts (`assets/data/nature/`);
+2. generated static nature artifacts (`assets/data/nature/`), including transitional regional packages plus a spatial index and spatial-cell packages;
 3. an optional same-origin routing worker (`server/routing-worker.mjs`) with separately configured car, foot, and hiking upstreams.
 
 The nature domain, discovery, itinerary, routing, and region-loader modules are implemented as ES modules and imported by `index.html`. Discover is the default sidebar tab: initialization loads only the manifest, explicit activation loads the selected logical region, and textual results, geometry, evidence, uncertainty, retry, and itinerary/refusal states coexist with the retained legacy Plan and Browse tabs.
+
+The loader also implements fixed Web Mercator XYZ zoom-8 viewport delivery, but the UI does not call it as the default data path yet. Regional loading remains the compatibility/fallback path during transition. The current generated corpus is processed inventory, not verified geographic, thematic, access, or route completeness.
 
 The repository now has a deterministic production site-packaging workflow. `npm run build:site` creates `dist/client`, copies the Fetch-compatible worker to `dist/server/index.js`, and emits `dist/build-manifest.json`; CI rebuilds/diffs canonical nature artifacts and the legacy bundle, runs Rust/Node/WASM checks, and exercises the site packager. Hosting promotion, credentials, routing-upstream configuration, edge controls, and production monitoring remain deployment responsibilities. There is still no scheduled nature-ingestion workflow.
 
@@ -86,29 +88,32 @@ A nature build is not releasable until a reviewer inspects:
 - `quality-report.v1.json` for invalid records, critical unknowns, duplicates, attribution, geometry, and access flags;
 - `coverage-report.v1.json` for unchanged evidence-based statuses and caveats;
 - `sensitivity-report.v1.json` for publication/coarsening/withholding outcomes without exposing restricted geometry;
-- `manifest.v1.json` for shard indexes/counts, URLs, bounds, jurisdiction/source lists, counts, and budgets;
+- `manifest.v1.json` for regional shard indexes/counts, the content-addressed spatial-index reference, URLs, exact bytes, hashes, bounds, counts, and budgets;
+- the referenced spatial index and representative cell packages for zoom/cell/package identity, byte/hash closure, and the 64-cell/128-package request assumptions;
 - `legacy-id-redirects.v1.json` for unexpected identity churn;
 - `THIRD_PARTY_DATA_NOTICES.md` and feature/media attribution.
 
-The current builder fails if the manifest, initial nature-data artifact, deterministic regional shard, or one entity exceeds its raw package budget. It also fails invalid canonical records, invalid sensitivity policy, and broken delivered-reference closure. It does not turn missing attribution, unknown access, stale facts, unclear redistribution, or researched-but-unapproved sources into favorable facts. Promotion must fail closed on those policy gates even when the command exits zero.
+The current builder fails if the manifest, initial nature-data artifact, deterministic regional shard, spatial index, spatial cell package, or one entity exceeds its applicable raw-byte budget. It also fails spatial fanout above 4,096 cells, invalid canonical records, invalid sensitivity policy, and broken delivered-reference closure. It does not turn missing attribution, unknown access, stale facts, unclear redistribution, or researched-but-unapproved sources into favorable facts. An approved `lead_only` source permits only independently authored minimal lead metadata, never copied source text, geometry, or media. Promotion must fail closed on those policy gates even when the command exits zero.
 
 ## Deterministic site package
 
-`tools/build-site.mjs` packages only an explicit runtime allowlist plus the `.mjs` nature-module tree and content-addressed nature-package tree. It rejects missing references, path escapes, symlinks, unexpected tree extensions, manifest URLs outside the package directory, and any file larger than the 25 MiB Sites static-asset limit. Design sources, unbundled country arrays, tests, raw data registries, and documentation are intentionally excluded from `dist/client`.
+`tools/build-site.mjs` packages only an explicit runtime allowlist plus the `.mjs` nature-module tree and content-addressed regional, spatial-index, and spatial-cell package trees. It rejects missing references, path escapes, symlinks, unexpected tree extensions, manifest URLs outside the package directory, and any file larger than the 25 MiB Sites static-asset limit. Design sources, unbundled country arrays, tests, raw data registries, and documentation are intentionally excluded from `dist/client`.
 
-Every packaged payload file—44 in the current build—receives a byte count and SHA-256 entry in a canonical, timestamp-free `dist/build-manifest.json`; the manifest excludes itself to avoid a recursive self-hash. Identical inputs produce identical package bytes and build ID. `server/routing-worker.mjs` is copied byte-for-byte to the `dist/server/index.js` runtime contract. The worker fronts `env.ASSETS` for static content, replaces the social-metadata origin token in HTML at request time, and adds `nosniff`, `no-referrer`, frame denial, and restrictive camera/microphone permissions headers to HTML responses.
+Every packaged payload file receives a byte count and SHA-256 entry in a canonical, timestamp-free `dist/build-manifest.json`; the manifest excludes itself to avoid a recursive self-hash. Identical inputs produce identical package bytes and build ID. `server/routing-worker.mjs` is copied byte-for-byte to the `dist/server/index.js` runtime contract. The worker fronts `env.ASSETS` for static content, replaces the social-metadata origin token in HTML at request time, and adds `nosniff`, `no-referrer`, frame denial, and restrictive camera/microphone permissions headers to HTML responses.
 
 ## Static release order and caching
 
 Publish into a versioned release directory or use a host with atomic deployment promotion. The required order inside a non-atomic object store is:
 
-1. upload all newly referenced content-addressed regional packages;
-2. upload reports, redirects, application bundle, graph, WASM, and other immutable/versioned artifacts;
+1. upload all newly referenced content-addressed regional and spatial-cell packages;
+2. upload the newly referenced content-addressed spatial index, reports, redirects, application bundle, graph, WASM, and other immutable/versioned artifacts;
 3. verify hashes and smoke-test the staged origin;
 4. publish the new manifest;
 5. publish/revalidate HTML last.
 
-Do not delete older content-addressed package files during promotion. A client can hold the previous manifest while requesting one of its packages. The local builder removes the old package directory, so a naïve mirror with “delete extraneous files” can break those clients. Retain packages through the rollback/cache horizon or deploy each release atomically.
+Do not delete older content-addressed regional packages, spatial indexes, or cell packages during promotion. A client can hold the previous manifest or spatial index while requesting one of its objects. The local builder removes old generated package trees, so a naïve mirror with “delete extraneous files” can break those clients. Retain all referenced objects through the rollback/cache horizon or deploy each release atomically.
+
+Regional and spatial layouts intentionally duplicate delivery payloads during transition. Include both trees in storage, upload, invalidation, backup, and CDN capacity planning; see [Performance](performance.md) for the provisional footprint and measurement gaps.
 
 Recommended HTTP cache policy:
 
@@ -116,29 +121,50 @@ Recommended HTTP cache policy:
 | --- | --- |
 | `index.html` | no-cache or short TTL with revalidation |
 | `manifest.v1.json` and current reports | no-cache/short TTL with revalidation |
-| content-addressed regional packages | long-lived immutable |
+| content-addressed regional and spatial-cell packages | long-lived immutable |
+| content-addressed spatial index | long-lived immutable |
 | content-hashed bundle/WASM references | long-lived for the exact version; coordinate with HTML/shim |
 | stable-name leisure graph | revalidate and release in lockstep with its consumer |
 | routing responses and errors | `no-store` (already emitted by worker) |
 
-The region loader requests the manifest with `no-cache`, fetches all shards advertised for a requested logical region with `force-cache`, verifies them, and caches only the successful merged package set in memory. One failed or corrupt shard rejects the logical region without caching it, so a later request can retry.
+The loader requests the manifest with `no-cache`. The current UI then fetches all shards advertised for an explicitly requested logical region with `force-cache`, verifies them, and caches only the successful merged region in memory. One failed or corrupt regional shard rejects the logical region without caching it, so a later request can retry.
+
+For API consumers, `loadViewport([west, south, east, north])` lazily fetches the manifest-referenced zoom-8 spatial index and only populated intersecting cells with `force-cache`; `west > east` denotes a dateline-crossing viewport. Before accepting an index or cell package, the loader strictly validates URL shape, advertised decoded byte count, canonical SHA-256, schema/artifact identity, zoom, cell identity, shard identity/count, and index/package counts. Defaults reject a request above 64 cells or 128 packages before package fetch. Successfully verified logical cells use a 128-cell least-recently-used in-memory cache; failed or corrupt content is not cached. This API is available for scaling and staged testing, but it is not the UI's default loading path yet.
+
+## Hike detail and download gate
+
+For every `TrailRoute` selected in a staged release, verify that the detail view presents five readable sections:
+
+1. At a glance;
+2. Route character;
+3. Getting there;
+4. Safety & conditions;
+5. Data confidence.
+
+Missing route facts must remain explicit unknowns, including distance/ascent/descent/duration, difficulty, terrain, season, hazards, current conditions, and legal access. Absence of a hazard or condition record must not be rendered as safe or clear.
+
+GeoJSON is available only for a valid route `LineString` or `MultiLineString`. Its payload must retain the route geometry and label geometry representation/completeness, navigation suitability, source-assertion provenance, and the safety disclaimer. GPX has the stricter gate: valid line geometry, `geometryCompleteness: "complete"`, and `navigationSuitability: true` are all required. All 38 current `TrailRoute` records are unverified and navigation-unsuitable, so GPX must remain unavailable for every current route.
+
+Neither an available GeoJSON file, complete geometry, a rendered map line, itinerary formation, nor automated validation is field-safety certification. The UI and exported files must continue to tell users to verify current access, closures, hazards, weather, and local guidance before departure.
 
 ## Deployment smoke checks
 
 Before traffic promotion, verify from the staged HTTPS origin:
 
-1. HTML, MapLibre, CSS, bundle, graph, WASM, manifest, and one small/one large regional package return 200 with correct MIME and compression.
-2. The advertised package URL contains the hash prefix and its payload passes browser loader SHA-256 verification.
-3. The legacy planner loads and the WASM graph initializes without `leisure-wasm-error`.
-4. Discover initializes with only the manifest; only an explicitly requested region loads, and failure, abort, retry, unknown access, non-navigation-grade, and attribution states are visible.
-5. Each configured routing profile returns its own provider/profile, and an unconfigured profile returns structured `profile_unavailable` rather than falling back.
-6. Bad content type, oversized body, unknown field/profile, upstream timeout, rate limit, and malformed upstream response produce the documented bounded error.
-7. Direct production browser requests to `router.project-osrm.org` are absent from the migrated flow.
-8. Keyboard-only and screen-reader smoke paths can discover a place, read uncertainty/attribution, form or refuse an itinerary, and recover focus after errors without relying on the map.
+1. HTML, MapLibre, CSS, bundle, graph, WASM, manifest, spatial index, one spatial-cell package, and one small/one large regional package return 200 with correct MIME and compression.
+2. Manifest, spatial-index, regional-package, and cell-package references have the required hash-prefix URL shape; spatial responses pass exact decoded-byte, SHA-256, and artifact/zoom/cell/shard identity validation.
+3. Direct loader checks cover one-cell, adjacent-cell, empty, and `west > east` dateline viewports, cross-cell entity deduplication, abort/retry, the 64-cell/128-package refusal, and 128-cell least-recently-used eviction. These checks exercise the API; they do not claim the UI uses it by default.
+4. The legacy planner loads and the WASM graph initializes without `leisure-wasm-error`.
+5. Discover initializes with only the manifest; only an explicitly requested region loads, and failure, abort, retry, unknown access, non-navigation-grade, and attribution states are visible.
+6. A route detail exposes all five sections and explicit unknowns; valid line geometry can download metadata-rich GeoJSON, while every current route refuses GPX as navigation-unsuitable.
+7. Each configured routing profile returns its own provider/profile, and an unconfigured profile returns structured `profile_unavailable` rather than falling back.
+8. Bad content type, oversized body, unknown field/profile, upstream timeout, rate limit, and malformed upstream response produce the documented bounded error.
+9. Direct production browser requests to `router.project-osrm.org` are absent from the migrated flow.
+10. Keyboard-only and screen-reader smoke paths can discover a place, inspect hike details/download explanations, read uncertainty/attribution, form or refuse an itinerary, and recover focus after errors without relying on the map.
 
 `tools/leisure/e2e-smoke.mjs` covers the legacy planner and `tools/nature/e2e-smoke.mjs` defines the nature discovery/mixed-mode browser smoke. Run both against the staged production package when their Playwright runtime is available; do not substitute Node DOM tests for the staged browser check.
 
-On 2026-07-26, the nature smoke passed all 18 scenarios: manifest-only startup, explicit Scotland-only package activation, filtering, route selection, GPX safety refusal, keyboard tab behavior, 390 px overflow checks, exact nature-layer restoration after a map-style reload, and zero page/console errors. The full Node run passed all 194 tests. This is a functional regression result, not representative-device performance, Core Web Vitals, screen-reader, or field-safety certification.
+An earlier 18-scenario nature smoke recorded on 2026-07-26 covered manifest-only startup, explicit Scotland-only package activation, filtering, route selection, GPX safety refusal, keyboard tab behavior, 390 px overflow checks, exact nature-layer restoration after a map-style reload, and zero page/console errors. It predates the spatial-loader and expanded hike-detail checks above. Re-run all current gates; historical functional regression results are not representative-device performance, Core Web Vitals, screen-reader, or field-safety certification.
 
 ## Monitoring and telemetry
 
@@ -146,8 +172,9 @@ Instrument at the hosting/worker boundary; the current worker returns request ID
 
 Track, by release and routing profile:
 
-- static 4xx/5xx, manifest/package fetch and integrity errors;
-- package bytes, download, JSON parse, hash, freeze, and search latency;
+- static 4xx/5xx plus manifest, spatial-index, regional-package, and cell-package fetch/integrity errors;
+- bytes, request count, download, JSON parse, hash, freeze, and search latency separated by regional versus spatial delivery;
+- viewport selected/fetched cell and package counts, cap refusals, dateline requests, cross-cell duplicates, and 128-cell cache hits/evictions;
 - routing request volume, response class/error code, upstream latency, timeout, rate limit, no-route, and profile-unavailable counts;
 - adapter status, source snapshot age, record/count drift, validation/duplicate/quality flags;
 - coverage status changes as reviewed events, never inferred metrics;
@@ -174,7 +201,11 @@ A source failure must remain isolated. However:
 | Failure | Required user/system behavior |
 | --- | --- |
 | Manifest unavailable/invalid | Keep legacy/static shell available; show nature data unavailable and retry. Do not guess package URLs. |
-| Package missing/hash mismatch | Reject it, do not cache it, show affected region unavailable, record release/hash IDs, and retry after manifest revalidation. |
+| Regional package missing/hash mismatch | Reject it, do not cache the merged region, show that region unavailable, record release/hash IDs, and retry after manifest revalidation. |
+| Spatial index missing/byte/hash/identity mismatch | Reject viewport delivery and do not guess cell URLs. The explicit regional compatibility path may remain available only if its own manifest references validate. |
+| Spatial cell missing/byte/hash/identity mismatch | Reject the affected viewport result without caching partial data; record index/cell/package identities and retry only after revalidation. Regional browsing may remain available independently. |
+| Viewport exceeds cell/package cap | Fetch no cell packages; require a smaller viewport/lower scope or an explicitly reviewed higher positive limit. Never return a silently partial viewport. |
+| Hike export-gate regression | Disable the affected export. In particular, any GPX availability in the current 38-route corpus is a release blocker; GeoJSON must not ship without representation, provenance, navigation, and safety metadata. |
 | One routing profile unavailable | Disable only legs needing that profile; keep established route browsing. Never substitute another profile silently. |
 | Routing timeout/rate limit | Show retryable state and provider-neutral message; honor `Retry-After` at the edge/client when implemented. |
 | Stale/failed condition source | Mark condition unknown/unavailable and block safety-sensitive recommendation according to policy. |
@@ -184,9 +215,9 @@ A source failure must remain isolated. However:
 
 ## Rollback and recovery
 
-Record the static release ID, nature manifest `buildId`, package object list, bundle hash, WASM hash, graph checksum, worker version/config (excluding secrets), source snapshot IDs, and terms-review versions for every promotion.
+Record the static release ID, nature manifest `buildId`, regional package object list, spatial-index identity, spatial-cell package object list, bundle hash, WASM hash, graph checksum, worker version/config (excluding secrets), source snapshot IDs, and terms-review versions for every promotion.
 
-Rollback by atomically restoring the prior HTML/manifest/application release and compatible routing worker configuration. Keep prior content-addressed packages and accepted raw snapshots through the documented recovery window. After rollback, verify loader integrity, legacy redirects, WASM/graph compatibility, routing profile isolation, and attribution.
+Rollback by atomically restoring the prior HTML/manifest/application release and compatible routing worker configuration. Keep prior content-addressed regional packages, spatial indexes, cell packages, and accepted raw snapshots through the documented recovery window. After rollback, verify regional and viewport loader integrity, legacy redirects, WASM/graph compatibility, routing profile isolation, hike export gates, and attribution.
 
 Backups must protect source snapshots and review evidence according to licence and sensitivity constraints. Public packages are reproducible outputs, not substitutes for governed raw evidence.
 

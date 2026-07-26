@@ -21,13 +21,21 @@ import { ingestLegacyRepository } from "./lib/legacy-adapter.mjs";
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const OUTPUT_ROOT = path.join(REPO_ROOT, "assets", "data", "nature");
 const PACKAGE_ROOT = path.join(OUTPUT_ROOT, "packages");
+const SPATIAL_ROOT = path.join(OUTPUT_ROOT, "spatial");
 const SEED_PATH = path.join(REPO_ROOT, "data", "seeds", "nature-routes.v1.json");
 const SOURCE_REGISTRY_PATH = path.join(REPO_ROOT, "data", "sources", "registry.v1.json");
 const JURISDICTION_REGISTRY_PATH = path.join(REPO_ROOT, "data", "jurisdictions", "registry.v1.json");
 
+// Zoom 8 cells are about 156 km wide at the equator: fine enough for explicit
+// viewport delivery while keeping the deterministic index compact.
+export const NATURE_SPATIAL_CELL_ZOOM = 8;
+export const MAX_SPATIAL_CELLS_PER_ENTITY = 4_096;
+
 const DEFAULT_BUDGETS = Object.freeze({
   manifestBytes: 64_000,
   regionalPackageBytes: 2_500_000,
+  spatialIndexBytes: 2_000_000,
+  spatialCellPackageBytes: 1_000_000,
   initialNatureDataBytes: 64_000,
   searchP95Milliseconds: 50,
   mapInteractionP95Milliseconds: 100,
@@ -43,6 +51,7 @@ export async function buildNatureData(options = {}) {
   const repoRoot = options.repoRoot || REPO_ROOT;
   const outputRoot = options.outputRoot || OUTPUT_ROOT;
   const packageRoot = path.join(outputRoot, "packages");
+  const spatialRoot = path.join(outputRoot, "spatial");
   const seedPath = options.seedPath || path.join(repoRoot, "data", "seeds", "nature-routes.v1.json");
   const sourceRegistryPath = options.sourceRegistryPath
     || path.join(repoRoot, "data", "sources", "registry.v1.json");
@@ -52,6 +61,8 @@ export async function buildNatureData(options = {}) {
   for (const budgetName of [
     "manifestBytes",
     "regionalPackageBytes",
+    "spatialIndexBytes",
+    "spatialCellPackageBytes",
     "initialNatureDataBytes",
   ]) {
     if (!Number.isSafeInteger(budgets[budgetName]) || budgets[budgetName] <= 0) {
@@ -90,7 +101,8 @@ export async function buildNatureData(options = {}) {
     { sourceIds, jurisdictionIds },
   );
   const records = dedupeByStableId(normalized.records);
-  const delivery = applySensitivityPolicy(records);
+  const governance = applyPublicationGovernance(records, sourceIds);
+  const delivery = applySensitivityPolicy(governance.records);
   const deliveredIds = new Set(delivery.records.map((record) => record.id));
   const deliveryValidationErrors = normalized.validationErrors
     .filter((error) => deliveredIds.has(error.id));
@@ -98,6 +110,7 @@ export async function buildNatureData(options = {}) {
     delivery.records,
     deliveryValidationErrors,
     ingestion.failures,
+    governance.report,
   );
   const coverageReport = buildCoverageReport(
     delivery.records,
@@ -116,6 +129,8 @@ export async function buildNatureData(options = {}) {
   const staged = path.join(outputRoot, ".staging");
   await rm(staged, { recursive: true, force: true });
   await mkdir(path.join(staged, "packages"), { recursive: true });
+  await mkdir(path.join(staged, "spatial", "index"), { recursive: true });
+  await mkdir(path.join(staged, "spatial", "cells"), { recursive: true });
 
   const packageDefinitions = groupByDeliveryRegion(delivery.records);
   const manifestPackages = [];
@@ -157,11 +172,104 @@ export async function buildNatureData(options = {}) {
     }
   }
 
+  const spatialCellDefinitions = groupBySpatialCell(
+    delivery.records,
+    NATURE_SPATIAL_CELL_ZOOM,
+  );
+  const spatialCells = [];
+  let spatialPackageCount = 0;
+  for (const [cellId, cell] of spatialCellDefinitions) {
+    const shards = shardSpatialCellPackage(
+      cell,
+      cell.entities,
+      budgets.spatialCellPackageBytes,
+    );
+    const packages = [];
+    for (const shard of shards) {
+      const hashPrefix = shard.contentHash.slice(0, 16);
+      const relativeUrl = `assets/data/nature/spatial/cells/${cell.zoom}/${cell.x}/${cell.y}/${hashPrefix}.json`;
+      const stagedPath = path.join(
+        staged,
+        "spatial",
+        "cells",
+        String(cell.zoom),
+        String(cell.x),
+        String(cell.y),
+        `${hashPrefix}.json`,
+      );
+      await mkdir(path.dirname(stagedPath), { recursive: true });
+      await writeFile(stagedPath, shard.serialized, "utf8");
+      const bytes = Buffer.byteLength(shard.serialized);
+      if (bytes > budgets.spatialCellPackageBytes) {
+        throw new Error(
+          `Spatial cell package ${cellId} shard ${shard.shardIndex}/${shard.shardCount} `
+          + `is ${bytes} bytes, above the ${budgets.spatialCellPackageBytes}-byte budget`,
+        );
+      }
+      packages.push({
+        shardIndex: shard.shardIndex,
+        shardCount: shard.shardCount,
+        url: relativeUrl,
+        contentHash: `sha256:${shard.contentHash}`,
+        bytes,
+        entityCount: shard.entities.length,
+      });
+      spatialPackageCount += 1;
+    }
+    spatialCells.push({
+      cellId,
+      zoom: cell.zoom,
+      x: cell.x,
+      y: cell.y,
+      entityCount: cell.entities.length,
+      packages,
+    });
+  }
+
+  const spatialIndexCore = {
+    schemaVersion: "1.0.0",
+    artifactType: "nature-spatial-index",
+    generated: true,
+    zoom: NATURE_SPATIAL_CELL_ZOOM,
+    cellCount: spatialCells.length,
+    packageCount: spatialPackageCount,
+    cells: spatialCells,
+  };
+  const spatialIndexHash = sha256(canonicalJson(spatialIndexCore));
+  const spatialIndex = {
+    ...spatialIndexCore,
+    contentHash: `sha256:${spatialIndexHash}`,
+  };
+  const spatialIndexSerialized = `${canonicalJson(spatialIndex)}\n`;
+  const spatialIndexBytes = Buffer.byteLength(spatialIndexSerialized);
+  if (spatialIndexBytes > budgets.spatialIndexBytes) {
+    await rm(staged, { recursive: true, force: true });
+    throw new Error(
+      `Nature spatial index is ${spatialIndexBytes} bytes, above the `
+      + `${budgets.spatialIndexBytes}-byte spatial index budget`,
+    );
+  }
+  const spatialIndexHashPrefix = spatialIndexHash.slice(0, 16);
+  await writeFile(
+    path.join(staged, "spatial", "index", `${spatialIndexHashPrefix}.json`),
+    spatialIndexSerialized,
+    "utf8",
+  );
+  const spatialIndexReference = {
+    zoom: NATURE_SPATIAL_CELL_ZOOM,
+    url: `assets/data/nature/spatial/index/${spatialIndexHashPrefix}.json`,
+    contentHash: `sha256:${spatialIndexHash}`,
+    bytes: spatialIndexBytes,
+    cellCount: spatialCells.length,
+    packageCount: spatialPackageCount,
+  };
+
   const manifestCore = {
     schemaVersion: "1.0.0",
     artifactType: "nature-package-manifest",
     generated: true,
     packages: manifestPackages,
+    spatialIndex: spatialIndexReference,
     budgets,
   };
   const manifestHash = sha256(canonicalJson(manifestCore));
@@ -217,6 +325,7 @@ export async function buildNatureData(options = {}) {
     );
   }
   await rm(packageRoot, { recursive: true, force: true });
+  await rm(spatialRoot, { recursive: true, force: true });
   await mkdir(outputRoot, { recursive: true });
   for (const filename of Object.keys(generatedArtifacts)) {
     await writeFile(
@@ -226,6 +335,8 @@ export async function buildNatureData(options = {}) {
   }
   await mkdir(packageRoot, { recursive: true });
   await copyTree(path.join(staged, "packages"), packageRoot);
+  await mkdir(spatialRoot, { recursive: true });
+  await copyTree(path.join(staged, "spatial"), spatialRoot);
   await rm(staged, { recursive: true, force: true });
 
   return {
@@ -233,6 +344,9 @@ export async function buildNatureData(options = {}) {
     processedRecords: records.length,
     withheldRecords: delivery.report.counts.withheld,
     packages: manifestPackages.length,
+    spatialCells: spatialCells.length,
+    spatialPackages: spatialPackageCount,
+    spatialIndexBytes,
     manifestBytes,
     buildId: manifest.buildId,
     validationErrors: normalized.validationErrors,
@@ -285,30 +399,255 @@ function normalizeAndValidateRecords(records, registries) {
   return { records: normalized, validationErrors };
 }
 
-function validateSourceRegistry(registry) {
+export function validateSourceRegistry(registry) {
   if (registry?.schemaVersion !== "1.0.0" || !Array.isArray(registry.sources)) {
     throw new Error("Source registry must use schemaVersion 1.0.0 and contain sources");
   }
-  const ids = new Set();
+  const policy = registry.dataUsePolicy;
+  if (policy?.zeroPaidRights?.licenceFees !== "prohibited"
+      || policy?.zeroPaidRights?.restrictiveRights !== "prohibited"
+      || policy?.zeroPaidRights?.unknownRights !== "fail_closed"
+      || policy?.publicationRules?.publishableDisposition !== "approved"
+      || policy?.publicationRules?.blockedDisposition !== "blocked"
+      || !Array.isArray(policy?.mediaRules)
+      || !policy.mediaRules.length) {
+    throw new Error("Source registry dataUsePolicy must enforce the MIT boundary and fail-closed zero-paid rights");
+  }
+
+  const allowedDispositions = new Set(["approved", "lead_only", "link_only", "blocked"]);
+  const allowedRightsCosts = new Set(["no_fee", "paid", "unknown"]);
+  const allowedUses = new Set([
+    "discovery", "fact_evidence", "bulk_ingest", "geometry", "media",
+    "runtime_api", "dynamic_status",
+  ]);
+  const sourcesById = new Map();
   for (const source of registry.sources) {
     const required = [
       "id", "name", "owner", "authorityTier", "jurisdictionIds", "themes",
       "homepage", "retrieval", "licence", "updateCadence", "authentication",
       "rateLimits", "schemaAssumptions", "knownGaps", "failureBehaviour",
-      "lastSuccessfulRefresh", "redistribution",
+      "lastSuccessfulRefresh", "publicationDisposition", "rightsCost", "approvedUses", "redistribution",
     ];
     const missing = required.filter((field) => !(field in source));
     if (missing.length) throw new Error(`Source ${source.id || "(missing)"} lacks ${missing.join(", ")}`);
-    if (ids.has(source.id)) throw new Error(`Duplicate source ID: ${source.id}`);
+    if (sourcesById.has(source.id)) throw new Error(`Duplicate source ID: ${source.id}`);
+    if (!allowedDispositions.has(source.publicationDisposition)) {
+      throw new Error(`Source ${source.id} has unsupported publicationDisposition`);
+    }
+    if (!allowedRightsCosts.has(source.rightsCost)) {
+      throw new Error(`Source ${source.id} has unsupported rightsCost`);
+    }
+    if (!Array.isArray(source.approvedUses)
+        || source.approvedUses.some((use) => !allowedUses.has(use))) {
+      throw new Error(`Source ${source.id} has unsupported approvedUses`);
+    }
+    if (source.publicationDisposition === "approved") {
+      if (!source.approvedUses.length
+          || source.rightsCost !== "no_fee"
+          || source.licence?.commercialUse !== "allowed"
+          || !["allowed", "allowed_with_attribution"].includes(source.redistribution)) {
+        throw new Error(`Approved source ${source.id} must have no-fee commercial redistribution rights and approved uses`);
+      }
+    } else if (source.publicationDisposition === "blocked") {
+      if (source.approvedUses.length) {
+        throw new Error(`Blocked source ${source.id} cannot have approved uses`);
+      }
+    } else if (source.approvedUses.some((use) => use !== "discovery")) {
+      throw new Error(`Discovery-only source ${source.id} may only declare discovery use`);
+    }
+    if (source.publicationDisposition !== "approved" && !source.governanceRationale) {
+      throw new Error(`Non-approved source ${source.id} requires a governance rationale`);
+    }
     if (source.authentication?.secretBrowserSafe !== false) {
       throw new Error(`Source ${source.id} must not mark secrets browser-safe`);
     }
     if (source.failureBehaviour?.isolateSource !== true) {
       throw new Error(`Source ${source.id} must isolate failures`);
     }
-    ids.add(source.id);
+    sourcesById.set(source.id, source);
   }
-  return ids;
+  return sourcesById;
+}
+
+export function applyPublicationGovernance(records, sourcesById) {
+  if (!Array.isArray(records)) throw new TypeError("records must be an array");
+  const governed = [];
+  let removedMediaItems = 0;
+  let recordsWithMediaRemoved = 0;
+
+  for (const input of records) {
+    const record = markUnverifiedDiscoveryPreview(input, sourcesById);
+    let removedFromRecord = 0;
+    if (record.media !== undefined) {
+      if (!Array.isArray(record.media)) {
+        throw new Error(`Governance validation failed for ${record.id}: media must be an array`);
+      }
+      const acceptedMedia = [];
+      for (const media of record.media) {
+        if (mediaRightsErrors(media, sourcesById).length) {
+          removedFromRecord += 1;
+        } else {
+          acceptedMedia.push(media);
+        }
+      }
+      if (acceptedMedia.length) record.media = acceptedMedia;
+      else delete record.media;
+    }
+    if (removedFromRecord && record.legacy?.compactRecord
+        && Object.hasOwn(record.legacy.compactRecord, "bp")) {
+      delete record.legacy.compactRecord.bp;
+    }
+    removedMediaItems += removedFromRecord;
+    if (removedFromRecord) recordsWithMediaRemoved += 1;
+
+    const governanceErrors = validateRecordGovernance(record, sourcesById);
+    if (governanceErrors.length) {
+      throw new Error(`Governance validation failed for ${record.id}: ${governanceErrors.join("; ")}`);
+    }
+    governed.push(record);
+  }
+
+  return {
+    records: governed,
+    report: {
+      removedMediaItems,
+      recordsWithMediaRemoved,
+      interpretation: "Media without an approved media source use and complete per-file rights metadata is omitted from public delivery.",
+    },
+  };
+}
+
+export function validateRecordGovernance(record, sourcesById) {
+  const errors = [];
+  const assertions = record.sourceAssertions || [];
+  const assertionSources = [];
+  for (const assertion of assertions) {
+    const source = sourcesById.get(assertion.sourceId);
+    if (!source) continue;
+    assertionSources.push(source);
+    if (source.rightsCost === "paid") {
+      errors.push(`paid-rights source ${source.id} is referenced`);
+      continue;
+    }
+    if (source.publicationDisposition === "blocked") {
+      errors.push(`blocked source ${source.id} is referenced`);
+      continue;
+    }
+    if (source.publicationDisposition !== "approved") {
+      if (!source.approvedUses.includes("discovery")) {
+        errors.push(`source ${source.id} is not approved even for discovery`);
+      }
+      if (assertion.verificationStatus !== "unverified"
+          || assertion.evidenceKind === "verified_official") {
+        errors.push(`discovery-only source ${source.id} may provide only unverified lead assertions`);
+      }
+      continue;
+    }
+    const requiredUse = assertion.fieldPath === "/geometry"
+      || assertion.fieldPath.startsWith("/geometry/") ? "geometry" : "fact_evidence";
+    if (!source.approvedUses.includes(requiredUse)) {
+      errors.push(`approved source ${source.id} lacks ${requiredUse} use for ${assertion.fieldPath}`);
+    }
+  }
+
+  for (const sourceId of governanceSourceIds(record)) {
+    const source = sourcesById.get(sourceId);
+    if (source?.rightsCost === "paid") {
+      errors.push(`paid-rights source ${source.id} is referenced`);
+    } else if (source?.publicationDisposition === "blocked") {
+      errors.push(`blocked source ${source.id} is referenced`);
+    }
+  }
+
+  const hasApprovedAssertion = assertionSources.some((source) =>
+    source.publicationDisposition === "approved");
+  const hasDiscoveryOnlyAssertion = assertionSources.some((source) =>
+    source.publicationDisposition === "lead_only" || source.publicationDisposition === "link_only");
+  if (hasDiscoveryOnlyAssertion) {
+    const flags = new Set(record.quality?.flags || []);
+    if (!flags.has("discovery_lead") || !flags.has("unverified_migration_preview")) {
+      errors.push("discovery-only evidence must be labeled as an unverified migration/discovery preview");
+    }
+  }
+  if (!hasApprovedAssertion
+      && record.quality?.verificationStatus !== "unverified") {
+    errors.push("a verified record cannot rely solely on discovery-only evidence");
+  }
+
+  for (const media of record.media || []) {
+    errors.push(...mediaRightsErrors(media, sourcesById));
+  }
+  if (record.entityType === "MediaAsset") {
+    const sourceId = assertions.length === 1 ? assertions[0].sourceId : null;
+    errors.push(...mediaRightsErrors({ ...record, sourceId }, sourcesById));
+  }
+  return [...new Set(errors)];
+}
+
+function markUnverifiedDiscoveryPreview(input, sourcesById) {
+  const nonApproved = (input.sourceAssertions || []).some((assertion) => {
+    const source = sourcesById.get(assertion.sourceId);
+    return source && source.publicationDisposition !== "approved";
+  });
+  if (!nonApproved || !input.quality) return structuredClone(input);
+  const record = structuredClone(input);
+  record.quality.flags = [...new Set([
+    ...(record.quality.flags || []),
+    "discovery_lead",
+    "unverified_migration_preview",
+  ])].sort();
+  const marker = "Unverified migration/discovery preview; not a verified production fact.";
+  if (!record.quality.notes?.includes(marker)) {
+    record.quality.notes = record.quality.notes
+      ? `${record.quality.notes} ${marker}`
+      : marker;
+  }
+  return record;
+}
+
+function governanceSourceIds(record) {
+  return new Set([
+    ...(record.sourceAssertions || []).map((assertion) => assertion.sourceId),
+    ...(record.originalSourceIds || []).map((source) => source.sourceId),
+    record.sensitivity?.authoritySourceId,
+    record.authoritySourceId,
+  ].filter(Boolean));
+}
+
+function mediaRightsErrors(media, sourcesById) {
+  if (!media || typeof media !== "object" || Array.isArray(media)) {
+    return ["media item must be an object"];
+  }
+  const errors = [];
+  const source = sourcesById.get(media.sourceId);
+  if (!source || source.publicationDisposition !== "approved"
+      || !source.approvedUses.includes("media")) {
+    errors.push(`media source ${media.sourceId || "(missing)"} is not approved for media use`);
+  }
+  for (const field of [
+    "url", "sourcePageUrl", "creator", "licenceId", "licenceUrl",
+    "licenceVersion", "attribution", "modifications",
+  ]) {
+    if (typeof media[field] !== "string" || !media[field].trim()) {
+      errors.push(`media.${field} is required for per-file rights`);
+    }
+  }
+  if (media.reviewStatus !== "approved") {
+    errors.push("media.reviewStatus must be approved");
+  }
+  if (typeof media.reviewedAt !== "string"
+      || !media.reviewedAt.trim()
+      || !Number.isFinite(Date.parse(media.reviewedAt))) {
+    errors.push("media.reviewedAt must be a valid nonempty date");
+  }
+  for (const permission of [
+    "display", "commercialUse", "redistribution", "modificationsAllowed",
+  ]) {
+    if (media[permission] !== true) {
+      errors.push(`media.${permission} must be explicitly true`);
+    }
+  }
+  return errors;
 }
 
 function validateJurisdictionRegistry(registry) {
@@ -351,6 +690,175 @@ function groupByDeliveryRegion(records) {
     }
   }
   return packages;
+}
+
+const WEB_MERCATOR_MAX_LATITUDE = 85.0511287798066;
+
+export function geometrySpatialCellIds(geometry, zoom = NATURE_SPATIAL_CELL_ZOOM) {
+  validateSpatialZoom(zoom);
+  if (!geometry || typeof geometry !== "object") {
+    throw new TypeError("geometry must be a GeoJSON geometry object");
+  }
+  if (geometry.type === "Point") {
+    const { x, y } = webMercatorCell(geometry.coordinates, zoom);
+    return [`${zoom}/${x}/${y}`];
+  }
+
+  const positions = spatialGeometryPositions(geometry);
+  if (!positions.length) throw new TypeError("geometry must contain valid positions");
+  const latitudes = positions.map((position) => position[1]);
+  const south = Math.min(...latitudes);
+  const north = Math.max(...latitudes);
+  const northCell = webMercatorCell([0, north], zoom).y;
+  const southCell = webMercatorCell([0, south], zoom).y;
+  const cellIds = new Set();
+  for (const [west, east] of minimumLongitudeIntervals(positions)) {
+    const westCell = webMercatorCell([west, 0], zoom).x;
+    const eastCell = webMercatorCell([east, 0], zoom).x;
+    for (let x = westCell; x <= eastCell; x += 1) {
+      for (let y = northCell; y <= southCell; y += 1) {
+        cellIds.add(`${zoom}/${x}/${y}`);
+        if (cellIds.size > MAX_SPATIAL_CELLS_PER_ENTITY) {
+          throw new RangeError(
+            `Geometry covers more than ${MAX_SPATIAL_CELLS_PER_ENTITY} spatial cells`,
+          );
+        }
+      }
+    }
+  }
+  return [...cellIds].sort((left, right) => left.localeCompare(right));
+}
+
+export function groupBySpatialCell(records, zoom = NATURE_SPATIAL_CELL_ZOOM) {
+  if (!Array.isArray(records)) throw new TypeError("records must be an array");
+  validateSpatialZoom(zoom);
+  const cells = new Map();
+  for (const record of records) {
+    for (const cellId of geometrySpatialCellIds(record.geometry, zoom)) {
+      const [, xText, yText] = cellId.split("/");
+      if (!cells.has(cellId)) {
+        cells.set(cellId, {
+          cellId,
+          zoom,
+          x: Number(xText),
+          y: Number(yText),
+          entitiesById: new Map(),
+        });
+      }
+      const cell = cells.get(cellId);
+      const prior = cell.entitiesById.get(record.id);
+      if (prior && canonicalJson(prior) !== canonicalJson(record)) {
+        throw new Error(`Conflicting canonical records share ID ${record.id} in cell ${cellId}`);
+      }
+      cell.entitiesById.set(record.id, record);
+    }
+  }
+  return new Map(
+    [...cells.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([cellId, cell]) => [cellId, {
+        cellId,
+        zoom: cell.zoom,
+        x: cell.x,
+        y: cell.y,
+        entities: [...cell.entitiesById.values()].sort((left, right) =>
+          left.id.localeCompare(right.id)),
+      }]),
+  );
+}
+
+function webMercatorCell(position, zoom) {
+  if (!Array.isArray(position)
+      || position.length < 2
+      || !Number.isFinite(position[0])
+      || !Number.isFinite(position[1])
+      || position[0] < -180
+      || position[0] > 180
+      || position[1] < -90
+      || position[1] > 90) {
+    throw new TypeError("position must be a valid [longitude, latitude] pair");
+  }
+  const tileCount = 2 ** zoom;
+  const longitude = Math.min(180, Math.max(-180, position[0]));
+  const latitude = Math.min(
+    WEB_MERCATOR_MAX_LATITUDE,
+    Math.max(-WEB_MERCATOR_MAX_LATITUDE, position[1]),
+  );
+  const latitudeRadians = latitude * Math.PI / 180;
+  return {
+    x: Math.min(
+      tileCount - 1,
+      Math.max(0, Math.floor((longitude + 180) / 360 * tileCount)),
+    ),
+    y: Math.min(
+      tileCount - 1,
+      Math.max(
+        0,
+        Math.floor(
+          (1 - Math.asinh(Math.tan(latitudeRadians)) / Math.PI) / 2 * tileCount,
+        ),
+      ),
+    ),
+  };
+}
+
+function spatialGeometryPositions(geometry) {
+  const positions = [];
+  const visit = (value) => {
+    if (!Array.isArray(value)) return;
+    if (value.length >= 2
+        && Number.isFinite(value[0])
+        && Number.isFinite(value[1])
+        && value[0] >= -180
+        && value[0] <= 180
+        && value[1] >= -90
+        && value[1] <= 90) {
+      positions.push(value);
+      return;
+    }
+    for (const nested of value) visit(nested);
+  };
+  visit(geometry.coordinates);
+  return positions;
+}
+
+function minimumLongitudeIntervals(positions) {
+  const rawLongitudes = positions.map((position) => position[0]);
+  const rawWest = Math.min(...rawLongitudes);
+  const rawEast = Math.max(...rawLongitudes);
+  const rawSpan = rawEast - rawWest;
+  if (rawSpan <= 180 || (rawWest === -180 && rawEast === 180)) {
+    return [[rawWest, rawEast]];
+  }
+
+  const wrapped = [...new Set(rawLongitudes.map((longitude) =>
+    (longitude + 360) % 360))].sort((left, right) => left - right);
+  if (wrapped.length < 2) return [[rawWest, rawEast]];
+  let largestGap = -1;
+  let gapIndex = -1;
+  for (let index = 0; index < wrapped.length; index += 1) {
+    const next = index + 1 < wrapped.length ? wrapped[index + 1] : wrapped[0] + 360;
+    const gap = next - wrapped[index];
+    if (gap > largestGap) {
+      largestGap = gap;
+      gapIndex = index;
+    }
+  }
+  const wrappedSpan = 360 - largestGap;
+  if (wrappedSpan >= rawSpan) return [[rawWest, rawEast]];
+  const start = wrapped[(gapIndex + 1) % wrapped.length];
+  const end = wrapped[gapIndex];
+  const west = start > 180 ? start - 360 : start;
+  const east = end > 180 ? end - 360 : end;
+  return west <= east
+    ? [[west, east]]
+    : [[west, 180], [-180, east]];
+}
+
+function validateSpatialZoom(zoom) {
+  if (!Number.isSafeInteger(zoom) || zoom < 0 || zoom > 22) {
+    throw new TypeError("zoom must be a safe integer from 0 through 22");
+  }
 }
 
 const OPTIONAL_DELIVERY_REFERENCE_FIELDS = Object.freeze([
@@ -624,7 +1132,119 @@ function createRegionPackageArtifact(regionId, entities, shardIndex, shardCount)
   };
 }
 
-function buildQualityReport(records, validationErrors, adapterFailures) {
+export function shardSpatialCellPackage(cell, entities, budgetBytes) {
+  validateSpatialCell(cell);
+  if (!Array.isArray(entities)) throw new TypeError("entities must be an array");
+  if (!Number.isSafeInteger(budgetBytes) || budgetBytes <= 0) {
+    throw new TypeError("budgetBytes must be a positive safe integer");
+  }
+  const sortedEntities = dedupeByStableId(entities)
+    .sort((left, right) => left.id.localeCompare(right.id));
+  if (!sortedEntities.length) return [];
+
+  const conservativeShardCount = sortedEntities.length;
+  const conservativeShardIndex = conservativeShardCount - 1;
+  const chunks = [];
+  let start = 0;
+  while (start < sortedEntities.length) {
+    let low = start + 1;
+    let high = sortedEntities.length;
+    let bestEnd = start;
+    while (low <= high) {
+      const end = Math.floor((low + high) / 2);
+      const artifact = createSpatialCellPackageArtifact(
+        cell,
+        sortedEntities.slice(start, end),
+        conservativeShardIndex,
+        conservativeShardCount,
+      );
+      if (Buffer.byteLength(artifact.serialized) <= budgetBytes) {
+        bestEnd = end;
+        low = end + 1;
+      } else {
+        high = end - 1;
+      }
+    }
+    if (bestEnd === start) {
+      const oversized = createSpatialCellPackageArtifact(
+        cell,
+        [sortedEntities[start]],
+        conservativeShardIndex,
+        conservativeShardCount,
+      );
+      throw new Error(
+        `Entity ${sortedEntities[start].id} cannot fit spatial cell package budget: `
+        + `${Buffer.byteLength(oversized.serialized)} > ${budgetBytes} bytes`,
+      );
+    }
+    chunks.push(sortedEntities.slice(start, bestEnd));
+    start = bestEnd;
+  }
+
+  const shardCount = chunks.length;
+  return chunks.map((chunk, shardIndex) => {
+    const artifact = createSpatialCellPackageArtifact(cell, chunk, shardIndex, shardCount);
+    const bytes = Buffer.byteLength(artifact.serialized);
+    if (bytes > budgetBytes) {
+      throw new Error(
+        `Spatial cell package ${cell.cellId} shard ${shardIndex}/${shardCount} `
+        + `is ${bytes} bytes, above the ${budgetBytes}-byte budget`,
+      );
+    }
+    return artifact;
+  });
+}
+
+function createSpatialCellPackageArtifact(cell, entities, shardIndex, shardCount) {
+  const packageCore = {
+    schemaVersion: "1.0.0",
+    artifactType: "nature-spatial-cell-package",
+    generated: true,
+    cellId: cell.cellId,
+    zoom: cell.zoom,
+    x: cell.x,
+    y: cell.y,
+    shardIndex,
+    shardCount,
+    entities,
+  };
+  const contentHash = sha256(canonicalJson(packageCore));
+  const packageDocument = {
+    ...packageCore,
+    contentHash: `sha256:${contentHash}`,
+  };
+  return {
+    cellId: cell.cellId,
+    zoom: cell.zoom,
+    x: cell.x,
+    y: cell.y,
+    shardIndex,
+    shardCount,
+    entities,
+    contentHash,
+    packageDocument,
+    serialized: `${canonicalJson(packageDocument)}\n`,
+  };
+}
+
+function validateSpatialCell(cell) {
+  if (!cell || typeof cell !== "object") {
+    throw new TypeError("cell must be an object");
+  }
+  validateSpatialZoom(cell.zoom);
+  const tileCount = 2 ** cell.zoom;
+  if (!Number.isSafeInteger(cell.x)
+      || !Number.isSafeInteger(cell.y)
+      || cell.x < 0
+      || cell.y < 0
+      || cell.x >= tileCount
+      || cell.y >= tileCount
+      || cell.cellId !== `${cell.zoom}/${cell.x}/${cell.y}`) {
+    throw new TypeError("cell must have a valid Web Mercator XYZ identity");
+  }
+}
+
+function buildQualityReport(records, validationErrors, adapterFailures, governanceReport) {
   const flags = countBy(
     records.flatMap((record) => record.quality?.flags || []),
     (flag) => flag,
@@ -645,6 +1265,9 @@ function buildQualityReport(records, validationErrors, adapterFailures) {
         route.geometryCompleteness === "overview_only").length,
       recordsWithMissingAttribution: records.filter((record) =>
         (record.media || []).some((media) => media.attributionStatus === "missing")).length,
+      recordsInUnverifiedMigrationPreview: records.filter((record) =>
+        (record.quality?.flags || []).includes("unverified_migration_preview")).length,
+      mediaItemsRemovedByGovernance: governanceReport.removedMediaItems,
       recordsWithUnknownLegalAccess: records.filter((record) =>
         record.access?.legal === "unknown" || record.legalAccess === "unknown").length,
       nearDuplicateCandidates: duplicateCandidates.length,
@@ -653,6 +1276,7 @@ function buildQualityReport(records, validationErrors, adapterFailures) {
     qualityFlags: flags,
     validationErrors,
     adapterFailures,
+    mediaGovernance: governanceReport,
     duplicateCandidates: duplicateCandidates.slice(0, 500),
     interpretation: "Counts measure processed inventory, not geographic completeness.",
   };

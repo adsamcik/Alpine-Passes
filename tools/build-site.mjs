@@ -28,6 +28,7 @@ export const REQUIRED_RUNTIME_FILES = Object.freeze([
   "assets/apple-touch-icon.png",
   "assets/icons.svg",
   "assets/css/site.css",
+  "assets/css/nature-hike-detail.css",
   "assets/vendor/maplibre/5.6.1/maplibre-gl.css",
   "assets/vendor/maplibre/5.6.1/maplibre-gl.js",
   "assets/js/itinera.bundle.js",
@@ -60,6 +61,10 @@ const RUNTIME_TREES = Object.freeze([
   },
   {
     root: "assets/data/nature/packages",
+    extension: ".json",
+  },
+  {
+    root: "assets/data/nature/spatial",
     extension: ".json",
   },
 ]);
@@ -241,6 +246,149 @@ async function validateNatureManifestReferences(repoRoot, runtimeFiles) {
     }
     await assertRuntimeFile(path.join(repoRoot, relativePath), relativePath);
   }
+
+  const spatialReference = manifest.spatialIndex;
+  if (!spatialReference || typeof spatialReference !== "object") {
+    throw new Error(`${manifestPath} must reference a spatial index`);
+  }
+  for (const field of ["url", "contentHash", "bytes", "zoom", "cellCount", "packageCount"]) {
+    if (!Object.hasOwn(spatialReference, field)) {
+      throw new Error(`${manifestPath} spatial index reference is missing ${field}`);
+    }
+  }
+  const spatialIndexPath = normalizeNatureRuntimeUrl(
+    spatialReference.url,
+    "Nature spatial index URL",
+  );
+  if (!spatialIndexPath.startsWith("assets/data/nature/spatial/index/")) {
+    throw new Error(`${manifestPath} spatial index escapes its index directory`);
+  }
+  const expectedIndexFilename = spatialReference.contentHash
+    ?.slice("sha256:".length, "sha256:".length + 16) + ".json";
+  if (!/^sha256:[a-f0-9]{64}$/.test(spatialReference.contentHash)
+      || path.posix.basename(spatialIndexPath) !== expectedIndexFilename) {
+    throw new Error(`${manifestPath} spatial index URL is not content-addressed`);
+  }
+  if (!runtimeFiles.has(spatialIndexPath)) {
+    throw new Error(`${manifestPath} references a missing spatial index: ${spatialIndexPath}`);
+  }
+  const spatialIndexBytes = await readFile(path.join(repoRoot, spatialIndexPath));
+  if (!Number.isSafeInteger(spatialReference.bytes)
+      || spatialReference.bytes !== spatialIndexBytes.byteLength) {
+    throw new Error(`${manifestPath} spatial index byte count is invalid`);
+  }
+  let spatialIndex;
+  try {
+    spatialIndex = JSON.parse(spatialIndexBytes.toString("utf8"));
+  } catch (error) {
+    throw new Error(`Unable to parse ${spatialIndexPath}: ${error.message}`, { cause: error });
+  }
+  if (spatialIndex.schemaVersion !== manifest.schemaVersion
+      || spatialIndex.artifactType !== "nature-spatial-index"
+      || spatialIndex.generated !== true
+      || spatialIndex.zoom !== spatialReference.zoom
+      || spatialIndex.cellCount !== spatialReference.cellCount
+      || spatialIndex.packageCount !== spatialReference.packageCount
+      || spatialIndex.contentHash !== spatialReference.contentHash
+      || !Array.isArray(spatialIndex.cells)
+      || spatialIndex.cells.length !== spatialReference.cellCount) {
+    throw new Error(`${spatialIndexPath} identity or declared counts are invalid`);
+  }
+  const spatialIndexCore = { ...spatialIndex };
+  delete spatialIndexCore.contentHash;
+  const computedSpatialIndexHash = "sha256:"
+    + createHash("sha256").update(canonicalJson(spatialIndexCore)).digest("hex");
+  if (computedSpatialIndexHash !== spatialReference.contentHash) {
+    throw new Error(`${spatialIndexPath} failed content-hash validation`);
+  }
+
+  const referencedSpatialFiles = new Set([spatialIndexPath]);
+  let packageCount = 0;
+  let previousCellId = null;
+  for (const cell of spatialIndex.cells) {
+    const expectedCellId = `${cell.zoom}/${cell.x}/${cell.y}`;
+    if (cell.zoom !== spatialIndex.zoom
+        || cell.cellId !== expectedCellId
+        || (previousCellId !== null && previousCellId.localeCompare(cell.cellId) >= 0)
+        || !Array.isArray(cell.packages)
+        || cell.packages.length === 0
+        || cell.entityCount !== cell.packages.reduce(
+          (sum, entry) => sum + Number(entry?.entityCount || 0),
+          0,
+        )) {
+      throw new Error(`${spatialIndexPath} contains an invalid spatial cell entry`);
+    }
+    previousCellId = cell.cellId;
+    for (const [shardIndex, entry] of cell.packages.entries()) {
+      packageCount += 1;
+      const relativePath = normalizeNatureRuntimeUrl(
+        entry?.url,
+        `Nature spatial cell URL ${entry?.url}`,
+      );
+      const expectedFilename = entry?.contentHash
+        ?.slice("sha256:".length, "sha256:".length + 16) + ".json";
+      const expectedPath = `assets/data/nature/spatial/cells/${cell.zoom}/${cell.x}/${cell.y}/${expectedFilename}`;
+      if (!/^sha256:[a-f0-9]{64}$/.test(entry?.contentHash)
+          || relativePath !== expectedPath
+          || entry.shardIndex !== shardIndex
+          || entry.shardCount !== cell.packages.length) {
+        throw new Error(`${spatialIndexPath} contains an invalid cell package descriptor`);
+      }
+      if (!runtimeFiles.has(relativePath)) {
+        throw new Error(`${spatialIndexPath} references a missing cell package: ${relativePath}`);
+      }
+      const cellBytes = await readFile(path.join(repoRoot, relativePath));
+      if (!Number.isSafeInteger(entry.bytes) || entry.bytes !== cellBytes.byteLength) {
+        throw new Error(`${relativePath} byte count does not match its spatial index entry`);
+      }
+      let document;
+      try {
+        document = JSON.parse(cellBytes.toString("utf8"));
+      } catch (error) {
+        throw new Error(`Unable to parse ${relativePath}: ${error.message}`, { cause: error });
+      }
+      if (document.schemaVersion !== manifest.schemaVersion
+          || document.artifactType !== "nature-spatial-cell-package"
+          || document.generated !== true
+          || document.cellId !== cell.cellId
+          || document.zoom !== cell.zoom
+          || document.x !== cell.x
+          || document.y !== cell.y
+          || document.shardIndex !== entry.shardIndex
+          || document.shardCount !== entry.shardCount
+          || document.contentHash !== entry.contentHash
+          || !Array.isArray(document.entities)
+          || document.entities.length !== entry.entityCount) {
+        throw new Error(`${relativePath} identity does not match its spatial index entry`);
+      }
+      const cellCore = { ...document };
+      delete cellCore.contentHash;
+      const computedCellHash = "sha256:"
+        + createHash("sha256").update(canonicalJson(cellCore)).digest("hex");
+      if (computedCellHash !== entry.contentHash) {
+        throw new Error(`${relativePath} failed content-hash validation`);
+      }
+      referencedSpatialFiles.add(relativePath);
+    }
+  }
+  if (packageCount !== spatialReference.packageCount) {
+    throw new Error(`${spatialIndexPath} package count does not match its manifest reference`);
+  }
+  for (const runtimePath of runtimeFiles) {
+    if (runtimePath.startsWith("assets/data/nature/spatial/")
+        && !referencedSpatialFiles.has(runtimePath)) {
+      throw new Error(`Unreferenced spatial runtime artifact: ${runtimePath}`);
+    }
+  }
+}
+
+function normalizeNatureRuntimeUrl(value, label) {
+  if (typeof value !== "string" || !value) throw new Error(`${label} is invalid`);
+  const manifestUrl = value.split(/[?#]/, 1)[0];
+  const repositoryUrl = manifestUrl.startsWith("assets/data/nature/")
+    ? manifestUrl
+    : path.posix.join("assets/data/nature", manifestUrl);
+  return normalizeRepositoryPath(repositoryUrl, label);
 }
 
 async function validateRuntimeFiles(repoRoot, runtimeFiles) {

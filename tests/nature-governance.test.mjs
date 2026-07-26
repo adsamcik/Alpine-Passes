@@ -20,12 +20,17 @@ import {
 import {
   buildSearchDocument,
   discoveryAssessment,
+  rankDiscovery,
   searchEntities,
 } from "../assets/js/nature/discovery.mjs";
 import {
+  applyPublicationGovernance,
   buildNatureData,
   canonicalJson,
+  validateRecordGovernance,
+  validateSourceRegistry,
 } from "../tools/nature/build.mjs";
+import { ingestLegacyRepository } from "../tools/nature/lib/legacy-adapter.mjs";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const GENERATED_ROOT = path.join(REPO_ROOT, "assets", "data", "nature");
@@ -177,6 +182,8 @@ test("source and jurisdiction registries satisfy their schemas and target-territ
 
   assertRegistryTopLevel(sourceRegistry, sourceSchema);
   assertRegistryTopLevel(jurisdictionRegistry, jurisdictionSchema);
+  assert.equal(sourceRegistry.dataUsePolicy.zeroPaidRights.licenceFees, "prohibited");
+  assert.equal(sourceRegistry.dataUsePolicy.zeroPaidRights.unknownRights, "fail_closed");
   assert.deepEqual(jurisdictionRegistry.coverageStatuses, COVERAGE_STATUSES);
   const dimensionSet = new Set(jurisdictionRegistry.dimensions);
   assert.equal(dimensionSet.size, jurisdictionRegistry.dimensions.length);
@@ -211,7 +218,15 @@ test("source and jurisdiction registries satisfy their schemas and target-territ
     );
     assert.equal(source.authentication.secretBrowserSafe, false);
     assert.equal(source.failureBehaviour.isolateSource, true);
+    assert.ok(sourceProperties.rightsCost.enum.includes(source.rightsCost));
     assert.ok(sourceProperties.redistribution.enum.includes(source.redistribution));
+    if (source.publicationDisposition === "approved") {
+      assert.equal(source.rightsCost, "no_fee", source.id);
+    } else if (source.id === "protected-planet-blocked") {
+      assert.equal(source.rightsCost, "paid");
+    } else {
+      assert.equal(source.rightsCost, "unknown", source.id);
+    }
   }
 
   const jurisdictionProperties = jurisdictionSchema.$defs.jurisdiction.properties;
@@ -293,6 +308,84 @@ test("source and jurisdiction registries satisfy their schemas and target-territ
   }
 });
 
+test("publication governance enforces rights cost and per-file media clearance", async () => {
+  const registry = await readJson("data/sources/registry.v1.json");
+  const sources = validateSourceRegistry(registry);
+  assert.equal(sources.size, registry.sources.length);
+
+  const paidApproved = structuredClone(registry);
+  const approvedSource = paidApproved.sources.find((source) =>
+    source.publicationDisposition === "approved");
+  approvedSource.rightsCost = "paid";
+  assert.throws(
+    () => validateSourceRegistry(paidApproved),
+    /no-fee commercial redistribution rights/,
+  );
+
+  const lead = fixturePlace("place:lead-governance", "Lead governance", "publish", [8, 46], {
+    media: [{ sourceId: "wikimedia-commons", url: "https://example.test/unknown.jpg" }],
+  });
+  const governedLead = applyPublicationGovernance([lead], sources);
+  assert.equal(governedLead.report.removedMediaItems, 1);
+  assert.equal(governedLead.records[0].media, undefined);
+  assert.ok(governedLead.records[0].quality.flags.includes("discovery_lead"));
+  assert.ok(governedLead.records[0].quality.flags.includes("unverified_migration_preview"));
+
+  const verifiedLead = structuredClone(lead);
+  verifiedLead.sourceAssertions[0].verificationStatus = "verified";
+  verifiedLead.quality.verificationStatus = "verified";
+  assert.ok(validateRecordGovernance(verifiedLead, sources).some((error) =>
+    error.includes("only unverified lead assertions")));
+
+  const paidReference = structuredClone(lead);
+  paidReference.sourceAssertions[0].sourceId = "protected-planet-blocked";
+  assert.ok(validateRecordGovernance(paidReference, sources).some((error) =>
+    error.includes("paid-rights source protected-planet-blocked")));
+
+  const mediaSources = new Map(sources);
+  mediaSources.set("fixture-cleared-media", {
+    ...sources.get("osm-global"),
+    id: "fixture-cleared-media",
+    publicationDisposition: "approved",
+    rightsCost: "no_fee",
+    approvedUses: ["media"],
+  });
+  const clearedMedia = {
+    sourceId: "fixture-cleared-media",
+    url: "https://images.example.test/place.jpg",
+    sourcePageUrl: "https://images.example.test/place",
+    creator: "Example Creator",
+    licenceId: "CC-BY-4.0",
+    licenceUrl: "https://creativecommons.org/licenses/by/4.0/",
+    licenceVersion: "4.0",
+    attribution: "Example Creator, CC BY 4.0",
+    modifications: "None",
+    reviewStatus: "approved",
+    reviewedAt: "2026-07-26",
+    display: true,
+    commercialUse: true,
+    redistribution: true,
+    modificationsAllowed: true,
+  };
+  const mediaRecord = fixturePlace("place:cleared-media", "Cleared media", "publish", [8, 46], {
+    media: [clearedMedia, { ...clearedMedia, reviewedAt: "not-a-date" }],
+  });
+  const governedMedia = applyPublicationGovernance([mediaRecord], mediaSources);
+  assert.equal(governedMedia.report.removedMediaItems, 1);
+  assert.deepEqual(governedMedia.records[0].media, [clearedMedia]);
+
+  for (const permission of [
+    "display", "commercialUse", "redistribution", "modificationsAllowed",
+  ]) {
+    const rejected = fixturePlace(`place:media-${permission}`, permission, "publish", [8, 46], {
+      media: [{ ...clearedMedia, [permission]: false }],
+    });
+    const result = applyPublicationGovernance([rejected], mediaSources);
+    assert.equal(result.report.removedMediaItems, 1, permission);
+    assert.equal(result.records[0].media, undefined, permission);
+  }
+});
+
 test("entity, source, jurisdiction, classification, and relationship references are closed", async () => {
   const [{ entities }, sourceRegistry, jurisdictionRegistry, taxonomy] = await Promise.all([
     loadGeneratedEntities(),
@@ -363,6 +456,26 @@ test("legacy inventory status remains Unknown and price-cache migration is count
   assert.equal(inventory.matchedRecords, cacheKeys.length);
   assert.equal(inventory.unmatchedRecords, 0);
   assert.deepEqual(inventory.unmatchedCacheKeys, []);
+});
+
+test("legacy hidden-gem tags remain explicitly unverified quieter leads", async () => {
+  const { records } = await ingestLegacyRepository(REPO_ROOT);
+  const quieterLeads = records.filter((record) => record.discovery?.lane === "quieter_lead");
+  assert.equal(quieterLeads.length, 327);
+  assert.ok(quieterLeads.every((record) =>
+    !Object.hasOwn(record.discovery, "evidenceQuality")
+      && !Object.hasOwn(record.discovery, "access")
+      && !Object.hasOwn(record.discovery, "legacyScore")
+      && record.discovery.visitorProminence === 0));
+  assert.ok(quieterLeads.every((record) =>
+    discoveryAssessment(record, { hiddenOnly: true }).lane === "quieter_lead"
+      && discoveryAssessment(record, { hiddenOnly: true }).eligible === false));
+
+  const ordinary = rankDiscovery(quieterLeads.slice(0, 3));
+  assert.equal(ordinary.length, 3);
+  assert.ok(ordinary.every((assessment) =>
+    assessment.lane === "quieter_lead"
+      && assessment.uncertainties.some((reason) => reason.includes("not a quality claim"))));
 });
 
 test("sensitive delivery is fail-closed, coarsened, reference-safe, and count-only", async (t) => {
@@ -612,6 +725,7 @@ test("multilingual search finds endonyms, romanization, translations, and diacri
 
 test("hidden discovery cannot promote obscurity without evidence, access, and sensitivity safeguards", () => {
   const strong = discoveryFixture("place:strong", {
+    lane: "quieter_verified",
     distinctiveness: 0.9,
     regionalUniqueness: 0.8,
     evidenceQuality: 0.85,
@@ -646,7 +760,8 @@ test("hidden discovery cannot promote obscurity without evidence, access, and se
     hiddenOnly: true,
     accessModes: ["foot"],
   });
-  assert.equal(unknownAssessment.eligible, true);
+  assert.equal(unknownAssessment.eligible, false);
+  assert.equal(unknownAssessment.lane, "quieter_lead");
   assert.ok(unknownAssessment.score < eligible.score);
   assert.ok(unknownAssessment.uncertainties.some((reason) => reason.includes("not verified")));
   assert.equal(discoveryAssessment(unknownAccess, {
@@ -815,7 +930,11 @@ function discoveryFixture(id, discovery) {
     id,
     names: [{ language: "en", value: id, kind: "primary" }],
     geometry: { type: "Point", coordinates: [8, 46] },
-    quality: { confidence: discovery.evidenceQuality ?? 0.8, flags: [] },
+    quality: {
+      confidence: discovery.evidenceQuality ?? 0.8,
+      verificationStatus: "verified",
+      flags: [],
+    },
     sensitivity: { action: "publish" },
     access: { legal: "legal", modes: ["foot"] },
     discovery,

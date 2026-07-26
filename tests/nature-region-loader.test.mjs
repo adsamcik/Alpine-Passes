@@ -756,3 +756,343 @@ test("one corrupt shard rejects and prevents caching of the whole logical region
     2,
   );
 });
+
+function spatialCellFixture(cellId, entities, options = {}) {
+  const [zoom, x, y] = cellId.split("/").map(Number);
+  const core = {
+    schemaVersion: SCHEMA_VERSION,
+    artifactType: "nature-spatial-cell-package",
+    generated: true,
+    cellId,
+    zoom,
+    x,
+    y,
+    shardIndex: 0,
+    shardCount: 1,
+    entities,
+    ...(options.coreOverrides || {}),
+  };
+  const document = { ...core, contentHash: hashCore(core) };
+  const contentHash = options.entryOverrides?.contentHash ?? document.contentHash;
+  const hashPrefix = contentHash.slice("sha256:".length, "sha256:".length + 16);
+  const entry = {
+    shardIndex: 0,
+    shardCount: 1,
+    url: `assets/data/nature/spatial/cells/${zoom}/${x}/${y}/${hashPrefix}.json`,
+    contentHash,
+    bytes: Buffer.byteLength(`${buildCanonicalJson(document)}\n`),
+    entityCount: entities.length,
+    ...(options.entryOverrides || {}),
+  };
+  return {
+    document,
+    entry,
+    cell: {
+      cellId,
+      zoom,
+      x,
+      y,
+      entityCount: entities.length,
+      packages: [entry],
+    },
+  };
+}
+
+function spatialIndexFixture(cellFixtures, options = {}) {
+  const cells = cellFixtures.map((fixture) => fixture.cell)
+    .toSorted((left, right) => left.cellId.localeCompare(right.cellId));
+  const core = {
+    schemaVersion: SCHEMA_VERSION,
+    artifactType: "nature-spatial-index",
+    generated: true,
+    zoom: 8,
+    cellCount: cells.length,
+    packageCount: cells.reduce((sum, cell) => sum + cell.packages.length, 0),
+    cells,
+    ...(options.coreOverrides || {}),
+  };
+  const document = { ...core, contentHash: hashCore(core) };
+  const contentHash = options.referenceOverrides?.contentHash ?? document.contentHash;
+  const hashPrefix = contentHash.slice("sha256:".length, "sha256:".length + 16);
+  const reference = {
+    zoom: 8,
+    url: `assets/data/nature/spatial/index/${hashPrefix}.json`,
+    contentHash,
+    bytes: Buffer.byteLength(`${buildCanonicalJson(document)}\n`),
+    cellCount: document.cellCount,
+    packageCount: document.packageCount,
+    ...(options.referenceOverrides || {}),
+  };
+  return { document, reference };
+}
+
+function spatialEnvironment(cellFixtures, options = {}) {
+  const regional = pair("japan", [
+    entity("place:jp-regional-only", ["JP-13"], "japan"),
+  ]);
+  const index = options.indexFixture ?? spatialIndexFixture(cellFixtures);
+  const manifestDocument = manifest([regional.entry], {
+    spatialIndex: index.reference,
+  });
+  const routes = new Map([
+    [DEFAULT_NATURE_MANIFEST_URL, manifestDocument],
+    [regional.entry.url, regional.document],
+    [index.reference.url, () => textJsonResponse(index.document)],
+  ]);
+  for (const fixture of cellFixtures) {
+    routes.set(fixture.entry.url, () => textJsonResponse(fixture.document));
+  }
+  for (const [url, route] of options.routeOverrides || []) routes.set(url, route);
+  const router = createFetchRouter(routes);
+  const loader = new RegionalPackageLoader({
+    ...(options.loaderOptions || {}),
+    fetchImpl: router.fetchImpl,
+    cryptoImpl: webcrypto,
+  });
+  return { ...router, loader, index, manifestDocument, regional };
+}
+
+function textJsonResponse(value, status = 200) {
+  const raw = `${buildCanonicalJson(value)}\n`;
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    async text() {
+      return raw;
+    },
+  };
+}
+
+test("manifest-only boot defers the spatial index and viewport fetches only intersecting cells", async () => {
+  const shared = entity("place:spatial-shared", ["JP-13"], "japan");
+  const west = spatialCellFixture("8/128/128", [
+    entity("place:spatial-west", ["JP-13"], "japan"),
+    shared,
+  ]);
+  const east = spatialCellFixture("8/129/128", [
+    shared,
+    entity("place:spatial-east", ["JP-13"], "japan"),
+  ]);
+  const far = spatialCellFixture("8/200/100", [
+    entity("place:spatial-far", ["JP-13"], "japan"),
+  ]);
+  const setup = spatialEnvironment([west, east, far]);
+
+  await setup.loader.loadManifest();
+  assert.deepEqual(
+    setup.calls.map((call) => call.url),
+    [DEFAULT_NATURE_MANIFEST_URL],
+  );
+
+  const bounds = [0, -1, 2, 0];
+  const [first, concurrent] = await Promise.all([
+    setup.loader.loadViewport(bounds),
+    setup.loader.loadViewport(bounds),
+  ]);
+  assert.deepEqual(first.entities.map((item) => item.id), [
+    "place:spatial-east",
+    "place:spatial-shared",
+    "place:spatial-west",
+  ]);
+  assert.deepEqual(concurrent.entities, first.entities);
+  assert.deepEqual(first.cellIds, ["8/128/128", "8/129/128"]);
+  assert.deepEqual(setup.loader.cachedSpatialCellIds, first.cellIds);
+  assert.equal(setup.calls.filter((call) => call.url === setup.index.reference.url).length, 1);
+  assert.equal(setup.calls.filter((call) => call.url === west.entry.url).length, 1);
+  assert.equal(setup.calls.filter((call) => call.url === east.entry.url).length, 1);
+  assert.equal(setup.calls.some((call) => call.url === far.entry.url), false);
+  assert.equal(setup.calls.some((call) => call.url === setup.regional.entry.url), false);
+
+  const callCount = setup.calls.length;
+  await setup.loader.loadViewport(bounds);
+  assert.equal(setup.calls.length, callCount);
+  assert.equal(setup.loader.hasCachedSpatialCell("8/128/128"), true);
+  assert.equal(setup.loader.getCachedSpatialCell("8/128/128").cellId, "8/128/128");
+});
+
+test("wrapped viewport bounds select both sides of the antimeridian", async () => {
+  const east = spatialCellFixture("8/255/127", [
+    entity("place:dateline-east", ["JP-13"], "japan"),
+  ]);
+  const west = spatialCellFixture("8/0/127", [
+    entity("place:dateline-west", ["JP-13"], "japan"),
+  ]);
+  const middle = spatialCellFixture("8/128/127", [
+    entity("place:dateline-middle", ["JP-13"], "japan"),
+  ]);
+  const setup = spatialEnvironment([east, west, middle]);
+
+  const viewport = await setup.loader.loadViewport([178, 0, -178, 1]);
+  assert.deepEqual(viewport.cellIds, ["8/0/127", "8/255/127"]);
+  assert.deepEqual(viewport.entities.map((item) => item.id), [
+    "place:dateline-east",
+    "place:dateline-west",
+  ]);
+  assert.equal(setup.calls.some((call) => call.url === middle.entry.url), false);
+});
+
+test("viewport validates bounds before fetching and old manifests retain regional loading", async () => {
+  const japan = pair("japan", [entity("place:jp-old-manifest", ["JP-13"], "japan")]);
+  const setup = environment([japan]);
+  await assert.rejects(
+    setup.loader.loadViewport([0, 20, 1, 10]),
+    errorCode("invalid_viewport_bounds"),
+  );
+  assert.equal(setup.calls.length, 0);
+  await assert.rejects(
+    setup.loader.loadSpatialIndex(),
+    errorCode("spatial_index_not_found"),
+  );
+  assert.equal((await setup.loader.loadRegion("japan")).entities.length, 1);
+});
+
+test("spatial index and cell byte, identity, and hash failures fail closed", async (t) => {
+  await t.test("index bytes", async () => {
+    const cell = spatialCellFixture("8/128/128", [
+      entity("place:index-bytes", ["JP-13"], "japan"),
+    ]);
+    const index = spatialIndexFixture([cell]);
+    index.reference.bytes += 1;
+    const setup = spatialEnvironment([cell], { indexFixture: index });
+    await assert.rejects(
+      setup.loader.loadSpatialIndex(),
+      errorCode("spatial_index_bytes_mismatch"),
+    );
+  });
+
+  await t.test("index hash", async () => {
+    const cell = spatialCellFixture("8/128/128", [
+      entity("place:index-hash", ["JP-13"], "japan"),
+    ]);
+    const index = spatialIndexFixture([cell]);
+    const corrupt = structuredClone(index.document);
+    corrupt.cells[0].entityCount = 2;
+    corrupt.cells[0].packages[0].entityCount = 2;
+    assert.equal(
+      Buffer.byteLength(`${buildCanonicalJson(corrupt)}\n`),
+      index.reference.bytes,
+    );
+    const setup = spatialEnvironment([cell], {
+      indexFixture: index,
+      routeOverrides: [[index.reference.url, () => textJsonResponse(corrupt)]],
+    });
+    await assert.rejects(
+      setup.loader.loadSpatialIndex(),
+      errorCode("spatial_index_hash_mismatch"),
+    );
+  });
+
+  await t.test("cell identity", async () => {
+    const cell = spatialCellFixture("8/128/128", [
+      entity("place:cell-identity", ["JP-13"], "japan"),
+    ]);
+    const corrupt = structuredClone(cell.document);
+    corrupt.cellId = "8/129/128";
+    corrupt.x = 129;
+    assert.equal(
+      Buffer.byteLength(`${buildCanonicalJson(corrupt)}\n`),
+      cell.entry.bytes,
+    );
+    const setup = spatialEnvironment([cell], {
+      routeOverrides: [[cell.entry.url, () => textJsonResponse(corrupt)]],
+    });
+    await assert.rejects(
+      setup.loader.loadViewport([0, -1, 1, 0]),
+      errorCode("spatial_package_identity_mismatch"),
+    );
+  });
+
+  await t.test("cell hash", async () => {
+    const cell = spatialCellFixture("8/128/128", [
+      entity("place:cell-hash-a", ["JP-13"], "japan"),
+    ]);
+    const corrupt = structuredClone(cell.document);
+    corrupt.entities[0].id = "place:cell-hash-b";
+    assert.equal(
+      Buffer.byteLength(`${buildCanonicalJson(corrupt)}\n`),
+      cell.entry.bytes,
+    );
+    const setup = spatialEnvironment([cell], {
+      routeOverrides: [[cell.entry.url, () => textJsonResponse(corrupt)]],
+    });
+    await assert.rejects(
+      setup.loader.loadViewport([0, -1, 1, 0]),
+      errorCode("spatial_package_hash_mismatch"),
+    );
+  });
+});
+
+test("viewport rejects conflicting copies of one entity across cells", async () => {
+  const first = spatialCellFixture("8/128/128", [
+    entity("place:viewport-conflict", ["JP-13"], "japan", { label: "first" }),
+  ]);
+  const second = spatialCellFixture("8/129/128", [
+    entity("place:viewport-conflict", ["JP-13"], "japan", { label: "second" }),
+  ]);
+  const setup = spatialEnvironment([first, second]);
+  await assert.rejects(
+    setup.loader.loadViewport([0, -1, 2, 0]),
+    errorCode("spatial_entity_conflict"),
+  );
+});
+
+test("viewport request caps refuse before cell fetch and validate overrides", async () => {
+  const first = spatialCellFixture("8/128/128", [
+    entity("place:limit-first", ["JP-13"], "japan"),
+  ]);
+  const second = spatialCellFixture("8/129/128", [
+    entity("place:limit-second", ["JP-13"], "japan"),
+  ]);
+  const setup = spatialEnvironment([first, second]);
+
+  await assert.rejects(
+    setup.loader.loadViewport([0, -1, 2, 0], { maxCells: 1 }),
+    errorCode("viewport_request_limit_exceeded"),
+  );
+  assert.equal(setup.calls.some((call) => call.url === first.entry.url), false);
+  assert.equal(setup.calls.some((call) => call.url === second.entry.url), false);
+  await assert.rejects(
+    setup.loader.loadViewport([0, -1, 2, 0], { maxCells: 2, maxPackages: 1 }),
+    errorCode("viewport_request_limit_exceeded"),
+  );
+  assert.equal(setup.calls.some((call) => call.url === first.entry.url), false);
+  await assert.rejects(
+    setup.loader.loadViewport([0, -1, 2, 0], { maxCells: 0 }),
+    errorCode("invalid_viewport_limit"),
+  );
+  assert.throws(
+    () => new RegionalPackageLoader({
+      fetchImpl: setup.fetchImpl,
+      cryptoImpl: webcrypto,
+      spatialCellCacheLimit: 0,
+    }),
+    /spatialCellCacheLimit must be a positive safe integer/,
+  );
+});
+
+test("spatial cell cache evicts least-recently-used entries at its configured bound", async () => {
+  const first = spatialCellFixture("8/128/128", [
+    entity("place:cache-first", ["JP-13"], "japan"),
+  ]);
+  const second = spatialCellFixture("8/129/128", [
+    entity("place:cache-second", ["JP-13"], "japan"),
+  ]);
+  const third = spatialCellFixture("8/130/128", [
+    entity("place:cache-third", ["JP-13"], "japan"),
+  ]);
+  const setup = spatialEnvironment([first, second, third], {
+    loaderOptions: { spatialCellCacheLimit: 2 },
+  });
+
+  await setup.loader.loadViewport([0, -1, 1, 0]);
+  await setup.loader.loadViewport([1.5, -1, 2, 0]);
+  await setup.loader.loadViewport([3, -1, 4, 0]);
+  assert.deepEqual(setup.loader.cachedSpatialCellIds, ["8/129/128", "8/130/128"]);
+  assert.equal(setup.loader.hasCachedSpatialCell("8/128/128"), false);
+
+  setup.loader.getCachedSpatialCell("8/129/128");
+  await setup.loader.loadViewport([0, -1, 1, 0]);
+  assert.deepEqual(setup.loader.cachedSpatialCellIds, ["8/128/128", "8/129/128"]);
+  assert.equal(setup.loader.hasCachedSpatialCell("8/130/128"), false);
+  assert.equal(setup.calls.filter((call) => call.url === first.entry.url).length, 2);
+});

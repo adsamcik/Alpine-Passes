@@ -50,7 +50,8 @@ test("site package contains only the explicit client runtime allowlist", async (
     const allowed = REQUIRED_RUNTIME_FILES.includes(filename)
       || OPTIONAL_RUNTIME_FILES.includes(filename)
       || (filename.startsWith("assets/js/nature/") && filename.endsWith(".mjs"))
-      || (filename.startsWith("assets/data/nature/packages/") && filename.endsWith(".json"));
+      || (filename.startsWith("assets/data/nature/packages/") && filename.endsWith(".json"))
+      || (filename.startsWith("assets/data/nature/spatial/") && filename.endsWith(".json"));
     assert.ok(allowed, `unexpected client runtime file: ${filename}`);
   }
 });
@@ -122,6 +123,29 @@ test("build manifest is complete, size-bounded, hashed, and deterministic", asyn
     assert.ok(item.bytes <= SITES_MAX_FILE_BYTES, item.path);
     assert.equal(item.sha256, createHash("sha256").update(bytes).digest("hex"), item.path);
   }
+});
+
+test("site package contains exactly the manifest-referenced spatial artifacts", async () => {
+  const manifest = JSON.parse(await readFile(
+    path.join(REPO_ROOT, "assets", "data", "nature", "manifest.v1.json"),
+    "utf8",
+  ));
+  const spatialIndex = JSON.parse(await readFile(
+    path.join(REPO_ROOT, ...manifest.spatialIndex.url.split("/")),
+    "utf8",
+  ));
+  const expected = [
+    manifest.spatialIndex.url,
+    ...spatialIndex.cells.flatMap((cell) => cell.packages.map((entry) => entry.url)),
+  ].toSorted();
+  const clientFiles = await listFiles(path.join(firstDist, "client"));
+  assert.deepEqual(
+    clientFiles.filter((filename) => filename.startsWith("assets/data/nature/spatial/")),
+    expected,
+  );
+  assert.equal(spatialIndex.contentHash, manifest.spatialIndex.contentHash);
+  assert.equal(spatialIndex.cellCount, manifest.spatialIndex.cellCount);
+  assert.equal(spatialIndex.packageCount, manifest.spatialIndex.packageCount);
 });
 
 test("every local HTML asset reference resolves inside dist/client", async () => {

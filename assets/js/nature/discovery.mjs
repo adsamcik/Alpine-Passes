@@ -63,12 +63,48 @@ export function searchEntities(entities, query, options = {}) {
 }
 
 export function rankDiscovery(entities, context = {}) {
-  return entities
+  const ranked = entities
     .map((entity) => discoveryAssessment(entity, context))
     .filter((assessment) => assessment.eligible)
     .sort((a, b) => b.score - a.score
-      || b.entity.quality.confidence - a.entity.quality.confidence
+      || (b.entity.quality?.confidence || 0) - (a.entity.quality?.confidence || 0)
       || displayName(a.entity).localeCompare(displayName(b.entity)));
+  return context.hiddenOnly ? ranked : interleaveDiscoveryAssessments(ranked, context);
+}
+
+export function interleaveDiscoveryAssessments(assessments, options = {}) {
+  const interval = Number.isSafeInteger(options.quieterInterval) && options.quieterInterval >= 2
+    ? options.quieterInterval
+    : 4;
+  const minimumScore = Number.isFinite(options.minimumQuieterScore)
+    ? bounded(options.minimumQuieterScore, 0.55)
+    : 0.55;
+  const quieter = assessments.filter((assessment) =>
+    assessment.lane === "quieter_verified" && assessment.score >= minimumScore);
+  if (!quieter.length) return [...assessments];
+
+  const quieterIds = new Set(quieter.map((assessment) => assessment.entity.id));
+  const ordinary = assessments.filter((assessment) => !quieterIds.has(assessment.entity.id));
+  if (!ordinary.length) return [...assessments];
+
+  const maxInterleaved = Math.min(
+    quieter.length,
+    Math.max(1, Math.floor(assessments.length / interval)),
+  );
+  const interleaved = [];
+  let quieterIndex = 0;
+  for (const assessment of ordinary) {
+    interleaved.push(assessment);
+    if (interleaved.length % interval === interval - 1
+        && quieterIndex < maxInterleaved) {
+      interleaved.push(quieter[quieterIndex]);
+      quieterIndex += 1;
+    }
+  }
+  return [
+    ...interleaved,
+    ...quieter.slice(quieterIndex),
+  ];
 }
 
 export function discoveryAssessment(entity, context = {}) {
@@ -107,11 +143,16 @@ export function discoveryAssessment(entity, context = {}) {
       && !["legal", "restricted"].includes(entity.access?.legal)) {
     exclusions.push("verified public access is required");
   }
+  const lane = discoveryLane(entity, dimensions);
+  if (lane === "quieter_lead") {
+    uncertainties.push("less-known status is an unverified discovery lead, not a quality claim");
+  }
   if (context.hiddenOnly
-      && (dimensions.evidenceQuality < 0.6
+      && (lane !== "quieter_verified"
+        || dimensions.evidenceQuality < 0.6
         || dimensions.distinctiveness < 0.55
         || dimensions.accessFit < 0.45)) {
-    exclusions.push("obscurity is not enough without strong evidence, access and distinctiveness");
+    exclusions.push("obscurity alone is insufficient; hidden-only discovery requires verified evidence, access and distinctiveness");
   }
 
   const weights = { ...DEFAULT_WEIGHTS, ...(context.weights || {}) };
@@ -128,6 +169,7 @@ export function discoveryAssessment(entity, context = {}) {
   const reasons = topReasons(dimensions, context);
   return {
     entity,
+    lane,
     eligible: exclusions.length === 0,
     score: Math.round(score * 1000) / 1000,
     dimensions,
@@ -192,6 +234,32 @@ function accessFit(entity, context) {
   if (entity.access?.legal === "private") return 0;
   if (entity.access?.legal === "unknown") return modeFit * 0.45;
   return modeFit;
+}
+
+function discoveryLane(entity, dimensions) {
+  const explicit = entity.discovery?.lane;
+  const themes = new Set(entity.themes || []);
+  if (explicit === "quieter_lead") return "quieter_lead";
+  if (explicit === "iconic" || themes.has("iconic")) return "iconic";
+
+  const criticalUnknown = (entity.quality?.flags || []).some((flag) =>
+    flag === "critical_access_unknown" || flag === "critical_condition_unknown");
+  const evidenceQualified = ["verified", "partially_verified"].includes(
+    entity.quality?.verificationStatus,
+  )
+    && dimensions.evidenceQuality >= 0.6
+    && dimensions.accessFit >= 0.45
+    && entity.sensitivity?.action === "publish"
+    && !["private", "unknown"].includes(entity.access?.legal)
+    && !criticalUnknown;
+
+  if (explicit === "quieter_verified") {
+    return evidenceQualified ? "quieter_verified" : "quieter_lead";
+  }
+  if (themes.has("hidden-gem")) {
+    return evidenceQualified ? "quieter_verified" : "quieter_lead";
+  }
+  return "general";
 }
 
 function topReasons(dimensions, context) {

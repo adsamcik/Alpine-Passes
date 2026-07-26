@@ -2,13 +2,67 @@ import { SCHEMA_VERSION } from "./domain.mjs";
 
 export const DEFAULT_NATURE_MANIFEST_URL = "assets/data/nature/manifest.v1.json";
 export const NATURE_PACKAGE_SCHEMA_VERSION = SCHEMA_VERSION;
+export const DEFAULT_MAX_VIEWPORT_CELLS = 64;
+export const DEFAULT_MAX_VIEWPORT_PACKAGES = 128;
+export const DEFAULT_SPATIAL_CELL_CACHE_LIMIT = 128;
 
 const MANIFEST_ARTIFACT_TYPE = "nature-package-manifest";
 const PACKAGE_ARTIFACT_TYPE = "nature-region-package";
+const SPATIAL_INDEX_ARTIFACT_TYPE = "nature-spatial-index";
+const SPATIAL_CELL_PACKAGE_ARTIFACT_TYPE = "nature-spatial-cell-package";
+const SPATIAL_INDEX_ZOOM = 8;
+const WEB_MERCATOR_MAX_LATITUDE = 85.0511287798066;
 const SHA256_PATTERN = /^sha256:[a-f0-9]{64}$/;
 const REGION_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,127}$/;
 const ENTITY_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9:._-]{2,159}$/;
 const JURISDICTION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+const SPATIAL_INDEX_REFERENCE_KEYS = Object.freeze([
+  "bytes",
+  "cellCount",
+  "contentHash",
+  "packageCount",
+  "url",
+  "zoom",
+]);
+const SPATIAL_INDEX_DOCUMENT_KEYS = Object.freeze([
+  "artifactType",
+  "cellCount",
+  "cells",
+  "contentHash",
+  "generated",
+  "packageCount",
+  "schemaVersion",
+  "zoom",
+]);
+const SPATIAL_CELL_INDEX_KEYS = Object.freeze([
+  "cellId",
+  "entityCount",
+  "packages",
+  "x",
+  "y",
+  "zoom",
+]);
+const SPATIAL_PACKAGE_INDEX_KEYS = Object.freeze([
+  "bytes",
+  "contentHash",
+  "entityCount",
+  "shardCount",
+  "shardIndex",
+  "url",
+]);
+const SPATIAL_CELL_PACKAGE_KEYS = Object.freeze([
+  "artifactType",
+  "cellId",
+  "contentHash",
+  "entities",
+  "generated",
+  "schemaVersion",
+  "shardCount",
+  "shardIndex",
+  "x",
+  "y",
+  "zoom",
+]);
 
 export class RegionLoaderError extends Error {
   constructor(message, code = "region_loader_error", details = {}, options = {}) {
@@ -29,6 +83,13 @@ export class RegionalPackageLoader {
   #manifestPromise = null;
   #regionCache = new Map();
   #regionPromises = new Map();
+  #spatialIndex = null;
+  #spatialIndexPromise = null;
+  #spatialCellCache = new Map();
+  #spatialCellPromises = new Map();
+  #maxViewportCells;
+  #maxViewportPackages;
+  #spatialCellCacheLimit;
 
   constructor(options = {}) {
     const fetchImpl = options.fetchImpl ?? globalThis.fetch;
@@ -45,6 +106,21 @@ export class RegionalPackageLoader {
       : globalThis.crypto;
     this.#manifestUrl = manifestUrl;
     this.#schemaVersion = options.schemaVersion ?? NATURE_PACKAGE_SCHEMA_VERSION;
+    this.#maxViewportCells = configuredPositiveLimit(
+      options.maxViewportCells,
+      DEFAULT_MAX_VIEWPORT_CELLS,
+      "maxViewportCells",
+    );
+    this.#maxViewportPackages = configuredPositiveLimit(
+      options.maxViewportPackages,
+      DEFAULT_MAX_VIEWPORT_PACKAGES,
+      "maxViewportPackages",
+    );
+    this.#spatialCellCacheLimit = configuredPositiveLimit(
+      options.spatialCellCacheLimit,
+      DEFAULT_SPATIAL_CELL_CACHE_LIMIT,
+      "spatialCellCacheLimit",
+    );
   }
 
   get manifestUrl() {
@@ -53,6 +129,10 @@ export class RegionalPackageLoader {
 
   get cachedRegionIds() {
     return [...this.#regionCache.keys()].sort();
+  }
+
+  get cachedSpatialCellIds() {
+    return [...this.#spatialCellCache.keys()].sort();
   }
 
   async loadManifest(options = {}) {
@@ -139,6 +219,93 @@ export class RegionalPackageLoader {
     return this.#regionCache.get(normalizeRegionId(regionId)) || null;
   }
 
+  async loadSpatialIndex(options = {}) {
+    const signal = optionSignal(options);
+    throwIfAborted(signal);
+    const manifest = await this.loadManifest({ signal });
+    const reference = manifest.spatialIndex;
+    if (!reference) {
+      throw new RegionLoaderError(
+        "Nature manifest does not advertise a spatial index",
+        "spatial_index_not_found",
+      );
+    }
+
+    if (this.#spatialIndex) {
+      return awaitWithAbort(Promise.resolve(this.#spatialIndex), signal);
+    }
+
+    if (!this.#spatialIndexPromise) {
+      const tracked = this.#fetchSpatialIndex(reference)
+        .then((document) => {
+          this.#spatialIndex = deepFreeze(document);
+          return this.#spatialIndex;
+        })
+        .finally(() => {
+          if (this.#spatialIndexPromise === tracked) this.#spatialIndexPromise = null;
+        });
+      this.#spatialIndexPromise = tracked;
+    }
+
+    return awaitWithAbort(this.#spatialIndexPromise, signal);
+  }
+
+  async loadViewport(bounds, options = {}) {
+    const normalizedBounds = validateViewportBounds(bounds);
+    const signal = optionSignal(options);
+    const limits = viewportRequestLimits(
+      options,
+      this.#maxViewportCells,
+      this.#maxViewportPackages,
+    );
+    throwIfAborted(signal);
+    const spatialIndex = await this.loadSpatialIndex({ signal });
+    const selectedCells = selectSpatialCells(
+      spatialIndex.cells,
+      normalizedBounds,
+      spatialIndex.zoom,
+    );
+    const packageCount = selectedCells.reduce(
+      (total, entry) => total + entry.packages.length,
+      0,
+    );
+    if (selectedCells.length > limits.maxCells || packageCount > limits.maxPackages) {
+      throw new RegionLoaderError(
+        "Viewport intersects too many spatial packages for one request",
+        "viewport_request_limit_exceeded",
+        {
+          cellCount: selectedCells.length,
+          packageCount,
+          maxCells: limits.maxCells,
+          maxPackages: limits.maxPackages,
+        },
+      );
+    }
+    const loading = Promise.all(
+      selectedCells.map((entry) => this.#loadSpatialCell(entry)),
+    );
+    const cells = await awaitWithAbort(loading, signal);
+    return deepFreeze(buildLogicalSpatialViewport(
+      normalizedBounds,
+      spatialIndex.zoom,
+      cells,
+      this.#schemaVersion,
+    ));
+  }
+
+  hasCachedSpatialCell(cellId) {
+    return this.#spatialCellCache.has(normalizeCellId(cellId));
+  }
+
+  getCachedSpatialCell(cellId) {
+    const normalized = normalizeCellId(cellId);
+    const cached = this.#spatialCellCache.get(normalized);
+    if (!cached) return null;
+    this.#spatialCellCache.delete(normalized);
+    this.#spatialCellCache.set(normalized, cached);
+    return cached;
+  }
+
   async #fetchManifest() {
     const document = await fetchJson(
       this.#fetchImpl,
@@ -186,6 +353,84 @@ export class RegionalPackageLoader {
       document,
       entry,
       regionId,
+      this.#schemaVersion,
+      this.#cryptoImpl,
+    );
+    return document;
+  }
+
+  async #fetchSpatialIndex(reference) {
+    const document = await fetchJsonWithBytes(
+      this.#fetchImpl,
+      reference.url,
+      "spatial_index",
+      "force-cache",
+      reference.bytes,
+    );
+    await validateSpatialIndex(
+      document,
+      reference,
+      this.#schemaVersion,
+      this.#cryptoImpl,
+    );
+    return document;
+  }
+
+  #loadSpatialCell(entry) {
+    if (this.#spatialCellCache.has(entry.cellId)) {
+      const cached = this.#spatialCellCache.get(entry.cellId);
+      this.#spatialCellCache.delete(entry.cellId);
+      this.#spatialCellCache.set(entry.cellId, cached);
+      return Promise.resolve(cached);
+    }
+
+    let tracked = this.#spatialCellPromises.get(entry.cellId);
+    if (!tracked) {
+      tracked = this.#fetchSpatialCell(entry)
+        .then((document) => {
+          const immutableDocument = deepFreeze(document);
+          this.#spatialCellCache.delete(entry.cellId);
+          this.#spatialCellCache.set(entry.cellId, immutableDocument);
+          while (this.#spatialCellCache.size > this.#spatialCellCacheLimit) {
+            this.#spatialCellCache.delete(this.#spatialCellCache.keys().next().value);
+          }
+          return immutableDocument;
+        })
+        .finally(() => {
+          if (this.#spatialCellPromises.get(entry.cellId) === tracked) {
+            this.#spatialCellPromises.delete(entry.cellId);
+          }
+        });
+      this.#spatialCellPromises.set(entry.cellId, tracked);
+    }
+    return tracked;
+  }
+
+  async #fetchSpatialCell(entry) {
+    const documents = await Promise.all(
+      entry.packages.map((packageEntry) =>
+        this.#fetchSpatialCellPackage(entry, packageEntry)),
+    );
+    return buildLogicalSpatialCell(entry, documents, this.#schemaVersion);
+  }
+
+  async #fetchSpatialCellPackage(cellEntry, packageEntry) {
+    const details = {
+      cellId: cellEntry.cellId,
+      shardIndex: packageEntry.shardIndex,
+    };
+    const document = await fetchJsonWithBytes(
+      this.#fetchImpl,
+      packageEntry.url,
+      "spatial_package",
+      "force-cache",
+      packageEntry.bytes,
+      details,
+    );
+    await validateSpatialCellPackage(
+      document,
+      cellEntry,
+      packageEntry,
       this.#schemaVersion,
       this.#cryptoImpl,
     );
@@ -298,6 +543,10 @@ function validateManifest(document, schemaVersion) {
 
   for (const [regionId, entries] of index) {
     index.set(regionId, validateManifestShardEntries(regionId, entries));
+  }
+
+  if (Object.hasOwn(document, "spatialIndex")) {
+    validateSpatialIndexReference(document.spatialIndex);
   }
 
   return { document, index };
@@ -655,14 +904,15 @@ function normalizeRegionId(regionId) {
   return regionId;
 }
 
-async function canonicalSha256(value, cryptoImpl, regionId) {
+async function canonicalSha256(value, cryptoImpl, context) {
+  const details = typeof context === "string" ? { regionId: context } : context || {};
   if (typeof TextEncoder !== "function"
       || !cryptoImpl?.subtle
       || typeof cryptoImpl.subtle.digest !== "function") {
     throw new RegionLoaderError(
       "Web Crypto SHA-256 is unavailable",
       "hash_unavailable",
-      { regionId },
+      details,
     );
   }
 
@@ -676,7 +926,7 @@ async function canonicalSha256(value, cryptoImpl, regionId) {
     throw new RegionLoaderError(
       "Unable to verify regional package integrity",
       "hash_failed",
-      { regionId },
+      details,
       { cause: error },
     );
   }
@@ -706,6 +956,43 @@ function optionSignal(options) {
     );
   }
   return signal;
+}
+
+function configuredPositiveLimit(value, fallback, label) {
+  const resolved = value ?? fallback;
+  if (!Number.isSafeInteger(resolved) || resolved < 1) {
+    throw new TypeError(`${label} must be a positive safe integer`);
+  }
+  return resolved;
+}
+
+function viewportRequestLimits(options, defaultMaxCells, defaultMaxPackages) {
+  if (isAbortSignal(options)) {
+    return { maxCells: defaultMaxCells, maxPackages: defaultMaxPackages };
+  }
+  const maxCells = perRequestPositiveLimit(
+    options?.maxCells,
+    defaultMaxCells,
+    "maxCells",
+  );
+  const maxPackages = perRequestPositiveLimit(
+    options?.maxPackages,
+    defaultMaxPackages,
+    "maxPackages",
+  );
+  return { maxCells, maxPackages };
+}
+
+function perRequestPositiveLimit(value, fallback, field) {
+  if (value === undefined) return fallback;
+  if (!Number.isSafeInteger(value) || value < 1) {
+    throw new RegionLoaderError(
+      `${field} must be a positive safe integer`,
+      "invalid_viewport_limit",
+      { field },
+    );
+  }
+  return value;
 }
 
 function isAbortSignal(value) {
@@ -793,4 +1080,608 @@ function deepFreeze(value) {
   if (!value || typeof value !== "object" || Object.isFrozen(value)) return value;
   for (const nested of Object.values(value)) deepFreeze(nested);
   return Object.freeze(value);
+}
+
+async function fetchJsonWithBytes(
+  fetchImpl,
+  url,
+  kind,
+  cache,
+  expectedBytes,
+  details = {},
+) {
+  let response;
+  try {
+    response = await fetchImpl(url, {
+      method: "GET",
+      headers: { accept: "application/json" },
+      cache,
+    });
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw new RegionLoaderError(
+        "Spatial data loading was aborted",
+        "aborted",
+        details,
+        { cause: error },
+      );
+    }
+    throw new RegionLoaderError(
+      "Unable to fetch nature " + kind,
+      kind + "_fetch_failed",
+      details,
+      { cause: error },
+    );
+  }
+
+  if (!response || response.ok !== true) {
+    throw new RegionLoaderError(
+      "Nature " + kind + " request failed",
+      kind + "_fetch_failed",
+      { ...details, status: Number(response?.status) || 0 },
+    );
+  }
+
+  let raw;
+  try {
+    raw = await response.text();
+  } catch (error) {
+    throw new RegionLoaderError(
+      "Unable to read nature " + kind,
+      kind + "_invalid_json",
+      details,
+      { cause: error },
+    );
+  }
+  const actualBytes = utf8ByteLength(raw, kind, details);
+  if (actualBytes !== expectedBytes) {
+    throw new RegionLoaderError(
+      "Nature " + kind + " byte length does not match the index",
+      kind + "_bytes_mismatch",
+      { ...details, expected: expectedBytes, actual: actualBytes },
+    );
+  }
+
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    throw new RegionLoaderError(
+      "Nature " + kind + " is not valid JSON",
+      kind + "_invalid_json",
+      details,
+      { cause: error },
+    );
+  }
+}
+
+function validateSpatialIndexReference(reference) {
+  if (!isPlainObject(reference)) {
+    throw manifestInvalid("Manifest spatialIndex must be an object");
+  }
+  validateExactKeys(
+    reference,
+    SPATIAL_INDEX_REFERENCE_KEYS,
+    manifestInvalid,
+    "Manifest spatialIndex",
+  );
+  validateSpatialZoom(reference.zoom, manifestInvalid, "Manifest spatialIndex zoom");
+  if (typeof reference.url !== "string" || !reference.url) {
+    throw manifestInvalid("Manifest spatialIndex URL is invalid");
+  }
+  if (typeof reference.contentHash !== "string"
+      || !SHA256_PATTERN.test(reference.contentHash)) {
+    throw manifestInvalid("Manifest spatialIndex hash is invalid");
+  }
+  validateSafeInteger(reference.bytes, 1, manifestInvalid, "Manifest spatialIndex bytes");
+  validateSafeInteger(reference.cellCount, 0, manifestInvalid, "Manifest spatialIndex cellCount");
+  validateSafeInteger(
+    reference.packageCount,
+    0,
+    manifestInvalid,
+    "Manifest spatialIndex packageCount",
+  );
+  validateSpatialIndexUrl(reference.url, reference.contentHash, manifestInvalid);
+}
+
+async function validateSpatialIndex(document, reference, schemaVersion, cryptoImpl) {
+  const invalid = (message, details = {}) => spatialIndexInvalid(message, details);
+  if (!isPlainObject(document)) {
+    throw invalid("Spatial index must be an object");
+  }
+  validateExactKeys(document, SPATIAL_INDEX_DOCUMENT_KEYS, invalid, "Spatial index");
+  if (document.schemaVersion !== schemaVersion) {
+    throw new RegionLoaderError(
+      "Unsupported spatial index schema version",
+      "spatial_index_schema_mismatch",
+      { expected: schemaVersion, actual: document.schemaVersion ?? null },
+    );
+  }
+  if (document.artifactType !== SPATIAL_INDEX_ARTIFACT_TYPE
+      || document.generated !== true) {
+    throw invalid("Spatial index identity is invalid");
+  }
+  validateSpatialZoom(document.zoom, invalid, "Spatial index zoom");
+  if (document.zoom !== reference.zoom) {
+    throw invalid("Spatial index zoom does not match the manifest");
+  }
+  if (document.contentHash !== reference.contentHash) {
+    throw new RegionLoaderError(
+      "Spatial index hash does not match its manifest reference",
+      "spatial_index_hash_mismatch",
+      { expected: reference.contentHash, actual: document.contentHash ?? null },
+    );
+  }
+  if (!Array.isArray(document.cells)) {
+    throw invalid("Spatial index cells must be an array");
+  }
+  validateSafeInteger(document.cellCount, 0, invalid, "Spatial index cellCount");
+  validateSafeInteger(document.packageCount, 0, invalid, "Spatial index packageCount");
+  if (document.cellCount !== reference.cellCount
+      || document.packageCount !== reference.packageCount) {
+    throw invalid("Spatial index counts do not match the manifest");
+  }
+
+  const counts = validateSpatialIndexCells(document.cells, document.zoom);
+  if (document.cellCount !== counts.cellCount
+      || document.packageCount !== counts.packageCount) {
+    throw invalid("Spatial index counts do not match its cells");
+  }
+
+  const core = { ...document };
+  delete core.contentHash;
+  const computedHash = await canonicalSha256(core, cryptoImpl, { artifact: "spatialIndex" });
+  if (computedHash !== reference.contentHash) {
+    throw new RegionLoaderError(
+      "Spatial index content failed integrity verification",
+      "spatial_index_hash_mismatch",
+      { expected: reference.contentHash, actual: computedHash },
+    );
+  }
+}
+
+function validateSpatialIndexCells(cells, zoom) {
+  const cellIds = new Set();
+  const packageUrls = new Set();
+  let previousCellId = null;
+  let packageCount = 0;
+  for (const [position, cell] of cells.entries()) {
+    const invalid = (message, details = {}) => spatialIndexInvalid(
+      message,
+      { position, ...details },
+    );
+    if (!isPlainObject(cell)) {
+      throw invalid("Spatial index cell entry must be an object");
+    }
+    validateExactKeys(cell, SPATIAL_CELL_INDEX_KEYS, invalid, "Spatial index cell");
+    validateSpatialCellIdentity(cell, zoom, invalid);
+    if (cellIds.has(cell.cellId)
+        || (previousCellId !== null && previousCellId.localeCompare(cell.cellId) >= 0)) {
+      throw invalid("Spatial index cells must have unique sorted cellIds", { cellId: cell.cellId });
+    }
+    cellIds.add(cell.cellId);
+    previousCellId = cell.cellId;
+    validateSafeInteger(cell.entityCount, 1, invalid, "Spatial cell entityCount");
+    if (!Array.isArray(cell.packages) || cell.packages.length === 0) {
+      throw invalid("Spatial cell packages must be a non-empty array", { cellId: cell.cellId });
+    }
+    const entityCount = validateSpatialPackageIndexEntries(cell, packageUrls);
+    if (cell.entityCount !== entityCount) {
+      throw invalid("Spatial cell entityCount does not match its packages", {
+        cellId: cell.cellId,
+      });
+    }
+    packageCount += cell.packages.length;
+  }
+  return { cellCount: cells.length, packageCount };
+}
+
+function validateSpatialPackageIndexEntries(cell, packageUrls) {
+  let entityCount = 0;
+  for (const [position, entry] of cell.packages.entries()) {
+    const details = { cellId: cell.cellId, position };
+    const invalid = (message, extra = {}) => spatialIndexInvalid(
+      message,
+      { ...details, ...extra },
+    );
+    if (!isPlainObject(entry)) {
+      throw invalid("Spatial package index entry must be an object");
+    }
+    validateExactKeys(
+      entry,
+      SPATIAL_PACKAGE_INDEX_KEYS,
+      invalid,
+      "Spatial package index entry",
+    );
+    const identity = shardIdentity(entry, "spatial_index_invalid", details);
+    if (!identity
+        || identity.shardCount !== cell.packages.length
+        || identity.shardIndex !== position) {
+      throw invalid("Spatial package shards must be sorted, contiguous, and complete");
+    }
+    if (typeof entry.url !== "string" || !entry.url) {
+      throw invalid("Spatial package URL is invalid");
+    }
+    if (typeof entry.contentHash !== "string" || !SHA256_PATTERN.test(entry.contentHash)) {
+      throw invalid("Spatial package hash is invalid");
+    }
+    validateSafeInteger(entry.bytes, 1, invalid, "Spatial package bytes");
+    validateSafeInteger(entry.entityCount, 1, invalid, "Spatial package entityCount");
+    validateSpatialCellPackageUrl(cell, entry, invalid);
+    if (packageUrls.has(entry.url)) {
+      throw invalid("Spatial index contains a duplicate package URL");
+    }
+    packageUrls.add(entry.url);
+    entityCount += entry.entityCount;
+  }
+  return entityCount;
+}
+
+async function validateSpatialCellPackage(
+  document,
+  cellEntry,
+  packageEntry,
+  schemaVersion,
+  cryptoImpl,
+) {
+  const details = {
+    cellId: cellEntry.cellId,
+    shardIndex: packageEntry.shardIndex,
+  };
+  const invalid = (message, extra = {}) => spatialPackageInvalid(
+    message,
+    { ...details, ...extra },
+  );
+  if (!isPlainObject(document)) {
+    throw invalid("Spatial cell package must be an object");
+  }
+  validateExactKeys(
+    document,
+    SPATIAL_CELL_PACKAGE_KEYS,
+    invalid,
+    "Spatial cell package",
+  );
+  if (document.schemaVersion !== schemaVersion) {
+    throw new RegionLoaderError(
+      "Unsupported spatial cell package schema version",
+      "spatial_package_schema_mismatch",
+      {
+        ...details,
+        expected: schemaVersion,
+        actual: document.schemaVersion ?? null,
+      },
+    );
+  }
+  if (document.artifactType !== SPATIAL_CELL_PACKAGE_ARTIFACT_TYPE
+      || document.generated !== true) {
+    throw invalid("Spatial cell package identity is invalid");
+  }
+  validateSpatialCellIdentity(document, cellEntry.zoom, invalid);
+  if (document.cellId !== cellEntry.cellId
+      || document.x !== cellEntry.x
+      || document.y !== cellEntry.y) {
+    throw new RegionLoaderError(
+      "Spatial cell package does not match its index cell",
+      "spatial_package_identity_mismatch",
+      {
+        ...details,
+        actualCellId: document.cellId ?? null,
+      },
+    );
+  }
+  const documentIdentity = shardIdentity(document, "spatial_package_invalid", details);
+  if (!documentIdentity
+      || documentIdentity.shardIndex !== packageEntry.shardIndex
+      || documentIdentity.shardCount !== packageEntry.shardCount) {
+    throw new RegionLoaderError(
+      "Spatial cell package shard identity does not match the index",
+      "spatial_package_identity_mismatch",
+      details,
+    );
+  }
+  if (document.contentHash !== packageEntry.contentHash) {
+    throw new RegionLoaderError(
+      "Spatial cell package hash does not match the index",
+      "spatial_package_hash_mismatch",
+      {
+        ...details,
+        expected: packageEntry.contentHash,
+        actual: document.contentHash ?? null,
+      },
+    );
+  }
+  if (!Array.isArray(document.entities)
+      || document.entities.length !== packageEntry.entityCount) {
+    throw invalid("Spatial cell package entityCount does not match the index");
+  }
+  validateSpatialEntityIdentities(document.entities, cellEntry.cellId, schemaVersion);
+
+  const core = { ...document };
+  delete core.contentHash;
+  const computedHash = await canonicalSha256(core, cryptoImpl, details);
+  if (computedHash !== packageEntry.contentHash) {
+    throw new RegionLoaderError(
+      "Spatial cell package content failed integrity verification",
+      "spatial_package_hash_mismatch",
+      { ...details, expected: packageEntry.contentHash, actual: computedHash },
+    );
+  }
+}
+
+function validateSpatialEntityIdentities(entities, cellId, schemaVersion) {
+  const entityIds = new Set();
+  for (const [position, entity] of entities.entries()) {
+    if (!isPlainObject(entity)
+        || typeof entity.id !== "string"
+        || !ENTITY_ID_PATTERN.test(entity.id)) {
+      throw spatialPackageInvalid(
+        "Spatial cell package contains an invalid entity ID",
+        { cellId, position },
+      );
+    }
+    if (entityIds.has(entity.id)) {
+      throw spatialPackageInvalid(
+        "Spatial cell package contains duplicate entity IDs",
+        { cellId, entityId: entity.id },
+      );
+    }
+    entityIds.add(entity.id);
+    if (entity.schemaVersion !== schemaVersion) {
+      throw spatialPackageInvalid(
+        "Spatial cell package entity uses an unsupported schema version",
+        { cellId, entityId: entity.id },
+      );
+    }
+    validateJurisdictionIds(
+      entity.jurisdictionIds,
+      "spatial_package_invalid",
+      "Spatial cell entity jurisdictionIds",
+      { cellId, entityId: entity.id },
+    );
+  }
+}
+
+function buildLogicalSpatialCell(entry, documents, schemaVersion) {
+  const entitiesById = new Map();
+  for (const document of documents) {
+    for (const entity of document.entities) {
+      if (entitiesById.has(entity.id)) {
+        throw spatialPackageInvalid(
+          "Spatial cell shards contain duplicate entity IDs",
+          { cellId: entry.cellId, entityId: entity.id },
+        );
+      }
+      entitiesById.set(entity.id, entity);
+    }
+  }
+  if (entitiesById.size !== entry.entityCount) {
+    throw spatialPackageInvalid(
+      "Spatial cell entityCount does not match its packages",
+      { cellId: entry.cellId },
+    );
+  }
+  return {
+    schemaVersion,
+    artifactType: "nature-spatial-cell-package-set",
+    generated: true,
+    cellId: entry.cellId,
+    zoom: entry.zoom,
+    x: entry.x,
+    y: entry.y,
+    shardCount: documents.length,
+    entityCount: entitiesById.size,
+    contentHashes: documents.map((document) => document.contentHash),
+    packages: documents,
+    entities: [...entitiesById.values()].sort((left, right) =>
+      left.id.localeCompare(right.id)),
+  };
+}
+
+function buildLogicalSpatialViewport(bounds, zoom, cells, schemaVersion) {
+  const entitiesById = new Map();
+  const sourceCells = new Map();
+  for (const cell of cells) {
+    for (const entity of cell.entities) {
+      const prior = entitiesById.get(entity.id);
+      if (prior && canonicalJson(prior) !== canonicalJson(entity)) {
+        throw new RegionLoaderError(
+          "Spatial cells contain conflicting entities with the same ID",
+          "spatial_entity_conflict",
+          {
+            entityId: entity.id,
+            firstCellId: sourceCells.get(entity.id),
+            secondCellId: cell.cellId,
+          },
+        );
+      }
+      if (!prior) {
+        entitiesById.set(entity.id, entity);
+        sourceCells.set(entity.id, cell.cellId);
+      }
+    }
+  }
+  return {
+    schemaVersion,
+    artifactType: "nature-spatial-viewport-package-set",
+    generated: true,
+    zoom,
+    bounds: [...bounds],
+    cellCount: cells.length,
+    packageCount: cells.reduce((total, cell) => total + cell.shardCount, 0),
+    cellIds: cells.map((cell) => cell.cellId),
+    cells,
+    entities: [...entitiesById.values()].sort((left, right) =>
+      left.id.localeCompare(right.id)),
+  };
+}
+
+function validateViewportBounds(bounds) {
+  if (!Array.isArray(bounds)
+      || bounds.length !== 4
+      || bounds.some((value) => !Number.isFinite(value))) {
+    throw new RegionLoaderError(
+      "Viewport bounds must be [west, south, east, north] finite numbers",
+      "invalid_viewport_bounds",
+    );
+  }
+  const [west, south, east, north] = bounds;
+  if (west < -180
+      || west > 180
+      || east < -180
+      || east > 180
+      || south < -90
+      || south > 90
+      || north < -90
+      || north > 90
+      || south > north) {
+    throw new RegionLoaderError(
+      "Viewport bounds are outside longitude/latitude limits",
+      "invalid_viewport_bounds",
+    );
+  }
+  return [west, south, east, north];
+}
+
+function selectSpatialCells(cells, bounds, zoom) {
+  const [west, south, east, north] = bounds;
+  const tileCount = 2 ** zoom;
+  const westX = longitudeToTileX(west, zoom);
+  const eastX = longitudeToTileX(east, zoom);
+  const xRanges = west <= east
+    ? [[westX, eastX]]
+    : [[westX, tileCount - 1], [0, eastX]];
+  const minimumY = latitudeToTileY(north, zoom);
+  const maximumY = latitudeToTileY(south, zoom);
+  return cells.filter((cell) =>
+    cell.y >= minimumY
+      && cell.y <= maximumY
+      && xRanges.some(([minimumX, maximumX]) =>
+        cell.x >= minimumX && cell.x <= maximumX));
+}
+
+function longitudeToTileX(longitude, zoom) {
+  const tileCount = 2 ** zoom;
+  if (longitude === 180) return tileCount - 1;
+  return Math.max(
+    0,
+    Math.min(tileCount - 1, Math.floor(((longitude + 180) / 360) * tileCount)),
+  );
+}
+
+function latitudeToTileY(latitude, zoom) {
+  const tileCount = 2 ** zoom;
+  const clamped = Math.max(
+    -WEB_MERCATOR_MAX_LATITUDE,
+    Math.min(WEB_MERCATOR_MAX_LATITUDE, latitude),
+  );
+  const radians = clamped * Math.PI / 180;
+  const normalized = (1 - Math.asinh(Math.tan(radians)) / Math.PI) / 2;
+  return Math.max(0, Math.min(tileCount - 1, Math.floor(normalized * tileCount)));
+}
+
+function validateSpatialCellIdentity(value, expectedZoom, errorFactory) {
+  validateSpatialZoom(value.zoom, errorFactory, "Spatial cell zoom");
+  if (value.zoom !== expectedZoom) {
+    throw errorFactory("Spatial cell zoom does not match its index");
+  }
+  const maximum = 2 ** value.zoom;
+  if (!Number.isSafeInteger(value.x)
+      || !Number.isSafeInteger(value.y)
+      || value.x < 0
+      || value.y < 0
+      || value.x >= maximum
+      || value.y >= maximum) {
+    throw errorFactory("Spatial cell coordinates are invalid");
+  }
+  const expectedCellId = `${value.zoom}/${value.x}/${value.y}`;
+  if (value.cellId !== expectedCellId) {
+    throw errorFactory("Spatial cellId does not match zoom/x/y", {
+      cellId: value.cellId ?? null,
+    });
+  }
+  return expectedCellId;
+}
+
+function normalizeCellId(cellId) {
+  if (typeof cellId !== "string") {
+    throw new RegionLoaderError(
+      "Spatial cell ID must be a stable z/x/y identifier",
+      "invalid_spatial_cell_id",
+    );
+  }
+  const parts = cellId.split("/");
+  const value = parts.length === 3
+    ? {
+      cellId,
+      zoom: Number(parts[0]),
+      x: Number(parts[1]),
+      y: Number(parts[2]),
+    }
+    : {};
+  const errorFactory = (message) => new RegionLoaderError(
+    message,
+    "invalid_spatial_cell_id",
+    { cellId },
+  );
+  validateSpatialCellIdentity(value, SPATIAL_INDEX_ZOOM, errorFactory);
+  if (`${value.zoom}/${value.x}/${value.y}` !== cellId) {
+    throw errorFactory("Spatial cell ID must use canonical decimal components");
+  }
+  return cellId;
+}
+
+function validateSpatialZoom(value, errorFactory, label) {
+  if (value !== SPATIAL_INDEX_ZOOM) {
+    throw errorFactory(`${label} must equal ${SPATIAL_INDEX_ZOOM}`);
+  }
+}
+
+function validateSafeInteger(value, minimum, errorFactory, label) {
+  if (!Number.isSafeInteger(value) || value < minimum) {
+    throw errorFactory(`${label} must be a safe integer of at least ${minimum}`);
+  }
+}
+
+function validateExactKeys(value, expectedKeys, errorFactory, label) {
+  const actualKeys = Object.keys(value).sort();
+  if (!sameStringArray(actualKeys, expectedKeys)) {
+    throw errorFactory(`${label} fields are invalid`);
+  }
+}
+
+function validateSpatialIndexUrl(url, contentHash, errorFactory) {
+  const expected = `assets/data/nature/spatial/index/${hashPrefix(contentHash)}.json`;
+  if (url !== expected) {
+    throw errorFactory("Manifest spatialIndex URL is not content-addressed");
+  }
+}
+
+function validateSpatialCellPackageUrl(cell, entry, errorFactory) {
+  const expected = `assets/data/nature/spatial/cells/${cell.zoom}/${cell.x}/${cell.y}/`
+    + `${hashPrefix(entry.contentHash)}.json`;
+  if (entry.url !== expected) {
+    throw errorFactory("Spatial package URL is not content-addressed for its cell");
+  }
+}
+
+function hashPrefix(contentHash) {
+  return contentHash.slice("sha256:".length, "sha256:".length + 16);
+}
+
+function utf8ByteLength(value, kind, details) {
+  if (typeof TextEncoder !== "function") {
+    throw new RegionLoaderError(
+      "UTF-8 byte length validation is unavailable",
+      kind + "_bytes_unavailable",
+      details,
+    );
+  }
+  return new TextEncoder().encode(value).byteLength;
+}
+
+function spatialIndexInvalid(message, details = {}) {
+  return new RegionLoaderError(message, "spatial_index_invalid", details);
+}
+
+function spatialPackageInvalid(message, details = {}) {
+  return new RegionLoaderError(message, "spatial_package_invalid", details);
 }

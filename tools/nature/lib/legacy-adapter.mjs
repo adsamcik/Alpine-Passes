@@ -194,6 +194,7 @@ function normalizeLegacyPass(raw, context) {
       original: "mountain-pass",
       normalized: "mountain_pass",
     }],
+    discovery: legacyDiscoveryMetadata(raw),
     summary: stringOrNull(raw.td),
     rationale: stringOrNull(raw.rs),
     elevationMeters: finiteOrNull(raw.e),
@@ -289,6 +290,7 @@ function normalizeLegacyPoi(raw, context, cacheMatch = null) {
       normalized: normalizeCategory(raw.cat),
     }],
     themes: stringArray(raw.themes),
+    discovery: legacyDiscoveryMetadata(raw),
     summary: stringOrNull(raw.td),
     rationale: stringOrNull(raw.rs),
     elevationMeters: finiteOrNull(raw.e),
@@ -630,6 +632,20 @@ function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function legacyDiscoveryMetadata(raw) {
+  const themes = stringArray(raw?.themes);
+  const lane = themes.includes("hidden-gem")
+    ? "quieter_lead"
+    : themes.includes("iconic") ? "iconic" : "general";
+  const metadata = { lane };
+  if (Number.isFinite(raw?.sc)) {
+    metadata.distinctiveness = Math.max(0, Math.min(1, raw.sc / 10));
+  }
+  if (themes.includes("hidden-gem")) metadata.visitorProminence = 0;
+  else if (themes.includes("iconic")) metadata.visitorProminence = 1;
+  return metadata;
+}
+
 function normalizeLegacyDrive(raw, context) {
   const jurisdictionIds = legacyJurisdictions(raw, context.fallbackJurisdiction);
   const name = stringOr(raw.n, `Legacy scenic drive ${context.ordinal}`);
@@ -672,6 +688,7 @@ function normalizeLegacyDrive(raw, context) {
       normalized: "scenic_drive",
     }],
     themes: stringArray(raw.themes),
+    discovery: legacyDiscoveryMetadata(raw),
     seasons: stringArray(raw.season),
     summary: stringOrNull(raw.td),
     rationale: stringOrNull(raw.rs),
@@ -739,8 +756,12 @@ function commonEnvelope({
       geometryConfidence: Math.min(confidence + 0.08, 1),
       accessConfidence: 0.18,
       freshness: "unknown",
-      flags: [...new Set(flags)].sort(),
-      notes: "Migrated without upgrading the evidence status of the legacy record.",
+      flags: [...new Set([
+        ...flags,
+        "discovery_lead",
+        "unverified_migration_preview",
+      ])].sort(),
+      notes: "Unverified migration/discovery preview; migrated without upgrading the evidence status of the legacy record.",
     },
     sensitivity: {
       action: "publish",

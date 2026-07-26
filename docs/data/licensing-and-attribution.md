@@ -7,6 +7,106 @@ geometry, description, photograph, map, or live feed can be redistributed.
 The source registry records the current legal posture. Legal review applies to
 the exact product and version, not merely its publisher or portal.
 
+This is an engineering release policy, not a substitute for advice on a disputed
+or novel use. It intentionally fails closed when the rights basis is unclear.
+
+## Primary authorities and product implications
+
+- The [MIT licence](https://opensource.org/license/mit) grants rights in the
+  copyright holder's software and associated documentation. It does not
+  relicense third-party databases, facts, descriptions, geometry, maps, feeds,
+  or media merely because they are stored beside the code.
+- The EU [Database Directive
+  96/9/EC](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:01996L0009-20190606)
+  protects an original selection/arrangement and separately protects a
+  qualifying maker's investment against extraction or re-utilisation of a
+  substantial part and repeated systematic extraction of insubstantial parts.
+  The 15-year database-right term can restart after substantial new investment.
+- The EU [Open Data
+  Directive](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32019L1024)
+  is not a blanket licence for everything visible on a public portal. It
+  excludes third-party-IP documents and preserves applicable privacy, access,
+  and reuse conditions. The [European Data Portal
+  FAQ](https://data.europa.eu/en/faq) confirms that its catalogue also harvests
+  datasets carrying noncommercial licences.
+- Current UK [copyright and database-right
+  guidance](https://www.nationalarchives.gov.uk/terms-and-conditions/copyright/copyright-and-related-rights/)
+  and the [Copyright and Rights in Databases Regulations
+  1997](https://www.legislation.gov.uk/uksi/1997/3032/contents) require a
+  database-right review for bulk or systematic extraction. UK copyright is
+  automatic for original writing, web content, databases, and
+  [photography](https://www.gov.uk/copyright).
+- In the United States, the Copyright Office confirms that copyright does not
+  protect facts, though it can protect their expression and a creative
+  compilation ([FAQ](https://www.copyright.gov/help/faq/faq-protect.html),
+  [Circular 33](https://www.copyright.gov/circs/circ33.pdf)). A bare fact may
+  therefore be restated, but website/API terms and global distribution still
+  require review.
+- [17 USC 105](https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title17-section105)
+  generally removes US copyright protection from a US Government work, and
+  [17 USC 101](https://uscode.house.gov/view.xhtml?req=granuleid:USC-prelim-title17-section101)
+  defines that term as official-duty work prepared by a federal officer or
+  employee. Do not extend that posture to contractors, transferred works,
+  state/local/Tribal material, marks, third-party content, or protection
+  outside the United States without an exact agency basis.
+- Online photographs remain separate works. The US Copyright Office's
+  [Circular 42](https://copyright.gov/circs/circ42.pdf) describes the
+  photographer's protected creative choices; the UK IPO's [digital image
+  notice](https://www.gov.uk/government/publications/copyright-notice-digital-images-photographs-and-the-internet/copyright-notice-digital-images-photographs-and-the-internet)
+  explains that missing copyright notices and public web display do not grant
+  copying rights.
+
+## Government and community licences
+
+These licences are compatible with a zero-paid-rights product only when the
+exact dataset, service response, or file states that the licence applies and
+all exceptions have been checked:
+
+- [UK Open Government Licence
+  3.0](https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/):
+  commercial copying, adaptation, and distribution with attribution; personal
+  data, unlicensed third-party rights, logos/marks, and other listed material
+  are excluded. [Scottish Government Crown
+  copyright](https://www.gov.scot/crown-copyright/) follows OGL for covered
+  material but calls out third-party photographs and separately hosted media.
+- [Open Government Licence - Canada
+  2.0](https://open.canada.ca/en/open-government-licence-canada): commercial
+  copying, modification, and distribution with attribution; personal
+  information, unlicensed third-party rights, official symbols, and other IP
+  are excluded. Preserve the version in force when the information was
+  accessed.
+- Japan [Public Data Licence
+  1.0](https://www.digital.go.jp/en/resources/open_data/public_data_license_v1.0):
+  commercial copying and modification with source and edit notices, subject to
+  alternate-item terms, third-party/portrait/publicity rights, API-provider
+  terms, and specific laws. GSI states that some survey-result reuse can still
+  require a [Survey Act
+  procedure](https://www.gsi.go.jp/ENGLISH/page_e30236.html).
+- Norway [NLOD
+  2.0](https://data.norge.no/nlod/en/2.0): no-fee worldwide copying,
+  modification, and distribution for any purpose with attribution and change
+  notices; personal, confidential, unlicensed third-party, and other-IP
+  material is excluded and mistakenly released excluded information must stop
+  being used and be erased. Kartverket's [product
+  terms](https://www.kartverket.no/en/api-and-data/terms-of-use) also identify
+  restricted service layers and external sources.
+- Switzerland's [national portal use
+  symbols](https://opendata.swiss/en/terms-of-use) vary per dataset and include
+  commercial-use-with-permission variants, so portal presence is not approval.
+  [swisstopo OGD
+  terms](https://www.swisstopo.admin.ch/en/terms-of-use-free-geodata-and-geoservices)
+  permit commercial processing and redistribution of covered geodata with a
+  mandatory source notice, while excessive service use can be restricted.
+- [OpenStreetMap](https://www.openstreetmap.org/copyright) data is ODbL 1.0.
+  Review the OSMF [legal
+  FAQ](https://osmfoundation.org/wiki/Licence/Licence_and_Legal_FAQ) and the
+  [ODbL legal text](https://opendatacommons.org/licenses/odbl/1-0/) for
+  attribution, derivative-database share-alike, and machine-readable offer
+  duties. Data rights do not turn OSMF services into a free production backend:
+  the official [tile](https://operations.osmfoundation.org/policies/tiles/)
+  and [Nominatim](https://operations.osmfoundation.org/policies/nominatim/)
+  policies restrict bulk/offline/systematic use.
+
 ## Legal dispositions
 
 Delivery code should distinguish:
@@ -21,7 +121,14 @@ The current source schema expresses the closely related values `allowed`,
 `allowed_with_attribution`, `restricted`, `prohibited`, and `unclear`.
 
 Unclear rights fail closed: metadata may remain in the research registry, but
-the content does not enter a redistributable public package.
+the underlying copied data, text, exact third-party geometry, and media do not
+enter a redistributable public package. A `lead_only` or `link_only` preview may
+contain only independently authored minimal lead metadata: title, outbound URL,
+a coarse/general location when independently verified and rights-safe, and an
+explicit uncertainty label. Project-authored legacy migration material remains
+covered by the user-confirmed repository MIT licence; third-party-derived fields
+and media remain quarantined or stripped. A lead is not a verified quality,
+access, or safety recommendation.
 
 ## Common licence families
 
@@ -133,4 +240,7 @@ feature-level traceability.
 Store a terms-review date. A changed endpoint, publisher, product identifier,
 licence, authentication scheme, or redistribution term blocks the next refresh
 until reviewed. Previously accepted snapshots remain governed by the terms
-applicable to their acquisition and must remain identifiable.
+applicable to their acquisition and must remain identifiable. Follow the
+[source terms and takedown runbook](../operations/source-terms-and-takedown.md)
+for a changed term, rights complaint, accidental publication, quarantine,
+purge, downstream notification, and controlled reinstatement.

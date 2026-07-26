@@ -15,11 +15,16 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
+  MAX_SPATIAL_CELLS_PER_ENTITY,
+  NATURE_SPATIAL_CELL_ZOOM,
   buildNatureData,
   canonicalJson,
+  geometrySpatialCellIds,
+  groupBySpatialCell,
   normalizeReportPath,
   runIsolatedAdapters,
   shardRegionalPackage,
+  shardSpatialCellPackage,
 } from "../tools/nature/build.mjs";
 import { ingestLegacyRepository } from "../tools/nature/lib/legacy-adapter.mjs";
 
@@ -174,6 +179,81 @@ test("regional shards are deterministic, budget-bound, and reject an oversized e
   );
 });
 
+test("spatial cells use fixed XYZ coverage, wrap the dateline, and cap pathological fanout", () => {
+  assert.equal(NATURE_SPATIAL_CELL_ZOOM, 8);
+  assert.deepEqual(
+    geometrySpatialCellIds({ type: "Point", coordinates: [0, 0] }),
+    ["8/128/128"],
+  );
+
+  const lineCells = geometrySpatialCellIds({
+    type: "LineString",
+    coordinates: [[0, 0], [2, 2]],
+  });
+  assert.ok(lineCells.length > 1);
+  assert.ok(lineCells.every((cellId) => cellId.startsWith("8/")));
+
+  const datelineCells = geometrySpatialCellIds({
+    type: "LineString",
+    coordinates: [[179, 0], [-179, 1]],
+  });
+  assert.ok(datelineCells.length > 0);
+  assert.ok(datelineCells.length < 10);
+  assert.ok(datelineCells.every((cellId) => {
+    const x = Number(cellId.split("/")[1]);
+    return x === 0 || x === 255;
+  }));
+
+  assert.throws(
+    () => geometrySpatialCellIds({
+      type: "Polygon",
+      coordinates: [[
+        [-180, -85],
+        [180, -85],
+        [180, 85],
+        [-180, 85],
+        [-180, -85],
+      ]],
+    }),
+    new RegExp(`more than ${MAX_SPATIAL_CELLS_PER_ENTITY} spatial cells`),
+  );
+});
+
+test("spatial grouping deduplicates IDs and cell shards are deterministic and bounded", () => {
+  const records = [
+    canonicalPlace("place:cell-c", "test-region", 650),
+    canonicalPlace("place:cell-a", "test-region", 650),
+    canonicalPlace("place:cell-b", "test-region", 650),
+  ];
+  const groups = groupBySpatialCell([
+    ...records,
+    structuredClone(records[0]),
+  ]);
+  assert.equal(groups.size, 1);
+  const cell = [...groups.values()][0];
+  assert.deepEqual(
+    cell.entities.map((entity) => entity.id),
+    ["place:cell-a", "place:cell-b", "place:cell-c"],
+  );
+
+  const budget = 2_300;
+  const forward = shardSpatialCellPackage(cell, records, budget);
+  const reverse = shardSpatialCellPackage(cell, [...records].reverse(), budget);
+  assert.deepEqual(
+    forward.map((shard) => shard.serialized),
+    reverse.map((shard) => shard.serialized),
+  );
+  assert.ok(forward.length > 1);
+  assert.ok(forward.every((shard) =>
+    Buffer.byteLength(shard.serialized) <= budget
+      && shard.packageDocument.cellId === cell.cellId
+      && shard.packageDocument.zoom === NATURE_SPATIAL_CELL_ZOOM));
+  assert.throws(
+    () => shardSpatialCellPackage(cell, [records[0]], 100),
+    /cannot fit spatial cell package budget/,
+  );
+});
+
 test("build emits deterministic multi-entry manifests, bounded raw files, failures, and redirects", async (t) => {
   const firstOutput = await mkdtemp(path.join(os.tmpdir(), "itinera-build-a-"));
   const secondOutput = await mkdtemp(path.join(os.tmpdir(), "itinera-build-b-"));
@@ -194,13 +274,19 @@ test("build emits deterministic multi-entry manifests, bounded raw files, failur
   const first = await buildNatureData({
     repoRoot: REPO_ROOT,
     outputRoot: firstOutput,
-    budgets: { regionalPackageBytes: budget },
+    budgets: {
+      regionalPackageBytes: budget,
+      spatialCellPackageBytes: budget,
+    },
     adapters: buildAdapters(records),
   });
   const second = await buildNatureData({
     repoRoot: REPO_ROOT,
     outputRoot: secondOutput,
-    budgets: { regionalPackageBytes: budget },
+    budgets: {
+      regionalPackageBytes: budget,
+      spatialCellPackageBytes: budget,
+    },
     adapters: buildAdapters([...records].reverse()),
   });
 
@@ -210,6 +296,7 @@ test("build emits deterministic multi-entry manifests, bounded raw files, failur
   assert.equal(first.buildId, second.buildId);
   assert.equal(firstManifestText, secondManifestText);
   assert.equal(manifest.budgets.regionalPackageBytes, budget);
+  assert.equal(manifest.budgets.spatialCellPackageBytes, budget);
 
   const regionEntries = manifest.packages.filter((entry) => entry.regionId === "test-region");
   assert.ok(regionEntries.length > 1);
@@ -241,6 +328,67 @@ test("build emits deterministic multi-entry manifests, bounded raw files, failur
     );
   }
 
+  assert.equal(manifest.spatialIndex.zoom, NATURE_SPATIAL_CELL_ZOOM);
+  assert.ok(manifest.spatialIndex.cellCount >= 1);
+  assert.ok(manifest.spatialIndex.packageCount > 1);
+  assert.ok(manifest.spatialIndex.bytes <= manifest.budgets.spatialIndexBytes);
+  assert.equal(manifest.spatialIndex.url.includes("\\"), false);
+  const spatialIndexPath = path.join(
+    firstOutput,
+    ...manifest.spatialIndex.url.replace("assets/data/nature/", "").split("/"),
+  );
+  const [spatialIndexRaw, spatialIndexStats] = await Promise.all([
+    readFile(spatialIndexPath, "utf8"),
+    stat(spatialIndexPath),
+  ]);
+  const spatialIndex = JSON.parse(spatialIndexRaw);
+  assert.equal(spatialIndexStats.size, manifest.spatialIndex.bytes);
+  assert.equal(spatialIndex.contentHash, manifest.spatialIndex.contentHash);
+  assert.equal(spatialIndex.cellCount, manifest.spatialIndex.cellCount);
+  assert.equal(spatialIndex.packageCount, manifest.spatialIndex.packageCount);
+  assert.deepEqual(
+    spatialIndex.cells.map((cell) => cell.cellId),
+    spatialIndex.cells.map((cell) => cell.cellId).toSorted(),
+  );
+  const spatialIndexCore = { ...spatialIndex };
+  delete spatialIndexCore.contentHash;
+  assert.equal(
+    spatialIndex.contentHash,
+    `sha256:${createHash("sha256").update(canonicalJson(spatialIndexCore)).digest("hex")}`,
+  );
+  for (const cell of spatialIndex.cells) {
+    assert.equal(
+      cell.entityCount,
+      cell.packages.reduce((sum, entry) => sum + entry.entityCount, 0),
+    );
+    assert.deepEqual(
+      cell.packages.map((entry) => entry.shardIndex),
+      Array.from({ length: cell.packages.length }, (_, index) => index),
+    );
+    for (const entry of cell.packages) {
+      assert.equal(entry.url.includes("\\"), false);
+      const cellPath = path.join(
+        firstOutput,
+        ...entry.url.replace("assets/data/nature/", "").split("/"),
+      );
+      const [raw, fileStats] = await Promise.all([
+        readFile(cellPath, "utf8"),
+        stat(cellPath),
+      ]);
+      const document = JSON.parse(raw);
+      assert.equal(fileStats.size, entry.bytes);
+      assert.ok(fileStats.size <= budget);
+      assert.equal(document.cellId, cell.cellId);
+      assert.equal(document.contentHash, entry.contentHash);
+      const core = { ...document };
+      delete core.contentHash;
+      assert.equal(
+        document.contentHash,
+        `sha256:${createHash("sha256").update(canonicalJson(core)).digest("hex")}`,
+      );
+    }
+  }
+
   const redirectDocument = JSON.parse(
     await readFile(path.join(firstOutput, "legacy-id-redirects.v1.json"), "utf8"),
   );
@@ -265,6 +413,10 @@ test("build emits deterministic multi-entry manifests, bounded raw files, failur
   const firstFiles = await packageFiles(firstOutput);
   const secondFiles = await packageFiles(secondOutput);
   assert.deepEqual(firstFiles, secondFiles);
+  assert.deepEqual(
+    await treeFiles(path.join(firstOutput, "spatial")),
+    await treeFiles(path.join(secondOutput, "spatial")),
+  );
 });
 
 function buildAdapters(records) {
@@ -339,6 +491,21 @@ async function packageFiles(outputRoot) {
     name,
     await readFile(path.join(regionRoot, name), "utf8"),
   ]));
+}
+
+async function treeFiles(root, relative = "") {
+  const entries = (await readdir(path.join(root, relative), { withFileTypes: true }))
+    .sort((left, right) => left.name.localeCompare(right.name));
+  const files = [];
+  for (const entry of entries) {
+    const next = relative ? path.posix.join(relative, entry.name) : entry.name;
+    if (entry.isDirectory()) {
+      files.push(...await treeFiles(root, next));
+    } else if (entry.isFile()) {
+      files.push([next, await readFile(path.join(root, next), "utf8")]);
+    }
+  }
+  return files;
 }
 
 async function writeLegacyFixture(root) {

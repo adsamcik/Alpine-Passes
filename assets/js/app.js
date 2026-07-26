@@ -645,6 +645,7 @@ const POI_FAMILY_LABELS = {
 const POI_FAMILY_KEYS = Object.keys(POI_FAMILY_LABELS);
 function poiCategoryLabel(cat) { return POI_CATEGORY_LABELS[cat] || cat || "POI"; }
 function poiCategoryIconId(cat) { return POI_CATEGORY_ICON[cat] || "poi-generic"; }
+function poiCategoryFamily(cat) { return POI_FAMILY_OF_CATEGORY[cat] || "other"; }
 
 /* Header counter for POIs (mirrors `passCount`). */
 {
@@ -1022,6 +1023,13 @@ const PASS_CLUSTER_PEBBLE_STYLE = {
   closed: 3,
   unknown: 4,
 };
+const POI_FAMILY_PEBBLE_STYLE = {
+  nature: 5,
+  heritage: 6,
+  engineered: 7,
+  indulgence: 8,
+  other: 0,
+};
 
 function clusterPebbleTargetCount(count, distinctCount) {
   if (count >= 40) return 3;
@@ -1039,11 +1047,23 @@ function poiClusterPebbleModel(items) {
   const tally = new Map();
   for (const item of list) {
     const categoryIcon = poiCategoryIconId(item?.poiCategory);
-    tally.set(categoryIcon, (tally.get(categoryIcon) || 0) + 1);
+    const family = poiCategoryFamily(item?.poiCategory);
+    const style = POI_FAMILY_PEBBLE_STYLE[family] || 0;
+    const key = `${categoryIcon}:${style}`;
+    const entry = tally.get(key) || { categoryIcon, family, style, categoryCount: 0 };
+    entry.categoryCount += 1;
+    tally.set(key, entry);
   }
-  if (!tally.size) tally.set("poi-generic", Math.max(1, list.length));
+  if (!tally.size) {
+    tally.set("poi-generic:0", {
+      categoryIcon: "poi-generic",
+      family: "other",
+      style: 0,
+      categoryCount: Math.max(1, list.length),
+    });
+  }
 
-  const ranked = Array.from(tally, ([categoryIcon, categoryCount]) => ({ categoryIcon, categoryCount }))
+  const ranked = Array.from(tally.values())
     .sort((a, b) => (b.categoryCount - a.categoryCount) || a.categoryIcon.localeCompare(b.categoryIcon));
   const count = list.length;
   const total = Math.max(1, count);
@@ -1052,6 +1072,8 @@ function poiClusterPebbleModel(items) {
     const share = Math.max(0.01, entry.categoryCount / total);
     return {
       categoryIcon: entry.categoryIcon,
+      family: entry.family,
+      style: entry.style,
       categoryCount: entry.categoryCount,
       share,
       share2: Math.sqrt(share),
@@ -1060,6 +1082,8 @@ function poiClusterPebbleModel(items) {
 
   const dominant = pebbles[0] || {
     categoryIcon: "poi-generic",
+    family: "other",
+    style: 0,
     categoryCount: Math.max(1, count),
     share: 1,
     share2: 1,
@@ -1071,6 +1095,8 @@ function poiClusterPebbleModel(items) {
     const share = Math.max(0.08, Math.min(rawShare, maxDuplicateShare));
     pebbles.push({
       categoryIcon: dominant.categoryIcon,
+      family: dominant.family,
+      style: dominant.style,
       categoryCount: Math.max(1, Math.round(share * total)),
       share,
       share2: Math.sqrt(share),
@@ -2378,6 +2404,10 @@ const ITINERA_GL_COLORS = {
   restricted: [1.000, 0.690, 0.125, 1],
   closed:     [0.937, 0.267, 0.267, 1],
   unknown:    [0.541, 0.588, 0.627, 1],
+  nature:     [0.000, 0.620, 0.451, 1],
+  heritage:   [0.835, 0.369, 0.000, 1],
+  engineered: [0.337, 0.706, 0.914, 1],
+  indulgence: [0.800, 0.475, 0.655, 1],
   passCluster:[0.075, 0.590, 0.660, 1],
   poi:        [0.655, 0.545, 0.980, 1],
   poiDim:     [0.580, 0.639, 0.722, 0.86],
@@ -2386,6 +2416,21 @@ const ITINERA_GL_COLORS = {
   dark:       [0.043, 0.055, 0.063, 0.96],
   preview:    [0.360, 0.400, 0.420, 0.96],
 };
+
+function poiMarkerColor(category, dimmed = false) {
+  const base = ITINERA_GL_COLORS[poiCategoryFamily(category)] || ITINERA_GL_COLORS.markerPurple;
+  if (!dimmed) return base;
+  return [
+    base[0] * 0.52 + ITINERA_GL_COLORS.poiDim[0] * 0.48,
+    base[1] * 0.52 + ITINERA_GL_COLORS.poiDim[1] * 0.48,
+    base[2] * 0.52 + ITINERA_GL_COLORS.poiDim[2] * 0.48,
+    0.86,
+  ];
+}
+
+function passMarkerColor(state) {
+  return ITINERA_GL_COLORS[state] || ITINERA_GL_COLORS.unknown;
+}
 const UI_ATLAS_CELLS = {
   "status-open": [0, 0],
   "status-restricted": [1, 0],
@@ -2487,22 +2532,11 @@ function hashStringToUint(str) {
   return hash >>> 0;
 }
 
-function prngFromHash(hash) {
-  let state = hash >>> 0;
-  return () => {
-    state += 0x6D2B79F5;
-    let t = state;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
 function packedGlyphForUiIcon(id, style = 0) {
   const cell = UI_ATLAS_CELLS[id] || UI_ATLAS_CELLS["poi-generic"];
   const col = Math.max(0, Math.min(ITINERA_GL_UI_ATLAS_COLS - 1, Number(cell[0]) || 0));
   const row = Math.max(0, Math.min(ITINERA_GL_UI_ATLAS_ROWS - 1, Number(cell[1]) || 0));
-  const styleCode = Math.max(0, Math.min(4, Number(style) || 0));
+  const styleCode = Math.max(0, Math.min(8, Number(style) || 0));
   return styleCode * PEBBLE_GLYPH_STYLE_SCALE + col * ITINERA_GL_UI_ATLAS_ROWS + row + 1;
 }
 
@@ -2554,7 +2588,6 @@ function layoutClusterPebbles(model, seed) {
   const pebblesIn = (model?.pebbles?.length ? model.pebbles : poiClusterPebbleModel([]).pebbles).slice(0, 4);
   const count = Number(model?.count) || 0;
   const n = Math.max(1, pebblesIn.length);
-  const rand = prngFromHash(hashStringToUint(seed));
   const dominantShare = Math.max(0.01, pebblesIn[0]?.share || 1);
   const baseRadius = count >= 40 ? 0.33 : (n >= 4 ? 0.30 : 0.32);
   const minRadius = n >= 4 ? 0.18 : 0.21;
@@ -2581,17 +2614,20 @@ function layoutClusterPebbles(model, seed) {
     };
   });
 
-  pebbles[0].cx = 0.06 + (rand() - 0.5) * 0.04;
-  pebbles[0].cy = 0.05 + (rand() - 0.5) * 0.04;
+  /* Keep the dominant glyph in the same place across clusters. The previous
+     seeded jitter made equally-shaped piles scan differently at icon size,
+     while also letting the count pill drift over the primary category. */
+  pebbles[0].cx = 0.04;
+  pebbles[0].cy = 0.04;
   const angleSets = {
     2: [225],
-    3: [225, 315],
+    3: [215, 315],
     4: [205, 315, 150],
   };
   const angles = angleSets[Math.min(4, n)] || angleSets[2];
   for (let i = 1; i < pebbles.length; i++) {
-    const angle = ((angles[i - 1] || (205 + i * 73)) + (rand() - 0.5) * 22) * Math.PI / 180;
-    const overlap = Math.min(pebbles[0].r, pebbles[i].r) * (0.34 + rand() * 0.16);
+    const angle = (angles[i - 1] || (205 + i * 73)) * Math.PI / 180;
+    const overlap = Math.min(pebbles[0].r, pebbles[i].r) * 0.40;
     const dist = pebbles[0].r + pebbles[i].r - overlap;
     pebbles[i].cx = pebbles[0].cx + Math.cos(angle) * dist;
     pebbles[i].cy = pebbles[0].cy + Math.sin(angle) * dist;
@@ -2605,6 +2641,34 @@ function layoutClusterPebbles(model, seed) {
     height: size,
     pebbles,
   };
+}
+
+function clusterCountLabelOffset(layout) {
+  const width = Math.max(1, Number(layout?.width) || 1);
+  const height = Math.max(1, Number(layout?.height) || width);
+  const pebbles = Array.isArray(layout?.pebbles) ? layout.pebbles : [];
+  /* The upper-right slot is deliberately first: the pebble templates leave
+     that quadrant open. Score all four corners as a fallback for unusual
+     share distributions, keeping the 58x34 atlas pill clear of glyphs. */
+  const directions = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
+  let best = null;
+  for (let rank = 0; rank < directions.length; rank++) {
+    const [dirX, dirY] = directions[rank];
+    const offsetX = dirX * width * 0.52;
+    const offsetY = dirY * height * 0.52;
+    let overlapPenalty = 0;
+    for (const pebble of pebbles) {
+      const px = (Number(pebble.cx) || 0) * width;
+      const py = (Number(pebble.cy) || 0) * height;
+      const pr = (Number(pebble.r) || 0) * Math.min(width, height);
+      const distance = Math.hypot(offsetX - px, offsetY - py);
+      const overlap = Math.max(0, pr + 12 - distance);
+      overlapPenalty += overlap * overlap;
+    }
+    const score = overlapPenalty * 100 + rank;
+    if (!best || score < best.score) best = { offsetX, offsetY, score };
+  }
+  return { offsetX: best?.offsetX || 0, offsetY: best?.offsetY || 0 };
 }
 
 function layoutPoiClusterPebbles(model, seed) {
@@ -3001,7 +3065,8 @@ class AlpineWebGLLayer {
         float isPebbleCluster = step(1.5, a_meta.z) * (1.0 - step(3.5, a_meta.z));
         float entranceScale = u_reduced_motion > 0.5 ? 1.0 : mix(t_smooth * overshoot, 1.0, isPebbleCluster);
         float hoverScale = mix(1.12, 1.06, isPebbleCluster);
-        vec2 size = vec2(a_meta.x, a_meta.y) * mix(1.0, hoverScale, a_hover) * entranceScale;
+        float selectedScale = mix(1.0, 1.12, a_selected * (1.0 - isPebbleCluster));
+        vec2 size = vec2(a_meta.x, a_meta.y) * mix(1.0, hoverScale, a_hover) * selectedScale * entranceScale;
         vec2 pxOffset = a_quad * size + a_offset;
         vec2 ndcOffset = (pxOffset * u_dpr) / (u_viewport * 0.5);
         gl_Position = vec4((ndc + ndcOffset) * clip.w, clip.z, clip.w);
@@ -3075,7 +3140,8 @@ class AlpineWebGLLayer {
         if (alpha <= 0.0) discard;
         float edge = smoothstep(0.43, 0.50, d);
         vec3 color = mix(v_fill.rgb, min(v_fill.rgb * 1.10, vec3(1.0)), 1.0 - v_uv.y);
-        color = mix(color, vec3(1.0), edge * 0.10);
+        vec3 rimColor = mix(vec3(1.0), vec3(1.0, 0.820, 0.400), step(0.5, v_selected));
+        color = mix(color, rimColor, edge * mix(0.16, 0.92, step(0.5, v_selected)));
         vec4 icon = fetchIconAt(v_uv, v_icon.w);
         float iconMask = icon.a * (1.0 - edge * 0.25);
         if (v_icon.x < 0.5) {
@@ -3097,7 +3163,9 @@ class AlpineWebGLLayer {
         float outer = max(1.0 - smoothstep(0.0, aa, headOuter), tailOuter);
         float inner = max(1.0 - smoothstep(0.0, aa, headInner), tailInner);
         if (outer <= 0.0) discard;
-        vec3 color = mix(v_stroke.rgb, v_fill.rgb, inner);
+        vec3 selectedRim = vec3(1.0, 0.820, 0.400);
+        vec3 outerColor = mix(v_stroke.rgb, selectedRim, step(0.5, v_selected));
+        vec3 color = mix(outerColor, v_fill.rgb, inner);
         color = mix(color, v_fill.rgb, tailInner * 0.45);
         vec4 icon = fetchIconAt(v_uv - vec2(0.0, 0.12), v_icon.w);
         bool glyphIcon = v_icon.x < 0.5;
@@ -3111,7 +3179,8 @@ class AlpineWebGLLayer {
            this threshold cleanly separates the top status row. Pass-symbol sheets (sheet 1/2)
            keep their existing colored treatment via the same branch. */
         bool isStatusGlyph = glyphIcon && v_icon.z > 0.88;
-        vec3 iconColor = (isStatusGlyph || v_meta.z < 0.5 || v_meta.z > 4.5)
+        bool isTinyMapGlyph = v_meta.z < 1.5;
+        vec3 iconColor = (isStatusGlyph || isTinyMapGlyph || v_meta.z > 4.5)
           ? vec3(1.0)
           : mix(icon.rgb, vec3(1.0), 0.18);
         color = mix(color, iconColor, icon.a * inner);
@@ -3162,6 +3231,10 @@ class AlpineWebGLLayer {
         return floor(packedPebbleGlyph(pebble) / ${PEBBLE_GLYPH_STYLE_SCALE}.0);
       }
       vec3 pebbleStyleColor(float style) {
+        if (style > 7.5) return vec3(0.800, 0.475, 0.655);
+        if (style > 6.5) return vec3(0.337, 0.706, 0.914);
+        if (style > 5.5) return vec3(0.835, 0.369, 0.000);
+        if (style > 4.5) return vec3(0.000, 0.620, 0.451);
         if (style > 3.5) return vec3(0.847, 0.835, 0.812);
         if (style > 2.5) return vec3(0.753, 0.345, 0.290);
         if (style > 1.5) return vec3(0.910, 0.710, 0.278);
@@ -3543,10 +3616,10 @@ class AlpineWebGLLayer {
       const countText = pebbleModel.count <= 99 ? String(pebbleModel.count) : "99+";
       const countLabel = this._labelRef(countText, "cluster-pill");
       if (countLabel) {
-        const dominantPebble = pebbleLayout.pebbles[pebbleLayout.dominantIndex] || pebbleLayout.pebbles[0];
-        const labelSize = 36;
-        const baseOffsetX = dominantPebble.cx * width + dominantPebble.r * width * 0.66;
-        const baseOffsetY = dominantPebble.cy * height + dominantPebble.r * height * 0.66;
+        const labelSize = 32;
+        const labelOffset = clusterCountLabelOffset(pebbleLayout);
+        const baseOffsetX = labelOffset.offsetX;
+        const baseOffsetY = labelOffset.offsetY;
         const offsetLen = Math.hypot(baseOffsetX, baseOffsetY) || 1;
         const offsetX = baseOffsetX + (baseOffsetX / offsetLen) * 2 * clusterHover;
         const offsetY = baseOffsetY + (baseOffsetY / offsetLen) * 2 * clusterHover;
@@ -3558,11 +3631,11 @@ class AlpineWebGLLayer {
     } else if (isPoi) {
       const plannable = isPlannablePoi(group.item);
       kind = ITINERA_GL_KIND.poi;
-      width = 36;
-      height = 44;
+      width = 38;
+      height = 46;
       flags = (plannable ? 0 : ITINERA_GL_FLAG_DIM) | soloDimFlags;
-      fill = plannable ? ITINERA_GL_COLORS.markerPurple : ITINERA_GL_COLORS.poiDim;
-      icon = textureRefForUiIcon(poiCategoryIconId(group.item.poiCategory), 0.62);
+      fill = poiMarkerColor(group.item.poiCategory, !plannable);
+      icon = textureRefForUiIcon(poiCategoryIconId(group.item.poiCategory), 0.70);
       const poiHover = (group.item?.id === this._hoverTargetId) ? this._hoverAnim : 0;
       this._pushInstance(out, lng, lat, width, height, kind, flags, fill, ITINERA_GL_COLORS.dark, icon, 0, height * 0.42, poiHover, bornAtSec, isSelected);
       if (!plannable) {
@@ -3577,12 +3650,13 @@ class AlpineWebGLLayer {
     } else {
       kind = ITINERA_GL_KIND.pass;
       const view = statusDisplay(passStatus(group.item));
-      width = 36;
-      height = 36;
+      width = 38;
+      height = 38;
       flags = ITINERA_GL_FLAG_SIMPLE_CIRCLE | (view.estimated ? ITINERA_GL_FLAG_ESTIMATED : 0) | soloDimFlags;
-      fill = ITINERA_GL_COLORS.markerPurple;
-      icon = textureRefForPassSymbol(group.item.symbolIconAsset, ITINERA_GL_PASS_ART_SCALE) ||
-             textureRefForUiIcon("pass-generic", 0.62);
+      fill = passMarkerColor(view.state);
+      /* Detailed scenic/symbol artwork remains available in lists and popups,
+         but collapses at map-marker scale. Use the bold pass silhouette here. */
+      icon = textureRefForUiIcon("pass-generic", 0.68);
       const passHover = (group.item?.id === this._hoverTargetId) ? this._hoverAnim : 0;
       this._pushInstance(out, lng, lat, width, height, kind, flags,
         fill, ITINERA_GL_COLORS.dark, icon, 0, 0, passHover, bornAtSec, isSelected);
@@ -3811,8 +3885,68 @@ function clusterZoomFor(zoom) {
   return Math.round(zoom * 2) / 2;
 }
 
-function buildOverlayGroups(items, kind) {
-  const zoom = map.getZoom();
+function overlayCellKey(wp, radius) {
+  return `${Math.floor(wp.x / radius)},${Math.floor(wp.y / radius)}`;
+}
+
+function mergeCompactOverlayCells(cells, radius) {
+  const clusters = Array.from(cells.values()).sort((a, b) => a.cellKey.localeCompare(b.cellKey));
+  const byCellKey = new Map(clusters.map(cluster => [cluster.cellKey, cluster]));
+  const candidates = [];
+  for (const cluster of clusters) {
+    const [cellX, cellY] = cluster.cellKey.split(",").map(Number);
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        if (!dx && !dy) continue;
+        const other = byCellKey.get(`${cellX + dx},${cellY + dy}`);
+        if (!other || cluster.cellKey.localeCompare(other.cellKey) >= 0) continue;
+        const distance = Math.hypot(
+          cluster.sumX / cluster.points.length - other.sumX / other.points.length,
+          cluster.sumY / cluster.points.length - other.sumY / other.points.length
+        );
+        if (distance <= radius * 0.92) candidates.push({ a: cluster, b: other, distance });
+      }
+    }
+  }
+  candidates.sort((a, b) =>
+    (a.distance - b.distance) ||
+    a.a.cellKey.localeCompare(b.a.cellKey) ||
+    a.b.cellKey.localeCompare(b.b.cellKey));
+
+  const rootOf = (cluster) => {
+    let root = cluster;
+    while (root.parent) root = root.parent;
+    let cursor = cluster;
+    while (cursor.parent && cursor.parent !== root) {
+      const next = cursor.parent;
+      cursor.parent = root;
+      cursor = next;
+    }
+    return root;
+  };
+  const maxExtent = radius * 0.70;
+  for (const candidate of candidates) {
+    let a = rootOf(candidate.a);
+    let b = rootOf(candidate.b);
+    if (a === b) continue;
+    const points = a.points.concat(b.points);
+    const sumX = a.sumX + b.sumX;
+    const sumY = a.sumY + b.sumY;
+    const centerX = sumX / points.length;
+    const centerY = sumY / points.length;
+    if (points.some(point => Math.hypot(point.wp.x - centerX, point.wp.y - centerY) > maxExtent)) continue;
+
+    if (a.anchorCell.localeCompare(b.anchorCell) > 0) [a, b] = [b, a];
+    b.parent = a;
+    a.points = points;
+    a.sumX = sumX;
+    a.sumY = sumY;
+    a.anchorCell = a.anchorCell.localeCompare(b.anchorCell) <= 0 ? a.anchorCell : b.anchorCell;
+  }
+  return clusters.filter(cluster => rootOf(cluster) === cluster);
+}
+
+function buildOverlayGroupsAtZoom(items, kind, zoom) {
   const cZoom = clusterZoomFor(zoom);
   if (!shouldClusterOverlay(kind, zoom)) {
     return items.map(item => ({
@@ -3842,20 +3976,23 @@ function buildOverlayGroups(items, kind) {
       continue;
     }
     const wp = lngLatToWorldPx(item.lon, item.lat, cZoom);
-    const cellKey = `${Math.floor(wp.x / radius)},${Math.floor(wp.y / radius)}`;
+    const cellKey = overlayCellKey(wp, radius);
     let cell = cells.get(cellKey);
     if (!cell) {
-      cell = { cellKey, items: [], sumLng: 0, sumLat: 0 };
+      cell = { cellKey, anchorCell: cellKey, points: [], sumX: 0, sumY: 0, parent: null };
       cells.set(cellKey, cell);
     }
-    cell.items.push(item);
-    cell.sumLng += item.lon;
-    cell.sumLat += item.lat;
+    cell.points.push({ item, wp });
+    cell.sumX += wp.x;
+    cell.sumY += wp.y;
   }
   const groups = [];
-  for (const cell of cells.values()) {
-    if (cell.items.length === 1) {
-      const item = cell.items[0];
+  for (const cell of mergeCompactOverlayCells(cells, radius)) {
+    const clusterItems = cell.points
+      .map(point => point.item)
+      .sort((a, b) => String(a.id).localeCompare(String(b.id)));
+    if (clusterItems.length === 1) {
+      const item = clusterItems[0];
       groups.push({
         id: `${kind}:${item.id}`,
         kind,
@@ -3865,20 +4002,28 @@ function buildOverlayGroups(items, kind) {
         lat: item.lat,
       });
     } else {
-      /* Cluster ID is anchored to (kind, zoom step, world cell). It does NOT
-         depend on item ordering or count, so the same cluster element
-         persists through pans and small zoom drifts. */
+      const center = worldPxToLngLat(
+        cell.sumX / cell.points.length,
+        cell.sumY / cell.points.length,
+        cZoom
+      );
+      /* Anchor IDs to the leading world cell rather than item order/count,
+         preserving entrance and split animations through filter changes. */
       groups.push({
-        id: `${kind}:cluster:${cZoom}:${cell.cellKey}`,
+        id: `${kind}:cluster:${cZoom}:${cell.anchorCell}`,
         kind,
         type: "cluster",
-        items: cell.items,
-        lng: cell.sumLng / cell.items.length,
-        lat: cell.sumLat / cell.items.length,
+        items: clusterItems,
+        lng: center.lng,
+        lat: center.lat,
       });
     }
   }
-  return groups.concat(forced);
+  return groups.concat(forced).sort((a, b) => a.id.localeCompare(b.id));
+}
+
+function buildOverlayGroups(items, kind) {
+  return buildOverlayGroupsAtZoom(items, kind, map.getZoom());
 }
 
 /* Re-cluster on settled map state and push the complete overlay model to WebGL. */
@@ -3903,30 +4048,38 @@ function layoutAlpineOverlay() {
 }
 
 function deconflictClusterOverlap(groups, zoom) {
-  /* Pixel-space spring repulsion between any cluster/marker pair whose
-     visual circles overlap (same-kind OR cross-kind). Same-kind clusters
-     come from independent grid cells but their centroids — averaged from
-     actual item positions, not cell centers — can land close to each
-     other when items cluster near a cell boundary. Cross-kind pairs are
-     never grid-coordinated at all. Either way: if visuals overlap, nudge.
-     Buffer is small (3px) so semantic position drift stays subtle. */
+  /* Pixel-space repulsion clears both same-kind and cross-kind collisions.
+     Leaf markers remain pinned to their exact coordinate; cluster centroids
+     may move, but their displacement is bounded so they still read as a
+     summary of the geography beneath them. */
   if (groups.length < 2) return;
   const visualRadius = (g) => {
-    if (g.type === "cluster") return 32;       // pebble pile half-width
+    if (g.type === "cluster") return 46;       // pile plus detached count pill
     if (g.kind === "pass") return 18;          // pass disc
     return 22;                                 // POI pin (a bit taller)
   };
-  const buffer = 3;
+  const buffer = 4;
+  const maxClusterDrift = 48;
   const items = groups.map(g => ({
     g,
     wp: lngLatToWorldPx(g.lng, g.lat, zoom),
+    origin: lngLatToWorldPx(g.lng, g.lat, zoom),
     r: visualRadius(g),
     /* Lock single-item markers in place — they point to a real coordinate
        and shifting them would lie about the location. Only clusters
        (averaged centroids already) are free to move. */
     locked: g.type !== "cluster",
-  }));
-  const ITERATIONS = 4;
+  })).sort((a, b) => a.g.id.localeCompare(b.g.id));
+  const clampToOrigin = (entry) => {
+    if (entry.locked) return;
+    const dx = entry.wp.x - entry.origin.x;
+    const dy = entry.wp.y - entry.origin.y;
+    const distance = Math.hypot(dx, dy);
+    if (distance <= maxClusterDrift || distance < 0.001) return;
+    entry.wp.x = entry.origin.x + dx / distance * maxClusterDrift;
+    entry.wp.y = entry.origin.y + dy / distance * maxClusterDrift;
+  };
+  const ITERATIONS = 8;
   for (let iter = 0; iter < ITERATIONS; iter++) {
     let moved = false;
     for (let i = 0; i < items.length; i++) {
@@ -3945,38 +4098,37 @@ function deconflictClusterOverlap(groups, zoom) {
           dirX = dx / dist;
           dirY = dy / dist;
         } else {
-          /* Coincident centers — pick a deterministic direction so the
-             nudge is stable across rebuilds. Hash from cluster ids. */
-          const seed = (a.g.id.length * 7 + b.g.id.length * 13) % 360;
-          const ang = seed * Math.PI / 180;
-          dirX = Math.cos(ang);
-          dirY = Math.sin(ang);
+          /* Full IDs avoid the length collisions that made unrelated
+             coincident pairs choose exactly the same separation axis. */
+          const angle = hashStringToUint(`${a.g.id}|${b.g.id}`) % 360 * Math.PI / 180;
+          dirX = Math.cos(angle);
+          dirY = Math.sin(angle);
         }
         if (a.locked) {
-          /* a fixed → push b the full overlap */
           b.wp.x -= dirX * overlap;
           b.wp.y -= dirY * overlap;
         } else if (b.locked) {
           a.wp.x += dirX * overlap;
           a.wp.y += dirY * overlap;
         } else {
-          /* Both free → split the push 50/50 */
           const half = overlap / 2;
           a.wp.x += dirX * half;
           a.wp.y += dirY * half;
           b.wp.x -= dirX * half;
           b.wp.y -= dirY * half;
         }
+        clampToOrigin(a);
+        clampToOrigin(b);
         moved = true;
       }
     }
     if (!moved) break;
   }
-  for (const it of items) {
-    if (it.locked) continue;
-    const ll = worldPxToLngLat(it.wp.x, it.wp.y, zoom);
-    it.g.lng = ll.lng;
-    it.g.lat = ll.lat;
+  for (const item of items) {
+    if (item.locked) continue;
+    const ll = worldPxToLngLat(item.wp.x, item.wp.y, zoom);
+    item.g.lng = ll.lng;
+    item.g.lat = ll.lat;
   }
 }
 
@@ -4952,7 +5104,7 @@ class AlpineLayerControl {
 
   _sightsSectionHtml() {
     const families = POI_FAMILY_KEYS.map(key => `
-      <button type="button" class="pass-stack-pebble" data-poi-family="${escapeHtml(key)}" aria-pressed="true">
+      <button type="button" class="pass-stack-pebble" data-poi-family="${escapeHtml(key)}" data-family="${escapeHtml(key)}" aria-pressed="true">
         ${escapeHtml(POI_FAMILY_LABELS[key])}
       </button>`).join("");
     const presets = POI_LAYER_PRESET_IDS.map(id => `
@@ -5505,10 +5657,10 @@ function buildPoiPopupHtml(poi) {
   return `
     <article class="popup poi-popup" data-poi="${escapeHtml(poi.id)}">
       ${img}
-      <header class="popup-head">
+      <header class="popup-head" data-family="${escapeHtml(poiCategoryFamily(poi.poiCategory))}">
         <div class="popup-head-row">
           <h3 class="popup-title">${escapeHtml(poi.name)}</h3>
-          <span class="poi-cat-badge" data-cat="${poi.poiCategory}">${poiCategoryIcon(poi.poiCategory, "poi-cat-icon")} ${escapeHtml(poiCategoryLabel(poi.poiCategory))}</span>
+          <span class="poi-cat-badge" data-cat="${escapeHtml(poi.poiCategory)}" data-family="${escapeHtml(poiCategoryFamily(poi.poiCategory))}">${poiCategoryIcon(poi.poiCategory, "poi-cat-icon")} ${escapeHtml(poiCategoryLabel(poi.poiCategory))}</span>
         </div>
         <div class="popup-meta">${escapeHtml(elevLine)}${escapeHtml(poi.poiRegion)}${dwellLine ? " · " + escapeHtml(dwellLine) : ""}</div>
       </header>
@@ -6246,7 +6398,7 @@ function renderAdvancedPoiSelection() {
   selectedPoisEl.classList.toggle("empty", selected.length === 0);
   selectedPoisEl.innerHTML = selected.length
     ? selected.map(p => `
-      <span class="selected-pass-chip poi-chip">
+      <span class="selected-pass-chip poi-chip" data-family="${escapeHtml(poiCategoryFamily(p.poiCategory))}">
         ${poiCategoryIcon(p.poiCategory, "chip-glyph")}
         <span title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</span>
         <button type="button" data-remove-poi-id="${escapeHtml(p.id)}" aria-label="Remove ${escapeHtml(p.name)}">${uiIconHtml("utility-close", "selected-chip-remove-icon")}</button>
@@ -6318,7 +6470,7 @@ function renderAdvancedPoiPicker() {
     const selected = selectedPoiIds.has(p.id);
     const disabled = !selected && selectedAdvancedTotalCount() >= ADVANCED_MAX_STOPS;
     const dwell = p.visitDwellSec ? `${(p.visitDwellSec / 3600).toFixed(1)} h visit` : "";
-    return `<label class="pass-picker-row poi-picker-row${selected ? " selected" : ""}">
+    return `<label class="pass-picker-row poi-picker-row${selected ? " selected" : ""}" data-family="${escapeHtml(poiCategoryFamily(p.poiCategory))}">
       <input type="checkbox" value="${escapeHtml(p.id)}"${selected ? " checked" : ""}${disabled ? " disabled" : ""}>
       ${poiCategoryIcon(p.poiCategory, "poi-picker-art")}
       <span>
@@ -6540,7 +6692,7 @@ function renderPoiPrefsChips() {
   const cats = Object.keys(catCounts).sort((a, b) => catCounts[b] - catCounts[a]);
   poiCatChipsEl.innerHTML = cats.map(c => {
     const active = allowedPoiCategories.has(c);
-    return `<button type="button" class="pref-chip${active ? " active" : ""}" data-cat="${escapeHtml(c)}" aria-pressed="${active}" title="${escapeHtml(poiCategoryLabel(c))}">${poiCategoryIcon(c, "pref-chip-icon")} ${escapeHtml(poiCategoryLabel(c))}</button>`;
+    return `<button type="button" class="pref-chip${active ? " active" : ""}" data-cat="${escapeHtml(c)}" data-family="${escapeHtml(poiCategoryFamily(c))}" aria-pressed="${active}" title="${escapeHtml(poiCategoryLabel(c))}">${poiCategoryIcon(c, "pref-chip-icon")} ${escapeHtml(poiCategoryLabel(c))}</button>`;
   }).join("");
   /* Themes — curated subset only. */
   poiThemeChipsEl.innerHTML = CURATED_PREF_THEMES.map(t => {
@@ -9895,7 +10047,7 @@ function showPlanResult(r) {
     }
     if (p.isPoi) {
       const dwell = p.visitDwellSec ? ` <span class="dwell-badge" title="Typical visit time">${(p.visitDwellSec / 3600).toFixed(1)}h</span>` : "";
-      return `<span class="tour-stop poi-stop">${poiCategoryIcon(p.poiCategory, "poi-stop-glyph")} ${escapeHtml(p.name)}${dwell}${weather}</span>`;
+      return `<span class="tour-stop poi-stop" data-family="${escapeHtml(poiCategoryFamily(p.poiCategory))}">${poiCategoryIcon(p.poiCategory, "poi-stop-glyph")} ${escapeHtml(p.name)}${dwell}${weather}</span>`;
     }
     const modeBadge = t?.mode === "out-and-back"
       ? ` <span class="mode-badge" title="Visit summit and return same way">↻</span>`
@@ -10575,8 +10727,8 @@ function renderPoiList(userTriggered = false) {
         : notDrivable
           ? `Not directly reachable by car (${p.poiAccess.join(", ")})`
           : "Zoom to this sight";
-      return `<li data-poi-id="${escapeHtml(p.id)}" class="poi-row${selected ? " selected" : ""}${notDrivable ? " not-drivable" : ""}" tabindex="0" role="button" ${advanced ? `aria-pressed="${selected}"` : ''} title="${escapeHtml(titleAttr)}">
-        <span class="poi-row-glyph" data-cat="${escapeHtml(p.poiCategory)}" aria-hidden="true">${poiCategoryIcon(p.poiCategory, "poi-row-art")}</span>
+      return `<li data-poi-id="${escapeHtml(p.id)}" data-family="${escapeHtml(poiCategoryFamily(p.poiCategory))}" class="poi-row${selected ? " selected" : ""}${notDrivable ? " not-drivable" : ""}" tabindex="0" role="button" ${advanced ? `aria-pressed="${selected}"` : ''} title="${escapeHtml(titleAttr)}">
+        <span class="poi-row-glyph" data-cat="${escapeHtml(p.poiCategory)}" data-family="${escapeHtml(poiCategoryFamily(p.poiCategory))}" aria-hidden="true">${poiCategoryIcon(p.poiCategory, "poi-row-art")}</span>
         <span>
           <div class="name">${escapeHtml(p.name)} ${qualityStarsCompact(p.quality)}</div>
           <div class="meta">${escapeHtml(elev)}${escapeHtml(poiCategoryLabel(p.poiCategory))} · ${escapeHtml(p.poiRegion)} ${escapeHtml(dwell)} ${escapeHtml(dist)}</div>

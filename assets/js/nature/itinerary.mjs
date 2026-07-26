@@ -510,4 +510,3 @@ function clockMinutes(value) {
   if (!match) throw new ItineraryError(`Invalid local clock value: ${value}`, "invalid_schedule");
   return Number(match[1]) * 60 + Number(match[2]);
 }
-

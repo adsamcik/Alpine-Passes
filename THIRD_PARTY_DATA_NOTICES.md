@@ -122,4 +122,3 @@ protected-area sources take precedence.
 Before distribution, generate notices from the exact accepted source snapshots
 and media manifests. If the generated notice and the shipped artifacts differ,
 the release fails.
-

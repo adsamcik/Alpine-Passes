@@ -108,4 +108,3 @@ into unrelated duplicate identities.
 Maritime, disputed, jointly managed, and controlled-area features require an
 explicit authority assertion. The application must not present its scope
 geometry as a legal position on sovereignty, navigation rights, or access.
-

@@ -15,7 +15,7 @@ The original repository baseline was inspected on 2026-07-25 at commit `5bd7636b
 | `assets/wasm/leisure-core/leisure_core_bg.wasm` | 969,295 | 366,551 | WASM is already a binary; transfer compression gain depends on server/browser. |
 | vendored `maplibre-gl.js` | 939,308 | 248,608 | Loaded by `index.html`. |
 | vendored `maplibre-gl.css` | 69,422 | 10,038 | Loaded by `index.html`. |
-| `assets/css/site.css` | 150,553 | 29,796 | Loaded by `index.html`. |
+| `assets/css/site.css` | 154,270 | 31,004 | Loaded by `index.html`. |
 
 `assets/js/app.js` alone is 11,378 lines and 464,442 uncompressed bytes. Repository storage is approximately 106.6 MB for the current working tree excluding `.git`, `target`, and `node_modules`; about 63.8 MB is under `assets/ui-icons/`. Repository storage is relevant to cloning and CI but is not equal to page transfer.
 

@@ -424,4 +424,3 @@ export function geometryBounds(geometry) {
     [Infinity, Infinity, -Infinity, -Infinity],
   );
 }
-

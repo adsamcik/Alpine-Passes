@@ -137,4 +137,3 @@ defines its critical dimensions. A roll-up cannot be **Verified broad
 coverage** when a required subdivision or critical dimension is below
 **Verified partial coverage**. Excluded territory does not count as a gap when
 the exclusion is explicit and in scope policy.
-

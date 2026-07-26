@@ -85,7 +85,7 @@ WASM artifacts must stay within the static-asset budget:
 
 - Raw `leisure_core_bg.wasm`: ≤ 1,500,000 bytes (≈ 1.43 MB).
 - Brotli-compressed `.wasm`: ≤ 450,000 bytes (≈ 440 KB).
-- Current baseline: 969,295 bytes raw / 278,429 bytes brotli (~947 KB raw / ~272 KB brotli).
+- Current baseline: 969,295 bytes raw / 278,822 bytes brotli (~947 KB raw / ~272 KB brotli).
 
 Rationale: the leisure WASM module is **already lazy at the feature-flag
 level** — only users who toggle `alpine.planner.leisure.v1` in localStorage

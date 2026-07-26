@@ -27,10 +27,10 @@ flowchart LR
 Run it from the repository root with:
 
 ```sh
-node tools/nature/build.mjs
+npm run build:nature
 ```
 
-There is intentionally no `npm run build:nature` script at present. Do not document or depend on one until it is added to `package.json` and CI.
+The `build:nature` package script invokes the deterministic nature builder, and CI rebuilds the generated artifacts to verify that they match the commit.
 
 ## Inputs and contracts
 
@@ -114,6 +114,7 @@ A successful build replaces `assets/data/nature/` outputs with:
 - `packages/<region>/<hash-prefix>.json` — one deterministic, byte-bounded shard of canonical regional entities plus full SHA-256;
 - `quality-report.v1.json` — validation, flags, missing attribution/access summaries, duplicate candidates, and adapter failures;
 - `coverage-report.v1.json` — authored jurisdiction coverage with processed inventory counts;
+- `sensitivity-report.v1.json` — sensitivity delivery actions, publication counts, and withheld/coarsened identity checks;
 - `ingestion-report.v1.json` — adapter results and inventories;
 - `legacy-id-redirects.v1.json` — old-to-canonical identity mapping.
 

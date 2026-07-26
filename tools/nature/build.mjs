@@ -804,4 +804,3 @@ export {
   SEED_PATH,
   SOURCE_REGISTRY_PATH,
 };
-

@@ -96,7 +96,7 @@ The current builder fails if the manifest, initial nature-data artifact, determi
 
 `tools/build-site.mjs` packages only an explicit runtime allowlist plus the `.mjs` nature-module tree and content-addressed nature-package tree. It rejects missing references, path escapes, symlinks, unexpected tree extensions, manifest URLs outside the package directory, and any file larger than the 25 MiB Sites static-asset limit. Design sources, unbundled country arrays, tests, raw data registries, and documentation are intentionally excluded from `dist/client`.
 
-Every packaged file receives a byte count and SHA-256 entry in a canonical, timestamp-free `dist/build-manifest.json`; identical inputs produce identical package bytes and build ID. `server/routing-worker.mjs` is copied byte-for-byte to the `dist/server/index.js` runtime contract. The worker fronts `env.ASSETS` for static content, replaces the social-metadata origin token in HTML at request time, and adds `nosniff`, `no-referrer`, frame denial, and restrictive camera/microphone permissions headers to HTML responses.
+Every packaged payload file—44 in the current build—receives a byte count and SHA-256 entry in a canonical, timestamp-free `dist/build-manifest.json`; the manifest excludes itself to avoid a recursive self-hash. Identical inputs produce identical package bytes and build ID. `server/routing-worker.mjs` is copied byte-for-byte to the `dist/server/index.js` runtime contract. The worker fronts `env.ASSETS` for static content, replaces the social-metadata origin token in HTML at request time, and adds `nosniff`, `no-referrer`, frame denial, and restrictive camera/microphone permissions headers to HTML responses.
 
 ## Static release order and caching
 

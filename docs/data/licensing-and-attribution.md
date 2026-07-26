@@ -134,4 +134,3 @@ Store a terms-review date. A changed endpoint, publisher, product identifier,
 licence, authentication scheme, or redistribution term blocks the next refresh
 until reviewed. Previously accepted snapshots remain governed by the terms
 applicable to their acquisition and must remain identifiable.
-

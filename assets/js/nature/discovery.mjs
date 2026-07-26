@@ -225,4 +225,3 @@ function bounded(value, fallback) {
 function finiteSort(value) {
   return Number.isFinite(value) ? value : Number.MAX_SAFE_INTEGER;
 }
-

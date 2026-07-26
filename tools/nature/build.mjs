@@ -17,6 +17,10 @@ import {
   validateGeometry,
 } from "../../assets/js/nature/domain.mjs";
 import { ingestLegacyRepository } from "./lib/legacy-adapter.mjs";
+import {
+  NPS_HARDING_SUPERSEDED_SEED_IDS,
+  ingestNpsPublicTrails,
+} from "./lib/nps-public-trails-adapter.mjs";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const OUTPUT_ROOT = path.join(REPO_ROOT, "assets", "data", "nature");
@@ -36,7 +40,8 @@ const DEFAULT_BUDGETS = Object.freeze({
   regionalPackageBytes: 2_500_000,
   spatialIndexBytes: 2_000_000,
   spatialCellPackageBytes: 1_000_000,
-  initialNatureDataBytes: 64_000,
+  viewportRequestBytes: 8_000_000,
+  initialNatureDataBytes: 10_064_000,
   searchP95Milliseconds: 50,
   mapInteractionP95Milliseconds: 100,
   maxVisiblePointFeatures: 5_000,
@@ -63,6 +68,7 @@ export async function buildNatureData(options = {}) {
     "regionalPackageBytes",
     "spatialIndexBytes",
     "spatialCellPackageBytes",
+    "viewportRequestBytes",
     "initialNatureDataBytes",
   ]) {
     if (!Number.isSafeInteger(budgets[budgetName]) || budgets[budgetName] <= 0) {
@@ -77,20 +83,29 @@ export async function buildNatureData(options = {}) {
   ]);
   const sourceIds = validateSourceRegistry(sourceRegistry);
   const jurisdictionIds = validateJurisdictionRegistry(jurisdictionRegistry);
+  const supersededCanonicalSeedIds = new Set(NPS_HARDING_SUPERSEDED_SEED_IDS);
+  const canonicalSeedRecords = seedInput.entities.filter((record) =>
+    !supersededCanonicalSeedIds.has(record.id));
   const adapters = options.adapters || [
     {
       id: "legacy-repository",
       run: () => ingestLegacyRepository(repoRoot),
     },
     {
+      id: "nps-public-trails",
+      run: () => ingestNpsPublicTrails(repoRoot),
+    },
+    {
       id: "canonical-seeds",
       run: async () => ({
         adapterId: "canonical-seeds",
-        records: seedInput.entities,
+        records: canonicalSeedRecords,
         redirects: {},
         inventories: [{
           source: normalizeReportPath(path.relative(repoRoot, seedPath)),
-          records: seedInput.entities.length,
+          records: canonicalSeedRecords.length,
+          sourceRecords: seedInput.entities.length,
+          supersededRecordIds: [...NPS_HARDING_SUPERSEDED_SEED_IDS],
         }],
       }),
     },
@@ -283,10 +298,13 @@ export async function buildNatureData(options = {}) {
       + `${budgets.manifestBytes}-byte manifest budget`,
     );
   }
-  if (manifestBytes > budgets.initialNatureDataBytes) {
+  const initialNatureDataUpperBoundBytes = manifestBytes
+    + spatialIndexBytes
+    + budgets.viewportRequestBytes;
+  if (initialNatureDataUpperBoundBytes > budgets.initialNatureDataBytes) {
     await rm(staged, { recursive: true, force: true });
     throw new Error(
-      `Initial nature data is ${manifestBytes} bytes, above the `
+      `Initial nature data upper bound is ${initialNatureDataUpperBoundBytes} bytes, above the `
       + `${budgets.initialNatureDataBytes}-byte budget`,
     );
   }
@@ -348,6 +366,7 @@ export async function buildNatureData(options = {}) {
     spatialPackages: spatialPackageCount,
     spatialIndexBytes,
     manifestBytes,
+    initialNatureDataUpperBoundBytes,
     buildId: manifest.buildId,
     validationErrors: normalized.validationErrors,
     adapterFailures: ingestion.failures,

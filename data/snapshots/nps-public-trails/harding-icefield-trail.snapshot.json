@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "snapshot:nps-public-trails:harding-icefield-trail:2026-07-26",
+  "sourceId": "nps-public-trails",
+  "retrievedAt": "2026-07-26T15:10:00Z",
+  "snapshot": {
+    "path": "data/snapshots/nps-public-trails/harding-icefield-trail.geojson",
+    "sha256": "659b79588e3e8038051b172b6668e71e7ee4bce0706c005545ccf966349b3fd1",
+    "format": "GeoJSON",
+    "canonicalRefreshUrl": "https://mapservices.nps.gov/arcgis/rest/services/NationalDatasets/NPS_Public_Trails_Geographic/FeatureServer/0/query?objectIds=30488%2C30504%2C31241%2C29918%2C31691%2C29968&outFields=*&returnGeometry=true&outSR=4326&f=geojson",
+    "serviceUrl": "https://mapservices.nps.gov/arcgis/rest/services/NationalDatasets/NPS_Public_Trails_Geographic/FeatureServer/0",
+    "featureObjectIds": [30488, 30504, 31241, 29918, 31691, 29968],
+    "orderedObjectIds": [30488, 29918, 31241, 30504, 31691, 29968],
+    "rawCoordinateCount": 2745,
+    "joinedCoordinateCount": 2740,
+    "featureId": "{658209D4-F1C1-491E-B523-0BBA895FD069}",
+    "trailName": "Harding Icefield Trail",
+    "unitCode": "KEFJ",
+    "unitName": "Kenai Fjords National Park",
+    "status": "Existing",
+    "dataAccess": "Unrestricted",
+    "publicDisplay": "Public Map Display",
+    "use": "Hiker/Pedestrian"
+  },
+  "guidance": {
+    "sourceRecordId": "harding-icefield-trail-guide",
+    "url": "https://www.nps.gov/kefj/planyourvisit/harding_icefield_trail.htm",
+    "retrievedAt": "2026-07-26T15:10:00Z",
+    "publisherUpdatedAt": "2026-07-20",
+    "roundTripMiles": 7.8,
+    "oneWayMiles": 3.9,
+    "durationMinutes": { "minimum": 360, "maximum": 480 },
+    "elevationGainFeetPerMile": 1000,
+    "difficulty": "Strenuous",
+    "hazards": [
+      "snow cover can persist into July",
+      "avalanche risk can persist into July",
+      "storms, high winds, intense sunlight, and sudden temperature changes",
+      "black bear encounters"
+    ],
+    "currentConditionsUrl": "https://www.nps.gov/kefj/planyourvisit/conditions.htm"
+  },
+  "accessGuidance": {
+    "sourceRecordId": "exit-glacier-area-maps",
+    "url": "https://www.nps.gov/kefj/planyourvisit/maps.htm",
+    "retrievedAt": "2026-07-26T15:10:00Z",
+    "publisherUpdatedAt": "2025-09-11",
+    "roadAccessibleInSummer": true,
+    "parkingAvailable": true,
+    "parkingCanBeLimitedAtMidday": true,
+    "vehicleTypes": ["automobile", "RV"],
+    "shuttleAndTaxiAvailable": true
+  },
+  "rights": {
+    "licenceId": "US-PUBLIC-DOMAIN",
+    "licenceVersion": "17 U.S.C. 105; NPS disclaimer accessed 2026-07-26",
+    "licenceUrl": "https://www.nps.gov/aboutus/disclaimer.htm",
+    "attribution": "National Park Service. No protection is claimed in original U.S. Government works.",
+    "scope": "Structured NPS-authored trail geometry and factual visitor guidance only.",
+    "excluded": "NPS marks, logos, photographs, audiovisual media, and any separately credited third-party material are not included."
+  }
+}

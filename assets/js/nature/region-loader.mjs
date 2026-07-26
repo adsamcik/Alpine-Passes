@@ -4,6 +4,7 @@ export const DEFAULT_NATURE_MANIFEST_URL = "assets/data/nature/manifest.v1.json"
 export const NATURE_PACKAGE_SCHEMA_VERSION = SCHEMA_VERSION;
 export const DEFAULT_MAX_VIEWPORT_CELLS = 64;
 export const DEFAULT_MAX_VIEWPORT_PACKAGES = 128;
+export const DEFAULT_MAX_VIEWPORT_BYTES = 8_000_000;
 export const DEFAULT_SPATIAL_CELL_CACHE_LIMIT = 128;
 
 const MANIFEST_ARTIFACT_TYPE = "nature-package-manifest";
@@ -89,6 +90,7 @@ export class RegionalPackageLoader {
   #spatialCellPromises = new Map();
   #maxViewportCells;
   #maxViewportPackages;
+  #maxViewportBytes;
   #spatialCellCacheLimit;
 
   constructor(options = {}) {
@@ -115,6 +117,11 @@ export class RegionalPackageLoader {
       options.maxViewportPackages,
       DEFAULT_MAX_VIEWPORT_PACKAGES,
       "maxViewportPackages",
+    );
+    this.#maxViewportBytes = configuredPositiveLimit(
+      options.maxViewportBytes,
+      DEFAULT_MAX_VIEWPORT_BYTES,
+      "maxViewportBytes",
     );
     this.#spatialCellCacheLimit = configuredPositiveLimit(
       options.spatialCellCacheLimit,
@@ -257,6 +264,7 @@ export class RegionalPackageLoader {
       options,
       this.#maxViewportCells,
       this.#maxViewportPackages,
+      this.#maxViewportBytes,
     );
     throwIfAborted(signal);
     const spatialIndex = await this.loadSpatialIndex({ signal });
@@ -269,15 +277,29 @@ export class RegionalPackageLoader {
       (total, entry) => total + entry.packages.length,
       0,
     );
-    if (selectedCells.length > limits.maxCells || packageCount > limits.maxPackages) {
+    const packageBytes = selectedCells.reduce(
+      (total, entry) => total + entry.packages.reduce(
+        (cellTotal, packageEntry) => cellTotal + packageEntry.bytes,
+        0,
+      ),
+      0,
+    );
+    const manifestMaxBytes = this.#manifest?.budgets?.viewportRequestBytes
+      ?? this.#maxViewportBytes;
+    const maxBytes = Math.min(limits.maxBytes, manifestMaxBytes);
+    if (selectedCells.length > limits.maxCells
+        || packageCount > limits.maxPackages
+        || packageBytes > maxBytes) {
       throw new RegionLoaderError(
-        "Viewport intersects too many spatial packages for one request",
+        "Viewport exceeds spatial cell, package, or raw-byte request limits",
         "viewport_request_limit_exceeded",
         {
           cellCount: selectedCells.length,
           packageCount,
           maxCells: limits.maxCells,
           maxPackages: limits.maxPackages,
+          packageBytes,
+          maxBytes,
         },
       );
     }
@@ -290,6 +312,7 @@ export class RegionalPackageLoader {
       spatialIndex.zoom,
       cells,
       this.#schemaVersion,
+      packageBytes,
     ));
   }
 
@@ -510,6 +533,14 @@ function validateManifest(document, schemaVersion) {
   }
   if (!Array.isArray(document.packages)) {
     throw manifestInvalid("Manifest packages must be an array");
+  }
+  if (!isPlainObject(document.budgets)) {
+    throw manifestInvalid("Manifest budgets must be an object");
+  }
+  if (Object.hasOwn(document.budgets, "viewportRequestBytes")
+      && (!Number.isSafeInteger(document.budgets.viewportRequestBytes)
+        || document.budgets.viewportRequestBytes < 1)) {
+    throw manifestInvalid("Manifest viewportRequestBytes budget is invalid");
   }
 
   const index = new Map();
@@ -966,9 +997,18 @@ function configuredPositiveLimit(value, fallback, label) {
   return resolved;
 }
 
-function viewportRequestLimits(options, defaultMaxCells, defaultMaxPackages) {
+function viewportRequestLimits(
+  options,
+  defaultMaxCells,
+  defaultMaxPackages,
+  defaultMaxBytes,
+) {
   if (isAbortSignal(options)) {
-    return { maxCells: defaultMaxCells, maxPackages: defaultMaxPackages };
+    return {
+      maxCells: defaultMaxCells,
+      maxPackages: defaultMaxPackages,
+      maxBytes: defaultMaxBytes,
+    };
   }
   const maxCells = perRequestPositiveLimit(
     options?.maxCells,
@@ -980,7 +1020,12 @@ function viewportRequestLimits(options, defaultMaxCells, defaultMaxPackages) {
     defaultMaxPackages,
     "maxPackages",
   );
-  return { maxCells, maxPackages };
+  const maxBytes = perRequestPositiveLimit(
+    options?.maxBytes,
+    defaultMaxBytes,
+    "maxBytes",
+  );
+  return { maxCells, maxPackages, maxBytes };
 }
 
 function perRequestPositiveLimit(value, fallback, field) {
@@ -1476,7 +1521,7 @@ function buildLogicalSpatialCell(entry, documents, schemaVersion) {
   };
 }
 
-function buildLogicalSpatialViewport(bounds, zoom, cells, schemaVersion) {
+function buildLogicalSpatialViewport(bounds, zoom, cells, schemaVersion, rawPackageBytes) {
   const entitiesById = new Map();
   const sourceCells = new Map();
   for (const cell of cells) {
@@ -1507,6 +1552,7 @@ function buildLogicalSpatialViewport(bounds, zoom, cells, schemaVersion) {
     bounds: [...bounds],
     cellCount: cells.length,
     packageCount: cells.reduce((total, cell) => total + cell.shardCount, 0),
+    rawPackageBytes,
     cellIds: cells.map((cell) => cell.cellId),
     cells,
     entities: [...entitiesById.values()].sort((left, right) =>

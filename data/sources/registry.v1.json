@@ -31,6 +31,78 @@
   },
   "sources": [
     {
+      "id": "nps-public-trails",
+      "name": "National Park Service Public Trails Geographic and official visitor guidance",
+      "owner": "U.S. National Park Service",
+      "authorityTier": "official_agency",
+      "jurisdictionIds": [
+        "US"
+      ],
+      "themes": [
+        "trails",
+        "access",
+        "conditions",
+        "hazards"
+      ],
+      "homepage": "https://www.nps.gov/",
+      "documentationUrl": "https://www.nps.gov/aboutus/disclaimer.htm",
+      "retrieval": {
+        "method": "download",
+        "format": [
+          "GeoJSON",
+          "HTML"
+        ],
+        "endpoint": "https://mapservices.nps.gov/arcgis/rest/services/NationalDatasets/NPS_Public_Trails_Geographic/FeatureServer/0",
+        "snapshotPolicy": "retain_reviewed_raw_response_sha256_query_and_source_ids"
+      },
+      "licence": {
+        "id": "US-PUBLIC-DOMAIN",
+        "name": "Original United States Government works under 17 U.S.C. 105",
+        "url": "https://www.nps.gov/aboutus/disclaimer.htm",
+        "attributionRequired": true,
+        "shareAlike": false,
+        "commercialUse": "allowed",
+        "compatibilityNotes": "Approved only for the reviewed NPS-authored structured trail records and factual visitor guidance. Cite NPS and state that no protection is claimed in original U.S. Government works. Exclude NPS marks, logos, photos, audiovisual media, and separately credited third-party content."
+      },
+      "attribution": "National Park Service. No protection is claimed in original U.S. Government works.",
+      "updateCadence": "Agency-managed service and pages update independently; refresh reviewed snapshots and re-run topology, rights, freshness, and field-drift checks before publication.",
+      "historicalAvailability": "No complete source history is guaranteed; Itinera retains content-addressed reviewed snapshots and retrieval metadata.",
+      "authentication": {
+        "required": false,
+        "type": null,
+        "secretBrowserSafe": false
+      },
+      "rateLimits": "Use small, attributable server-side or build-time extracts; do not make the public application depend on unrestricted live ArcGIS queries.",
+      "schemaAssumptions": [
+        "DATAACCESS=Unrestricted and PUBLICDISPLAY=Public Map Display govern publication of each selected source feature.",
+        "TRLSTATUS=Existing describes the agency dataset record, not live trail conditions or absence of closures.",
+        "Mapping-grade centerlines can represent a complete established route while underlying survey dates remain explicit.",
+        "Official visitor-page facts are transcribed as dated assertions and are not treated as a live conditions feed."
+      ],
+      "knownGaps": [
+        "Coverage is limited to NPS-managed public visitor-use trails and is not complete for the United States.",
+        "Administrative, restricted, sensitive, abandoned, and removed trails are intentionally absent from the public layer.",
+        "Trail geometry can predate the current service retrieval and does not prove current tread, bridge, closure, weather, wildlife, or avalanche conditions.",
+        "No NPS media or marks are approved through this source entry."
+      ],
+      "failureBehaviour": {
+        "isolateSource": true,
+        "serveLastKnownGood": true,
+        "criticality": "degraded"
+      },
+      "lastSuccessfulRefresh": "2026-07-26T15:10:00Z",
+      "publicationDisposition": "approved",
+      "rightsCost": "no_fee",
+      "approvedUses": [
+        "discovery",
+        "fact_evidence",
+        "bulk_ingest",
+        "geometry"
+      ],
+      "redistribution": "allowed_with_attribution",
+      "contact": null
+    },
+    {
       "id": "legacy-alps-osm",
       "name": "Legacy Alpine passes derived from OpenStreetMap plus manual enrichment",
       "owner": "Alpine-Passes maintainers and OpenStreetMap contributors",

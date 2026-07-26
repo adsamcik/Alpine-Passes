@@ -69,7 +69,8 @@ function manifest(entries, overrides = {}) {
     budgets: {
       manifestBytes: 64000,
       regionalPackageBytes: 2500000,
-      initialNatureDataBytes: 64000,
+      viewportRequestBytes: 8000000,
+      initialNatureDataBytes: 10064000,
     },
     ...overrides,
   };
@@ -896,6 +897,7 @@ test("manifest-only boot defers the spatial index and viewport fetches only inte
   ]);
   assert.deepEqual(concurrent.entities, first.entities);
   assert.deepEqual(first.cellIds, ["8/128/128", "8/129/128"]);
+  assert.equal(first.rawPackageBytes, west.entry.bytes + east.entry.bytes);
   assert.deepEqual(setup.loader.cachedSpatialCellIds, first.cellIds);
   assert.equal(setup.calls.filter((call) => call.url === setup.index.reference.url).length, 1);
   assert.equal(setup.calls.filter((call) => call.url === west.entry.url).length, 1);
@@ -1051,6 +1053,17 @@ test("viewport request caps refuse before cell fetch and validate overrides", as
   );
   assert.equal(setup.calls.some((call) => call.url === first.entry.url), false);
   assert.equal(setup.calls.some((call) => call.url === second.entry.url), false);
+
+  const advertisedBytes = first.entry.bytes + second.entry.bytes;
+  await assert.rejects(
+    setup.loader.loadViewport([0, -1, 2, 0], { maxBytes: advertisedBytes - 1 }),
+    (error) => error?.code === "viewport_request_limit_exceeded"
+      && error.details.packageBytes === advertisedBytes
+      && error.details.maxBytes === advertisedBytes - 1,
+  );
+  assert.equal(setup.calls.some((call) => call.url === first.entry.url), false);
+  assert.equal(setup.calls.some((call) => call.url === second.entry.url), false);
+
   await assert.rejects(
     setup.loader.loadViewport([0, -1, 2, 0], { maxCells: 2, maxPackages: 1 }),
     errorCode("viewport_request_limit_exceeded"),
@@ -1060,6 +1073,10 @@ test("viewport request caps refuse before cell fetch and validate overrides", as
     setup.loader.loadViewport([0, -1, 2, 0], { maxCells: 0 }),
     errorCode("invalid_viewport_limit"),
   );
+  await assert.rejects(
+    setup.loader.loadViewport([0, -1, 2, 0], { maxBytes: 0 }),
+    errorCode("invalid_viewport_limit"),
+  );
   assert.throws(
     () => new RegionalPackageLoader({
       fetchImpl: setup.fetchImpl,
@@ -1067,6 +1084,14 @@ test("viewport request caps refuse before cell fetch and validate overrides", as
       spatialCellCacheLimit: 0,
     }),
     /spatialCellCacheLimit must be a positive safe integer/,
+  );
+  assert.throws(
+    () => new RegionalPackageLoader({
+      fetchImpl: setup.fetchImpl,
+      cryptoImpl: webcrypto,
+      maxViewportBytes: 0,
+    }),
+    /maxViewportBytes must be a positive safe integer/,
   );
 });
 

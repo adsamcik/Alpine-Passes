@@ -1,7 +1,7 @@
 use leisure_core::{
-    __wasm_handle_test_decompose_ears, __wasm_handle_test_free_ears, __wasm_handle_test_free_graph,
-    __wasm_handle_test_load_graph, __wasm_handle_test_require_graph,
-    __wasm_handle_test_require_graph_and_ears, GraphData,
+    GraphData, __wasm_handle_test_decompose_ears, __wasm_handle_test_free_ears,
+    __wasm_handle_test_free_graph, __wasm_handle_test_load_graph, __wasm_handle_test_require_graph,
+    __wasm_handle_test_require_graph_and_ears,
 };
 use serde_json::json;
 

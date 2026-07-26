@@ -9,17 +9,19 @@ coverage reporting. The explicit machine-readable rows are in
 
 ### European Union
 
-All 27 Member States are included individually.
+All 27 Member States have explicit jurisdiction rows.
 
-The nine outermost regions are integral EU territory and are separate packages:
+The nine outermost regions are integral EU territory and require explicit
+jurisdiction rows and separate operational scopes:
 
 - France: Guadeloupe, French Guiana, Martinique, Mayotte, Réunion, and the
   French part of Saint-Martin;
 - Portugal: Azores and Madeira;
 - Spain: Canary Islands.
 
-Åland is included under Finland as an autonomous, Swedish-language package.
-Ceuta and Melilla are included under Spain.
+Åland is included under Finland with an autonomous, Swedish-language
+jurisdiction row and operational scope. Ceuta and Melilla are included under
+Spain with their own jurisdiction rows.
 
 Cyprus is included, but records must state authority/control context. EU law is
 suspended in the area where the Republic of Cyprus does not exercise effective
@@ -52,7 +54,8 @@ operators, and national agencies are separate source tiers.
 
 ### Norway
 
-Mainland Norway, Svalbard, and Jan Mayen are included as separate packages.
+Mainland Norway, Svalbard, and Jan Mayen have separate jurisdiction rows and
+operational scopes.
 Svalbard and Jan Mayen must not inherit mainland right-to-roam, logistics, or
 safety assumptions.
 
@@ -74,10 +77,23 @@ Romansh source forms must be preserved where supplied.
 | Liechtenstein | Separate sovereign state; can appear in Swiss cross-border products but was not requested |
 
 Extractors must apply these exclusions to cross-border or federal source
-packages. The presence of a feature in PAD-US, GNIS, swissNAMES3D, an OSM
+imports. The presence of a feature in PAD-US, GNIS, swissNAMES3D, an OSM
 extract, or another broad source does not silently expand product scope.
 
-## Special operational packages
+## Current public release state
+
+The current public release contains one narrowly governed Alaska NPS pilot.
+That pilot does not establish `Verified broad coverage` for Alaska, the United
+States, or any other jurisdiction. No jurisdiction in the current public
+release has `Verified broad coverage`.
+
+Scotland has explicit jurisdiction, taxonomy, access-regime, transport, and
+safety structure, but the governed public release is `Structurally supported
+but unpopulated`. Scope rows describe inclusion and operational policy; they do
+not claim that public records, routes, access facts, or transport schedules are
+populated.
+
+## Special operational scopes
 
 The following areas require separate configuration even though they are
 included:
@@ -93,9 +109,9 @@ included:
 - Scotland’s islands, ferries, access regime, avalanche areas, and remote
   transport.
 
-A special package can carry its own boundary, languages, authority sources,
-transport modes, risk vocabulary, cache TTLs, sensitive-location policy, and
-failure behaviour.
+A special operational scope can carry its own boundary, languages, authority
+sources, transport modes, risk vocabulary, cache TTLs, sensitive-location
+policy, and failure behaviour.
 
 ## Boundary policy
 

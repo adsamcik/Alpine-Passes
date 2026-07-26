@@ -44,6 +44,26 @@ A routing response creates a generated connector or drive leg. It must not mutat
 
 Transit, ferry, and cable records in the canonical model are evidence-bearing `TransportConnection` entities. The current routing worker is not a public-transport journey planner and does not make an unknown timetable operational.
 
+Mixed-mode composition is fail-closed. Before a drive–walk–hike–transport
+journey can be offered, the planner requires:
+
+- current verified established-route geometry and current verified endpoints;
+- current competent evidence that each required access, stopping, parking, and
+  transport use is legal for the intended mode;
+- an explicit walking connector for every transfer between a drive endpoint,
+  access point, transport endpoint, and hike endpoint; proximity is not a
+  connector;
+- for every timed leg, an exact IANA time zone, applicable service
+  calendar/date, current sourced schedule, and exact usable departure;
+- a continuous endpoint chain plus a verified return to the vehicle, a verified
+  different pickup, or an explicitly supported terminal endpoint, with
+  last-departure and stranding checks.
+
+If any gate is unknown, stale, conflicting, or missing, the planner refuses the
+mixed journey. A generated connector cannot fill missing established geometry,
+change the stored line, or convert overview/partial geometry into a complete
+route.
+
 ## Consequences and limitations
 
 The boundary allows provider replacement and keeps secrets off the client. It also creates a first-party availability, abuse, privacy, quota, and monitoring responsibility. Deployments need rate limiting at the edge, bounded logs, upstream terms review, request/latency/error metrics by profile, and a degraded UI when a profile is unavailable.

@@ -84,6 +84,28 @@ Stages, variants, and segments remain separate concepts:
 - a variant is an alternative, approach, excursion, seasonal, accessible, or emergency option;
 - a segment is a physical trail portion with surface/class/visibility attributes.
 
+## Mixed-mode itinerary semantics
+
+A mixed-mode itinerary composes evidence-bearing legs and connectors; it is not
+a new route nature and does not change the identity of an established route.
+Composition is allowed only when the established route geometry and every
+required access or transport endpoint are current and verified, and current
+competent evidence establishes legal use for the intended mode.
+
+Every transfer between driving, parking/access, transport, and hiking requires
+an explicit walking connector. Geographic proximity, a shared name, or a map
+intersection is not a connector. A timed bus, rail, ferry, boat, cable, or
+pickup leg additionally requires an exact IANA time zone, applicable service
+calendar/date, a current sourced schedule, and exact usable departure times.
+
+The endpoint chain must prove either return to the vehicle, a verified
+different pickup, or an explicitly supported terminal endpoint. Point-to-point
+plans must check last departures, closures, missed-connection margins, and
+stranding risk. Unknown, stale, conflicting, or missing geometry, legality,
+endpoints, connectors, schedule, departure, or return evidence causes refusal.
+Generated drive, foot, or hiking geometry never substitutes for, repairs, or
+overwrites an established route line.
+
 ## Difficulty and hazards
 
 Difficulty retains `originalScale` and `originalGrade`. `normalizedBand`—`easy`, `moderate`, `strenuous`, `technical`, `expert`, or `unknown`—is for broad filtering only and requires a `normalizationCaveat` when equivalence could be misunderstood. Japanese, Swiss, Scottish, Norwegian, North American, and other grading systems are not exact universal conversions.

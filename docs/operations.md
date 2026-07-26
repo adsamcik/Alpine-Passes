@@ -138,7 +138,7 @@ Before traffic promotion, verify from the staged HTTPS origin:
 
 `tools/leisure/e2e-smoke.mjs` covers the legacy planner and `tools/nature/e2e-smoke.mjs` defines the nature discovery/mixed-mode browser smoke. Run both against the staged production package when their Playwright runtime is available; do not substitute Node DOM tests for the staged browser check.
 
-On 2026-07-26, the nature smoke passed all 18 scenarios: manifest-only startup, explicit Scotland-only package activation, filtering, route selection, GPX safety refusal, keyboard tab behavior, 390 px overflow checks, exact nature-layer restoration after a map-style reload, and zero page/console errors. The full Node run passed all 193 tests. This is a functional regression result, not representative-device performance, Core Web Vitals, screen-reader, or field-safety certification.
+On 2026-07-26, the nature smoke passed all 18 scenarios: manifest-only startup, explicit Scotland-only package activation, filtering, route selection, GPX safety refusal, keyboard tab behavior, 390 px overflow checks, exact nature-layer restoration after a map-style reload, and zero page/console errors. The full Node run passed all 194 tests. This is a functional regression result, not representative-device performance, Core Web Vitals, screen-reader, or field-safety certification.
 
 ## Monitoring and telemetry
 

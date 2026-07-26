@@ -55,7 +55,7 @@ The sensitivity delivery report currently publishes all 4,019 records and withho
 
 `npm run build:site` packages an explicit runtime allowlist into `dist/client`, copies the Fetch-compatible worker to `dist/server/index.js`, validates all local HTML/CSS/manifest references and the 25 MiB per-file hosting limit, and writes a deterministic hashed `dist/build-manifest.json`. CI rebuilds and diffs nature artifacts and the legacy bundle, runs the full Node/Rust checks, and exercises this site packager. These are build-quality and delivery results, not coverage, safety, licence, accessibility, representative-browser performance, or field certification.
 
-The final local verification run passed all 193 Node tests and all 18 nature Playwright smoke scenarios. The browser smoke covers manifest-only startup, explicit Scotland loading, filters, route selection, GPX safety, keyboard behavior, 390 px reflow, exact layer restoration after a style reload, and zero page/console errors. It is not a representative-device performance or assistive-technology conformance result.
+The final local verification run passed all 194 Node tests and all 18 nature Playwright smoke scenarios. The browser smoke covers manifest-only startup, explicit Scotland loading, filters, route selection, GPX safety, keyboard behavior, 390 px reflow, exact layer restoration after a style reload, and zero page/console errors. It is not a representative-device performance or assistive-technology conformance result.
 
 ## Documentation
 

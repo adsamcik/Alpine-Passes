@@ -272,6 +272,7 @@ test("build emits deterministic multi-entry manifests, bounded raw files, failur
   ];
 
   const first = await buildNatureData({
+    includeUnapprovedPreviews: true,
     repoRoot: REPO_ROOT,
     outputRoot: firstOutput,
     budgets: {
@@ -282,6 +283,7 @@ test("build emits deterministic multi-entry manifests, bounded raw files, failur
   });
   const second = await buildNatureData({
     repoRoot: REPO_ROOT,
+    includeUnapprovedPreviews: true,
     outputRoot: secondOutput,
     budgets: {
       regionalPackageBytes: budget,

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import {
   mkdtemp,
   readFile,
@@ -325,7 +326,15 @@ test("publication governance enforces rights cost and per-file media clearance",
   const lead = fixturePlace("place:lead-governance", "Lead governance", "publish", [8, 46], {
     media: [{ sourceId: "wikimedia-commons", url: "https://example.test/unknown.jpg" }],
   });
-  const governedLead = applyPublicationGovernance([lead], sources);
+  const withheldLead = applyPublicationGovernance([lead], sources);
+  assert.equal(withheldLead.records.length, 0);
+  assert.equal(withheldLead.report.recordsWithheldForRights, 1);
+  assert.deepEqual(withheldLead.report.withheldBySourceId, {
+    "manual-seed-routes": 1,
+  });
+  const governedLead = applyPublicationGovernance([lead], sources, {
+    includeUnapprovedPreviews: true,
+  });
   assert.equal(governedLead.report.removedMediaItems, 1);
   assert.equal(governedLead.records[0].media, undefined);
   assert.ok(governedLead.records[0].quality.flags.includes("discovery_lead"));
@@ -370,7 +379,9 @@ test("publication governance enforces rights cost and per-file media clearance",
   const mediaRecord = fixturePlace("place:cleared-media", "Cleared media", "publish", [8, 46], {
     media: [clearedMedia, { ...clearedMedia, reviewedAt: "not-a-date" }],
   });
-  const governedMedia = applyPublicationGovernance([mediaRecord], mediaSources);
+  const governedMedia = applyPublicationGovernance([mediaRecord], mediaSources, {
+    includeUnapprovedPreviews: true,
+  });
   assert.equal(governedMedia.report.removedMediaItems, 1);
   assert.deepEqual(governedMedia.records[0].media, [clearedMedia]);
 
@@ -380,11 +391,44 @@ test("publication governance enforces rights cost and per-file media clearance",
     const rejected = fixturePlace(`place:media-${permission}`, permission, "publish", [8, 46], {
       media: [{ ...clearedMedia, [permission]: false }],
     });
-    const result = applyPublicationGovernance([rejected], mediaSources);
+    const result = applyPublicationGovernance([rejected], mediaSources, {
+      includeUnapprovedPreviews: true,
+    });
     assert.equal(result.report.removedMediaItems, 1, permission);
     assert.equal(result.records[0].media, undefined, permission);
   }
 });
+
+test("release notice is hash-bound to the manifest and names only shipped approved sources", async () => {
+  const [manifest, notice] = await Promise.all([
+    readJson("assets/data/nature/manifest.v1.json"),
+    readJson("assets/data/nature/source-release-notice.v1.json"),
+  ]);
+  const reference = manifest.sourceReleaseNotice;
+  assert.equal(reference.url, "assets/data/nature/source-release-notice.v1.json");
+  assert.equal(reference.bytes, (await stat(path.join(REPO_ROOT, reference.url))).size);
+  assert.equal(reference.contentHash, notice.contentHash);
+  const noticeCore = { ...notice };
+  delete noticeCore.contentHash;
+  assert.equal(
+    notice.contentHash,
+    `sha256:${createHash("sha256").update(canonicalJson(noticeCore)).digest("hex")}`,
+  );
+  const expectedSourceIds = [...new Set(
+    manifest.packages.flatMap((entry) => entry.attributionSourceIds),
+  )].sort();
+  assert.deepEqual(notice.sources.map((source) => source.id), expectedSourceIds);
+  assert.ok(notice.sources.every((source) =>
+    source.publicationDisposition === "approved"
+      && source.rightsCost === "no_fee"
+      && ["allowed", "allowed_with_attribution"].includes(source.redistribution)
+      && source.deliveredRecordCount > 0));
+  assert.equal(reference.sourceCount, notice.sources.length);
+  assert.equal(reference.mediaCount, notice.media.length);
+  assert.equal(notice.recordCount, 2);
+  assert.deepEqual(notice.media, []);
+});
+
 
 test("entity, source, jurisdiction, classification, and relationship references are closed", async () => {
   const [{ entities }, sourceRegistry, jurisdictionRegistry, taxonomy] = await Promise.all([
@@ -428,11 +472,11 @@ test("entity, source, jurisdiction, classification, and relationship references 
 });
 
 test("legacy inventory status remains Unknown and price-cache migration is count-preserving", async () => {
-  const [jurisdictions, cache, ingestionReport, { entities }] = await Promise.all([
+  const [jurisdictions, cache, ingestionReport, { records: legacyRecords }] = await Promise.all([
     readJson("data/jurisdictions/registry.v1.json"),
     readJson("assets/data/poi-prices.json"),
     readJson("assets/data/nature/ingestion-report.v1.json"),
-    loadGeneratedEntities(),
+    ingestLegacyRepository(REPO_ROOT),
   ]);
   const legacyJurisdictions = jurisdictions.jurisdictions
     .filter((jurisdiction) => jurisdiction.legacyInventoryPresent);
@@ -442,7 +486,7 @@ test("legacy inventory status remains Unknown and price-cache migration is count
       && jurisdiction.overallStatus === "Unknown"));
 
   const cacheKeys = Object.keys(cache.entries).sort();
-  const prices = entities.filter((entity) => entity.entityType === "Price");
+  const prices = legacyRecords.filter((entity) => entity.entityType === "Price");
   assert.equal(cacheKeys.length, 313);
   assert.equal(prices.length, cacheKeys.length);
   assert.deepEqual(prices.map((price) => price.legacy.cacheKey).sort(), cacheKeys);
@@ -588,6 +632,7 @@ test("sensitive delivery is fail-closed, coarsened, reference-safe, and count-on
   ];
   const redirects = Object.fromEntries(records.map((record) => [`legacy-${record.id}`, record.id]));
   const result = await buildNatureData({
+    includeUnapprovedPreviews: true,
     repoRoot: REPO_ROOT,
     outputRoot,
     adapters: [{
@@ -784,7 +829,10 @@ test("hidden discovery cannot promote obscurity without evidence, access, and se
 test("delivered route geometry preserves first-class line and establishment invariants", async () => {
   const { entities } = await loadGeneratedEntities();
   const routes = entities.filter((entity) => entity.entityType === "TrailRoute");
-  assert.ok(routes.length >= 30);
+  assert.equal(routes.length, 1);
+  assert.equal(routes[0].id, "route:us-ak-harding-icefield-out-and-back");
+  assert.equal(routes[0].quality.verificationStatus, "verified");
+  assert.equal(routes[0].navigationSuitability, true);
   for (const route of routes) {
     assert.ok(["LineString", "MultiLineString"].includes(route.geometry.type), route.id);
     assert.ok(flattenPositions(route.geometry).length >= 2, route.id);

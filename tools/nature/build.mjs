@@ -116,7 +116,9 @@ export async function buildNatureData(options = {}) {
     { sourceIds, jurisdictionIds },
   );
   const records = dedupeByStableId(normalized.records);
-  const governance = applyPublicationGovernance(records, sourceIds);
+  const governance = applyPublicationGovernance(records, sourceIds, {
+    includeUnapprovedPreviews: options.includeUnapprovedPreviews === true,
+  });
   const delivery = applySensitivityPolicy(governance.records);
   const deliveredIds = new Set(delivery.records.map((record) => record.id));
   const deliveryValidationErrors = normalized.validationErrors
@@ -279,6 +281,30 @@ export async function buildNatureData(options = {}) {
     packageCount: spatialPackageCount,
   };
 
+  const sourceReleaseNoticeCore = buildSourceReleaseNotice(
+    delivery.records,
+    sourceRegistry,
+    {
+      allowUnapproved: options.includeUnapprovedPreviews === true,
+    },
+  );
+  const sourceReleaseNoticeHash = sha256(canonicalJson(sourceReleaseNoticeCore));
+  const sourceReleaseNotice = {
+    ...sourceReleaseNoticeCore,
+    contentHash: `sha256:${sourceReleaseNoticeHash}`,
+  };
+  const sourceReleaseNoticeBytes = Buffer.byteLength(
+    `${canonicalJson(sourceReleaseNotice)}\n`,
+  );
+  const sourceReleaseNoticeReference = {
+    url: "assets/data/nature/source-release-notice.v1.json",
+    contentHash: `sha256:${sourceReleaseNoticeHash}`,
+    bytes: sourceReleaseNoticeBytes,
+    sourceCount: sourceReleaseNotice.sources.length,
+    releaseEligible: sourceReleaseNotice.releaseEligible,
+    mediaCount: sourceReleaseNotice.media.length,
+  };
+
   const manifestCore = {
     schemaVersion: "1.0.0",
     artifactType: "nature-package-manifest",
@@ -286,6 +312,7 @@ export async function buildNatureData(options = {}) {
     packages: manifestPackages,
     spatialIndex: spatialIndexReference,
     budgets,
+    sourceReleaseNotice: sourceReleaseNoticeReference,
   };
   const manifestHash = sha256(canonicalJson(manifestCore));
   const manifest = { ...manifestCore, buildId: manifestHash.slice(0, 16) };
@@ -313,6 +340,7 @@ export async function buildNatureData(options = {}) {
     "quality-report.v1.json": qualityReport,
     "coverage-report.v1.json": coverageReport,
     "sensitivity-report.v1.json": delivery.report,
+    "source-release-notice.v1.json": sourceReleaseNotice,
     "legacy-id-redirects.v1.json": {
       schemaVersion: "1.0.0",
       generated: true,
@@ -488,11 +516,14 @@ export function validateSourceRegistry(registry) {
   return sourcesById;
 }
 
-export function applyPublicationGovernance(records, sourcesById) {
+export function applyPublicationGovernance(records, sourcesById, options = {}) {
   if (!Array.isArray(records)) throw new TypeError("records must be an array");
+  const includeUnapprovedPreviews = options.includeUnapprovedPreviews === true;
   const governed = [];
   let removedMediaItems = 0;
   let recordsWithMediaRemoved = 0;
+  let recordsWithheldForRights = 0;
+  const withheldBySourceId = {};
 
   for (const input of records) {
     const record = markUnverifiedDiscoveryPreview(input, sourcesById);
@@ -523,7 +554,16 @@ export function applyPublicationGovernance(records, sourcesById) {
     if (governanceErrors.length) {
       throw new Error(`Governance validation failed for ${record.id}: ${governanceErrors.join("; ")}`);
     }
-    governed.push(record);
+    const nonApprovedSourceIds = [...governanceSourceIds(record)].filter((sourceId) =>
+      sourcesById.get(sourceId)?.publicationDisposition !== "approved");
+    if (nonApprovedSourceIds.length && !includeUnapprovedPreviews) {
+      recordsWithheldForRights += 1;
+      for (const sourceId of nonApprovedSourceIds) {
+        withheldBySourceId[sourceId] = (withheldBySourceId[sourceId] || 0) + 1;
+      }
+    } else {
+      governed.push(record);
+    }
   }
 
   return {
@@ -531,7 +571,12 @@ export function applyPublicationGovernance(records, sourcesById) {
     report: {
       removedMediaItems,
       recordsWithMediaRemoved,
-      interpretation: "Media without an approved media source use and complete per-file rights metadata is omitted from public delivery.",
+      recordsWithheldForRights,
+      withheldBySourceId: sortObject(withheldBySourceId),
+      includeUnapprovedPreviews,
+      interpretation: includeUnapprovedPreviews
+        ? "Explicit preview mode includes unapproved records only as labeled migration leads; it is not a redistributable release build."
+        : "Public delivery excludes every record that references a non-approved source; media also requires an approved media use and complete per-file rights metadata.",
     },
   };
 }
@@ -1263,6 +1308,67 @@ function validateSpatialCell(cell) {
   }
 }
 
+export function buildSourceReleaseNotice(records, sourceRegistry, options = {}) {
+  const allowUnapproved = options.allowUnapproved === true;
+  if (!Array.isArray(records)) {
+    throw new TypeError("records must be an array");
+  }
+  if (!sourceRegistry || !Array.isArray(sourceRegistry.sources)) {
+    throw new TypeError("sourceRegistry.sources must be an array");
+  }
+  const sourcesById = new Map(sourceRegistry.sources.map((source) => [source.id, source]));
+  const recordIdsBySource = new Map();
+  const assertionCounts = {};
+  const media = [];
+
+  for (const record of records) {
+    const recordSourceIds = new Set(governanceSourceIds(record));
+    for (const mediaItem of record.media || []) {
+      if (mediaItem?.sourceId) recordSourceIds.add(mediaItem.sourceId);
+      media.push({ recordId: record.id, ...structuredClone(mediaItem) });
+    }
+    for (const sourceId of recordSourceIds) {
+      const source = sourcesById.get(sourceId);
+      if (!source) throw new Error(`Public release record ${record.id} references missing source ${sourceId}`);
+      if (source.publicationDisposition !== "approved" && !allowUnapproved) {
+        throw new Error(
+          `Public release record ${record.id} references non-approved source ${sourceId}`,
+        );
+      }
+      const recordIds = recordIdsBySource.get(sourceId) || new Set();
+      recordIds.add(record.id);
+      recordIdsBySource.set(sourceId, recordIds);
+    }
+    for (const assertion of record.sourceAssertions || []) {
+      assertionCounts[assertion.sourceId] = (assertionCounts[assertion.sourceId] || 0) + 1;
+    }
+  }
+
+  const sources = [...recordIdsBySource.keys()]
+    .sort((left, right) => left.localeCompare(right))
+    .map((sourceId) => ({
+      ...structuredClone(sourcesById.get(sourceId)),
+      deliveredRecordCount: recordIdsBySource.get(sourceId).size,
+      deliveredAssertionCount: assertionCounts[sourceId] || 0,
+    }));
+  media.sort((left, right) =>
+    left.recordId.localeCompare(right.recordId)
+    || String(left.url || "").localeCompare(String(right.url || "")));
+
+  return {
+    schemaVersion: "1.0.0",
+    artifactType: "nature-source-release-notice",
+    generated: true,
+    releaseEligible: !allowUnapproved,
+    scope: allowUnapproved
+      ? "NON-RELEASE PREVIEW: exact sources and per-file media metadata referenced by explicitly included migration/discovery previews."
+      : "Exact approved sources and per-file media metadata referenced by redistributable public delivery records.",
+    recordCount: records.length,
+    sources,
+    media,
+  };
+}
+
 function buildQualityReport(records, validationErrors, adapterFailures, governanceReport) {
   const flags = countBy(
     records.flatMap((record) => record.quality?.flags || []),
@@ -1286,6 +1392,7 @@ function buildQualityReport(records, validationErrors, adapterFailures, governan
         (record.media || []).some((media) => media.attributionStatus === "missing")).length,
       recordsInUnverifiedMigrationPreview: records.filter((record) =>
         (record.quality?.flags || []).includes("unverified_migration_preview")).length,
+      recordsWithheldForRights: governanceReport.recordsWithheldForRights,
       mediaItemsRemovedByGovernance: governanceReport.removedMediaItems,
       recordsWithUnknownLegalAccess: records.filter((record) =>
         record.access?.legal === "unknown" || record.legalAccess === "unknown").length,
@@ -1297,7 +1404,7 @@ function buildQualityReport(records, validationErrors, adapterFailures, governan
     adapterFailures,
     mediaGovernance: governanceReport,
     duplicateCandidates: duplicateCandidates.slice(0, 500),
-    interpretation: "Counts measure processed inventory, not geographic completeness.",
+    interpretation: "Record counts measure redistributable public delivery after rights and sensitivity gates, not processed inventory or geographic completeness.",
   };
 }
 
@@ -1429,7 +1536,11 @@ async function copyTree(source, target) {
 }
 
 async function main() {
-  const result = await buildNatureData();
+  const includeUnapprovedPreviews = process.argv.includes("--include-unapproved-previews");
+  const result = await buildNatureData({ includeUnapprovedPreviews });
+  if (includeUnapprovedPreviews) {
+    console.warn("NON-RELEASE BUILD: unapproved migration/discovery previews are included.");
+  }
   const manifestStats = await stat(path.join(OUTPUT_ROOT, "manifest.v1.json"));
   console.log(
     `Nature data: ${result.records} records, ${result.packages} regional packages, `

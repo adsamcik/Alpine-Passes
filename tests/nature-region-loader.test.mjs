@@ -1093,6 +1093,14 @@ test("viewport request caps refuse before cell fetch and validate overrides", as
     }),
     /maxViewportBytes must be a positive safe integer/,
   );
+  assert.throws(
+    () => new RegionalPackageLoader({
+      fetchImpl: setup.fetchImpl,
+      cryptoImpl: webcrypto,
+      maxSpatialCellConcurrency: 0,
+    }),
+    /maxSpatialCellConcurrency must be a positive safe integer/,
+  );
 });
 
 test("spatial cell cache evicts least-recently-used entries at its configured bound", async () => {
@@ -1120,4 +1128,186 @@ test("spatial cell cache evicts least-recently-used entries at its configured bo
   assert.deepEqual(setup.loader.cachedSpatialCellIds, ["8/128/128", "8/129/128"]);
   assert.equal(setup.loader.hasCachedSpatialCell("8/130/128"), false);
   assert.equal(setup.calls.filter((call) => call.url === first.entry.url).length, 2);
+});
+
+test("spatial cell network concurrency is globally bounded across one viewport", async () => {
+  const cells = Array.from({ length: 4 }, (_, index) => spatialCellFixture(
+    `8/${128 + index}/128`,
+    [entity(`place:concurrency-${index}`, ["JP-13"], "japan")],
+  ));
+  const gates = cells.map(() => deferred());
+  const started = [];
+  let active = 0;
+  let maximumActive = 0;
+  const setup = spatialEnvironment(cells, {
+    loaderOptions: { maxSpatialCellConcurrency: 2 },
+    routeOverrides: cells.map((fixture, index) => [
+      fixture.entry.url,
+      async () => {
+        started.push(fixture.cell.cellId);
+        active += 1;
+        maximumActive = Math.max(maximumActive, active);
+        await gates[index].promise;
+        active -= 1;
+        return textJsonResponse(fixture.document);
+      },
+    ]),
+  });
+
+  const loading = setup.loader.loadViewport([0, -1, 5.5, 0]);
+  await waitFor(() => started.length === 2);
+  assert.equal(active, 2);
+  assert.equal(maximumActive, 2);
+  assert.deepEqual(started, ["8/128/128", "8/129/128"]);
+
+  gates[0].resolve();
+  gates[1].resolve();
+  await waitFor(() => started.length === 4);
+  assert.equal(maximumActive, 2);
+  gates[2].resolve();
+  gates[3].resolve();
+
+  const viewport = await loading;
+  assert.equal(viewport.entities.length, 4);
+  assert.equal(active, 0);
+  assert.equal(maximumActive, 2);
+});
+
+test("aborting one viewport caller preserves a shared in-flight cell fetch", async () => {
+  const cell = spatialCellFixture("8/128/128", [
+    entity("place:shared-abort", ["JP-13"], "japan"),
+  ]);
+  const gate = deferred();
+  let fetches = 0;
+  let underlyingAborts = 0;
+  const setup = spatialEnvironment([cell], {
+    loaderOptions: { maxSpatialCellConcurrency: 1 },
+    routeOverrides: [[cell.entry.url, async (_url, options) => {
+      fetches += 1;
+      const onAbort = () => {
+        underlyingAborts += 1;
+      };
+      options.signal.addEventListener("abort", onAbort, { once: true });
+      await gate.promise;
+      options.signal.removeEventListener("abort", onAbort);
+      return textJsonResponse(cell.document);
+    }]],
+  });
+  await setup.loader.loadSpatialIndex();
+
+  const controller = new AbortController();
+  const departingCaller = setup.loader.loadViewport(
+    [0, -1, 1, 0],
+    { signal: controller.signal },
+  );
+  const survivingCaller = setup.loader.loadViewport([0, -1, 1, 0]);
+  await waitFor(() => fetches === 1);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  controller.abort();
+  await assert.rejects(departingCaller, errorCode("aborted"));
+  assert.equal(underlyingAborts, 0);
+  gate.resolve();
+
+  const viewport = await survivingCaller;
+  assert.deepEqual(viewport.entities.map((item) => item.id), ["place:shared-abort"]);
+  assert.equal(fetches, 1);
+  assert.equal(underlyingAborts, 0);
+});
+
+test("rapid aborted viewports cancel queued and orphaned in-flight work", async () => {
+  const cells = Array.from({ length: 6 }, (_, index) => spatialCellFixture(
+    `8/${128 + index}/128`,
+    [entity(`place:rapid-pan-${index}`, ["JP-13"], "japan")],
+  ));
+  let active = 0;
+  let allowSuccess = false;
+  let abortedFetches = 0;
+  let maximumActive = 0;
+  let started = 0;
+  const routeOverrides = cells.map((fixture) => [
+    fixture.entry.url,
+    (_url, options) => new Promise((resolve, reject) => {
+      let settled = false;
+      active += 1;
+      started += 1;
+      maximumActive = Math.max(maximumActive, active);
+
+      const finish = (callback, value) => {
+        if (settled) return;
+        settled = true;
+        active -= 1;
+        options.signal.removeEventListener("abort", onAbort);
+        callback(value);
+      };
+      const onAbort = () => {
+        abortedFetches += 1;
+        const error = new Error("aborted");
+        error.name = "AbortError";
+        finish(reject, error);
+      };
+      options.signal.addEventListener("abort", onAbort, { once: true });
+      if (allowSuccess) {
+        queueMicrotask(() => finish(resolve, textJsonResponse(fixture.document)));
+      }
+    }),
+  ]);
+  const setup = spatialEnvironment(cells, {
+    loaderOptions: { maxSpatialCellConcurrency: 2 },
+    routeOverrides,
+  });
+  await setup.loader.loadSpatialIndex();
+
+  const firstController = new AbortController();
+  const first = setup.loader.loadViewport(
+    [0, -1, 8.3, 0],
+    { signal: firstController.signal },
+  );
+  await waitFor(() => started === 2);
+  firstController.abort();
+  await assert.rejects(first, errorCode("aborted"));
+
+  const secondController = new AbortController();
+  const second = setup.loader.loadViewport(
+    [0, -1, 8.3, 0],
+    { signal: secondController.signal },
+  );
+  await waitFor(() => started === 4);
+  secondController.abort();
+  await assert.rejects(second, errorCode("aborted"));
+
+  allowSuccess = true;
+  const finalViewport = await setup.loader.loadViewport([0, -1, 8.3, 0]);
+  assert.equal(finalViewport.entities.length, 6);
+  assert.equal(started, 10);
+  assert.equal(abortedFetches, 4);
+  assert.equal(active, 0);
+  assert.equal(maximumActive, 2);
+  assert.equal(setup.loader.cachedSpatialCellIds.length, 6);
+});
+
+test("failed spatial cell jobs leave no stale promise and retry cleanly", async () => {
+  const cell = spatialCellFixture("8/128/128", [
+    entity("place:spatial-retry", ["JP-13"], "japan"),
+  ]);
+  let attempts = 0;
+  const setup = spatialEnvironment([cell], {
+    routeOverrides: [[cell.entry.url, () => {
+      attempts += 1;
+      return attempts === 1
+        ? textJsonResponse({}, 503)
+        : textJsonResponse(cell.document);
+    }]],
+  });
+
+  await assert.rejects(
+    setup.loader.loadViewport([0, -1, 1, 0]),
+    errorCode("spatial_package_fetch_failed"),
+  );
+  assert.equal(setup.loader.hasCachedSpatialCell(cell.cell.cellId), false);
+
+  const viewport = await setup.loader.loadViewport([0, -1, 1, 0]);
+  assert.deepEqual(viewport.entities.map((item) => item.id), ["place:spatial-retry"]);
+  assert.equal(attempts, 2);
+  assert.equal(setup.loader.hasCachedSpatialCell(cell.cell.cellId), true);
 });

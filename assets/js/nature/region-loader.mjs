@@ -6,6 +6,7 @@ export const DEFAULT_MAX_VIEWPORT_CELLS = 64;
 export const DEFAULT_MAX_VIEWPORT_PACKAGES = 128;
 export const DEFAULT_MAX_VIEWPORT_BYTES = 8_000_000;
 export const DEFAULT_SPATIAL_CELL_CACHE_LIMIT = 128;
+export const DEFAULT_MAX_SPATIAL_CELL_CONCURRENCY = 6;
 
 const MANIFEST_ARTIFACT_TYPE = "nature-package-manifest";
 const PACKAGE_ARTIFACT_TYPE = "nature-region-package";
@@ -87,11 +88,14 @@ export class RegionalPackageLoader {
   #spatialIndex = null;
   #spatialIndexPromise = null;
   #spatialCellCache = new Map();
-  #spatialCellPromises = new Map();
+  #spatialCellJobs = new Map();
+  #spatialCellQueue = [];
+  #activeSpatialCellFetches = 0;
   #maxViewportCells;
   #maxViewportPackages;
   #maxViewportBytes;
   #spatialCellCacheLimit;
+  #maxSpatialCellConcurrency;
 
   constructor(options = {}) {
     const fetchImpl = options.fetchImpl ?? globalThis.fetch;
@@ -127,6 +131,11 @@ export class RegionalPackageLoader {
       options.spatialCellCacheLimit,
       DEFAULT_SPATIAL_CELL_CACHE_LIMIT,
       "spatialCellCacheLimit",
+    );
+    this.#maxSpatialCellConcurrency = configuredPositiveLimit(
+      options.maxSpatialCellConcurrency,
+      DEFAULT_MAX_SPATIAL_CELL_CONCURRENCY,
+      "maxSpatialCellConcurrency",
     );
   }
 
@@ -303,10 +312,7 @@ export class RegionalPackageLoader {
         },
       );
     }
-    const loading = Promise.all(
-      selectedCells.map((entry) => this.#loadSpatialCell(entry)),
-    );
-    const cells = await awaitWithAbort(loading, signal);
+    const cells = await this.#loadSpatialCells(selectedCells, signal);
     return deepFreeze(buildLogicalSpatialViewport(
       normalizedBounds,
       spatialIndex.zoom,
@@ -399,7 +405,49 @@ export class RegionalPackageLoader {
     return document;
   }
 
-  #loadSpatialCell(entry) {
+  async #loadSpatialCells(entries, signal) {
+    throwIfAborted(signal);
+    const request = {
+      aborted: false,
+      onAbort: null,
+      signal,
+      subscriptions: new Set(),
+    };
+    if (signal) {
+      request.onAbort = () => {
+        request.aborted = true;
+        const error = abortedError();
+        for (const subscription of [...request.subscriptions]) {
+          this.#settleSpatialCellSubscription(subscription, error);
+        }
+      };
+      signal.addEventListener("abort", request.onAbort, { once: true });
+    }
+
+    try {
+      return await Promise.all(
+        entries.map((entry) => this.#subscribeSpatialCell(entry, request)),
+      );
+    } finally {
+      if (signal && request.onAbort) {
+        signal.removeEventListener("abort", request.onAbort);
+      }
+      const error = request.aborted
+        ? abortedError()
+        : new RegionLoaderError(
+          "Viewport cell loading was superseded",
+          "aborted",
+        );
+      for (const subscription of [...request.subscriptions]) {
+        this.#settleSpatialCellSubscription(subscription, error);
+      }
+    }
+  }
+
+  #subscribeSpatialCell(entry, request) {
+    if (request.aborted || request.signal?.aborted) {
+      return Promise.reject(abortedError());
+    }
     if (this.#spatialCellCache.has(entry.cellId)) {
       const cached = this.#spatialCellCache.get(entry.cellId);
       this.#spatialCellCache.delete(entry.cellId);
@@ -407,37 +455,134 @@ export class RegionalPackageLoader {
       return Promise.resolve(cached);
     }
 
-    let tracked = this.#spatialCellPromises.get(entry.cellId);
-    if (!tracked) {
-      tracked = this.#fetchSpatialCell(entry)
-        .then((document) => {
-          const immutableDocument = deepFreeze(document);
-          this.#spatialCellCache.delete(entry.cellId);
-          this.#spatialCellCache.set(entry.cellId, immutableDocument);
-          while (this.#spatialCellCache.size > this.#spatialCellCacheLimit) {
-            this.#spatialCellCache.delete(this.#spatialCellCache.keys().next().value);
-          }
-          return immutableDocument;
-        })
-        .finally(() => {
-          if (this.#spatialCellPromises.get(entry.cellId) === tracked) {
-            this.#spatialCellPromises.delete(entry.cellId);
-          }
-        });
-      this.#spatialCellPromises.set(entry.cellId, tracked);
+    let job = this.#spatialCellJobs.get(entry.cellId);
+    let created = false;
+    if (!job) {
+      created = true;
+      job = {
+        cancelled: false,
+        controller: null,
+        entry,
+        state: "queued",
+        subscribers: new Set(),
+      };
+      this.#spatialCellJobs.set(entry.cellId, job);
     }
-    return tracked;
+
+    const promise = new Promise((resolve, reject) => {
+      const subscription = {
+        job,
+        reject,
+        request,
+        resolve,
+        settled: false,
+      };
+      job.subscribers.add(subscription);
+      request.subscriptions.add(subscription);
+    });
+    if (created) {
+      this.#spatialCellQueue.push(job);
+      this.#drainSpatialCellQueue();
+    }
+    return promise;
   }
 
-  async #fetchSpatialCell(entry) {
-    const documents = await Promise.all(
-      entry.packages.map((packageEntry) =>
-        this.#fetchSpatialCellPackage(entry, packageEntry)),
-    );
+  #drainSpatialCellQueue() {
+    while (this.#activeSpatialCellFetches < this.#maxSpatialCellConcurrency
+        && this.#spatialCellQueue.length > 0) {
+      const job = this.#spatialCellQueue.shift();
+      if (job.cancelled || job.state !== "queued" || job.subscribers.size === 0) {
+        continue;
+      }
+      this.#runSpatialCellJob(job);
+    }
+  }
+
+  async #runSpatialCellJob(job) {
+    job.state = "running";
+    job.controller = new AbortController();
+    this.#activeSpatialCellFetches += 1;
+    try {
+      const document = await this.#fetchSpatialCell(
+        job.entry,
+        job.controller.signal,
+      );
+      if (job.cancelled) return;
+      const immutableDocument = deepFreeze(document);
+      this.#spatialCellCache.delete(job.entry.cellId);
+      this.#spatialCellCache.set(job.entry.cellId, immutableDocument);
+      while (this.#spatialCellCache.size > this.#spatialCellCacheLimit) {
+        this.#spatialCellCache.delete(this.#spatialCellCache.keys().next().value);
+      }
+      this.#settleSpatialCellJob(job, null, immutableDocument);
+    } catch (error) {
+      if (!job.cancelled) this.#settleSpatialCellJob(job, error);
+    } finally {
+      job.state = "settled";
+      job.controller = null;
+      this.#activeSpatialCellFetches -= 1;
+      if (this.#spatialCellJobs.get(job.entry.cellId) === job) {
+        this.#spatialCellJobs.delete(job.entry.cellId);
+      }
+      this.#drainSpatialCellQueue();
+    }
+  }
+
+  #settleSpatialCellJob(job, error, value) {
+    job.state = "settling";
+    for (const subscription of [...job.subscribers]) {
+      this.#settleSpatialCellSubscription(subscription, error, value);
+    }
+  }
+
+  #settleSpatialCellSubscription(subscription, error, value) {
+    if (subscription.settled) return;
+    subscription.settled = true;
+    subscription.job.subscribers.delete(subscription);
+    subscription.request.subscriptions.delete(subscription);
+    if (error) subscription.reject(error);
+    else subscription.resolve(value);
+
+    const { job } = subscription;
+    if (job.subscribers.size === 0
+        && (job.state === "queued" || job.state === "running")) {
+      this.#cancelSpatialCellJob(job);
+    }
+  }
+
+  #cancelSpatialCellJob(job) {
+    if (job.cancelled) return;
+    job.cancelled = true;
+    if (this.#spatialCellJobs.get(job.entry.cellId) === job) {
+      this.#spatialCellJobs.delete(job.entry.cellId);
+    }
+    if (job.state === "queued") {
+      const position = this.#spatialCellQueue.indexOf(job);
+      if (position !== -1) this.#spatialCellQueue.splice(position, 1);
+      job.state = "cancelled";
+      this.#drainSpatialCellQueue();
+      return;
+    }
+    if (job.state === "running") {
+      job.state = "cancelling";
+      job.controller?.abort();
+    }
+  }
+
+  async #fetchSpatialCell(entry, signal) {
+    const documents = [];
+    for (const packageEntry of entry.packages) {
+      throwIfAborted(signal);
+      documents.push(await this.#fetchSpatialCellPackage(
+        entry,
+        packageEntry,
+        signal,
+      ));
+    }
     return buildLogicalSpatialCell(entry, documents, this.#schemaVersion);
   }
 
-  async #fetchSpatialCellPackage(cellEntry, packageEntry) {
+  async #fetchSpatialCellPackage(cellEntry, packageEntry, signal) {
     const details = {
       cellId: cellEntry.cellId,
       shardIndex: packageEntry.shardIndex,
@@ -449,6 +594,7 @@ export class RegionalPackageLoader {
       "force-cache",
       packageEntry.bytes,
       details,
+      signal,
     );
     await validateSpatialCellPackage(
       document,
@@ -1049,11 +1195,15 @@ function isAbortSignal(value) {
 
 function throwIfAborted(signal) {
   if (signal?.aborted) {
-    throw new RegionLoaderError(
-      "Regional data loading was aborted",
-      "aborted",
-    );
+    throw abortedError();
   }
+}
+
+function abortedError() {
+  return new RegionLoaderError(
+    "Regional data loading was aborted",
+    "aborted",
+  );
 }
 
 function awaitWithAbort(promise, signal) {
@@ -1134,6 +1284,7 @@ async function fetchJsonWithBytes(
   cache,
   expectedBytes,
   details = {},
+  signal = null,
 ) {
   let response;
   try {
@@ -1141,6 +1292,7 @@ async function fetchJsonWithBytes(
       method: "GET",
       headers: { accept: "application/json" },
       cache,
+      ...(signal ? { signal } : {}),
     });
   } catch (error) {
     if (isAbortError(error)) {

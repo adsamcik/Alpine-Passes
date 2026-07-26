@@ -42,7 +42,7 @@ export class RoutingGateway {
 export class SameOriginRoutingProvider {
   constructor(baseUrl = "/api/routing/v1", fetchImpl = globalThis.fetch) {
     this.baseUrl = String(baseUrl).replace(/\/+$/, "");
-    this.fetchImpl = fetchImpl;
+    this.fetchImpl = bindFetch(fetchImpl);
   }
 
   async route(request) {
@@ -87,7 +87,7 @@ export class SameOriginRoutingProvider {
 export class LocalDemoOsrmProvider {
   constructor(options = {}) {
     this.endpoint = options.endpoint || "https://router.project-osrm.org";
-    this.fetchImpl = options.fetchImpl || globalThis.fetch;
+    this.fetchImpl = bindFetch(options.fetchImpl || globalThis.fetch);
     const hostname = options.hostname ?? globalThis.location?.hostname ?? "";
     const local = ["", "localhost", "127.0.0.1", "::1"].includes(hostname);
     if (!local && !options.allowExplicitNonProductionUse) {
@@ -274,6 +274,11 @@ function normalizeIsoDate(value) {
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) throw new RoutingError("Invalid departure time", "invalid_request");
   return date.toISOString();
+}
+
+function bindFetch(fetchImpl) {
+  if (typeof fetchImpl !== "function") return fetchImpl;
+  return (...args) => Reflect.apply(fetchImpl, globalThis, args);
 }
 
 function validMatrix(matrix, size) {

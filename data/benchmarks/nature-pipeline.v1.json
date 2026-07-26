@@ -4,7 +4,7 @@
   "generated": true,
   "reproducibility": {
     "command": "node tools/nature/benchmark.mjs",
-    "corpusBuildId": "fe97c08d8d9220be",
+    "corpusBuildId": "502fbdf646728ce8",
     "syntheticFixture": {
       "generator": "createSyntheticActiveRegion",
       "entityCount": 5000,
@@ -33,166 +33,76 @@
     }
   },
   "corpus": {
-    "buildId": "fe97c08d8d9220be",
-    "currentEntities": 4019,
-    "currentPackages": 10,
+    "buildId": "502fbdf646728ce8",
+    "currentEntities": 2,
+    "currentPackages": 1,
     "syntheticActiveRegionEntities": 5000
   },
   "deliverySizes": {
     "manifest": {
-      "rawBytes": 6392,
-      "gzipBytes": 1878,
-      "gzipToRawRatio": 0.2938
+      "rawBytes": 1374,
+      "gzipBytes": 746,
+      "gzipToRawRatio": 0.5429
     },
     "spatialIndex": {
-      "file": "assets/data/nature/spatial/index/fd9db36894c597af.json",
-      "rawBytes": 49202,
-      "gzipBytes": 9946,
-      "gzipToRawRatio": 0.2021
+      "file": "assets/data/nature/spatial/index/8a63b90488ae497c.json",
+      "rawBytes": 514,
+      "gzipBytes": 331,
+      "gzipToRawRatio": 0.644
     },
     "initialNatureData": {
       "fixedComponents": [
         "assets/data/nature/manifest.v1.json",
-        "assets/data/nature/spatial/index/fd9db36894c597af.json"
+        "assets/data/nature/spatial/index/8a63b90488ae497c.json"
       ],
       "variableComponent": "Spatial-cell packages intersecting the initial map viewport",
       "accounting": "Deterministic raw upper bound: manifest + spatial index + the loader-enforced viewportRequestBytes limit. Actual browser bytes vary with the initial bounds and are measured separately by the Chromium smoke.",
-      "fixedRawBytes": 55594,
-      "fixedGzipBytes": 11824,
+      "fixedRawBytes": 1888,
+      "fixedGzipBytes": 1077,
       "viewportCellRawBytesLimit": 8000000,
-      "rawBytesUpperBound": 8055594,
+      "rawBytesUpperBound": 8001888,
       "budgetBytes": 10064000
     },
     "regionalPackages": [
       {
-        "regionId": "eu-alps",
-        "shardIndex": 0,
-        "shardCount": 4,
-        "file": "assets/data/nature/packages/eu-alps/bd637900bf259806.json",
-        "entities": 957,
-        "rawBytes": 2498752,
-        "gzipBytes": 68431,
-        "gzipToRawRatio": 0.0274
-      },
-      {
-        "regionId": "eu-alps",
-        "shardIndex": 1,
-        "shardCount": 4,
-        "file": "assets/data/nature/packages/eu-alps/f84b471429c58950.json",
-        "entities": 678,
-        "rawBytes": 2497868,
-        "gzipBytes": 215797,
-        "gzipToRawRatio": 0.0864
-      },
-      {
-        "regionId": "eu-alps",
-        "shardIndex": 2,
-        "shardCount": 4,
-        "file": "assets/data/nature/packages/eu-alps/854598d8b46a2aae.json",
-        "entities": 589,
-        "rawBytes": 2496699,
-        "gzipBytes": 241782,
-        "gzipToRawRatio": 0.0968
-      },
-      {
-        "regionId": "eu-alps",
-        "shardIndex": 3,
-        "shardCount": 4,
-        "file": "assets/data/nature/packages/eu-alps/8d2d061f425bd749.json",
-        "entities": 189,
-        "rawBytes": 838825,
-        "gzipBytes": 80121,
-        "gzipToRawRatio": 0.0955
-      },
-      {
-        "regionId": "japan",
-        "shardIndex": 0,
-        "shardCount": 2,
-        "file": "assets/data/nature/packages/japan/3d6390544ce1d1bd.json",
-        "entities": 615,
-        "rawBytes": 2496343,
-        "gzipBytes": 210399,
-        "gzipToRawRatio": 0.0843
-      },
-      {
-        "regionId": "japan",
-        "shardIndex": 1,
-        "shardCount": 2,
-        "file": "assets/data/nature/packages/japan/61bba862d16ddd02.json",
-        "entities": 435,
-        "rawBytes": 1988516,
-        "gzipBytes": 154357,
-        "gzipToRawRatio": 0.0776
-      },
-      {
         "regionId": "north-america",
         "shardIndex": 0,
         "shardCount": 1,
-        "file": "assets/data/nature/packages/north-america/513ad870f0d0f33a.json",
-        "entities": 4,
-        "rawBytes": 240380,
-        "gzipBytes": 77874,
-        "gzipToRawRatio": 0.324
-      },
-      {
-        "regionId": "norway",
-        "shardIndex": 0,
-        "shardCount": 1,
-        "file": "assets/data/nature/packages/norway/c8f12c988c59aa91.json",
-        "entities": 4,
-        "rawBytes": 6431,
-        "gzipBytes": 1604,
-        "gzipToRawRatio": 0.2494
-      },
-      {
-        "regionId": "switzerland",
-        "shardIndex": 0,
-        "shardCount": 1,
-        "file": "assets/data/nature/packages/switzerland/10eacdc29b3d7289.json",
-        "entities": 305,
-        "rawBytes": 1399366,
-        "gzipBytes": 102182,
-        "gzipToRawRatio": 0.073
-      },
-      {
-        "regionId": "uk-ireland",
-        "shardIndex": 0,
-        "shardCount": 1,
-        "file": "assets/data/nature/packages/uk-ireland/26ea8357823daf42.json",
-        "entities": 243,
-        "rawBytes": 836052,
-        "gzipBytes": 61157,
-        "gzipToRawRatio": 0.0731
+        "file": "assets/data/nature/packages/north-america/5ce8bb3b81dad269.json",
+        "entities": 2,
+        "rawBytes": 236785,
+        "gzipBytes": 76966,
+        "gzipToRawRatio": 0.325
       }
     ],
     "regionalPackageTotals": {
-      "rawBytes": 15299232,
-      "gzipBytes": 1213704,
-      "gzipToRawRatio": 0.0793,
-      "maximumRawBytes": 2498752
+      "rawBytes": 236785,
+      "gzipBytes": 76966,
+      "gzipToRawRatio": 0.325,
+      "maximumRawBytes": 236785
     }
   },
   "indexedSearch": {
     "current": {
-      "entityCount": 4019,
-      "documentCount": 4019,
+      "entityCount": 2,
+      "documentCount": 2,
       "queryCount": 8,
       "measuredSamples": 80,
-      "p50Milliseconds": 33.338,
-      "p95Milliseconds": 45.252,
-      "maximumMilliseconds": 48.94,
-      "minimumMilliseconds": 19.024,
-      "resultChecksum": 45122
+      "p50Milliseconds": 0.021,
+      "p95Milliseconds": 0.034,
+      "maximumMilliseconds": 0.638,
+      "minimumMilliseconds": 0.01,
+      "resultChecksum": 799
     },
     "syntheticActiveRegion": {
       "entityCount": 5000,
       "documentCount": 5000,
       "queryCount": 8,
       "measuredSamples": 80,
-      "p50Milliseconds": 26.416,
-      "p95Milliseconds": 42.126,
-      "maximumMilliseconds": 53.488,
-      "minimumMilliseconds": 13.668,
+      "p50Milliseconds": 11.713,
+      "p95Milliseconds": 21.037,
+      "maximumMilliseconds": 35.301,
+      "minimumMilliseconds": 7.329,
       "resultChecksum": 217570
     },
     "interpretation": "Timing is observational and is not a build failure gate."
@@ -201,69 +111,69 @@
     "unit": "bytes",
     "snapshots": {
       "baseline": {
-        "rss": 51527680,
+        "rss": 51474432,
         "heapTotal": 7659520,
-        "heapUsed": 5159216,
-        "external": 1958757,
-        "arrayBuffers": 31595
+        "heapUsed": 5169592,
+        "external": 1962239,
+        "arrayBuffers": 35077
       },
       "afterCurrentCorpusLoad": {
-        "rss": 118366208,
-        "heapTotal": 70848512,
-        "heapUsed": 49359200,
-        "external": 9457899,
-        "arrayBuffers": 7560395
+        "rss": 53542912,
+        "heapTotal": 10756096,
+        "heapUsed": 6156232,
+        "external": 2307602,
+        "arrayBuffers": 410098
       },
       "afterCurrentSearchIndex": {
-        "rss": 175775744,
-        "heapTotal": 189849600,
-        "heapUsed": 99929232,
-        "external": 5300433,
-        "arrayBuffers": 904141
+        "rss": 53911552,
+        "heapTotal": 10756096,
+        "heapUsed": 6271280,
+        "external": 2307602,
+        "arrayBuffers": 410098
       },
       "beforeSyntheticSearchIndex": {
-        "rss": 221069312,
-        "heapTotal": 189849600,
-        "heapUsed": 99789496,
-        "external": 2801645,
-        "arrayBuffers": 904141
+        "rss": 59408384,
+        "heapTotal": 16785408,
+        "heapUsed": 10609720,
+        "external": 2148708,
+        "arrayBuffers": 251204
       },
       "afterSyntheticSearchIndex": {
-        "rss": 272465920,
-        "heapTotal": 220782592,
-        "heapUsed": 126021120,
-        "external": 2801645,
-        "arrayBuffers": 904141
+        "rss": 158900224,
+        "heapTotal": 176742400,
+        "heapUsed": 49396448,
+        "external": 2148672,
+        "arrayBuffers": 251168
       }
     },
     "deltas": {
       "currentCorpusLoadFromBaseline": {
-        "rss": 66838528,
-        "heapTotal": 63188992,
-        "heapUsed": 44199984,
-        "external": 7499142,
-        "arrayBuffers": 7528800
+        "rss": 2068480,
+        "heapTotal": 3096576,
+        "heapUsed": 986640,
+        "external": 345363,
+        "arrayBuffers": 375021
       },
       "currentIndexFromLoadedCorpus": {
-        "rss": 57409536,
-        "heapTotal": 119001088,
-        "heapUsed": 50570032,
-        "external": -4157466,
-        "arrayBuffers": -6656254
-      },
-      "syntheticIndex": {
-        "rss": 51396608,
-        "heapTotal": 30932992,
-        "heapUsed": 26231624,
+        "rss": 368640,
+        "heapTotal": 0,
+        "heapUsed": 115048,
         "external": 0,
         "arrayBuffers": 0
       },
+      "syntheticIndex": {
+        "rss": 99491840,
+        "heapTotal": 159956992,
+        "heapUsed": 38786728,
+        "external": -36,
+        "arrayBuffers": -36
+      },
       "totalFromBaseline": {
-        "rss": 220938240,
-        "heapTotal": 213123072,
-        "heapUsed": 120861904,
-        "external": 842888,
-        "arrayBuffers": 872546
+        "rss": 107425792,
+        "heapTotal": 169082880,
+        "heapUsed": 44226856,
+        "external": 186433,
+        "arrayBuffers": 216091
       }
     },
     "observational": true,
@@ -273,7 +183,7 @@
     "authoredDeterministic": [
       {
         "id": "manifest_raw_bytes",
-        "observed": 6392,
+        "observed": 1374,
         "limit": 64000,
         "unit": "bytes",
         "passed": true,
@@ -281,7 +191,7 @@
       },
       {
         "id": "initial_nature_data_raw_upper_bound_bytes",
-        "observed": 8055594,
+        "observed": 8001888,
         "limit": 10064000,
         "unit": "bytes",
         "passed": true,
@@ -289,7 +199,7 @@
       },
       {
         "id": "maximum_regional_package_raw_bytes",
-        "observed": 2498752,
+        "observed": 236785,
         "limit": 2500000,
         "unit": "bytes",
         "passed": true,
@@ -299,7 +209,7 @@
     "observational": [
       {
         "id": "current_indexed_search_p95",
-        "observed": 45.252,
+        "observed": 0.034,
         "target": 50,
         "unit": "milliseconds",
         "withinTarget": true,
@@ -308,7 +218,7 @@
       },
       {
         "id": "synthetic_5000_indexed_search_p95",
-        "observed": 42.126,
+        "observed": 21.037,
         "target": 50,
         "unit": "milliseconds",
         "withinTarget": true,

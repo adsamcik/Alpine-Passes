@@ -1,6 +1,8 @@
 import {
   displayName,
+  haversineMeters,
   lineDistanceMeters,
+  validPosition,
 } from "./domain.mjs";
 import {
   assessTrailRouteExport,
@@ -21,6 +23,327 @@ export const DEFAULT_SAFETY_FRESHNESS_POLICY = Object.freeze({
   maxAgeMilliseconds: 72 * HOUR_MILLISECONDS,
   maxFutureSkewMilliseconds: 5 * 60 * 1_000,
 });
+
+const TRANSPORT_ENDPOINT_TOLERANCE_METERS = 250;
+const TRANSIT_ACCESS_MODES = new Set(["transit", "ferry", "cable_transport"]);
+const TRANSIT_CONNECTION_MODES = new Set([
+  "ferry",
+  "bus",
+  "rail",
+  "tram",
+  "cable_car",
+  "gondola",
+  "funicular",
+  "cog_railway",
+  "boat",
+]);
+const UNSAFE_PLANNING_FLAG_PATTERN = /(unsafe|danger|hazard|closed|closure|blocked|prohibited|stale|expired|unknown|unverified|conflict)/i;
+
+/**
+ * Exposes only access choices backed by linked route data. The itinerary
+ * contract intentionally groups public transport, ferries and cable transport
+ * under its coarse `transit` access mode.
+ */
+export function buildJourneyOptions(route, options = {}) {
+  if (route?.entityType !== "TrailRoute") {
+    throw new TypeError("A TrailRoute is required");
+  }
+  const asOf = temporalBoundary(options.asOf ?? new Date(), false);
+  const routeBlocker = routePlanningBlocker(route, asOf);
+  if (routeBlocker) {
+    return {
+      accessModes: [],
+      returnStrategies: [],
+      canPlan: false,
+      unavailableMessage: routeBlocker,
+    };
+  }
+  const accessPoints = Array.isArray(route.accessPoints) ? route.accessPoints : [];
+  const transportConnections = Array.isArray(route.transportConnections)
+    ? route.transportConnections
+    : [];
+  const usableAccessPoints = accessPoints.filter((point) =>
+    accessPointIsActionable(point, asOf));
+  const accessModes = [];
+
+  if (usableAccessPoints.some((point) =>
+    point.accessModes.includes("car") && point.parking?.stoppingAllowed === true)) {
+    accessModes.push({
+      value: "car",
+      label: "Drive to the route",
+      detail: "Uses a verified linked access point where car access and stopping permission are reported.",
+    });
+  }
+  if (usableAccessPoints.some((point) =>
+    point.accessModes.includes("foot") || point.accessModes.includes("hiking"))) {
+    accessModes.push({
+      value: "foot",
+      label: "Walk to the route",
+      detail: "Uses a linked access point that reports a walk-in or hiking approach.",
+    });
+  }
+
+  const transitSupport = usableAccessPoints.flatMap((point) =>
+    transportConnections
+      .filter((connection) => outboundConnectionSupportsPoint(connection, point, asOf))
+      .map((connection) => ({ point, connection })));
+  if (transitSupport.length) {
+    const sourceModes = uniqueValues(transitSupport.flatMap(({ point, connection }) => [
+      ...point.accessModes.filter((mode) => TRANSIT_ACCESS_MODES.has(mode)),
+      connection.transportMode,
+    ]));
+    accessModes.push({
+      value: "transit",
+      label: "Transit, ferry, or cable transport",
+      detail: `Current verified linked data reports ${sourceModes.map(humanize)
+        .join(", ")}. Verify the current timetable before departure.`,
+      sourceModes,
+    });
+  }
+
+  const returnStrategies = [];
+  const selfReturning = ["loop", "out_and_back"].includes(route.journeyShape);
+  const verifiedReturn = usableAccessPoints.some((point) =>
+    transportConnections.some((connection) =>
+      returnConnectionSupportsRoute(connection, point, route, asOf)));
+  if (selfReturning || verifiedReturn) {
+    returnStrategies.push({
+      value: "return_to_vehicle",
+      label: "Return to the starting access point",
+      detail: verifiedReturn && !selfReturning
+        ? "Uses a current verified return connection to reach the starting access point."
+        : "Returns along the route and any linked walking connector to the starting access point.",
+    });
+  }
+  if (route.journeyShape === "point_to_point") {
+    returnStrategies.push({
+      value: "different_pickup",
+      label: "Finish at a different pickup point",
+      detail: "Ends at the route finish; arrange the pickup before departure.",
+    });
+  }
+
+  let unavailableMessage = "";
+  if (!accessModes.length) {
+    unavailableMessage = "Planning is unavailable because no current verified public access point supports a safe approach.";
+  } else if (!returnStrategies.length) {
+    unavailableMessage = "Planning is unavailable because this route has no supported return or explicit pickup strategy.";
+  }
+  return {
+    accessModes,
+    returnStrategies,
+    canPlan: accessModes.length > 0 && returnStrategies.length > 0,
+    unavailableMessage,
+  };
+}
+
+function routePlanningBlocker(route, asOf) {
+  if (!asOf) {
+    return "Planning is unavailable because the journey assessment time is invalid.";
+  }
+  if (route.routeNature !== "established"
+      || route.geometryCompleteness !== "complete"
+      || route.navigationSuitability !== true) {
+    return "Planning requires complete, navigation-suitable geometry for an established walking or hiking route.";
+  }
+  if (route.sensitivity?.action !== "publish") {
+    return "Planning is unavailable because precise route geometry is not approved for publication.";
+  }
+  if (route.access?.legal !== "legal") {
+    return "Planning is unavailable because legal public route access is not verified.";
+  }
+  if (!qualityIsActionable(route.quality, asOf)) {
+    return "Planning is unavailable because the route record is not verified as current.";
+  }
+  return "";
+}
+
+function accessPointIsActionable(point, asOf) {
+  return point?.entityType === "AccessPoint"
+    && point.legalAccess === "legal"
+    && point.geometry?.type === "Point"
+    && validPosition(point.geometry.coordinates)
+    && point.sensitivity?.action === "publish"
+    && qualityIsActionable(point.quality, asOf)
+    && Array.isArray(point.accessModes);
+}
+
+function outboundConnectionSupportsPoint(connection, point, asOf) {
+  if (!point.accessModes.some((mode) => TRANSIT_ACCESS_MODES.has(mode))
+      || !connectionIsActionable(connection, asOf)
+      || !["outbound", "both"].includes(connection.direction)
+      || !connection.endpointIds.includes(point.id)) {
+    return false;
+  }
+  const endpoints = geometryEndpoints(connection.geometry);
+  if (!endpoints) return false;
+  if (connection.direction === "outbound") {
+    return haversineMeters(endpoints.end, point.geometry?.coordinates)
+      <= TRANSPORT_ENDPOINT_TOLERANCE_METERS;
+  }
+  return Math.min(
+    haversineMeters(endpoints.start, point.geometry?.coordinates),
+    haversineMeters(endpoints.end, point.geometry?.coordinates),
+  ) <= TRANSPORT_ENDPOINT_TOLERANCE_METERS;
+}
+
+function returnConnectionSupportsRoute(connection, point, route, asOf) {
+  if (!connectionIsActionable(connection, asOf)
+      || !["return", "both"].includes(connection.direction)
+      || !connection.endpointIds.includes(point.id)) {
+    return false;
+  }
+  const transport = geometryEndpoints(connection.geometry);
+  const routeGeometry = geometryEndpoints(route.geometry);
+  if (!transport || !routeGeometry) return false;
+  const orientations = [[transport.start, transport.end]];
+  if (connection.direction === "both") orientations.push([transport.end, transport.start]);
+  return orientations.some(([start, end]) =>
+    haversineMeters(routeGeometry.end, start) <= TRANSPORT_ENDPOINT_TOLERANCE_METERS
+    && haversineMeters(point.geometry?.coordinates, end)
+      <= TRANSPORT_ENDPOINT_TOLERANCE_METERS);
+}
+
+function connectionIsActionable(connection, asOf) {
+  if (connection?.entityType !== "TransportConnection"
+      || !TRANSIT_CONNECTION_MODES.has(connection.transportMode)
+      || connection.operating !== true
+      || connection.sensitivity?.action !== "publish"
+      || !qualityIsActionable(connection.quality, asOf)
+      || !Number.isFinite(connection.typicalDurationMinutes)
+      || connection.typicalDurationMinutes <= 0
+      || !Array.isArray(connection.endpointIds)
+      || connection.endpointIds.length !== 2
+      || connection.endpointIds.some((endpointId) =>
+        typeof endpointId !== "string" || !endpointId.trim())
+      || new Set(connection.endpointIds).size !== connection.endpointIds.length
+      || !geometryEndpoints(connection.geometry)) {
+    return false;
+  }
+  const schedule = connection.schedule;
+  if (!scheduleIsActionable(schedule, asOf)) {
+    return false;
+  }
+  return (connection.sourceAssertions || []).some((assertion) =>
+    assertion?.verificationStatus === "verified"
+    && (assertion.fieldPath === "/geometry"
+      || String(assertion.fieldPath || "").startsWith("/geometry/"))
+    && assertionIsCurrent(assertion, asOf));
+}
+
+function qualityIsActionable(quality, asOf) {
+  const assessedAt = temporalBoundary(quality?.assessedAt, false);
+  return quality?.verificationStatus === "verified"
+    && quality.freshness === "current"
+    && Array.isArray(quality.flags)
+    && !quality.flags.some((flag) => UNSAFE_PLANNING_FLAG_PATTERN.test(String(flag)))
+    && assessedAt !== null
+    && assessedAt.getTime() <= asOf.getTime();
+}
+
+function scheduleIsActionable(schedule, asOf) {
+  if (schedule?.freshness !== "current"
+      || typeof schedule.timezone !== "string"
+      || !schedule.timezone.trim()
+      || !Array.isArray(schedule.departuresLocal)
+      || schedule.departuresLocal.length === 0) {
+    return false;
+  }
+  const departureMinutes = schedule.departuresLocal.map(clockMinutesOrNull);
+  if (departureMinutes.some((value) => value === null)
+      || new Set(departureMinutes).size !== departureMinutes.length) {
+    return false;
+  }
+  const lastDeparture = schedule.lastDepartureLocal == null
+    ? null
+    : clockMinutesOrNull(schedule.lastDepartureLocal);
+  if (schedule.lastDepartureLocal != null && lastDeparture === null) return false;
+  if (lastDeparture !== null && departureMinutes.some((value) => value > lastDeparture)) {
+    return false;
+  }
+  const validFrom = isoCalendarOrdinal(schedule.validFrom);
+  const validUntil = isoCalendarOrdinal(schedule.validUntil);
+  const localDate = dateOrdinalInTimezone(asOf, schedule.timezone);
+  return validFrom !== null
+    && validUntil !== null
+    && validFrom <= validUntil
+    && localDate !== null
+    && localDate >= validFrom
+    && localDate <= validUntil;
+}
+
+function assertionIsCurrent(assertion, asOf) {
+  const observedAt = temporalBoundary(
+    assertion.observedAt ?? assertion.retrievedAt ?? assertion.validFrom,
+    false,
+  );
+  const validFrom = assertion.validFrom
+    ? temporalBoundary(assertion.validFrom, false)
+    : null;
+  const validUntil = assertion.validUntil
+    ? temporalBoundary(assertion.validUntil, true)
+    : null;
+  return observedAt !== null
+    && observedAt.getTime() <= asOf.getTime()
+    && (!assertion.validFrom
+      || (validFrom !== null && validFrom.getTime() <= asOf.getTime()))
+    && (!assertion.validUntil
+      || (validUntil !== null && validUntil.getTime() >= asOf.getTime()));
+}
+
+function clockMinutesOrNull(value) {
+  const match = /^(?:[01]\d|2[0-3]):[0-5]\d$/.exec(String(value || ""));
+  return match ? Number(value.slice(0, 2)) * 60 + Number(value.slice(3, 5)) : null;
+}
+
+function isoCalendarOrdinal(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ""));
+  if (!match) return null;
+  const [year, month, day] = match.slice(1).map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year
+      || date.getUTCMonth() + 1 !== month
+      || date.getUTCDate() !== day) {
+    return null;
+  }
+  return Math.floor(date.getTime() / 86_400_000);
+}
+
+function dateOrdinalInTimezone(date, timezone) {
+  try {
+    const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone.trim(),
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(date)
+      .filter(({ type }) => type !== "literal")
+      .map(({ type, value }) => [type, Number(value)]));
+    if (![parts.year, parts.month, parts.day].every(Number.isFinite)) return null;
+    return Math.floor(Date.UTC(parts.year, parts.month - 1, parts.day) / 86_400_000);
+  } catch {
+    return null;
+  }
+}
+
+function geometryEndpoints(geometry) {
+  const lines = geometry?.type === "LineString"
+    ? [geometry.coordinates]
+    : geometry?.type === "MultiLineString"
+      ? geometry.coordinates
+      : [];
+  if (!lines.length || lines.some((line) =>
+    !Array.isArray(line) || line.length < 2 || line.some((position) => !validPosition(position)))) {
+    return null;
+  }
+  for (let index = 1; index < lines.length; index += 1) {
+    if (haversineMeters(lines[index - 1].at(-1), lines[index][0])
+        > TRANSPORT_ENDPOINT_TOLERANCE_METERS) {
+      return null;
+    }
+  }
+  return { start: lines[0][0], end: lines.at(-1).at(-1) };
+}
 
 export function buildHikeDetailModel(route, assessment = {}) {
   if (route?.entityType !== "TrailRoute") {
@@ -210,6 +533,7 @@ export function buildHikeDetailModel(route, assessment = {}) {
       assessedAt: route.quality?.assessedAt ? formatDate(route.quality.assessedAt) : "Unknown",
       assertions,
     },
+    journeyOptions: buildJourneyOptions(route, { asOf }),
     export: {
       gpx: assessTrailRouteExport(route, "gpx", exportAssessmentOptions),
       geojson: assessTrailRouteExport(route, "geojson", exportAssessmentOptions),
@@ -233,6 +557,11 @@ export function renderHikeDetail(container, route, options = {}) {
 
   const actionSection = node(documentRef, "section", "hike-actions");
   const actionTitle = node(documentRef, "h3", "", "Plan and download");
+  const journeyControls = journeyOptionControls(
+    documentRef,
+    route,
+    model.journeyOptions,
+  );
   const actionRow = node(documentRef, "div", "hike-action-row");
   const statusId = `hikeActionStatus-${safeId(route.id)}`;
   const status = node(documentRef, "p", "hike-action-status", [
@@ -249,9 +578,21 @@ export function renderHikeDetail(container, route, options = {}) {
   itineraryOutput.setAttribute("aria-live", "polite");
   itineraryOutput.setAttribute("aria-label", "Planned journey result");
   const plan = actionButton(documentRef, "Plan access + route", statusId);
+  plan.setAttribute("aria-disabled", String(!model.journeyOptions.canPlan));
   plan.addEventListener("click", async () => {
+    if (!model.journeyOptions.canPlan) {
+      announce(status, model.journeyOptions.unavailableMessage);
+      return;
+    }
+    const onPlan = typeof options.onPlan === "function"
+      ? (selectedRoute, selectedOutput) => options.onPlan(
+          selectedRoute,
+          selectedOutput,
+          journeyControls.selection(),
+        )
+      : null;
     await invokeAction(
-      options.onPlan,
+      onPlan,
       route,
       itineraryOutput,
       status,
@@ -276,10 +617,83 @@ export function renderHikeDetail(container, route, options = {}) {
     status,
   );
   actionRow.append(plan, gpx, geojson);
-  actionSection.append(actionTitle, actionRow, status, itineraryOutput);
+  actionSection.append(actionTitle, journeyControls.root, actionRow, status, itineraryOutput);
   root.append(actionSection);
   container.append(root);
   return { model, root, status, itineraryOutput };
+}
+
+function journeyOptionControls(documentRef, route, model) {
+  const root = node(documentRef, "div", "hike-journey-options");
+  if (!model.canPlan) {
+    root.append(node(documentRef, "p", "is-unknown", model.unavailableMessage));
+    return { root, selection: () => null };
+  }
+
+  const routeId = safeId(route.id);
+  const access = radioFieldset(
+    documentRef,
+    "Access to the route",
+    `hikeAccessMode-${routeId}`,
+    model.accessModes,
+    `hikeAccessModeDescription-${routeId}`,
+  );
+  const returnStrategy = radioFieldset(
+    documentRef,
+    "After the route",
+    `hikeReturnStrategy-${routeId}`,
+    model.returnStrategies,
+    `hikeReturnStrategyDescription-${routeId}`,
+  );
+  root.append(access.root, returnStrategy.root);
+  return {
+    root,
+    selection: () => ({
+      accessMode: selectedRadioValue(access.inputs),
+      returnStrategy: selectedRadioValue(returnStrategy.inputs),
+    }),
+  };
+}
+
+function radioFieldset(documentRef, legendText, name, options, descriptionId) {
+  const fieldset = node(documentRef, "fieldset", "hike-item-group");
+  fieldset.append(node(documentRef, "legend", "", legendText));
+  const description = node(
+    documentRef,
+    "p",
+    "",
+    "Choose one option. Only choices supported by linked route records are shown.",
+  );
+  description.id = descriptionId;
+  fieldset.append(description);
+  const list = node(documentRef, "ul");
+  const inputs = [];
+  options.forEach((option, index) => {
+    const item = node(documentRef, "li");
+    const label = node(documentRef, "label");
+    const input = node(documentRef, "input");
+    const optionId = `${name}-${safeId(option.value)}`;
+    const detailId = `${optionId}-detail`;
+    input.type = "radio";
+    input.name = name;
+    input.value = option.value;
+    input.id = optionId;
+    input.checked = index === 0;
+    input.required = true;
+    input.setAttribute("aria-describedby", `${descriptionId} ${detailId}`);
+    const detail = node(documentRef, "span", "", option.detail);
+    detail.id = detailId;
+    label.append(input, node(documentRef, "strong", "", option.label), detail);
+    item.append(label);
+    list.append(item);
+    inputs.push(input);
+  });
+  fieldset.append(list);
+  return { root: fieldset, inputs };
+}
+
+function selectedRadioValue(inputs) {
+  return inputs.find((input) => input.checked)?.value || null;
 }
 
 function definitionSection(documentRef, title, facts, className = "") {

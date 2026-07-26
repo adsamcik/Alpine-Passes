@@ -441,8 +441,22 @@ function validateTransportConnection(connection, errors) {
   if (!["ferry", "bus", "rail", "tram", "cable_car", "gondola", "funicular", "cog_railway", "boat", "pickup"].includes(connection.transportMode)) {
     errors.push("TransportConnection.transportMode is unsupported");
   }
-  if (!Array.isArray(connection.endpointIds) || connection.endpointIds.length < 2) {
-    errors.push("TransportConnection.endpointIds must identify both ends");
+  if (!Array.isArray(connection.endpointIds) || connection.endpointIds.length !== 2) {
+    errors.push("TransportConnection.endpointIds must identify exactly two ends");
+  } else if (new Set(connection.endpointIds).size !== connection.endpointIds.length) {
+    errors.push("TransportConnection.endpointIds must be unique");
+  }
+  if (connection.direction !== undefined
+      && !["outbound", "return", "both"].includes(connection.direction)) {
+    errors.push("TransportConnection.direction is unsupported");
+  }
+  if (connection.operating !== undefined && typeof connection.operating !== "boolean") {
+    errors.push("TransportConnection.operating must be boolean when supplied");
+  }
+  if (connection.schedule?.timezone !== undefined
+      && (typeof connection.schedule.timezone !== "string"
+        || !connection.schedule.timezone.trim())) {
+    errors.push("TransportConnection.schedule.timezone must be non-empty when supplied");
   }
 }
 

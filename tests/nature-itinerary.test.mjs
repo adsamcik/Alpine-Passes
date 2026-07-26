@@ -160,6 +160,112 @@ function onlyReturnConnection(scenario) {
   return scenario.experience.transportConnections[0];
 }
 
+function clonedOutboundScenario(options = {}) {
+  const scenario = clone(successfulScenarios.get("coastal-point-to-point"));
+  const accessPoint = scenario.experience.accessPoints[0];
+  const transportMode = options.transportMode ?? "ferry";
+  const accessPointMode = options.accessPointMode ?? "ferry";
+  const boardingPoint = [-5.04, 51.65];
+  const transportArrivalPoint = [-5.099, 51.665];
+  const accessPointPosition = [-5.1, 51.665];
+  const boardingEndpointId = `transport:${transportMode}-boarding`;
+  const reverse = options.reverse === true;
+
+  scenario.id = `outbound-${transportMode}`;
+  scenario.request = {
+    ...scenario.request,
+    origin: [-5.05, 51.65],
+    departureTime: "2026-07-15T07:50:00Z",
+    accessMode: "transit",
+  };
+  accessPoint.geometry.coordinates = accessPointPosition;
+  accessPoint.accessModes = [accessPointMode];
+  const connection = {
+    schemaVersion: "1.0.0",
+    id: `transport:outbound-${transportMode}`,
+    entityType: "TransportConnection",
+    jurisdictionIds: ["gb-wls"],
+    names: [{
+      language: "en",
+      value: `Outbound ${transportMode}`,
+      kind: "primary",
+    }],
+    geometry: {
+      type: "LineString",
+      coordinates: reverse
+        ? [transportArrivalPoint, boardingPoint]
+        : [boardingPoint, transportArrivalPoint],
+    },
+    sourceAssertions: [{
+      id: `assertion:transport:outbound-${transportMode}`,
+      sourceId: "fixture:journeys",
+      fieldPath: "/geometry",
+      evidenceKind: "maintainer_curated",
+      verificationStatus: "verified",
+      confidence: 0.96,
+      observedAt: "2026-07-01T00:00:00Z",
+      validFrom: "2026-01-01T00:00:00Z",
+      validUntil: "2026-12-31T23:59:59Z",
+    }],
+    quality: {
+      confidence: 0.96,
+      verificationStatus: "verified",
+      assessedAt: "2026-07-01",
+      freshness: "current",
+      flags: [],
+    },
+    sensitivity: { action: "publish" },
+    transportMode,
+    direction: reverse ? "both" : "outbound",
+    endpointIds: reverse
+      ? [accessPoint.id, boardingEndpointId]
+      : [boardingEndpointId, accessPoint.id],
+    typicalDurationMinutes: 20,
+    schedule: {
+      timezone: "Europe/London",
+      departuresLocal: ["09:00", "11:00"],
+      lastDepartureLocal: "11:00",
+      freshness: "current",
+      validFrom: "2026-01-01",
+      validUntil: "2026-12-31",
+    },
+    distanceMeters: 5200,
+    operating: true,
+  };
+  scenario.experience.transportConnectionIds = [connection.id];
+  scenario.experience.transportConnections = [connection];
+  return scenario;
+}
+
+function onlyOutboundConnection(scenario) {
+  assert.equal(scenario.experience.transportConnections.length, 1);
+  return scenario.experience.transportConnections[0];
+}
+
+async function expectOutboundRefusal(mutate, expectedCode, expectedRoutingCalls = 0) {
+  const scenario = clonedOutboundScenario();
+  mutate(scenario);
+  const harness = createRoutingHarness();
+  const originalGeometry = clone(scenario.experience.geometry);
+  let capturedError = null;
+  await assert.rejects(
+    buildMixedModeItinerary({
+      ...scenario.request,
+      experience: scenario.experience,
+      gateway: harness.gateway,
+    }),
+    (error) => {
+      capturedError = error;
+      assert.ok(error instanceof ItineraryError);
+      assert.equal(error.code, expectedCode);
+      return true;
+    },
+  );
+  assert.equal(harness.itineraryRequests.length, expectedRoutingCalls);
+  assert.deepEqual(scenario.experience.geometry, originalGeometry);
+  return { ...harness, error: capturedError, scenario };
+}
+
 test("all journey fixtures contain valid canonical entities", () => {
   const scenarios = [
     ...successfulDocument.scenarios,
@@ -273,10 +379,41 @@ test("Scotland point-to-point itinerary includes the linked timed return transpo
   const scenario = successfulScenarios.get("scotland-point-to-point-timed-transport");
   const { itinerary } = await planScenario(scenario);
   const scheduled = itinerary.legs.find((leg) => leg.routeNature === "scheduled");
+  const wait = itinerary.legs.find((leg) => leg.mode === "wait_for_transport");
   assert.equal(scheduled.mode, scenario.expected.scheduledMode);
   assert.equal(scheduled.label, "Return bus to Rannoch trailhead");
   assert.ok(scheduled.sourceAssertionRefs.length > 0);
+  assert.equal(wait.startsAt, "2026-07-15T12:20:00.000Z");
+  assert.equal(wait.endsAt, "2026-07-15T16:30:00.000Z");
+  assert.equal(wait.durationSeconds, 15_000);
+  assert.equal(scheduled.startsAt, wait.endsAt);
+  assert.equal(scheduled.endsAt, "2026-07-15T17:12:00.000Z");
+  assert.deepEqual(wait.geometry.coordinates, [-4.62, 56.82]);
 });
+test("the earliest valid return service is selected across linked connections", async () => {
+  const scenario = clonedReturnScenario();
+  const later = onlyReturnConnection(scenario);
+  later.names[0].value = "Later return bus";
+  later.schedule.departuresLocal = ["20:30"];
+  later.schedule.lastDepartureLocal = "20:30";
+  const earlier = clone(later);
+  earlier.id = "transport:scotland-earlier-return-bus";
+  earlier.names[0].value = "Earlier return bus";
+  earlier.endpointIds = ["transport:earlier:a", "transport:earlier:b"];
+  earlier.sourceAssertions[0].id = "assertion:transport:scotland-earlier-return-bus";
+  earlier.schedule.departuresLocal = ["17:30"];
+  earlier.schedule.lastDepartureLocal = "17:30";
+  scenario.experience.transportConnectionIds = [later.id, earlier.id];
+  scenario.experience.transportConnections = [later, earlier];
+
+  const { itinerary } = await planScenario(scenario);
+  const scheduled = itinerary.legs.find((leg) => leg.routeNature === "scheduled");
+  const wait = itinerary.legs.find((leg) => leg.mode === "wait_for_transport");
+  assert.equal(scheduled.label, "Earlier return bus");
+  assert.equal(wait.endsAt, "2026-07-15T16:30:00.000Z");
+  assert.equal(scheduled.startsAt, wait.endsAt);
+});
+
 
 test("coastal route keeps complete geometry and ends at an explicit different pickup", async () => {
   const scenario = successfulScenarios.get("coastal-point-to-point");
@@ -297,6 +434,315 @@ test("island journey includes a scheduled ferry and returns to the parked vehicl
     "ferry",
   );
   assert.equal(itinerary.legs.at(-1).mode, "drive");
+});
+
+test("foot access routes origin to a hiking-capable access point before the route", async () => {
+  const scenario = clone(successfulScenarios.get("coastal-point-to-point"));
+  const accessPoint = scenario.experience.accessPoints[0];
+  scenario.request.accessMode = "foot";
+  accessPoint.accessModes = ["hiking"];
+  accessPoint.geometry.coordinates = [-5.09, 51.66];
+  const originalGeometry = clone(scenario.experience.geometry);
+
+  const { itinerary, itineraryRequests } = await planScenario(scenario);
+  assert.deepEqual(
+    itinerary.legs.map((leg) => leg.mode),
+    ["walk_connector", "walk_connector", "hike", "pickup"],
+  );
+  assert.deepEqual(
+    itineraryRequests.map((request) => request.profile),
+    ["foot", "foot"],
+  );
+  assert.deepEqual(itineraryRequests[0].coordinates, [
+    scenario.request.origin,
+    accessPoint.geometry.coordinates,
+  ]);
+  assert.deepEqual(itineraryRequests[1].coordinates, [
+    accessPoint.geometry.coordinates,
+    scenario.experience.geometry.coordinates[0],
+  ]);
+  assert.equal(
+    itinerary.legs[0].label,
+    `Trip origin to ${displayName(accessPoint)}`,
+  );
+  assert.equal(
+    itinerary.legs[1].label,
+    `${displayName(accessPoint)} to Established route`,
+  );
+  assert.deepEqual(
+    itinerary.legs.find((leg) => leg.routeNature === "established").geometry,
+    originalGeometry,
+  );
+  assert.deepEqual(scenario.experience.geometry, originalGeometry);
+});
+
+for (const configuration of [
+  { label: "ferry", transportMode: "ferry", accessPointMode: "ferry" },
+  {
+    label: "reversed bidirectional cable car",
+    transportMode: "cable_car",
+    accessPointMode: "cable_transport",
+    reverse: true,
+  },
+  { label: "coarse transit bus", transportMode: "bus", accessPointMode: "transit" },
+]) {
+  test(`verified ${configuration.label} outbound access models connectors and waiting`, async () => {
+    const scenario = clonedOutboundScenario(configuration);
+    const connection = onlyOutboundConnection(scenario);
+    const accessPoint = scenario.experience.accessPoints[0];
+    const originalRouteGeometry = clone(scenario.experience.geometry);
+    const originalConnectionGeometry = clone(connection.geometry);
+
+    const { itinerary, itineraryRequests } = await planScenario(scenario);
+    assert.deepEqual(
+      itinerary.legs.map((leg) => leg.mode),
+      [
+        "walk_connector",
+        "wait_for_transport",
+        configuration.transportMode,
+        "walk_connector",
+        "walk_connector",
+        "hike",
+        "pickup",
+      ],
+    );
+    assert.deepEqual(
+      itineraryRequests.map((request) => request.profile),
+      ["foot", "foot", "foot"],
+    );
+
+    const wait = itinerary.legs.find((leg) => leg.mode === "wait_for_transport");
+    const scheduled = itinerary.legs.find(
+      (leg) => leg.mode === configuration.transportMode,
+    );
+    assert.equal(wait.startsAt, "2026-07-15T07:57:00.000Z");
+    assert.equal(wait.endsAt, "2026-07-15T08:00:00.000Z");
+    assert.equal(wait.durationSeconds, 180);
+    assert.equal(scheduled.startsAt, wait.endsAt);
+    assert.equal(scheduled.endsAt, "2026-07-15T08:20:00.000Z");
+    assert.deepEqual(scheduled.geometry.coordinates[0], [-5.04, 51.65]);
+    assert.deepEqual(scheduled.geometry.coordinates.at(-1), [-5.099, 51.665]);
+
+    assert.deepEqual(itineraryRequests[0].coordinates, [
+      scenario.request.origin,
+      [-5.04, 51.65],
+    ]);
+    assert.deepEqual(itineraryRequests[1].coordinates, [
+      [-5.099, 51.665],
+      accessPoint.geometry.coordinates,
+    ]);
+    assert.deepEqual(itineraryRequests[2].coordinates, [
+      accessPoint.geometry.coordinates,
+      scenario.experience.geometry.coordinates[0],
+    ]);
+    assert.deepEqual(
+      itinerary.legs.find((leg) => leg.routeNature === "established").geometry,
+      originalRouteGeometry,
+    );
+    assert.deepEqual(scenario.experience.geometry, originalRouteGeometry);
+    assert.deepEqual(connection.geometry, originalConnectionGeometry);
+  });
+}
+
+test("access-point planning filters legal, publication, quality, and parking state", async (t) => {
+  const cases = [
+    ["restricted legal state", (point) => { point.legalAccess = "restricted"; }],
+    ["non-publish sensitivity", (point) => { point.sensitivity.action = "generalize"; }],
+    ["unverified quality", (point) => { point.quality.verificationStatus = "unverified"; }],
+    ["stale quality", (point) => { point.quality.freshness = "stale"; }],
+    ["unsafe quality flag", (point) => { point.quality.flags = ["unsafe_access"]; }],
+    ["future assessment", (point) => { point.quality.assessedAt = "2026-07-16"; }],
+    ["parking not confirmed", (point) => { point.parking.stoppingAllowed = null; }],
+  ];
+
+  for (const [label, mutate] of cases) {
+    await t.test(label, async () => {
+      const scenario = clone(
+        successfulScenarios.get("scotland-drive-foot-established-loop"),
+      );
+      mutate(scenario.experience.accessPoints[0]);
+      const { itineraryRequests } = await expectPlanningRefusal(
+        scenario,
+        "no_access_point",
+      );
+      assert.equal(itineraryRequests.length, 0);
+    });
+  }
+});
+test("route planning requires exact legal access and current navigation-safe quality", async (t) => {
+  const cases = [
+    ["non-public legal state", "access_not_public", (route) => { route.access.legal = "restricted"; }],
+    ["navigation suitability not confirmed", "route_not_navigation_suitable", (route) => { route.navigationSuitability = false; }],
+    ["unverified route", "route_unverified", (route) => { route.quality.verificationStatus = "unverified"; }],
+    ["stale route", "route_quality_not_current", (route) => { route.quality.freshness = "stale"; }],
+    ["unsafe quality flag", "unsafe_condition", (route) => { route.quality.flags = ["unsafe_surface"]; }],
+    ["future assessment", "route_quality_invalid", (route) => { route.quality.assessedAt = "2026-07-16"; }],
+    ["missing quality flags", "route_quality_invalid", (route) => { delete route.quality.flags; }],
+  ];
+
+  for (const [label, expectedCode, mutate] of cases) {
+    await t.test(label, async () => {
+      const scenario = clone(
+        successfulScenarios.get("scotland-drive-foot-established-loop"),
+      );
+      mutate(scenario.experience);
+      const { itineraryRequests } = await expectPlanningRefusal(
+        scenario,
+        expectedCode,
+      );
+      assert.equal(itineraryRequests.length, 0);
+    });
+  }
+});
+
+
+test("only car, foot, and transit are accepted as planner access modes", async () => {
+  const scenario = clonedOutboundScenario();
+  scenario.request.accessMode = "ferry";
+  const harness = createRoutingHarness();
+  await assert.rejects(
+    buildMixedModeItinerary({
+      ...scenario.request,
+      experience: scenario.experience,
+      gateway: harness.gateway,
+    }),
+    assertErrorCode("invalid_access_mode"),
+  );
+  assert.equal(harness.itineraryRequests.length, 0);
+});
+
+test("outbound schedules and connection quality must be current", async (t) => {
+  for (const freshness of ["stale", "unknown"]) {
+    await t.test(`schedule ${freshness}`, async () => {
+      await expectOutboundRefusal((scenario) => {
+        onlyOutboundConnection(scenario).schedule.freshness = freshness;
+      }, "outbound_schedule_not_current");
+    });
+    await t.test(`quality ${freshness}`, async () => {
+      await expectOutboundRefusal((scenario) => {
+        onlyOutboundConnection(scenario).quality.freshness = freshness;
+      }, "outbound_transport_quality_not_current");
+    });
+  }
+
+  await t.test("unverified quality", async () => {
+    await expectOutboundRefusal((scenario) => {
+      onlyOutboundConnection(scenario).quality.verificationStatus = "unverified";
+    }, "outbound_transport_unverified");
+  });
+
+  await t.test("unsafe quality flag", async () => {
+    await expectOutboundRefusal((scenario) => {
+      onlyOutboundConnection(scenario).quality.flags = ["unsafe_service"];
+    }, "outbound_transport_quality_not_current");
+  });
+
+  await t.test("invalid quality assessment date", async () => {
+    await expectOutboundRefusal((scenario) => {
+      onlyOutboundConnection(scenario).quality.assessedAt = "2026-02-30";
+    }, "outbound_transport_quality_invalid");
+  });
+});
+
+test("outbound operating and publication state fail closed", async (t) => {
+  await t.test("operating status unknown", async () => {
+    await expectOutboundRefusal((scenario) => {
+      delete onlyOutboundConnection(scenario).operating;
+    }, "outbound_transport_operating_unknown");
+  });
+
+  await t.test("precise publication not approved", async () => {
+    await expectOutboundRefusal((scenario) => {
+      onlyOutboundConnection(scenario).sensitivity.action = "generalize";
+    }, "outbound_transport_location_unavailable");
+  });
+});
+
+test("outbound endpoint identity and geometry fail closed", async (t) => {
+  await t.test("selected access point is not an endpoint", async () => {
+    await expectOutboundRefusal((scenario) => {
+      onlyOutboundConnection(scenario).endpointIds[1] = "access:other-place";
+    }, "outbound_transport_access_point_mismatch");
+  });
+
+  await t.test("duplicate endpoints", async () => {
+    await expectOutboundRefusal((scenario) => {
+      const connection = onlyOutboundConnection(scenario);
+      connection.endpointIds[1] = connection.endpointIds[0];
+    }, "outbound_transport_endpoints_invalid");
+  });
+
+  await t.test("geometry does not end near access point", async () => {
+    const { error } = await expectOutboundRefusal((scenario) => {
+      onlyOutboundConnection(scenario).geometry.coordinates[1] = [20, 20];
+    }, "outbound_transport_geometry_mismatch");
+    assert.equal(
+      error.details.toleranceMeters,
+      RETURN_TRANSPORT_ENDPOINT_TOLERANCE_METERS,
+    );
+  });
+
+  await t.test("multi-line geometry is not connected", async () => {
+    await expectOutboundRefusal((scenario) => {
+      onlyOutboundConnection(scenario).geometry = {
+        type: "MultiLineString",
+        coordinates: [
+          [[-5.04, 51.65], [-5.07, 51.655]],
+          [[-5.069, 51.655], [-5.099, 51.665]],
+        ],
+      };
+    }, "outbound_transport_geometry_invalid");
+  });
+
+  await t.test("outbound-only geometry cannot be reversed", async () => {
+    await expectOutboundRefusal((scenario) => {
+      const accessPoint = scenario.experience.accessPoints[0];
+      const connection = onlyOutboundConnection(scenario);
+      connection.endpointIds = [accessPoint.id, connection.endpointIds[0]];
+      connection.geometry.coordinates.reverse();
+    }, "outbound_transport_geometry_mismatch");
+  });
+});
+
+test("outbound schedule timezone, dates, departures, and provenance fail closed", async (t) => {
+  await t.test("invalid timezone", async () => {
+    await expectOutboundRefusal((scenario) => {
+      onlyOutboundConnection(scenario).schedule.timezone = "Not/A_Timezone";
+    }, "outbound_schedule_timezone_invalid");
+  });
+
+  await t.test("missing validity date", async () => {
+    await expectOutboundRefusal((scenario) => {
+      delete onlyOutboundConnection(scenario).schedule.validUntil;
+    }, "outbound_schedule_invalid");
+  });
+
+  await t.test("travel date outside validity", async () => {
+    await expectOutboundRefusal((scenario) => {
+      onlyOutboundConnection(scenario).schedule.validUntil = "2026-07-14";
+    }, "outbound_schedule_out_of_range");
+  });
+
+  await t.test("no exact departure", async () => {
+    await expectOutboundRefusal((scenario) => {
+      onlyOutboundConnection(scenario).schedule.departuresLocal = [];
+    }, "outbound_schedule_unavailable");
+  });
+
+  await t.test("boarding connector misses the final departure", async () => {
+    await expectOutboundRefusal((scenario) => {
+      const schedule = onlyOutboundConnection(scenario).schedule;
+      schedule.departuresLocal = ["08:55"];
+      schedule.lastDepartureLocal = "08:55";
+    }, "missed_outbound_transport", 1);
+  });
+
+  await t.test("geometry provenance expired", async () => {
+    await expectOutboundRefusal((scenario) => {
+      onlyOutboundConnection(scenario).sourceAssertions[0].validUntil =
+        "2026-07-14T23:59:59Z";
+    }, "outbound_transport_provenance_unverified");
+  });
 });
 
 test("return transport geometry must connect route finish to vehicle within tolerance", async () => {
@@ -324,12 +770,42 @@ test("bidirectional return geometry may be reversed but still must stay within t
   connection.geometry.coordinates.reverse();
   connection.geometry.coordinates[0][0] += 0.001;
   connection.geometry.coordinates[1][0] += 0.001;
+  const sourceTransportGeometry = clone(connection.geometry);
 
-  const { itinerary } = await planScenario(scenario);
-  assert.equal(
-    itinerary.legs.find((leg) => leg.routeNature === "scheduled").mode,
-    "bus",
+  const { itinerary, itineraryRequests, originalGeometry, experience } = await planScenario(scenario);
+  const scheduled = itinerary.legs.find((leg) => leg.routeNature === "scheduled");
+  assert.equal(scheduled.mode, "bus");
+  assert.deepEqual(scheduled.geometry.coordinates[0], sourceTransportGeometry.coordinates.at(-1));
+  assert.deepEqual(scheduled.geometry.coordinates.at(-1), sourceTransportGeometry.coordinates[0]);
+  assert.deepEqual(
+    itinerary.legs.map((leg) => leg.mode),
+    [
+      "drive",
+      "park_or_transfer",
+      "hike",
+      "walk_connector",
+      "wait_for_transport",
+      "bus",
+      "walk_connector",
+      "drive",
+    ],
   );
+  assert.deepEqual(
+    itineraryRequests
+      .filter((request) => request.profile === "foot")
+      .map((request) => request.coordinates),
+    [
+      [originalGeometry.coordinates.at(-1), scheduled.geometry.coordinates[0]],
+      [scheduled.geometry.coordinates.at(-1), scenario.experience.accessPoints[0].geometry.coordinates],
+    ],
+  );
+  assert.deepEqual(connection.geometry, sourceTransportGeometry);
+  assert.deepEqual(experience.transportConnections[0].geometry, sourceTransportGeometry);
+  assert.deepEqual(
+    itinerary.legs.find((leg) => leg.routeNature === "established").geometry,
+    originalGeometry,
+  );
+  assert.deepEqual(experience.geometry, originalGeometry);
 });
 
 test("verified cable transport with matching endpoints remains plan-capable", async () => {
@@ -368,9 +844,29 @@ test("stale, expired, and unknown return-connection quality fails closed", async
     onlyReturnConnection(scenario).quality.verificationStatus = "unverified";
     await expectPlanningRefusal(scenario, "return_transport_unverified");
   });
+
+  await t.test("unsafe quality flag", async () => {
+    const scenario = clonedReturnScenario();
+    onlyReturnConnection(scenario).quality.flags = ["unsafe_service"];
+    await expectPlanningRefusal(scenario, "return_transport_quality_not_current");
+  });
+
+  await t.test("missing quality flags", async () => {
+    const scenario = clonedReturnScenario();
+    delete onlyReturnConnection(scenario).quality.flags;
+    await expectPlanningRefusal(scenario, "return_transport_quality_not_current");
+  });
 });
 
 test("return schedule and provenance validity are evaluated at the journey time", async (t) => {
+  for (const field of ["validFrom", "validUntil"]) {
+    await t.test(`missing ${field}`, async () => {
+      const scenario = clonedReturnScenario();
+      delete onlyReturnConnection(scenario).schedule[field];
+      await expectPlanningRefusal(scenario, "return_schedule_invalid");
+    });
+  }
+
   await t.test("expired schedule window", async () => {
     const scenario = clonedReturnScenario();
     onlyReturnConnection(scenario).schedule.validUntil = "2026-07-14";
@@ -405,8 +901,11 @@ test("return departure clocks use the schedule destination timezone", async (t) 
     schedule.lastDepartureLocal = "09:00";
 
     const { itinerary } = await planScenario(scenario);
+    const wait = itinerary.legs.find((leg) => leg.mode === "wait_for_transport");
     const scheduled = itinerary.legs.find((leg) => leg.routeNature === "scheduled");
-    assert.equal(scheduled.startsAt, "2026-07-15T12:20:00.000Z");
+    assert.equal(wait.startsAt, "2026-07-15T12:20:00.000Z");
+    assert.equal(wait.endsAt, "2026-07-15T13:00:00.000Z");
+    assert.equal(scheduled.startsAt, wait.endsAt);
   });
 
   await t.test("service is missed in destination local time", async () => {
@@ -443,11 +942,19 @@ test("a last-service summary without exact departures cannot promise a return", 
   await expectPlanningRefusal(scenario, "return_schedule_unavailable");
 });
 
-test("return transport endpoint identity must be explicit and non-duplicated", async () => {
-  const scenario = clonedReturnScenario();
-  const connection = onlyReturnConnection(scenario);
-  connection.endpointIds = ["transport:same-stop", " transport:same-stop "];
-  await expectPlanningRefusal(scenario, "return_transport_endpoints_invalid");
+test("return transport must identify exactly two distinct endpoints", async (t) => {
+  await t.test("duplicate endpoint", async () => {
+    const scenario = clonedReturnScenario();
+    const connection = onlyReturnConnection(scenario);
+    connection.endpointIds = ["transport:same-stop", " transport:same-stop "];
+    await expectPlanningRefusal(scenario, "return_transport_endpoints_invalid");
+  });
+
+  await t.test("extra endpoint", async () => {
+    const scenario = clonedReturnScenario();
+    onlyReturnConnection(scenario).endpointIds.push("transport:unexpected-third-stop");
+    await expectPlanningRefusal(scenario, "return_transport_endpoints_invalid");
+  });
 });
 
 test("Japanese endonym, romanization, and inactive seasonal condition remain traceable", async () => {

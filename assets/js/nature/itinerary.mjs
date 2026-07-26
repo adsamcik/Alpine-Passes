@@ -9,6 +9,24 @@ import { RoutingError } from "./routing.mjs";
 export const RETURN_TRANSPORT_ENDPOINT_TOLERANCE_METERS = 250;
 
 const DESTINATION_TIME_FORMATTERS = new Map();
+const ACCESS_MODES = Object.freeze(["car", "foot", "transit"]);
+const ACCESS_POINT_MODES = Object.freeze({
+  car: Object.freeze(["car"]),
+  foot: Object.freeze(["foot", "hiking"]),
+  transit: Object.freeze(["transit", "ferry", "cable_transport"]),
+});
+const OUTBOUND_TRANSPORT_MODES = new Set([
+  "ferry",
+  "bus",
+  "rail",
+  "tram",
+  "cable_car",
+  "gondola",
+  "funicular",
+  "cog_railway",
+  "boat",
+]);
+const WALK_CONNECTOR_TOLERANCE_METERS = 35;
 
 export class ItineraryError extends Error {
   constructor(message, code = "itinerary_error", details = {}) {
@@ -38,28 +56,52 @@ export async function buildMixedModeItinerary(options) {
       "incomplete_established_route",
     );
   }
+  if (experience.navigationSuitability !== true) {
+    throw new ItineraryError(
+      "Mixed itineraries require geometry verified as suitable for navigation",
+      "route_not_navigation_suitable",
+    );
+  }
   if (experience.sensitivity?.action !== "publish") {
     throw new ItineraryError("This route cannot be planned at precise coordinates", "sensitive_location");
   }
   if (experience.access?.legal === "private") {
     throw new ItineraryError("Public access is not permitted", "private_access");
   }
-  if (experience.access?.legal === "unknown") {
-    throw new ItineraryError("Legal public access is unknown", "unknown_access");
+  if (experience.access?.legal !== "legal") {
+    throw new ItineraryError(
+      experience.access?.legal === "unknown" || experience.access?.legal == null
+        ? "Legal public access is unknown"
+        : "Legal public access is not verified",
+      experience.access?.legal === "unknown" || experience.access?.legal == null
+        ? "unknown_access"
+        : "access_not_public",
+      { legalAccess: experience.access?.legal ?? null },
+    );
+  }
+  if (!ACCESS_MODES.includes(accessMode)) {
+    throw new ItineraryError(
+      "Access mode must be car, foot, or transit",
+      "invalid_access_mode",
+      { accessMode: accessMode ?? null },
+    );
   }
 
   const startTime = toDate(departureTime);
+  ensureRouteQuality(experience, startTime);
   ensureRouteAvailable(experience, startTime);
 
   const routeLine = primaryLine(experience.geometry);
   const routeStart = routeLine[0];
   const routeEnd = routeLine.at(-1);
-  const accessPoint = selectAccessPoint(experience.accessPoints || [], routeStart, accessMode);
+  const accessPoint = selectAccessPoint(
+    experience.accessPoints || [],
+    routeStart,
+    accessMode,
+    startTime,
+  );
   if (!accessPoint) {
     throw new ItineraryError(`No suitable ${accessMode} access point is linked to this route`, "no_access_point");
-  }
-  if (accessPoint.legalAccess === "private" || accessPoint.legalAccess === "unknown") {
-    throw new ItineraryError("The selected access point is not verified for public use", "invalid_access_point");
   }
 
   const legs = [];
@@ -81,19 +123,110 @@ export async function buildMixedModeItinerary(options) {
       accessPointId: accessPoint.id,
     }));
     cursorTime = addMinutes(cursorTime, accessPoint.transferMinutes ?? 10);
+  } else if (accessMode === "foot") {
+    if (!gateway) {
+      throw new ItineraryError(
+        "A routing gateway is required for foot access",
+        "routing_unavailable",
+      );
+    }
+    const accessWalk = await routeLeg(
+      gateway,
+      "foot",
+      cursor,
+      accessPoint.geometry.coordinates,
+      cursorTime,
+    );
+    legs.push(makeGeneratedLeg("walk_connector", cursorTime, accessWalk, {
+      fromLabel: "Trip origin",
+      toLabel: displayName(accessPoint),
+      conditionRefs: accessPoint.conditionRefs,
+    }));
+    cursorTime = addSeconds(cursorTime, accessWalk.durationSeconds);
+    cursor = accessPoint.geometry.coordinates;
   } else if (accessMode === "transit") {
-    const connection = chooseOutboundTransport(experience.transportConnections || [], cursorTime);
-    if (!connection) {
+    let outbound = chooseOutboundTransport(
+      experience.transportConnections || [],
+      cursorTime,
+      accessPoint,
+    );
+    if (!outbound) {
       throw new ItineraryError("No usable outbound public transport connection is linked", "no_transport_connection");
     }
-    const minutes = connection.typicalDurationMinutes;
-    legs.push(makeScheduledLeg(connection, cursorTime, minutes));
-    cursorTime = addMinutes(cursorTime, minutes);
+
+    if (haversineMeters(cursor, outbound.boardingPoint)
+        > WALK_CONNECTOR_TOLERANCE_METERS) {
+      if (!gateway) {
+        throw new ItineraryError(
+          "A walking route to the transport boarding point is required",
+          "routing_unavailable",
+        );
+      }
+      const boardingWalk = await routeLeg(
+        gateway,
+        "foot",
+        cursor,
+        outbound.boardingPoint,
+        cursorTime,
+      );
+      legs.push(makeGeneratedLeg("walk_connector", cursorTime, boardingWalk, {
+        fromLabel: "Trip origin",
+        toLabel: `${displayName(outbound.connection)} boarding point`,
+      }));
+      cursorTime = addSeconds(cursorTime, boardingWalk.durationSeconds);
+    }
+    cursor = outbound.boardingPoint;
+
+    outbound = validateOutboundTransport(
+      outbound.connection,
+      cursorTime,
+      accessPoint,
+    );
+    legs.push(makeWaitingLeg(
+      outbound.connection,
+      cursorTime,
+      outbound.nextDeparture,
+      outbound.boardingPoint,
+    ));
+    cursorTime = outbound.nextDeparture;
+    legs.push(makeScheduledLeg(
+      outbound.connection,
+      cursorTime,
+      outbound.connection.typicalDurationMinutes,
+      { geometry: outbound.geometry },
+    ));
+    cursorTime = addMinutes(
+      cursorTime,
+      outbound.connection.typicalDurationMinutes,
+    );
+    cursor = outbound.arrivalPoint;
+
+    if (haversineMeters(cursor, accessPoint.geometry.coordinates)
+        > WALK_CONNECTOR_TOLERANCE_METERS) {
+      if (!gateway) {
+        throw new ItineraryError(
+          "A walking connector from transport to the access point is required",
+          "routing_unavailable",
+        );
+      }
+      const arrivalWalk = await routeLeg(
+        gateway,
+        "foot",
+        cursor,
+        accessPoint.geometry.coordinates,
+        cursorTime,
+      );
+      legs.push(makeGeneratedLeg("walk_connector", cursorTime, arrivalWalk, {
+        fromLabel: `${displayName(outbound.connection)} arrival point`,
+        toLabel: displayName(accessPoint),
+      }));
+      cursorTime = addSeconds(cursorTime, arrivalWalk.durationSeconds);
+    }
     cursor = accessPoint.geometry.coordinates;
   }
 
   const approachDistance = haversineMeters(cursor, routeStart);
-  if (approachDistance > 35) {
+  if (approachDistance > WALK_CONNECTOR_TOLERANCE_METERS) {
     if (!gateway) throw new ItineraryError("A walking connector is required but routing is unavailable", "routing_unavailable");
     const approach = await routeLeg(gateway, "foot", cursor, routeStart, cursorTime);
     legs.push(makeGeneratedLeg("walk_connector", cursorTime, approach, {
@@ -130,20 +263,87 @@ export async function buildMixedModeItinerary(options) {
   if (returnStrategy === "return_to_vehicle") {
     if (experience.journeyShape === "point_to_point"
         && haversineMeters(routeEnd, accessPoint.geometry.coordinates) > 250) {
-      const returnConnection = chooseReturnTransport(
+      let returnTransport = chooseReturnTransport(
         experience.transportConnections || [],
         cursorTime,
         cursor,
         accessPoint.geometry.coordinates,
       );
-      if (!returnConnection) {
+      if (!returnTransport) {
         throw new ItineraryError(
           "This point-to-point route has no verified return transport or pickup",
           "stranded_at_route_end",
         );
       }
-      legs.push(makeScheduledLeg(returnConnection, cursorTime, returnConnection.typicalDurationMinutes));
-      cursorTime = addMinutes(cursorTime, returnConnection.typicalDurationMinutes);
+      if (haversineMeters(cursor, returnTransport.boardingPoint)
+          > WALK_CONNECTOR_TOLERANCE_METERS) {
+        if (!gateway) {
+          throw new ItineraryError(
+            "A walking route to the return transport boarding point is required",
+            "routing_unavailable",
+          );
+        }
+        const returnBoardingWalk = await routeLeg(
+          gateway,
+          "foot",
+          cursor,
+          returnTransport.boardingPoint,
+          cursorTime,
+        );
+        legs.push(makeGeneratedLeg("walk_connector", cursorTime, returnBoardingWalk, {
+          fromLabel: "Route finish",
+          toLabel: `${displayName(returnTransport.connection)} boarding point`,
+        }));
+        cursorTime = addSeconds(cursorTime, returnBoardingWalk.durationSeconds);
+        cursor = returnTransport.boardingPoint;
+        returnTransport = validateReturnTransport(
+          returnTransport.connection,
+          cursorTime,
+          cursor,
+          accessPoint.geometry.coordinates,
+        );
+      } else {
+        cursor = returnTransport.boardingPoint;
+      }
+      legs.push(makeWaitingLeg(
+        returnTransport.connection,
+        cursorTime,
+        returnTransport.nextDeparture,
+        returnTransport.boardingPoint,
+      ));
+      cursorTime = returnTransport.nextDeparture;
+      legs.push(makeScheduledLeg(
+        returnTransport.connection,
+        cursorTime,
+        returnTransport.connection.typicalDurationMinutes,
+        { geometry: returnTransport.geometry },
+      ));
+      cursorTime = addMinutes(
+        cursorTime,
+        returnTransport.connection.typicalDurationMinutes,
+      );
+      cursor = returnTransport.arrivalPoint;
+      if (haversineMeters(cursor, accessPoint.geometry.coordinates)
+          > WALK_CONNECTOR_TOLERANCE_METERS) {
+        if (!gateway) {
+          throw new ItineraryError(
+            "A walking route from return transport to the starting access point is required",
+            "routing_unavailable",
+          );
+        }
+        const returnArrivalWalk = await routeLeg(
+          gateway,
+          "foot",
+          cursor,
+          accessPoint.geometry.coordinates,
+          cursorTime,
+        );
+        legs.push(makeGeneratedLeg("walk_connector", cursorTime, returnArrivalWalk, {
+          fromLabel: `${displayName(returnTransport.connection)} arrival point`,
+          toLabel: displayName(accessPoint),
+        }));
+        cursorTime = addSeconds(cursorTime, returnArrivalWalk.durationSeconds);
+      }
       cursor = accessPoint.geometry.coordinates;
     } else if (haversineMeters(cursor, accessPoint.geometry.coordinates) > 35) {
       if (!gateway) throw new ItineraryError("Return walking connector is unavailable", "routing_unavailable");
@@ -221,20 +421,36 @@ function primaryLine(geometry) {
   throw new ItineraryError("Route geometry is missing or invalid", "invalid_geometry");
 }
 
-function selectAccessPoint(accessPoints, routeStart, mode) {
-  return accessPoints
+function selectAccessPoint(accessPoints, routeStart, mode, time) {
+  const acceptedModes = ACCESS_POINT_MODES[mode] || [];
+  return (Array.isArray(accessPoints) ? accessPoints : [])
     .filter((point) => point?.entityType === "AccessPoint"
       && point.geometry?.type === "Point"
       && validPosition(point.geometry.coordinates)
-      && point.accessModes?.includes(mode)
-      && !["private"].includes(point.legalAccess))
-    .sort((a, b) => accessRank(a, routeStart) - accessRank(b, routeStart))[0] || null;
+      && Array.isArray(point.accessModes)
+      && point.accessModes.some((candidate) => acceptedModes.includes(candidate))
+      && accessPointIsPlanSafe(point, mode, time))
+    .sort((left, right) =>
+      haversineMeters(left.geometry.coordinates, routeStart)
+        - haversineMeters(right.geometry.coordinates, routeStart))[0] || null;
 }
 
-function accessRank(point, routeStart) {
-  const legalPenalty = point.legalAccess === "legal" ? 0 : 1_000_000;
-  const parkingPenalty = point.parking?.stoppingAllowed === false ? 10_000_000 : 0;
-  return legalPenalty + parkingPenalty + haversineMeters(point.geometry.coordinates, routeStart);
+function accessPointIsPlanSafe(point, mode, time) {
+  if (point.legalAccess !== "legal" || point.sensitivity?.action !== "publish") {
+    return false;
+  }
+  const quality = point.quality;
+  const unsafeFlags = Array.isArray(quality?.flags)
+    ? quality.flags.filter((flag) =>
+      /(unsafe|danger|hazard|closed|closure|blocked|prohibited|stale|expired|unknown|unverified|conflict)/i.test(String(flag)))
+    : ["quality_flags_missing"];
+  const assessedAt = validInstant(quality?.assessedAt);
+  return quality?.verificationStatus === "verified"
+    && quality.freshness === "current"
+    && unsafeFlags.length === 0
+    && assessedAt !== null
+    && assessedAt <= time.getTime()
+    && (mode !== "car" || point.parking?.stoppingAllowed === true);
 }
 
 async function routeLeg(gateway, profile, from, to, departureTime) {
@@ -289,12 +505,34 @@ function makeDwellLeg(mode, startsAt, minutes, metadata = {}) {
   };
 }
 
-function makeScheduledLeg(connection, startsAt, minutes) {
+function makeWaitingLeg(connection, startsAt, departureTime, boardingPoint) {
+  const durationSeconds = Math.max(
+    0,
+    Math.round((departureTime.getTime() - startsAt.getTime()) / 1000),
+  );
+  return {
+    id: `leg-${startsAt.getTime()}-wait-for-${connection.id}`,
+    mode: "wait_for_transport",
+    routeNature: "dwell",
+    geometry: { type: "Point", coordinates: [...boardingPoint] },
+    distanceMeters: 0,
+    durationSeconds,
+    startsAt: startsAt.toISOString(),
+    endsAt: departureTime.toISOString(),
+    label: `Wait at ${displayName(connection)} boarding point`,
+    sourceAssertionRefs: (connection.sourceAssertions || [])
+      .map((assertion) => assertion.id)
+      .filter(Boolean),
+    warnings: [],
+  };
+}
+
+function makeScheduledLeg(connection, startsAt, minutes, options = {}) {
   return {
     id: `leg-${startsAt.getTime()}-${connection.transportMode}`,
     mode: connection.transportMode,
     routeNature: "scheduled",
-    geometry: connection.geometry || null,
+    geometry: options.geometry || connection.geometry || null,
     distanceMeters: connection.distanceMeters || 0,
     durationSeconds: minutes * 60,
     startsAt: startsAt.toISOString(),
@@ -307,22 +545,14 @@ function makeScheduledLeg(connection, startsAt, minutes) {
   };
 }
 
-function chooseOutboundTransport(connections, time) {
-  return connections.find((connection) => connection.direction !== "return"
-    && connection.operating !== false
-    && departureAvailable(connection, time));
-}
-
-function chooseReturnTransport(connections, time, currentPosition, vehiclePosition) {
-  const candidates = (Array.isArray(connections) ? connections : [])
-    .filter((connection) => connection?.direction !== "outbound");
+function chooseOutboundTransport(connections, time, accessPoint) {
+  const candidates = Array.isArray(connections) ? connections : [];
   if (!candidates.length) return null;
 
   const rejections = [];
   for (const connection of candidates) {
     try {
-      validateReturnTransport(connection, time, currentPosition, vehiclePosition);
-      return connection;
+      return validateOutboundTransport(connection, time, accessPoint);
     } catch (error) {
       if (!(error instanceof ItineraryError)) throw error;
       rejections.push({
@@ -332,6 +562,474 @@ function chooseReturnTransport(connections, time, currentPosition, vehiclePositi
         details: error.details,
       });
     }
+  }
+
+  const failure = rejections[0];
+  throw new ItineraryError(failure.message, failure.code, {
+    ...failure.details,
+    rejectedConnections: rejections,
+  });
+}
+
+function validateOutboundTransport(connection, time, accessPoint) {
+  if (!connection
+      || connection.entityType !== "TransportConnection"
+      || !OUTBOUND_TRANSPORT_MODES.has(connection.transportMode)) {
+    throw new ItineraryError(
+      "The linked outbound transport record is invalid",
+      "outbound_transport_invalid",
+      { connectionId: connection?.id ?? null },
+    );
+  }
+  if (!["outbound", "both"].includes(connection.direction)) {
+    throw new ItineraryError(
+      "The linked transport is not explicitly valid for outbound travel",
+      "outbound_transport_direction_invalid",
+      { connectionId: connection.id, direction: connection.direction ?? null },
+    );
+  }
+  if (connection.operating !== true) {
+    throw new ItineraryError(
+      connection.operating === false
+        ? "The linked outbound transport is not operating"
+        : "The operating status of the linked outbound transport is unknown",
+      connection.operating === false
+        ? "outbound_transport_not_operating"
+        : "outbound_transport_operating_unknown",
+      { connectionId: connection.id },
+    );
+  }
+  if (connection.sensitivity?.action !== "publish") {
+    throw new ItineraryError(
+      "The outbound transport geometry is not approved for precise planning",
+      "outbound_transport_location_unavailable",
+      { connectionId: connection.id },
+    );
+  }
+  if (!Number.isFinite(connection.typicalDurationMinutes)
+      || connection.typicalDurationMinutes <= 0) {
+    throw new ItineraryError(
+      "The outbound transport duration is missing or invalid",
+      "outbound_transport_duration_invalid",
+      { connectionId: connection.id },
+    );
+  }
+
+  const orientation = validateOutboundTransportGeometry(connection, accessPoint);
+  const scheduleContext = validateOutboundSchedule(connection, time);
+  validateOutboundTransportQuality(connection, time, scheduleContext);
+  return {
+    connection,
+    ...orientation,
+    nextDeparture: nextOutboundDeparture(connection, time, scheduleContext),
+  };
+}
+
+function validateOutboundTransportGeometry(connection, accessPoint) {
+  const endpointIds = connection.endpointIds;
+  const normalizedEndpointIds = Array.isArray(endpointIds)
+    ? endpointIds.map((value) => typeof value === "string" ? value.trim() : "")
+    : [];
+  if (normalizedEndpointIds.length !== 2
+      || normalizedEndpointIds.some((value) => !value)
+      || new Set(normalizedEndpointIds).size !== normalizedEndpointIds.length) {
+    throw new ItineraryError(
+      "The outbound transport must identify exactly two distinct endpoints",
+      "outbound_transport_endpoints_invalid",
+      { connectionId: connection.id },
+    );
+  }
+  const accessEndpointIndex = normalizedEndpointIds.indexOf(accessPoint.id);
+  if (accessEndpointIndex === -1) {
+    throw new ItineraryError(
+      "The outbound transport endpoints do not include the selected access point",
+      "outbound_transport_access_point_mismatch",
+      { connectionId: connection.id, accessPointId: accessPoint.id },
+    );
+  }
+
+  const endpoints = transportGeometryEndpoints(
+    connection.geometry,
+    WALK_CONNECTOR_TOLERANCE_METERS,
+  );
+  if (!endpoints) {
+    throw new ItineraryError(
+      "The outbound transport lacks valid connected line geometry",
+      "outbound_transport_geometry_invalid",
+      { connectionId: connection.id },
+    );
+  }
+
+  let geometry = connection.geometry;
+  let boardingPoint = endpoints.start;
+  let arrivalPoint = endpoints.end;
+  if (accessEndpointIndex === 0) {
+    if (connection.direction !== "both") {
+      throw new ItineraryError(
+        "Outbound-only transport geometry may not be reversed toward the access point",
+        "outbound_transport_geometry_mismatch",
+        { connectionId: connection.id, accessPointId: accessPoint.id },
+      );
+    }
+    geometry = reverseTransportGeometry(connection.geometry);
+    boardingPoint = endpoints.end;
+    arrivalPoint = endpoints.start;
+  }
+
+  const accessPointDistanceMeters = haversineMeters(
+    arrivalPoint,
+    accessPoint.geometry.coordinates,
+  );
+  if (accessPointDistanceMeters > RETURN_TRANSPORT_ENDPOINT_TOLERANCE_METERS) {
+    throw new ItineraryError(
+      "The outbound transport geometry does not end at the selected access point",
+      "outbound_transport_geometry_mismatch",
+      {
+        connectionId: connection.id,
+        accessPointId: accessPoint.id,
+        accessPointDistanceMeters: Math.round(accessPointDistanceMeters),
+        toleranceMeters: RETURN_TRANSPORT_ENDPOINT_TOLERANCE_METERS,
+      },
+    );
+  }
+
+  return { geometry, boardingPoint, arrivalPoint };
+}
+
+function reverseTransportGeometry(geometry) {
+  if (geometry.type === "LineString") {
+    return {
+      ...geometry,
+      coordinates: geometry.coordinates
+        .toReversed()
+        .map((position) => [...position]),
+    };
+  }
+  return {
+    ...geometry,
+    coordinates: geometry.coordinates
+      .toReversed()
+      .map((line) => line.toReversed().map((position) => [...position])),
+  };
+}
+
+function validateOutboundSchedule(connection, time) {
+  const schedule = connection.schedule;
+  if (!schedule || typeof schedule !== "object" || Array.isArray(schedule)) {
+    throw new ItineraryError(
+      "The outbound transport has no schedule",
+      "outbound_schedule_unavailable",
+      { connectionId: connection.id },
+    );
+  }
+  if (schedule.freshness !== "current") {
+    throw new ItineraryError(
+      "The outbound transport schedule is not verified as current",
+      "outbound_schedule_not_current",
+      {
+        connectionId: connection.id,
+        freshness: schedule.freshness ?? "unknown",
+      },
+    );
+  }
+
+  const local = outboundLocalParts(time, schedule.timezone, connection.id);
+  const travelDate = dateOrdinal(local.year, local.month, local.day);
+  const validFrom = outboundDateOrdinal(
+    schedule.validFrom,
+    "schedule.validFrom",
+    connection.id,
+  );
+  const validUntil = outboundDateOrdinal(
+    schedule.validUntil,
+    "schedule.validUntil",
+    connection.id,
+  );
+  if (validFrom > validUntil) {
+    throw new ItineraryError(
+      "The outbound transport schedule validity interval is invalid",
+      "outbound_schedule_invalid",
+      { connectionId: connection.id },
+    );
+  }
+  if (travelDate < validFrom || travelDate > validUntil) {
+    throw new ItineraryError(
+      "The outbound transport schedule is not valid on the planned travel date",
+      "outbound_schedule_out_of_range",
+      {
+        connectionId: connection.id,
+        travelDate: localDateText(local),
+        validFrom: schedule.validFrom,
+        validUntil: schedule.validUntil,
+        timezone: schedule.timezone,
+      },
+    );
+  }
+
+  if (!Array.isArray(schedule.departuresLocal)
+      || schedule.departuresLocal.length === 0) {
+    throw new ItineraryError(
+      "The outbound transport has no exact usable departure time",
+      "outbound_schedule_unavailable",
+      { connectionId: connection.id },
+    );
+  }
+  const departureMinutes = schedule.departuresLocal.map((value, index) =>
+    outboundClockMinutes(
+      value,
+      connection.id,
+      `schedule.departuresLocal[${index}]`,
+    ));
+  if (new Set(departureMinutes).size !== departureMinutes.length) {
+    throw new ItineraryError(
+      "The outbound transport departure list contains duplicates",
+      "outbound_schedule_invalid",
+      { connectionId: connection.id },
+    );
+  }
+  const lastDeparture = schedule.lastDepartureLocal == null
+    ? null
+    : outboundClockMinutes(
+      schedule.lastDepartureLocal,
+      connection.id,
+      "schedule.lastDepartureLocal",
+    );
+  if (lastDeparture !== null
+      && departureMinutes.some((minutes) => minutes > lastDeparture)) {
+    throw new ItineraryError(
+      "The outbound departure list extends beyond its declared final departure",
+      "outbound_schedule_invalid",
+      { connectionId: connection.id },
+    );
+  }
+
+  return {
+    ...local,
+    departureMinutes: departureMinutes.toSorted((left, right) => left - right),
+    travelDate,
+    timezone: schedule.timezone.trim(),
+  };
+}
+
+function validateOutboundTransportQuality(connection, time, scheduleContext) {
+  const quality = connection.quality;
+  if (quality?.verificationStatus !== "verified") {
+    throw new ItineraryError(
+      "The outbound transport record is not verified",
+      "outbound_transport_unverified",
+      {
+        connectionId: connection.id,
+        verificationStatus: quality?.verificationStatus ?? "unknown",
+      },
+    );
+  }
+  const unsafeFlags = Array.isArray(quality.flags)
+    ? quality.flags.filter((flag) =>
+      /(unsafe|danger|hazard|closed|closure|blocked|prohibited|stale|expired|unknown|unverified|conflict)/i.test(String(flag)))
+    : ["quality_flags_missing"];
+  if (quality.freshness !== "current" || unsafeFlags.length) {
+    throw new ItineraryError(
+      "The outbound transport record is not verified as current",
+      "outbound_transport_quality_not_current",
+      {
+        connectionId: connection.id,
+        freshness: quality.freshness ?? "unknown",
+        flags: unsafeFlags,
+      },
+    );
+  }
+  const assessedAt = outboundDateOrdinal(
+    quality.assessedAt,
+    "quality.assessedAt",
+    connection.id,
+    "outbound_transport_quality_invalid",
+  );
+  if (assessedAt > scheduleContext.travelDate) {
+    throw new ItineraryError(
+      "The outbound transport quality assessment is dated after the journey",
+      "outbound_transport_quality_invalid",
+      {
+        connectionId: connection.id,
+        assessedAt: quality.assessedAt,
+        travelDate: localDateText(scheduleContext),
+        timezone: scheduleContext.timezone,
+      },
+    );
+  }
+
+  const geometryAssertions = (connection.sourceAssertions || []).filter((assertion) =>
+    assertion?.fieldPath === "/geometry"
+    || String(assertion?.fieldPath || "").startsWith("/geometry/"));
+  const currentGeometryAssertion = geometryAssertions.some((assertion) => {
+    if (assertion.verificationStatus !== "verified") return false;
+    const observed = firstPresent(
+      assertion.observedAt,
+      assertion.retrievedAt,
+      assertion.validFrom,
+    );
+    const observedAt = validInstant(observed);
+    const validFrom = assertion.validFrom ? validInstant(assertion.validFrom) : null;
+    const validUntil = assertion.validUntil ? validInstant(assertion.validUntil) : null;
+    return observedAt !== null
+      && observedAt <= time.getTime()
+      && (!assertion.validFrom || (validFrom !== null && validFrom <= time.getTime()))
+      && (!assertion.validUntil || (validUntil !== null && validUntil >= time.getTime()));
+  });
+  if (!currentGeometryAssertion) {
+    throw new ItineraryError(
+      "The outbound transport geometry lacks current verified provenance",
+      "outbound_transport_provenance_unverified",
+      { connectionId: connection.id },
+    );
+  }
+}
+
+function nextOutboundDeparture(connection, time, scheduleContext) {
+  const departureMinutes = new Set(scheduleContext.departureMinutes);
+  const firstCandidate = Math.ceil(time.getTime() / 60_000) * 60_000;
+  const searchLimit = firstCandidate + 27 * 60 * 60_000;
+  for (let timestamp = firstCandidate; timestamp <= searchLimit; timestamp += 60_000) {
+    const candidate = new Date(timestamp);
+    const local = outboundLocalParts(
+      candidate,
+      scheduleContext.timezone,
+      connection.id,
+    );
+    const candidateDate = dateOrdinal(local.year, local.month, local.day);
+    if (candidateDate > scheduleContext.travelDate) break;
+    if (candidateDate === scheduleContext.travelDate
+        && departureMinutes.has(local.hour * 60 + local.minute)) {
+      return candidate;
+    }
+  }
+
+  throw new ItineraryError(
+    `The boarding point is reached after the final ${connection.transportMode} departure`,
+    "missed_outbound_transport",
+    {
+      connectionId: connection.id,
+      plannedArrivalLocal: `${twoDigits(scheduleContext.hour)}:${twoDigits(scheduleContext.minute)}`,
+      timezone: scheduleContext.timezone,
+    },
+  );
+}
+
+function outboundLocalParts(date, timezone, connectionId) {
+  if (typeof timezone !== "string" || !timezone.trim()) {
+    throw new ItineraryError(
+      "The outbound transport schedule has no IANA timezone",
+      "outbound_schedule_timezone_invalid",
+      { connectionId, timezone: timezone ?? null },
+    );
+  }
+  const normalizedTimezone = timezone.trim();
+  let formatter = DESTINATION_TIME_FORMATTERS.get(normalizedTimezone);
+  try {
+    if (!formatter) {
+      formatter = new Intl.DateTimeFormat("en-CA", {
+        timeZone: normalizedTimezone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hourCycle: "h23",
+      });
+      DESTINATION_TIME_FORMATTERS.set(normalizedTimezone, formatter);
+    }
+    const parts = Object.fromEntries(
+      formatter.formatToParts(date)
+        .filter(({ type }) => type !== "literal")
+        .map(({ type, value }) => [type, Number(value)]),
+    );
+    if (![parts.year, parts.month, parts.day, parts.hour, parts.minute]
+      .every(Number.isFinite)) {
+      throw new RangeError("Incomplete timezone conversion");
+    }
+    return parts;
+  } catch {
+    throw new ItineraryError(
+      "The outbound transport schedule timezone is invalid",
+      "outbound_schedule_timezone_invalid",
+      { connectionId, timezone },
+    );
+  }
+}
+
+function outboundDateOrdinal(
+  value,
+  field,
+  connectionId,
+  code = "outbound_schedule_invalid",
+) {
+  if (value == null || value === "") {
+    throw new ItineraryError(
+      `The outbound transport ${field} is required`,
+      code,
+      { connectionId, field },
+    );
+  }
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value));
+  if (!match) {
+    throw new ItineraryError(
+      `The outbound transport ${field} must be an ISO calendar date`,
+      code,
+      { connectionId, field, value },
+    );
+  }
+  const [year, month, day] = match.slice(1).map(Number);
+  const ordinal = dateOrdinal(year, month, day);
+  const normalized = new Date(ordinal * 86_400_000);
+  if (normalized.getUTCFullYear() !== year
+      || normalized.getUTCMonth() + 1 !== month
+      || normalized.getUTCDate() !== day) {
+    throw new ItineraryError(
+      `The outbound transport ${field} is not a real calendar date`,
+      code,
+      { connectionId, field, value },
+    );
+  }
+  return ordinal;
+}
+
+function outboundClockMinutes(value, connectionId, field) {
+  try {
+    return clockMinutes(value);
+  } catch (error) {
+    if (!(error instanceof ItineraryError)) throw error;
+    throw new ItineraryError(
+      `The outbound transport ${field} is invalid`,
+      "outbound_schedule_invalid",
+      { connectionId, field, value },
+    );
+  }
+}
+
+function chooseReturnTransport(connections, time, currentPosition, vehiclePosition) {
+  const candidates = (Array.isArray(connections) ? connections : [])
+    .filter((connection) => connection?.direction !== "outbound");
+  if (!candidates.length) return null;
+
+  const rejections = [];
+  const validCandidates = [];
+  for (const connection of candidates) {
+    try {
+      validCandidates.push(
+        validateReturnTransport(connection, time, currentPosition, vehiclePosition),
+      );
+    } catch (error) {
+      if (!(error instanceof ItineraryError)) throw error;
+      rejections.push({
+        connectionId: connection?.id ?? null,
+        code: error.code,
+        message: error.message,
+        details: error.details,
+      });
+    }
+  }
+  if (validCandidates.length) {
+    return validCandidates.toSorted((left, right) =>
+      left.nextDeparture.getTime() - right.nextDeparture.getTime())[0];
   }
 
   const failure = rejections[0];
@@ -383,10 +1081,18 @@ function validateReturnTransport(connection, time, currentPosition, vehiclePosit
   }
 
   validateReturnEndpointIds(connection);
-  validateReturnTransportGeometry(connection, currentPosition, vehiclePosition);
+  const orientation = validateReturnTransportGeometry(
+    connection,
+    currentPosition,
+    vehiclePosition,
+  );
   const scheduleContext = validateReturnSchedule(connection, time);
   validateReturnTransportQuality(connection, time, scheduleContext);
-  ensureReturnDeparture(connection, scheduleContext);
+  return {
+    connection,
+    ...orientation,
+    nextDeparture: nextReturnDeparture(connection, time, scheduleContext),
+  };
 }
 
 function validateReturnEndpointIds(connection) {
@@ -394,7 +1100,7 @@ function validateReturnEndpointIds(connection) {
   const normalizedEndpointIds = Array.isArray(endpointIds)
     ? endpointIds.map((value) => typeof value === "string" ? value.trim() : "") : [];
   if (!Array.isArray(endpointIds)
-      || endpointIds.length < 2
+      || endpointIds.length !== 2
       || normalizedEndpointIds.some((value) => !value)
       || new Set(normalizedEndpointIds).size !== normalizedEndpointIds.length) {
     throw new ItineraryError(
@@ -415,13 +1121,24 @@ function validateReturnTransportGeometry(connection, currentPosition, vehiclePos
     );
   }
 
-  const orientations = [[endpoints.start, endpoints.end]];
+  const orientations = [{
+    start: endpoints.start,
+    end: endpoints.end,
+    geometry: connection.geometry,
+  }];
   if (connection.direction === "both") {
-    orientations.push([endpoints.end, endpoints.start]);
+    orientations.push({
+      start: endpoints.end,
+      end: endpoints.start,
+      geometry: reverseTransportGeometry(connection.geometry),
+    });
   }
-  const matches = orientations.map(([start, end]) => ({
+  const matches = orientations.map(({ start, end, geometry }) => ({
+    start,
+    end,
     routeFinishDistanceMeters: haversineMeters(currentPosition, start),
     vehicleDistanceMeters: haversineMeters(vehiclePosition, end),
+    geometry,
   }));
   const best = matches.reduce((preferred, candidate) =>
     Math.max(candidate.routeFinishDistanceMeters, candidate.vehicleDistanceMeters)
@@ -440,9 +1157,17 @@ function validateReturnTransportGeometry(connection, currentPosition, vehiclePos
       },
     );
   }
+  return {
+    geometry: best.geometry,
+    boardingPoint: best.start,
+    arrivalPoint: best.end,
+  };
 }
 
-function transportGeometryEndpoints(geometry) {
+function transportGeometryEndpoints(
+  geometry,
+  lineJoinToleranceMeters = RETURN_TRANSPORT_ENDPOINT_TOLERANCE_METERS,
+) {
   const lines = geometry?.type === "LineString"
     ? [geometry.coordinates]
     : geometry?.type === "MultiLineString"
@@ -456,7 +1181,7 @@ function transportGeometryEndpoints(geometry) {
   }
   for (let index = 1; index < lines.length; index += 1) {
     if (haversineMeters(lines[index - 1].at(-1), lines[index][0])
-        > RETURN_TRANSPORT_ENDPOINT_TOLERANCE_METERS) {
+        > lineJoinToleranceMeters) {
       return null;
     }
   }
@@ -493,36 +1218,70 @@ function validateReturnSchedule(connection, time) {
     "schedule.validFrom",
     "return_schedule_invalid",
     connection.id,
+    { required: true },
   );
   const validUntil = optionalDateOrdinal(
     schedule.validUntil,
     "schedule.validUntil",
     "return_schedule_invalid",
     connection.id,
+    { required: true },
   );
-  if (validFrom !== null && validUntil !== null && validFrom > validUntil) {
+  if (validFrom > validUntil) {
     throw new ItineraryError(
       "The return transport schedule validity interval is invalid",
       "return_schedule_invalid",
       { connectionId: connection.id },
     );
   }
-  if ((validFrom !== null && travelDate < validFrom)
-      || (validUntil !== null && travelDate > validUntil)) {
+  if (travelDate < validFrom || travelDate > validUntil) {
     throw new ItineraryError(
       "The return transport schedule is not valid on the planned travel date",
       "return_schedule_out_of_range",
       {
         connectionId: connection.id,
         travelDate: localDateText(local),
-        validFrom: schedule.validFrom ?? null,
-        validUntil: schedule.validUntil ?? null,
+        validFrom: schedule.validFrom,
+        validUntil: schedule.validUntil,
         timezone: schedule.timezone,
       },
     );
   }
+  if (!Array.isArray(schedule.departuresLocal)
+      || schedule.departuresLocal.length === 0) {
+    throw new ItineraryError(
+      "The return transport has no exact usable departure time",
+      "return_schedule_unavailable",
+      { connectionId: connection.id },
+    );
+  }
+  const departureMinutes = schedule.departuresLocal.map((value, index) =>
+    returnClockMinutes(value, connection.id, `schedule.departuresLocal[${index}]`));
+  if (new Set(departureMinutes).size !== departureMinutes.length) {
+    throw new ItineraryError(
+      "The return transport departure list contains duplicates",
+      "return_schedule_invalid",
+      { connectionId: connection.id },
+    );
+  }
+  const lastDeparture = schedule.lastDepartureLocal == null
+    ? null
+    : returnClockMinutes(
+      schedule.lastDepartureLocal,
+      connection.id,
+      "schedule.lastDepartureLocal",
+    );
+  if (lastDeparture !== null
+      && departureMinutes.some((minutes) => minutes > lastDeparture)) {
+    throw new ItineraryError(
+      "The return transport departure list extends beyond its declared final departure",
+      "return_schedule_invalid",
+      { connectionId: connection.id },
+    );
+  }
   return {
     ...local,
+    departureMinutes: departureMinutes.toSorted((left, right) => left - right),
     travelDate,
     timezone: schedule.timezone.trim(),
   };
@@ -540,8 +1299,10 @@ function validateReturnTransportQuality(connection, time, scheduleContext) {
       },
     );
   }
-  const unsafeFlags = (quality.flags || []).filter((flag) =>
-    /(stale|expired|unknown|unverified|conflict)/i.test(String(flag)));
+  const unsafeFlags = Array.isArray(quality.flags)
+    ? quality.flags.filter((flag) =>
+      /(unsafe|danger|hazard|closed|closure|blocked|prohibited|stale|expired|unknown|unverified|conflict)/i.test(String(flag)))
+    : ["quality_flags_missing"];
   if (quality.freshness !== "current" || unsafeFlags.length) {
     throw new ItineraryError(
       "The return transport record is not verified as current",
@@ -596,48 +1357,25 @@ function validateReturnTransportQuality(connection, time, scheduleContext) {
   }
 }
 
-function ensureReturnDeparture(connection, scheduleContext) {
-  const schedule = connection.schedule;
-  const departures = schedule.departuresLocal;
-  if (departures !== undefined && !Array.isArray(departures)) {
-    throw new ItineraryError(
-      "The return transport departure list is invalid",
-      "return_schedule_invalid",
-      { connectionId: connection.id },
-    );
-  }
-  const departureMinutes = (departures || []).map((value, index) =>
-    returnClockMinutes(value, connection.id, `schedule.departuresLocal[${index}]`));
-  const lastDeparture = schedule.lastDepartureLocal == null
-    ? null
-    : returnClockMinutes(
-      schedule.lastDepartureLocal,
+function nextReturnDeparture(connection, time, scheduleContext) {
+  const departureMinutes = new Set(scheduleContext.departureMinutes);
+  const firstCandidate = Math.ceil(time.getTime() / 60_000) * 60_000;
+  const searchLimit = firstCandidate + 27 * 60 * 60_000;
+  for (let timestamp = firstCandidate; timestamp <= searchLimit; timestamp += 60_000) {
+    const candidate = new Date(timestamp);
+    const local = destinationLocalParts(
+      candidate,
+      scheduleContext.timezone,
       connection.id,
-      "schedule.lastDepartureLocal",
     );
-  if (lastDeparture !== null
-      && departureMinutes.some((minutes) => minutes > lastDeparture)) {
-    throw new ItineraryError(
-      "The return transport departure list extends beyond its declared final departure",
-      "return_schedule_invalid",
-      { connectionId: connection.id },
-    );
+    const candidateDate = dateOrdinal(local.year, local.month, local.day);
+    if (candidateDate > scheduleContext.travelDate) break;
+    if (candidateDate === scheduleContext.travelDate
+        && departureMinutes.has(local.hour * 60 + local.minute)) {
+      return candidate;
+    }
   }
-
-  const currentMinutes = scheduleContext.hour * 60 + scheduleContext.minute;
-  if (lastDeparture !== null && currentMinutes > lastDeparture) {
-    throw missedReturnTransport(connection, scheduleContext);
-  }
-  if (!departureMinutes.length) {
-    throw new ItineraryError(
-      "The return transport has no exact usable departure time",
-      "return_schedule_unavailable",
-      { connectionId: connection.id },
-    );
-  }
-  if (!departureMinutes.some((minutes) => minutes >= currentMinutes)) {
-    throw missedReturnTransport(connection, scheduleContext);
-  }
+  throw missedReturnTransport(connection, scheduleContext);
 }
 
 function missedReturnTransport(connection, scheduleContext) {
@@ -664,13 +1402,6 @@ function returnClockMinutes(value, connectionId, field) {
       { connectionId, field, value },
     );
   }
-}
-
-function departureAvailable(connection, time) {
-  const departures = connection.schedule?.departuresLocal || [];
-  if (!departures.length) return true;
-  const minutes = localMinutes(time);
-  return departures.some((value) => clockMinutes(value) >= minutes);
 }
 
 function ensureParkingOpen(accessPoint, time) {
@@ -772,6 +1503,56 @@ function ensureRouteAvailable(experience, time) {
     );
   }
 }
+function ensureRouteQuality(experience, time) {
+  const quality = experience.quality;
+  if (quality?.verificationStatus !== "verified") {
+    throw new ItineraryError(
+      "The route record is not verified",
+      "route_unverified",
+      { verificationStatus: quality?.verificationStatus ?? "unknown" },
+    );
+  }
+  const flags = Array.isArray(quality.flags) ? quality.flags : null;
+  if (!flags) {
+    throw new ItineraryError(
+      "The route quality flags are missing",
+      "route_quality_invalid",
+    );
+  }
+  const unsafeFlags = flags.filter((flag) =>
+    /(unsafe|danger|hazard|closed|closure|blocked|prohibited)/i.test(String(flag)));
+  if (unsafeFlags.length) {
+    throw new ItineraryError(
+      "The route quality record contains an unsafe or blocking flag",
+      "unsafe_condition",
+      { flags: unsafeFlags },
+    );
+  }
+  const nonCurrentFlags = flags.filter((flag) =>
+    String(flag) !== "critical_condition_unknown"
+    && /(stale|expired|unknown|unverified|conflict)/i.test(String(flag)));
+  if (quality.freshness !== "current" || nonCurrentFlags.length) {
+    throw new ItineraryError(
+      "The route record is not verified as current",
+      "route_quality_not_current",
+      {
+        freshness: quality.freshness ?? "unknown",
+        flags: nonCurrentFlags,
+      },
+    );
+  }
+  const assessedAt = validInstant(quality.assessedAt);
+  if (assessedAt === null || assessedAt > time.getTime()) {
+    throw new ItineraryError(
+      assessedAt === null
+        ? "The route quality assessment date is missing or invalid"
+        : "The route quality assessment is dated after the journey",
+      "route_quality_invalid",
+      { assessedAt: quality.assessedAt ?? null },
+    );
+  }
+}
+
 
 function isActiveAt(record, time) {
   if (!record || record.active === false || record.state === "expired") return false;

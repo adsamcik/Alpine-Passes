@@ -1349,6 +1349,11 @@
             "typicalDurationMinutes": 40,
             "schedule": {
               "timezone": "Europe/London",
+              "validFrom": "2026-01-01",
+              "validUntil": "2026-12-31",
+              "departuresLocal": [
+                "00:01"
+              ],
               "lastDepartureLocal": "00:01",
               "freshness": "current"
             },

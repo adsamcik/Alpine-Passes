@@ -11,7 +11,10 @@ import {
   createBrowserRoutingGateway,
   installLegacyRoutingBridge,
 } from "./routing.mjs";
-import { renderHikeDetail } from "./hike-detail.mjs";
+import {
+  buildJourneyOptions,
+  renderHikeDetail,
+} from "./hike-detail.mjs";
 import {
   RouteExportError,
   routeExportFilename,
@@ -52,6 +55,102 @@ export class NatureUiError extends Error {
     this.name = "NatureUiError";
     this.code = code;
   }
+}
+
+export class RegionLoadCoordinator {
+  constructor() {
+    this.requestId = 0;
+    this.controller = null;
+  }
+
+  begin() {
+    const previousController = this.controller;
+    const controller = new AbortController();
+    const request = Object.freeze({
+      requestId: ++this.requestId,
+      controller,
+      signal: controller.signal,
+    });
+    this.controller = controller;
+    previousController?.abort();
+    return request;
+  }
+
+  isCurrent(request) {
+    return Boolean(
+      request
+      && request.requestId === this.requestId
+      && request.controller === this.controller,
+    );
+  }
+
+  invalidate(onInvalidate) {
+    const controller = this.controller;
+    this.requestId += 1;
+    this.controller = null;
+    controller?.abort();
+    onInvalidate?.(this.requestId);
+    return this.requestId;
+  }
+
+  finish(request) {
+    if (!this.isCurrent(request)) return false;
+    this.controller = null;
+    return true;
+  }
+}
+
+export async function runLatestRegionLoad(coordinator, load, handlers = {}) {
+  if (!coordinator
+      || typeof coordinator.begin !== "function"
+      || typeof coordinator.isCurrent !== "function"
+      || typeof coordinator.finish !== "function") {
+    throw new TypeError("A RegionLoadCoordinator-compatible object is required");
+  }
+  if (typeof load !== "function") throw new TypeError("A region load function is required");
+
+  const request = coordinator.begin();
+  try {
+    handlers.onStart?.(request);
+    const value = await load(request);
+    if (!coordinator.isCurrent(request)) return { status: "stale", request, value };
+    handlers.onSuccess?.(value, request);
+    return { status: "applied", request, value };
+  } catch (error) {
+    if (!coordinator.isCurrent(request)) return { status: "stale", request, error };
+    handlers.onError?.(error, request);
+    return { status: "failed", request, error };
+  } finally {
+    if (coordinator.finish(request)) handlers.onFinish?.(request);
+  }
+}
+
+export function validateJourneyPlanSelection(route, selection, options = {}) {
+  if (route?.entityType !== "TrailRoute") {
+    throw new NatureUiError("A TrailRoute is required for journey planning", "invalid_experience");
+  }
+  if (!selection || typeof selection !== "object") {
+    throw new NatureUiError(
+      "Choose how to reach the route and what happens after it",
+      "journey_selection_required",
+    );
+  }
+  const available = buildJourneyOptions(route, options);
+  const accessMode = selection.accessMode;
+  const returnStrategy = selection.returnStrategy;
+  if (!available.accessModes.some((option) => option.value === accessMode)) {
+    throw new NatureUiError(
+      "The selected access mode is not supported by this route's linked data",
+      "unsupported_access_mode",
+    );
+  }
+  if (!available.returnStrategies.some((option) => option.value === returnStrategy)) {
+    throw new NatureUiError(
+      "The selected return strategy is not supported by this route shape",
+      "unsupported_return_strategy",
+    );
+  }
+  return { accessMode, returnStrategy };
 }
 
 /** Build UI choices from the generated manifest, never from a hard-coded URL list. */
@@ -406,7 +505,7 @@ class NatureDiscoveryApp {
     this.map = null;
     this.mapEventsBound = false;
     this.viewportEventsBound = false;
-    this.loadController = null;
+    this.regionLoads = new RegionLoadCoordinator();
     this.viewportController = null;
     this.viewportRequestId = 0;
     this.viewportTimer = 0;
@@ -438,6 +537,7 @@ class NatureDiscoveryApp {
     this.refs.form.addEventListener("submit", (event) => event.preventDefault());
     this.refs.load.addEventListener("click", () => this.loadSelectedRegion());
     this.refs.region.addEventListener("change", () => {
+      this.invalidateRegionLoad();
       this.selection = null;
       this.entities = [];
       this.regionEntitiesById.clear();
@@ -496,30 +596,49 @@ class NatureDiscoveryApp {
     this.refs.load.textContent = this.refs.region.value === "scotland" ? "Explore Scotland" : "Load region";
   }
 
+  invalidateRegionLoad() {
+    this.regionLoads.invalidate(() => {
+      this.refs.load.disabled = false;
+      this.refs.panel.removeAttribute("aria-busy");
+    });
+  }
+
   async loadSelectedRegion() {
     const selection = this.options.find((option) => option.value === this.refs.region.value);
     if (!selection) return this.showError(new NatureUiError("Choose a region", "invalid_region"));
-    this.loadController?.abort();
-    this.loadController = new AbortController();
-    this.refs.load.disabled = true;
-    this.refs.panel.setAttribute("aria-busy", "true");
-    this.setStatus(`Loading ${selection.label}…`, "loading");
-    try {
-      const loaded = await this.session.load(selection, { signal: this.loadController.signal });
-      this.selection = loaded.selection;
-      this.entities = loaded.entities;
-      this.regionEntitiesById = new Map(loaded.packageSet.entities.map((entity) => [entity.id, entity]));
-      this.rebuildEntityLookup();
-      this.setStatus(`${selection.label} loaded. Coverage is evolving and is not a completeness claim.`, "ready");
-      this.renderResults();
-    } catch (error) {
-      if (error?.code !== "aborted" && error?.name !== "AbortError") {
-        this.showError(error, () => this.loadSelectedRegion());
-      }
-    } finally {
-      this.refs.load.disabled = false;
-      this.refs.panel.removeAttribute("aria-busy");
-    }
+    return runLatestRegionLoad(
+      this.regionLoads,
+      ({ signal }) => this.session.load(selection, { signal }),
+      {
+        onStart: () => {
+          this.refs.load.disabled = true;
+          this.refs.panel.setAttribute("aria-busy", "true");
+          this.setStatus(`Loading ${selection.label}…`, "loading");
+        },
+        onSuccess: (loaded) => {
+          this.selection = loaded.selection;
+          this.entities = loaded.entities;
+          this.regionEntitiesById = new Map(
+            loaded.packageSet.entities.map((entity) => [entity.id, entity]),
+          );
+          this.rebuildEntityLookup();
+          this.setStatus(
+            `${selection.label} loaded. Coverage is evolving and is not a completeness claim.`,
+            "ready",
+          );
+          this.renderResults();
+        },
+        onError: (error) => {
+          if (error?.code !== "aborted" && error?.name !== "AbortError") {
+            this.showError(error, () => this.loadSelectedRegion());
+          }
+        },
+        onFinish: () => {
+          this.refs.load.disabled = false;
+          this.refs.panel.removeAttribute("aria-busy");
+        },
+      },
+    );
   }
 
   filters(limit = DISCOVERY_RESULT_BATCH_SIZE) {
@@ -657,7 +776,8 @@ class NatureDiscoveryApp {
       this.refs.detail.append(heading, element("p", "discover-detail-summary", model.summary));
       renderHikeDetail(this.refs.detail, enriched, {
         assessment,
-        onPlan: (route, output) => this.planRoute(route, output),
+        onPlan: (route, output, journeyOptions) =>
+          this.planRoute(route, output, journeyOptions),
         onDownloadGpx: (route) => downloadRouteFile(
           serializeTrailRouteGpx(route),
           "application/gpx+xml",
@@ -696,19 +816,18 @@ class NatureDiscoveryApp {
   }
 
 
-  async planRoute(route, output) {
+  async planRoute(route, output, selectedOptions) {
     output.replaceChildren(element("p", "", "Building explicit journey legs…"));
     try {
+      const { accessMode, returnStrategy } = validateJourneyPlanSelection(route, selectedOptions);
       const origin = mapCenter(this.map)
         || route.accessPoints?.find((point) => validPosition(point.geometry?.coordinates))?.geometry.coordinates;
-      const accessMode = route.accessPoints?.some((point) => (point.accessModes || []).includes("car"))
-        ? "car" : "transit";
       const itinerary = await buildMixedModeItinerary({
         origin,
         experience: route,
         gateway: this.gateway,
         accessMode,
-        returnStrategy: "return_to_vehicle",
+        returnStrategy,
       });
       const heading = element("h3", "", "Journey legs");
       const list = element("ol", "discover-itinerary-legs");

@@ -4,7 +4,9 @@ import test from "node:test";
 
 import {
   buildHikeDetailModel,
+  buildJourneyOptions,
   HIKE_DETAIL_SECTION_TITLES,
+  renderHikeDetail,
 } from "../assets/js/nature/hike-detail.mjs";
 import {
   assessTrailRouteExport,
@@ -14,6 +16,12 @@ import {
   serializeTrailRouteGeoJson,
   serializeTrailRouteGpx,
 } from "../assets/js/nature/route-export.mjs";
+
+const JOURNEY_AS_OF = new Date("2026-07-26T12:00:00Z");
+
+function journeyOptions(route) {
+  return buildJourneyOptions(route, { asOf: JOURNEY_AS_OF });
+}
 
 function trail(overrides = {}) {
   return {
@@ -69,6 +77,276 @@ function trail(overrides = {}) {
     ...overrides,
   };
 }
+
+function accessPoint(overrides = {}) {
+  return {
+    id: "access:test-route",
+    entityType: "AccessPoint",
+    names: [{ language: "en", kind: "primary", value: "Test trailhead" }],
+    jurisdictionIds: ["GB", "GB-SCT"],
+    geometry: { type: "Point", coordinates: [-4.2, 57.1] },
+    legalAccess: "legal",
+    accessModes: ["car", "foot", "transit", "ferry", "cable_transport"],
+    parking: { name: "Verified public parking", stoppingAllowed: true },
+    quality: {
+      verificationStatus: "verified",
+      freshness: "current",
+      assessedAt: "2026-06-12",
+      flags: [],
+    },
+    sensitivity: { action: "publish" },
+    ...overrides,
+  };
+}
+
+function transportConnection(overrides = {}) {
+  return {
+    id: "transport:test-route",
+    entityType: "TransportConnection",
+    names: [{ language: "en", kind: "primary", value: "Test ferry" }],
+    jurisdictionIds: ["GB", "GB-SCT"],
+    transportMode: "ferry",
+    geometry: { type: "LineString", coordinates: [[-4.3, 57.0], [-4.2, 57.1]] },
+    endpointIds: ["access:origin", "access:test-route"],
+    direction: "outbound",
+    operating: true,
+    typicalDurationMinutes: 20,
+    schedule: {
+      departuresLocal: ["09:00", "10:00"],
+      lastDepartureLocal: "10:00",
+      freshness: "current",
+      timezone: "Europe/London",
+      validFrom: "2026-01-01",
+      validUntil: "2026-12-31",
+    },
+    sourceAssertions: [{
+      sourceId: "fixture:transport-source",
+      sourceRecordId: "test-ferry",
+      fieldPath: "/geometry",
+      verificationStatus: "verified",
+      observedAt: "2026-06-12T10:00:00Z",
+    }],
+    quality: {
+      verificationStatus: "verified",
+      freshness: "current",
+      assessedAt: "2026-06-12",
+      flags: [],
+    },
+    sensitivity: { action: "publish" },
+    ...overrides,
+  };
+}
+
+function returnTransportConnection(overrides = {}) {
+  return transportConnection({
+    id: "transport:test-route-return",
+    names: [{ language: "en", kind: "primary", value: "Verified return ferry" }],
+    geometry: { type: "LineString", coordinates: [[-4.0, 57.15], [-4.2, 57.1]] },
+    endpointIds: ["access:route-finish", "access:test-route"],
+    direction: "return",
+    ...overrides,
+  });
+}
+
+class FakeElement {
+  constructor(tagName, ownerDocument) {
+    this.tagName = tagName.toUpperCase();
+    this.ownerDocument = ownerDocument;
+    this.children = [];
+    this.attributes = new Map();
+    this.listeners = new Map();
+    this.textContent = "";
+  }
+
+  append(...children) {
+    this.children.push(...children);
+  }
+
+  setAttribute(name, value) {
+    this.attributes.set(name, String(value));
+  }
+
+  getAttribute(name) {
+    return this.attributes.get(name) ?? null;
+  }
+
+  addEventListener(type, listener) {
+    const handlers = this.listeners.get(type) || [];
+    handlers.push(listener);
+    this.listeners.set(type, handlers);
+  }
+
+  focus() {
+    this.focused = true;
+  }
+}
+
+function fakeDom() {
+  const documentRef = { createElement: (tagName) => new FakeElement(tagName, documentRef) };
+  const container = new FakeElement("div", documentRef);
+  return { container };
+}
+
+function descendants(root) {
+  return [root, ...(root.children || []).flatMap(descendants)];
+}
+
+test("journey options expose only linked car, foot and grouped public transport support", () => {
+  const loop = trail({
+    accessPoints: [accessPoint()],
+    transportConnections: [transportConnection({ transportMode: "cable_car" })],
+  });
+  const options = journeyOptions(loop);
+
+  assert.deepEqual(
+    options.accessModes.map((option) => option.value),
+    ["car", "foot", "transit"],
+  );
+  assert.equal(options.accessModes.at(-1).label, "Transit, ferry, or cable transport");
+  assert.deepEqual(options.returnStrategies.map((option) => option.value), ["return_to_vehicle"]);
+
+  const pointToPoint = journeyOptions(trail({
+    journeyShape: "point_to_point",
+    accessPoints: [accessPoint()],
+    transportConnections: [transportConnection(), returnTransportConnection()],
+  }));
+  assert.deepEqual(
+    pointToPoint.returnStrategies.map((option) => option.value),
+    ["return_to_vehicle", "different_pickup"],
+  );
+
+  const noVerifiedReturn = journeyOptions(trail({
+    journeyShape: "point_to_point",
+    accessPoints: [accessPoint()],
+    transportConnections: [transportConnection()],
+  }));
+  assert.deepEqual(
+    noVerifiedReturn.returnStrategies.map((option) => option.value),
+    ["different_pickup"],
+  );
+
+  const unknownRouteAccess = journeyOptions(trail({
+    access: { legal: "unknown", modes: ["car", "foot"] },
+    accessPoints: [accessPoint()],
+  }));
+  assert.equal(unknownRouteAccess.canPlan, false);
+  assert.match(unknownRouteAccess.unavailableMessage, /legal public route access is not verified/i);
+
+  const noVerifiedParking = journeyOptions(trail({
+    accessPoints: [accessPoint({ parking: { stoppingAllowed: false } })],
+    transportConnections: [transportConnection()],
+  }));
+  assert.deepEqual(
+    noVerifiedParking.accessModes.map((option) => option.value),
+    ["foot", "transit"],
+  );
+
+  const staleTransport = journeyOptions(trail({
+    accessPoints: [accessPoint()],
+    transportConnections: [transportConnection({
+      schedule: {
+        departuresLocal: ["09:00"],
+        freshness: "stale",
+        timezone: "Europe/London",
+      },
+    })],
+  }));
+  assert.deepEqual(
+    staleTransport.accessModes.map((option) => option.value),
+    ["car", "foot"],
+  );
+
+  const unsupported = journeyOptions(trail({
+    accessPoints: [accessPoint({ legalAccess: "private" })],
+    transportConnections: [transportConnection()],
+  }));
+  assert.equal(unsupported.canPlan, false);
+  assert.match(unsupported.unavailableMessage, /no current verified public access point/i);
+
+  const missingWindow = transportConnection();
+  delete missingWindow.schedule.validUntil;
+  const missingWindowOptions = journeyOptions(trail({
+    accessPoints: [accessPoint()],
+    transportConnections: [missingWindow],
+  }));
+  assert.deepEqual(
+    missingWindowOptions.accessModes.map((option) => option.value),
+    ["car", "foot"],
+  );
+
+  const expiredProvenance = transportConnection();
+  expiredProvenance.sourceAssertions[0].validUntil = "2026-07-25T23:59:59Z";
+  const expiredProvenanceOptions = journeyOptions(trail({
+    accessPoints: [accessPoint()],
+    transportConnections: [expiredProvenance],
+  }));
+  assert.deepEqual(
+    expiredProvenanceOptions.accessModes.map((option) => option.value),
+    ["car", "foot"],
+  );
+
+  const unsafePoint = accessPoint();
+  unsafePoint.quality.flags = ["unsafe_access"];
+  const unsafeOptions = journeyOptions(trail({
+    accessPoints: [unsafePoint],
+  }));
+  assert.equal(unsafeOptions.canPlan, false);
+
+  const futureRoute = trail();
+  futureRoute.quality.assessedAt = "2026-07-27";
+  const futureOptions = journeyOptions(futureRoute);
+  assert.equal(futureOptions.canPlan, false);
+});
+
+test("native journey controls forward the selected access and return values", async () => {
+  const { container } = fakeDom();
+  const route = trail({
+    journeyShape: "point_to_point",
+    accessPoints: [accessPoint()],
+    transportConnections: [transportConnection(), returnTransportConnection()],
+  });
+  let received = null;
+  const rendered = renderHikeDetail(container, route, {
+    assessment: { asOf: JOURNEY_AS_OF },
+    onPlan: (selectedRoute, output, selection) => {
+      received = { selectedRoute, output, selection };
+      return { ok: true, itinerary: { legs: [{ mode: "hike" }] } };
+    },
+  });
+
+  const elements = descendants(rendered.root);
+  const fieldsets = elements.filter((element) => element.tagName === "FIELDSET");
+  const inputs = elements.filter((element) => element.tagName === "INPUT");
+  const legends = elements.filter((element) => element.tagName === "LEGEND");
+  const plan = elements.find((element) =>
+    element.tagName === "BUTTON" && element.textContent === "Plan access + route");
+
+  assert.equal(fieldsets.length, 2);
+  assert.deepEqual(
+    legends.map((legend) => legend.textContent),
+    ["Access to the route", "After the route"],
+  );
+  assert.equal(inputs.length, 5);
+  assert.ok(inputs.every((input) => input.type === "radio" && input.required === true));
+  assert.ok(inputs.every((input) => input.getAttribute("aria-describedby")));
+  assert.equal(plan.getAttribute("aria-disabled"), "false");
+  assert.equal(plan.disabled, undefined, "the native button remains keyboard focusable");
+
+  inputs.forEach((input) => { input.checked = false; });
+  const transit = inputs.find((input) => input.value === "transit");
+  transit.checked = true;
+  const pickup = inputs.find((input) => input.value === "different_pickup");
+  pickup.checked = true;
+  await plan.listeners.get("click")[0]();
+
+  assert.equal(received.selectedRoute, route);
+  assert.equal(received.output, rendered.itineraryOutput);
+  assert.deepEqual(received.selection, {
+    accessMode: "transit",
+    returnStrategy: "different_pickup",
+  });
+  assert.equal(rendered.status.textContent, "Route itinerary built.");
+});
 
 test("hike model exposes the required readable sections and only supplied metrics", () => {
   const route = trail({
@@ -267,4 +545,5 @@ test("hike detail implementation keeps unavailable actions focusable and visibly
   assert.match(styles, /\.hike-action\s*\{[^}]*min-height:\s*44px/s);
   assert.match(styles, /@media \(forced-colors: active\)/);
   assert.match(styles, /\.hike-detail\s*\{[^}]*font-size:\s*14px/s);
+  assert.match(styles, /\.hike-journey-options label\s*\{[^}]*min-height:\s*44px/s);
 });

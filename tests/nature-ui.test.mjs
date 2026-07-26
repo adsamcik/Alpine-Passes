@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import {
   NatureUiError,
+  RegionLoadCoordinator,
   attachLinkedEntities,
   buildMapFeatureCollections,
   buildRegionOptions,
@@ -11,9 +12,13 @@ import {
   filterAndRankEntities,
   mapViewportBounds,
   rankMapEntitiesForDisplay,
+  runLatestRegionLoad,
   serializeTrailRouteGeoJson,
   serializeTrailRouteGpx,
+  validateJourneyPlanSelection,
 } from "../assets/js/nature/app.mjs";
+
+const JOURNEY_AS_OF = new Date("2026-07-26T12:00:00Z");
 
 const manifest = {
   packages: [
@@ -22,6 +27,16 @@ const manifest = {
     { regionId: "japan", jurisdictionIds: ["JP"], url: "jp.json" },
   ],
 };
+
+function deferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
 
 function entity(overrides = {}) {
   return {
@@ -181,6 +196,122 @@ test("data session bootstrap is manifest-only until explicit activation", async 
   assert.deepEqual(loaded.entities.map((item) => item.id), [scottish.id]);
 });
 
+test("only the newest explicit-region load may mutate or settle UI state", async () => {
+  const coordinator = new RegionLoadCoordinator();
+  const older = deferred();
+  const newer = deferred();
+  const state = {
+    selection: null,
+    busy: false,
+    buttonDisabled: false,
+    controller: null,
+  };
+  const requests = new Map();
+  const events = [];
+  const launch = (label, pending) => runLatestRegionLoad(
+    coordinator,
+    () => pending.promise,
+    {
+      onStart: (request) => {
+        requests.set(label, request);
+        state.busy = true;
+        state.buttonDisabled = true;
+        state.controller = request.controller;
+        events.push(`${label}:start`);
+      },
+      onSuccess: (value) => {
+        state.selection = value;
+        events.push(`${label}:success`);
+      },
+      onFinish: () => {
+        state.busy = false;
+        state.buttonDisabled = false;
+        state.controller = coordinator.controller;
+        events.push(`${label}:finish`);
+      },
+    },
+  );
+
+  const olderRun = launch("older", older);
+  const newerRun = launch("newer", newer);
+  const olderRequest = requests.get("older");
+  const newerRequest = requests.get("newer");
+  assert.equal(newerRequest.requestId, olderRequest.requestId + 1);
+  assert.equal(olderRequest.signal.aborted, true);
+  assert.equal(coordinator.controller, newerRequest.controller);
+
+  older.resolve("older-region");
+  const olderOutcome = await olderRun;
+  assert.equal(olderOutcome.status, "stale");
+  assert.equal(state.selection, null);
+  assert.equal(state.busy, true, "a stale finally must not clear the current busy state");
+  assert.equal(state.buttonDisabled, true);
+  assert.equal(state.controller, newerRequest.controller);
+  assert.equal(coordinator.controller, newerRequest.controller);
+
+  newer.resolve("newer-region");
+  const newerOutcome = await newerRun;
+  assert.equal(newerOutcome.status, "applied");
+  assert.equal(state.selection, "newer-region");
+  assert.equal(state.busy, false);
+  assert.equal(state.buttonDisabled, false);
+  assert.equal(state.controller, null);
+  assert.equal(coordinator.controller, null);
+  assert.deepEqual(events, ["older:start", "newer:start", "newer:success", "newer:finish"]);
+});
+
+test("region-change invalidation aborts the load and resets state before stale resolution", async () => {
+  const coordinator = new RegionLoadCoordinator();
+  const pending = deferred();
+  const state = { selection: null, busy: false, buttonDisabled: false, controller: null };
+  const events = [];
+  let request;
+  const run = runLatestRegionLoad(
+    coordinator,
+    () => pending.promise,
+    {
+      onStart: (started) => {
+        request = started;
+        state.busy = true;
+        state.buttonDisabled = true;
+        state.controller = started.controller;
+        events.push("start");
+      },
+      onSuccess: (value) => {
+        state.selection = value;
+        events.push("success");
+      },
+      onFinish: () => events.push("finish"),
+    },
+  );
+
+  const invalidatedId = coordinator.invalidate(() => {
+    state.busy = false;
+    state.buttonDisabled = false;
+    state.controller = coordinator.controller;
+    events.push("region-change-reset");
+  });
+  assert.equal(invalidatedId, request.requestId + 1);
+  assert.equal(request.signal.aborted, true);
+  assert.equal(coordinator.controller, null);
+  assert.deepEqual(state, {
+    selection: null,
+    busy: false,
+    buttonDisabled: false,
+    controller: null,
+  });
+
+  pending.resolve("stale-region");
+  const outcome = await run;
+  assert.equal(outcome.status, "stale");
+  assert.equal(state.selection, null);
+  assert.deepEqual(events, ["start", "region-change-reset"]);
+
+  const next = coordinator.begin();
+  assert.equal(next.requestId, invalidatedId + 1);
+  assert.equal(coordinator.finish(next), true);
+});
+
 test("search, activity, time, interest and verified-access filters compose", () => {
   const unknown = entity({
     id: "nature:unknown-waterfall",
@@ -252,6 +383,96 @@ test("linked access points and transport connections remain explicit entities", 
   assert.deepEqual(joined.accessPoints.map((item) => item.id), [access.id]);
   assert.deepEqual(joined.transportConnections.map((item) => item.id), [transport.id]);
   assert.equal(joined.accessPoints[0].legalAccess, "unknown");
+});
+
+test("planner boundary accepts only selected route-supported journey options", async () => {
+  const linked = route({
+    journeyShape: "point_to_point",
+    accessPoints: [{
+      id: "access:test-hike",
+      entityType: "AccessPoint",
+      geometry: { type: "Point", coordinates: [-4.2, 57.1] },
+      legalAccess: "legal",
+      accessModes: ["car", "foot", "ferry"],
+      parking: { stoppingAllowed: true },
+      quality: { verificationStatus: "verified", freshness: "current", assessedAt: "2026-07-20", flags: [] },
+      sensitivity: { action: "publish" },
+    }],
+    transportConnections: [
+      {
+        id: "transport:test-hike-outbound",
+        entityType: "TransportConnection",
+        transportMode: "ferry",
+        geometry: { type: "LineString", coordinates: [[-4.3, 57.0], [-4.2, 57.1]] },
+        endpointIds: ["access:boarding", "access:test-hike"],
+        direction: "outbound",
+        operating: true,
+        typicalDurationMinutes: 15,
+        schedule: {
+          departuresLocal: ["09:00"],
+          validFrom: "2026-01-01", validUntil: "2026-12-31",
+          freshness: "current",
+          timezone: "Europe/London",
+        },
+        quality: { verificationStatus: "verified", freshness: "current", assessedAt: "2026-07-20", flags: [] },
+        sensitivity: { action: "publish" },
+        sourceAssertions: [{
+          fieldPath: "/geometry",
+          verificationStatus: "verified",
+          observedAt: "2026-07-20T10:00:00Z",
+        }],
+      },
+      {
+        id: "transport:test-hike-return",
+        entityType: "TransportConnection",
+        transportMode: "ferry",
+        geometry: { type: "LineString", coordinates: [[-4.0, 57.15], [-4.2, 57.1]] },
+        endpointIds: ["access:finish", "access:test-hike"],
+        direction: "return",
+        operating: true,
+        typicalDurationMinutes: 15,
+        schedule: {
+          departuresLocal: ["17:00"],
+          freshness: "current",
+          timezone: "Europe/London",
+          validFrom: "2026-01-01", validUntil: "2026-12-31",
+        },
+        quality: { verificationStatus: "verified", freshness: "current", assessedAt: "2026-07-20", flags: [] },
+        sensitivity: { action: "publish" },
+        sourceAssertions: [{
+          fieldPath: "/geometry",
+          verificationStatus: "verified",
+          observedAt: "2026-07-20T10:00:00Z",
+        }],
+      },
+    ],
+  });
+
+  assert.deepEqual(
+    validateJourneyPlanSelection(linked, { accessMode: "car", returnStrategy: "return_to_vehicle" }, { asOf: JOURNEY_AS_OF }),
+    { accessMode: "car", returnStrategy: "return_to_vehicle" },
+  );
+  assert.deepEqual(
+    validateJourneyPlanSelection(linked, { accessMode: "transit", returnStrategy: "different_pickup" }, { asOf: JOURNEY_AS_OF }),
+    { accessMode: "transit", returnStrategy: "different_pickup" },
+  );
+  assert.throws(
+    () => validateJourneyPlanSelection(linked, null),
+    (error) => error instanceof NatureUiError && error.code === "journey_selection_required",
+  );
+  assert.throws(
+    () => validateJourneyPlanSelection({ ...linked, journeyShape: "loop" }, { accessMode: "car", returnStrategy: "different_pickup" }, { asOf: JOURNEY_AS_OF }),
+    (error) => error instanceof NatureUiError && error.code === "unsupported_return_strategy",
+  );
+
+  const source = await readFile(new URL("../assets/js/nature/app.mjs", import.meta.url), "utf8");
+  const start = source.indexOf("async planRoute(route, output, selectedOptions)");
+  const end = source.indexOf("connectMap()", start);
+  const plannerBody = source.slice(start, end);
+  assert.match(source, /onPlan: \(route, output, journeyOptions\) =>/);
+  assert.match(plannerBody, /validateJourneyPlanSelection\(route, selectedOptions\)/);
+  assert.doesNotMatch(plannerBody, /returnStrategy:\s*"return_to_vehicle"/);
+  assert.doesNotMatch(plannerBody, /\?\s*"car"\s*:\s*"transit"/);
 });
 
 test("map collections render routes as lines and access/places as semantic points with caps", () => {

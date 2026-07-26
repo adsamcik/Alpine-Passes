@@ -620,13 +620,17 @@
             "endpointIds": {
               "type": "array",
               "items": { "type": "string" },
-              "minItems": 2
+              "minItems": 2,
+              "maxItems": 2,
+              "uniqueItems": true
             },
             "direction": { "enum": ["outbound", "return", "both"] },
+            "operating": { "type": "boolean" },
             "typicalDurationMinutes": { "type": "number", "minimum": 0 },
             "schedule": {
               "type": "object",
               "properties": {
+                "timezone": { "type": "string", "minLength": 1, "pattern": "\\S" },
                 "departuresLocal": {
                   "type": "array",
                   "items": { "type": "string" }

@@ -514,6 +514,8 @@
             "typicalDurationMinutes": 42,
             "schedule": {
               "timezone": "Europe/London",
+              "validFrom": "2026-01-01",
+              "validUntil": "2026-12-31",
               "departuresLocal": [
                 "17:30",
                 "20:30",
@@ -535,6 +537,7 @@
           "drive",
           "park_or_transfer",
           "hike",
+          "wait_for_transport",
           "bus",
           "drive"
         ],
@@ -922,6 +925,8 @@
             "typicalDurationMinutes": 35,
             "schedule": {
               "timezone": "Europe/London",
+              "validFrom": "2026-01-01",
+              "validUntil": "2026-12-31",
               "departuresLocal": [
                 "18:00",
                 "21:00",
@@ -943,6 +948,7 @@
           "drive",
           "park_or_transfer",
           "hike",
+          "wait_for_transport",
           "ferry",
           "drive"
         ],

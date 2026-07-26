@@ -115,6 +115,63 @@
   font-size: 12.5px;
 }
 
+.hike-journey-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.hike-journey-options fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid rgba(143, 169, 181, .24);
+  border-radius: 10px;
+}
+
+.hike-journey-options legend {
+  padding: 0 5px;
+  color: var(--fg);
+  font-size: 13px;
+  font-weight: 760;
+}
+
+.hike-journey-options fieldset > p {
+  margin: 0 0 8px;
+  color: var(--fg-dim);
+  font-size: 11.5px;
+}
+
+.hike-journey-options ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hike-journey-options label {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 2px 7px;
+  align-items: start;
+  min-height: 44px;
+  padding: 6px 4px;
+  cursor: pointer;
+}
+
+.hike-journey-options input[type="radio"] {
+  width: 18px;
+  height: 18px;
+  margin: 1px 0 0;
+  accent-color: var(--accent);
+}
+
+.hike-journey-options label > span {
+  grid-column: 2;
+}
+
 .hike-action-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -166,6 +223,7 @@
 @media (max-width: 520px) {
   .hike-fact-grid,
   .hike-at-a-glance .hike-fact-grid,
+  .hike-journey-options,
   .hike-action-row {
     grid-template-columns: 1fr;
   }
@@ -177,6 +235,7 @@
 
 @media (forced-colors: active) {
   .hike-detail > section,
+  .hike-journey-options fieldset,
   .hike-item-group li,
   .hike-sources li,
   .hike-unknowns,

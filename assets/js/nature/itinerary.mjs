@@ -6,6 +6,10 @@ import {
 } from "./domain.mjs";
 import { RoutingError } from "./routing.mjs";
 
+export const RETURN_TRANSPORT_ENDPOINT_TOLERANCE_METERS = 250;
+
+const DESTINATION_TIME_FORMATTERS = new Map();
+
 export class ItineraryError extends Error {
   constructor(message, code = "itinerary_error", details = {}) {
     super(message);
@@ -126,14 +130,18 @@ export async function buildMixedModeItinerary(options) {
   if (returnStrategy === "return_to_vehicle") {
     if (experience.journeyShape === "point_to_point"
         && haversineMeters(routeEnd, accessPoint.geometry.coordinates) > 250) {
-      const returnConnection = chooseReturnTransport(experience.transportConnections || [], cursorTime);
+      const returnConnection = chooseReturnTransport(
+        experience.transportConnections || [],
+        cursorTime,
+        cursor,
+        accessPoint.geometry.coordinates,
+      );
       if (!returnConnection) {
         throw new ItineraryError(
           "This point-to-point route has no verified return transport or pickup",
           "stranded_at_route_end",
         );
       }
-      ensureLastDeparture(returnConnection, cursorTime);
       legs.push(makeScheduledLeg(returnConnection, cursorTime, returnConnection.typicalDurationMinutes));
       cursorTime = addMinutes(cursorTime, returnConnection.typicalDurationMinutes);
       cursor = accessPoint.geometry.coordinates;
@@ -305,10 +313,357 @@ function chooseOutboundTransport(connections, time) {
     && departureAvailable(connection, time));
 }
 
-function chooseReturnTransport(connections, time) {
-  return connections.find((connection) => connection.direction !== "outbound"
-    && connection.operating !== false
-    && departureAvailable(connection, time));
+function chooseReturnTransport(connections, time, currentPosition, vehiclePosition) {
+  const candidates = (Array.isArray(connections) ? connections : [])
+    .filter((connection) => connection?.direction !== "outbound");
+  if (!candidates.length) return null;
+
+  const rejections = [];
+  for (const connection of candidates) {
+    try {
+      validateReturnTransport(connection, time, currentPosition, vehiclePosition);
+      return connection;
+    } catch (error) {
+      if (!(error instanceof ItineraryError)) throw error;
+      rejections.push({
+        connectionId: connection?.id ?? null,
+        code: error.code,
+        message: error.message,
+        details: error.details,
+      });
+    }
+  }
+
+  const failure = rejections[0];
+  throw new ItineraryError(failure.message, failure.code, {
+    ...failure.details,
+    rejectedConnections: rejections,
+  });
+}
+
+function validateReturnTransport(connection, time, currentPosition, vehiclePosition) {
+  if (!connection || connection.entityType !== "TransportConnection") {
+    throw new ItineraryError(
+      "The linked return transport record is invalid",
+      "return_transport_invalid",
+    );
+  }
+  if (!["return", "both"].includes(connection.direction)) {
+    throw new ItineraryError(
+      "The linked transport is not explicitly valid for the return direction",
+      "return_transport_direction_invalid",
+      { connectionId: connection.id, direction: connection.direction ?? null },
+    );
+  }
+  if (connection.operating !== true) {
+    throw new ItineraryError(
+      connection.operating === false
+        ? "The linked return transport is not operating"
+        : "The operating status of the linked return transport is unknown",
+      connection.operating === false
+        ? "return_transport_not_operating"
+        : "return_transport_operating_unknown",
+      { connectionId: connection.id },
+    );
+  }
+  if (connection.sensitivity?.action !== "publish") {
+    throw new ItineraryError(
+      "The return transport geometry is not approved for precise planning",
+      "return_transport_location_unavailable",
+      { connectionId: connection.id },
+    );
+  }
+  if (!Number.isFinite(connection.typicalDurationMinutes)
+      || connection.typicalDurationMinutes <= 0) {
+    throw new ItineraryError(
+      "The return transport duration is missing or invalid",
+      "return_transport_duration_invalid",
+      { connectionId: connection.id },
+    );
+  }
+
+  validateReturnEndpointIds(connection);
+  validateReturnTransportGeometry(connection, currentPosition, vehiclePosition);
+  const scheduleContext = validateReturnSchedule(connection, time);
+  validateReturnTransportQuality(connection, time, scheduleContext);
+  ensureReturnDeparture(connection, scheduleContext);
+}
+
+function validateReturnEndpointIds(connection) {
+  const endpointIds = connection.endpointIds;
+  const normalizedEndpointIds = Array.isArray(endpointIds)
+    ? endpointIds.map((value) => typeof value === "string" ? value.trim() : "") : [];
+  if (!Array.isArray(endpointIds)
+      || endpointIds.length < 2
+      || normalizedEndpointIds.some((value) => !value)
+      || new Set(normalizedEndpointIds).size !== normalizedEndpointIds.length) {
+    throw new ItineraryError(
+      "The return transport does not identify two distinct endpoints",
+      "return_transport_endpoints_invalid",
+      { connectionId: connection.id },
+    );
+  }
+}
+
+function validateReturnTransportGeometry(connection, currentPosition, vehiclePosition) {
+  const endpoints = transportGeometryEndpoints(connection.geometry);
+  if (!endpoints || !validPosition(currentPosition) || !validPosition(vehiclePosition)) {
+    throw new ItineraryError(
+      "The return transport lacks valid endpoint geometry",
+      "return_transport_geometry_invalid",
+      { connectionId: connection.id },
+    );
+  }
+
+  const orientations = [[endpoints.start, endpoints.end]];
+  if (connection.direction === "both") {
+    orientations.push([endpoints.end, endpoints.start]);
+  }
+  const matches = orientations.map(([start, end]) => ({
+    routeFinishDistanceMeters: haversineMeters(currentPosition, start),
+    vehicleDistanceMeters: haversineMeters(vehiclePosition, end),
+  }));
+  const best = matches.reduce((preferred, candidate) =>
+    Math.max(candidate.routeFinishDistanceMeters, candidate.vehicleDistanceMeters)
+      < Math.max(preferred.routeFinishDistanceMeters, preferred.vehicleDistanceMeters)
+      ? candidate : preferred);
+  if (best.routeFinishDistanceMeters > RETURN_TRANSPORT_ENDPOINT_TOLERANCE_METERS
+      || best.vehicleDistanceMeters > RETURN_TRANSPORT_ENDPOINT_TOLERANCE_METERS) {
+    throw new ItineraryError(
+      "The return transport does not connect the route finish to the parked vehicle or pickup point",
+      "return_transport_geometry_mismatch",
+      {
+        connectionId: connection.id,
+        routeFinishDistanceMeters: Math.round(best.routeFinishDistanceMeters),
+        vehicleDistanceMeters: Math.round(best.vehicleDistanceMeters),
+        toleranceMeters: RETURN_TRANSPORT_ENDPOINT_TOLERANCE_METERS,
+      },
+    );
+  }
+}
+
+function transportGeometryEndpoints(geometry) {
+  const lines = geometry?.type === "LineString"
+    ? [geometry.coordinates]
+    : geometry?.type === "MultiLineString"
+      ? geometry.coordinates
+      : [];
+  if (!Array.isArray(lines) || !lines.length
+      || lines.some((line) => !Array.isArray(line)
+        || line.length < 2
+        || line.some((position) => !validPosition(position)))) {
+    return null;
+  }
+  for (let index = 1; index < lines.length; index += 1) {
+    if (haversineMeters(lines[index - 1].at(-1), lines[index][0])
+        > RETURN_TRANSPORT_ENDPOINT_TOLERANCE_METERS) {
+      return null;
+    }
+  }
+  return {
+    start: lines[0][0],
+    end: lines.at(-1).at(-1),
+  };
+}
+
+function validateReturnSchedule(connection, time) {
+  const schedule = connection.schedule;
+  if (!schedule || typeof schedule !== "object" || Array.isArray(schedule)) {
+    throw new ItineraryError(
+      "The return transport has no schedule",
+      "return_schedule_unavailable",
+      { connectionId: connection.id },
+    );
+  }
+  if (schedule.freshness !== "current") {
+    throw new ItineraryError(
+      "The return transport schedule is not verified as current",
+      "return_schedule_not_current",
+      {
+        connectionId: connection.id,
+        freshness: schedule.freshness ?? "unknown",
+      },
+    );
+  }
+
+  const local = destinationLocalParts(time, schedule.timezone, connection.id);
+  const travelDate = dateOrdinal(local.year, local.month, local.day);
+  const validFrom = optionalDateOrdinal(
+    schedule.validFrom,
+    "schedule.validFrom",
+    "return_schedule_invalid",
+    connection.id,
+  );
+  const validUntil = optionalDateOrdinal(
+    schedule.validUntil,
+    "schedule.validUntil",
+    "return_schedule_invalid",
+    connection.id,
+  );
+  if (validFrom !== null && validUntil !== null && validFrom > validUntil) {
+    throw new ItineraryError(
+      "The return transport schedule validity interval is invalid",
+      "return_schedule_invalid",
+      { connectionId: connection.id },
+    );
+  }
+  if ((validFrom !== null && travelDate < validFrom)
+      || (validUntil !== null && travelDate > validUntil)) {
+    throw new ItineraryError(
+      "The return transport schedule is not valid on the planned travel date",
+      "return_schedule_out_of_range",
+      {
+        connectionId: connection.id,
+        travelDate: localDateText(local),
+        validFrom: schedule.validFrom ?? null,
+        validUntil: schedule.validUntil ?? null,
+        timezone: schedule.timezone,
+      },
+    );
+  }
+  return {
+    ...local,
+    travelDate,
+    timezone: schedule.timezone.trim(),
+  };
+}
+
+function validateReturnTransportQuality(connection, time, scheduleContext) {
+  const quality = connection.quality;
+  if (quality?.verificationStatus !== "verified") {
+    throw new ItineraryError(
+      "The return transport record is not verified",
+      "return_transport_unverified",
+      {
+        connectionId: connection.id,
+        verificationStatus: quality?.verificationStatus ?? "unknown",
+      },
+    );
+  }
+  const unsafeFlags = (quality.flags || []).filter((flag) =>
+    /(stale|expired|unknown|unverified|conflict)/i.test(String(flag)));
+  if (quality.freshness !== "current" || unsafeFlags.length) {
+    throw new ItineraryError(
+      "The return transport record is not verified as current",
+      "return_transport_quality_not_current",
+      {
+        connectionId: connection.id,
+        freshness: quality.freshness ?? "unknown",
+        flags: unsafeFlags,
+      },
+    );
+  }
+  const assessedAt = optionalDateOrdinal(
+    quality.assessedAt,
+    "quality.assessedAt",
+    "return_transport_quality_invalid",
+    connection.id,
+    { required: true },
+  );
+  if (assessedAt > scheduleContext.travelDate) {
+    throw new ItineraryError(
+      "The return transport quality assessment is dated after the planned journey",
+      "return_transport_quality_invalid",
+      {
+        connectionId: connection.id,
+        assessedAt: quality.assessedAt,
+        travelDate: localDateText(scheduleContext),
+        timezone: scheduleContext.timezone,
+      },
+    );
+  }
+
+  const geometryAssertions = (connection.sourceAssertions || []).filter((assertion) =>
+    assertion?.fieldPath === "/geometry"
+    || String(assertion?.fieldPath || "").startsWith("/geometry/"));
+  const currentGeometryAssertion = geometryAssertions.some((assertion) => {
+    if (assertion.verificationStatus !== "verified") return false;
+    const observed = firstPresent(assertion.observedAt, assertion.retrievedAt, assertion.validFrom);
+    const observedAt = validInstant(observed);
+    const validFrom = assertion.validFrom ? validInstant(assertion.validFrom) : null;
+    const validUntil = assertion.validUntil ? validInstant(assertion.validUntil) : null;
+    return observedAt !== null
+      && observedAt <= time.getTime()
+      && (!assertion.validFrom || (validFrom !== null && validFrom <= time.getTime()))
+      && (!assertion.validUntil || (validUntil !== null && validUntil >= time.getTime()));
+  });
+  if (!currentGeometryAssertion) {
+    throw new ItineraryError(
+      "The return transport geometry lacks current verified provenance",
+      "return_transport_provenance_unverified",
+      { connectionId: connection.id },
+    );
+  }
+}
+
+function ensureReturnDeparture(connection, scheduleContext) {
+  const schedule = connection.schedule;
+  const departures = schedule.departuresLocal;
+  if (departures !== undefined && !Array.isArray(departures)) {
+    throw new ItineraryError(
+      "The return transport departure list is invalid",
+      "return_schedule_invalid",
+      { connectionId: connection.id },
+    );
+  }
+  const departureMinutes = (departures || []).map((value, index) =>
+    returnClockMinutes(value, connection.id, `schedule.departuresLocal[${index}]`));
+  const lastDeparture = schedule.lastDepartureLocal == null
+    ? null
+    : returnClockMinutes(
+      schedule.lastDepartureLocal,
+      connection.id,
+      "schedule.lastDepartureLocal",
+    );
+  if (lastDeparture !== null
+      && departureMinutes.some((minutes) => minutes > lastDeparture)) {
+    throw new ItineraryError(
+      "The return transport departure list extends beyond its declared final departure",
+      "return_schedule_invalid",
+      { connectionId: connection.id },
+    );
+  }
+
+  const currentMinutes = scheduleContext.hour * 60 + scheduleContext.minute;
+  if (lastDeparture !== null && currentMinutes > lastDeparture) {
+    throw missedReturnTransport(connection, scheduleContext);
+  }
+  if (!departureMinutes.length) {
+    throw new ItineraryError(
+      "The return transport has no exact usable departure time",
+      "return_schedule_unavailable",
+      { connectionId: connection.id },
+    );
+  }
+  if (!departureMinutes.some((minutes) => minutes >= currentMinutes)) {
+    throw missedReturnTransport(connection, scheduleContext);
+  }
+}
+
+function missedReturnTransport(connection, scheduleContext) {
+  return new ItineraryError(
+    `The route finishes after the final ${connection.transportMode} departure`,
+    "missed_last_transport",
+    {
+      connectionId: connection.id,
+      lastDepartureLocal: connection.schedule.lastDepartureLocal ?? null,
+      plannedArrivalLocal: `${twoDigits(scheduleContext.hour)}:${twoDigits(scheduleContext.minute)}`,
+      timezone: scheduleContext.timezone,
+    },
+  );
+}
+
+function returnClockMinutes(value, connectionId, field) {
+  try {
+    return clockMinutes(value);
+  } catch (error) {
+    if (!(error instanceof ItineraryError)) throw error;
+    throw new ItineraryError(
+      `The return transport ${field} is invalid`,
+      "return_schedule_invalid",
+      { connectionId, field, value },
+    );
+  }
 }
 
 function departureAvailable(connection, time) {
@@ -316,18 +671,6 @@ function departureAvailable(connection, time) {
   if (!departures.length) return true;
   const minutes = localMinutes(time);
   return departures.some((value) => clockMinutes(value) >= minutes);
-}
-
-function ensureLastDeparture(connection, time) {
-  const last = connection.schedule?.lastDepartureLocal;
-  if (!last) return;
-  if (localMinutes(time) > clockMinutes(last)) {
-    throw new ItineraryError(
-      `The route finishes after the final ${connection.transportMode} departure`,
-      "missed_last_transport",
-      { lastDepartureLocal: last },
-    );
-  }
 }
 
 function ensureParkingOpen(accessPoint, time) {
@@ -506,7 +849,108 @@ function localMinutes(date) {
 }
 
 function clockMinutes(value) {
-  const match = /^(\d{1,2}):(\d{2})$/.exec(String(value));
+  const match = /^(\d{1,2}):(\d{2})$/.exec(String(value).trim());
   if (!match) throw new ItineraryError(`Invalid local clock value: ${value}`, "invalid_schedule");
-  return Number(match[1]) * 60 + Number(match[2]);
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour > 23 || minute > 59) {
+    throw new ItineraryError(`Invalid local clock value: ${value}`, "invalid_schedule");
+  }
+  return hour * 60 + minute;
+}
+
+function destinationLocalParts(date, timezone, connectionId) {
+  if (typeof timezone !== "string" || !timezone.trim()) {
+    throw new ItineraryError(
+      "The return transport schedule has no destination timezone",
+      "return_schedule_timezone_invalid",
+      { connectionId, timezone: timezone ?? null },
+    );
+  }
+  const normalizedTimezone = timezone.trim();
+  let formatter = DESTINATION_TIME_FORMATTERS.get(normalizedTimezone);
+  try {
+    if (!formatter) {
+      formatter = new Intl.DateTimeFormat("en-CA", {
+        timeZone: normalizedTimezone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hourCycle: "h23",
+      });
+      DESTINATION_TIME_FORMATTERS.set(normalizedTimezone, formatter);
+    }
+    const parts = Object.fromEntries(
+      formatter.formatToParts(date)
+        .filter(({ type }) => type !== "literal")
+        .map(({ type, value }) => [type, Number(value)]),
+    );
+    if (![parts.year, parts.month, parts.day, parts.hour, parts.minute]
+      .every(Number.isFinite)) {
+      throw new RangeError("Incomplete timezone conversion");
+    }
+    return parts;
+  } catch {
+    throw new ItineraryError(
+      "The return transport schedule timezone is invalid",
+      "return_schedule_timezone_invalid",
+      { connectionId, timezone },
+    );
+  }
+}
+
+function optionalDateOrdinal(value, field, code, connectionId, options = {}) {
+  if (value == null || value === "") {
+    if (!options.required) return null;
+    throw new ItineraryError(
+      `The return transport ${field} is required`,
+      code,
+      { connectionId, field },
+    );
+  }
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value));
+  if (!match) {
+    throw new ItineraryError(
+      `The return transport ${field} must be an ISO calendar date`,
+      code,
+      { connectionId, field, value },
+    );
+  }
+  const [year, month, day] = match.slice(1).map(Number);
+  const ordinal = dateOrdinal(year, month, day);
+  const normalized = new Date(ordinal * 86_400_000);
+  if (normalized.getUTCFullYear() !== year
+      || normalized.getUTCMonth() + 1 !== month
+      || normalized.getUTCDate() !== day) {
+    throw new ItineraryError(
+      `The return transport ${field} is not a real calendar date`,
+      code,
+      { connectionId, field, value },
+    );
+  }
+  return ordinal;
+}
+
+function dateOrdinal(year, month, day) {
+  return Math.floor(Date.UTC(year, month - 1, day) / 86_400_000);
+}
+
+function localDateText(parts) {
+  return `${parts.year}-${twoDigits(parts.month)}-${twoDigits(parts.day)}`;
+}
+
+function twoDigits(value) {
+  return String(value).padStart(2, "0");
+}
+
+function validInstant(value) {
+  if (!value) return null;
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function firstPresent(...values) {
+  return values.find((value) => value !== undefined && value !== null && value !== "");
 }

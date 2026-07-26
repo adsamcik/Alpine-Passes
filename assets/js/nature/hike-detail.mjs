@@ -16,18 +16,35 @@ export const HIKE_DETAIL_SECTION_TITLES = Object.freeze([
   "Data confidence",
 ]);
 
+const HOUR_MILLISECONDS = 60 * 60 * 1_000;
+export const DEFAULT_SAFETY_FRESHNESS_POLICY = Object.freeze({
+  maxAgeMilliseconds: 72 * HOUR_MILLISECONDS,
+  maxFutureSkewMilliseconds: 5 * 60 * 1_000,
+});
+
 export function buildHikeDetailModel(route, assessment = {}) {
   if (route?.entityType !== "TrailRoute") {
     throw new TypeError("A TrailRoute is required");
   }
+  const isScenicDrive = route.routeNature === "scenic_drive"
+    || (route.activities || []).includes("scenic_driving");
+  const asOf = assessment.asOf ?? assessment.now ?? new Date();
+  const safetyFreshnessPolicy = assessment.safetyFreshnessPolicy;
+  const exportAssessmentOptions = {
+    asOf,
+    gpxPolicy: assessment.gpxExportPolicy,
+  };
   const metrics = route.metrics || {};
   const reportedDistance = positiveNumber(metrics.distanceMeters);
   const geometryDistance = lineDistanceMeters(route.geometry);
+  const geometryDistanceContext = geometryDistanceLabel(route);
   const distance = reportedDistance
     ? fact("Reported distance", formatDistance(reportedDistance))
     : Number.isFinite(geometryDistance) && geometryDistance > 0
-      ? fact("Geometry length", `${formatDistance(geometryDistance)} · overview geometry only`)
+      ? fact("Geometry length", `${formatDistance(geometryDistance)} · ${geometryDistanceContext}`)
       : fact("Distance", "Unknown");
+  const ascent = nonNegativeNumber(metrics.ascentMeters);
+  const descent = nonNegativeNumber(metrics.descentMeters);
   const difficulty = difficultyLabel(route.difficulty);
   const segments = route.trailSegments || route.segments || [];
   const surfaces = uniqueValues(segments.map((segment) => segment.surface));
@@ -35,31 +52,21 @@ export function buildHikeDetailModel(route, assessment = {}) {
   const visibility = uniqueValues(segments.map((segment) => segment.visibility));
   const accessPoints = (route.accessPoints || []).map(accessPointModel);
   const transportConnections = (route.transportConnections || []).map(transportModel);
-  const hazards = (route.hazards || []).map((hazard) => ({
-    title: displayName(hazard),
-    detail: joinKnown([
+  const hazards = (route.hazards || []).map((hazard) => safetyRecordModel(hazard, [
       humanize(hazard.hazardKind),
       hazard.severity ? `${humanize(hazard.severity)} severity` : "Severity unknown",
       hazard.summary,
-    ]),
-  }));
-  const conditions = (route.conditions || []).map((condition) => ({
-    title: displayName(condition),
-    detail: joinKnown([
+    ], asOf, safetyFreshnessPolicy));
+  const conditions = (route.conditions || []).map((condition) => safetyRecordModel(condition, [
       humanize(condition.conditionKind),
       condition.state ? `State: ${humanize(condition.state)}` : "State unknown",
-      dateRange(condition.effectiveFrom, condition.effectiveUntil),
       condition.checkedAt ? `Checked ${formatDate(condition.checkedAt)}` : "Check time unknown",
       condition.summary,
-    ]),
-  }));
-  const restrictions = (route.restrictions || []).map((restriction) => ({
-    title: displayName(restriction),
-    detail: joinKnown([
+    ], asOf, safetyFreshnessPolicy));
+  const restrictions = (route.restrictions || []).map((restriction) => safetyRecordModel(restriction, [
       humanize(restriction.restrictionKind),
       restriction.summary,
-    ]),
-  }));
+    ], asOf, safetyFreshnessPolicy));
   const permitRequirements = (route.permitRequirements || []).map((permit) => {
     const sourceIds = uniqueValues((permit.sourceAssertions || [])
       .map((assertion) => assertion.sourceId));
@@ -99,47 +106,94 @@ export function buildHikeDetailModel(route, assessment = {}) {
   }));
   const unknowns = new Set(assessment.uncertainties || []);
   for (const flag of route.quality?.flags || []) unknowns.add(humanize(flag));
-  if (!reportedDistance) unknowns.add("No reported route distance; displayed length is calculated from overview geometry.");
-  if (!positiveNumber(metrics.ascentMeters)) unknowns.add("Ascent unknown.");
-  if (!positiveNumber(metrics.descentMeters)) unknowns.add("Descent unknown.");
-  if (!positiveNumber(metrics.typicalDurationMinutes)) unknowns.add("Typical duration unknown.");
-  if (!route.difficulty) unknowns.add("Difficulty not supplied.");
-  if (!segments.length) unknowns.add("Terrain, surface, trail class, and visibility not supplied.");
-  if (!(route.seasons || []).length) unknowns.add("Seasonal suitability unknown.");
-  if (!hazards.length) unknowns.add("Hazards not supplied; absence of a hazard record does not mean no hazard exists.");
-  if (!conditions.length) unknowns.add("Current trail conditions unknown.");
-  if (!restrictions.length && !permitRequirements.length) {
-    unknowns.add("Restrictions and permit requirements are not supplied.");
+  if (!reportedDistance && Number.isFinite(geometryDistance) && geometryDistance > 0) {
+    unknowns.add(`No reported route distance; displayed length is calculated from ${geometryDistanceContext}.`);
   }
-  if (route.access?.legal === "unknown") unknowns.add("Legal public access is not verified.");
+  if (!isScenicDrive && ascent == null) unknowns.add("Ascent unknown.");
+  if (!isScenicDrive && descent == null) unknowns.add("Descent unknown.");
+  if (!positiveNumber(metrics.typicalDurationMinutes)) unknowns.add("Typical duration unknown.");
+  if (!isScenicDrive && !route.difficulty) unknowns.add("Difficulty not supplied.");
+  if (!segments.length) {
+    unknowns.add(isScenicDrive
+      ? "Road surface and drive-character details are not supplied."
+      : "Terrain, surface, trail class, and visibility not supplied.");
+  }
+  if (!(route.seasons || []).length) unknowns.add("Seasonal suitability unknown.");
+  if (!hazards.length) {
+    unknowns.add(isScenicDrive
+      ? "Road hazards are not supplied; absence of a hazard record does not mean no hazard exists."
+      : "Hazards not supplied; absence of a hazard record does not mean no hazard exists.");
+  }
+  if (!conditions.some((condition) => condition.temporalStatus === "current")) {
+    unknowns.add(isScenicDrive ? "Current road conditions unknown." : "Current trail conditions unknown.");
+  }
+  if (!restrictions.length && !permitRequirements.length) {
+    unknowns.add(isScenicDrive
+      ? "Road restrictions, closures, tolls, and permit requirements are not supplied."
+      : "Restrictions and permit requirements are not supplied.");
+  }
+  if (route.access?.legal === "unknown") {
+    unknowns.add(isScenicDrive
+      ? "Legal road access is not verified."
+      : "Legal public access is not verified.");
+  }
 
   return {
     id: route.id,
     title: displayName(route),
-    atAGlance: [
-      distance,
-      fact("Typical time", durationLabel(metrics.typicalDurationMinutes)),
-      fact("Ascent", distanceMetersLabel(metrics.ascentMeters)),
-      fact("Descent", distanceMetersLabel(metrics.descentMeters)),
-      fact("Difficulty", difficulty),
-      fact("Route shape", humanize(route.journeyShape || "unknown")),
-    ],
-    routeCharacter: [
-      fact("Activity", listOrUnknown(route.activities)),
-      fact("Route type", humanize(route.routeNature || "unknown")),
-      fact("Direction", humanize(route.direction || "unknown")),
-      fact("Geometry", geometryRepresentationLabel(route)),
-      fact("Surface", surfaces.length ? surfaces.map(humanize).join(", ") : "Unknown"),
-      fact("Trail class", trailClasses.length ? trailClasses.map(humanize).join(", ") : "Unknown"),
-      fact("Visibility / wayfinding", visibility.length ? visibility.map(humanize).join(", ") : "Unknown"),
-    ],
+    routeKind: isScenicDrive ? "scenic_drive" : "hike",
+    atAGlance: isScenicDrive
+      ? [
+          distance,
+          fact("Typical drive time", durationLabel(metrics.typicalDurationMinutes)),
+          fact("Route shape", humanize(route.journeyShape || "unknown")),
+          fact("Direction", humanize(route.direction || "unknown")),
+          fact("Road access", accessLabel(route.access?.legal)),
+          fact("Geometry", geometryRepresentationLabel(route)),
+        ]
+      : [
+          distance,
+          fact("Typical time", durationLabel(metrics.typicalDurationMinutes)),
+          fact("Ascent", distanceMetersLabel(metrics.ascentMeters)),
+          fact("Descent", distanceMetersLabel(metrics.descentMeters)),
+          fact("Difficulty", difficulty),
+          fact("Route shape", humanize(route.journeyShape || "unknown")),
+        ],
+    routeCharacter: isScenicDrive
+      ? [
+          fact("Activity", listOrUnknown(route.activities)),
+          fact("Drive type", humanize(route.routeNature || "scenic_drive")),
+          fact("Drive character", driveCharacterLabel(route)),
+          fact("Road surface", surfaces.length ? surfaces.map(humanize).join(", ") : "Unknown"),
+          fact("Vehicle access", listOrUnknown(route.access?.modes)),
+          fact("Geometry", geometryRepresentationLabel(route)),
+        ]
+      : [
+          fact("Activity", listOrUnknown(route.activities)),
+          fact("Route type", humanize(route.routeNature || "unknown")),
+          fact("Direction", humanize(route.direction || "unknown")),
+          fact("Geometry", geometryRepresentationLabel(route)),
+          fact("Surface", surfaces.length ? surfaces.map(humanize).join(", ") : "Unknown"),
+          fact("Trail class", trailClasses.length ? trailClasses.map(humanize).join(", ") : "Unknown"),
+          fact("Visibility / wayfinding", visibility.length ? visibility.map(humanize).join(", ") : "Unknown"),
+        ],
     gettingThere: {
       access: accessLabel(route.access?.legal),
       modes: listOrUnknown(route.access?.modes),
       accessPoints,
       transportConnections,
+      accessTerm: isScenicDrive ? "Legal road access" : "Legal access",
+      modesTerm: isScenicDrive ? "Road access modes" : "Access modes",
+      accessPointsTitle: isScenicDrive ? "Road access, parking, and stops" : "Trailheads and parking",
+      accessPointsEmpty: isScenicDrive
+        ? "No linked road-access, parking, or stopping details are supplied."
+        : "No linked trailhead or parking details are supplied.",
+      transportTitle: isScenicDrive
+        ? "Ferries and other transport connections"
+        : "Transit, ferry, and cable transport",
     },
     safety: {
+      routeKind: isScenicDrive ? "scenic_drive" : "hike",
       seasons: listOrUnknown(route.seasons),
       hazards,
       conditions,
@@ -157,8 +211,8 @@ export function buildHikeDetailModel(route, assessment = {}) {
       assertions,
     },
     export: {
-      gpx: assessTrailRouteExport(route, "gpx"),
-      geojson: assessTrailRouteExport(route, "geojson"),
+      gpx: assessTrailRouteExport(route, "gpx", exportAssessmentOptions),
+      geojson: assessTrailRouteExport(route, "geojson", exportAssessmentOptions),
       disclaimer: ROUTE_SAFETY_DISCLAIMER,
     },
   };
@@ -196,7 +250,14 @@ export function renderHikeDetail(container, route, options = {}) {
   itineraryOutput.setAttribute("aria-label", "Planned journey result");
   const plan = actionButton(documentRef, "Plan access + route", statusId);
   plan.addEventListener("click", async () => {
-    await invokeAction(options.onPlan, route, itineraryOutput, status, "Route planning opened.");
+    await invokeAction(
+      options.onPlan,
+      route,
+      itineraryOutput,
+      status,
+      "Route itinerary built.",
+      { requireItinerary: true },
+    );
   });
   const gpx = exportButton(
     documentRef,
@@ -240,21 +301,21 @@ function gettingThereSection(documentRef, model) {
   section.append(node(documentRef, "h3", "", HIKE_DETAIL_SECTION_TITLES[2]));
   const definitions = node(documentRef, "dl", "hike-fact-grid");
   definitions.append(
-    node(documentRef, "dt", "", "Legal access"),
+    node(documentRef, "dt", "", model.accessTerm),
     node(documentRef, "dd", model.access.startsWith("Unknown") ? "is-unknown" : "", model.access),
-    node(documentRef, "dt", "", "Access modes"),
+    node(documentRef, "dt", "", model.modesTerm),
     node(documentRef, "dd", model.modes === "Unknown" ? "is-unknown" : "", model.modes),
   );
   section.append(definitions);
   section.append(itemGroup(
     documentRef,
-    "Trailheads and parking",
+    model.accessPointsTitle,
     model.accessPoints,
-    "No linked trailhead or parking details are supplied.",
+    model.accessPointsEmpty,
   ));
   section.append(itemGroup(
     documentRef,
-    "Transit, ferry, and cable transport",
+    model.transportTitle,
     model.transportConnections,
     "No linked transport details are supplied.",
   ));
@@ -273,15 +334,19 @@ function safetySection(documentRef, model) {
   section.append(
     itemGroup(
       documentRef,
-      "Known hazards",
+      model.routeKind === "scenic_drive" ? "Known road hazards" : "Known hazards",
       model.hazards,
-      "Hazards not supplied; absence of a hazard record does not mean no hazard exists.",
+      model.routeKind === "scenic_drive"
+        ? "Road hazards are not supplied; absence of a hazard record does not mean no hazard exists."
+        : "Hazards not supplied; absence of a hazard record does not mean no hazard exists.",
     ),
     itemGroup(
       documentRef,
-      "Current conditions",
+      "Condition reports",
       model.conditions,
-      "Current trail conditions unknown.",
+      model.routeKind === "scenic_drive"
+        ? "Current road conditions unknown."
+        : "Current trail conditions unknown.",
     ),
     itemGroup(
       documentRef,
@@ -381,16 +446,40 @@ function actionButton(documentRef, label, statusId) {
   return button;
 }
 
-async function invokeAction(callback, route, output, status, successText) {
+export async function invokeAction(
+  callback,
+  route,
+  output,
+  status,
+  successText,
+  { requireItinerary = false } = {},
+) {
   if (typeof callback !== "function") {
     announce(status, "This action is not configured.");
-    return;
+    return { ok: false, code: "action_not_configured" };
   }
   try {
-    await callback(route, output);
+    const result = await callback(route, output);
+    const hasItinerary = result?.ok === true
+      && result.itinerary
+      && Array.isArray(result.itinerary.legs)
+      && result.itinerary.legs.length > 0;
+    if (result === false || result?.ok === false || (requireItinerary && !hasItinerary)) {
+      const failure = result?.message
+        || (requireItinerary
+          ? "Route planning did not produce an itinerary."
+          : "The action did not complete.");
+      announce(status, failure);
+      return result?.ok === false
+        ? result
+        : { ok: false, code: "action_incomplete", message: failure };
+    }
     announce(status, successText);
+    return result ?? { ok: true };
   } catch (error) {
-    announce(status, `Action failed: ${error?.message || "Unknown error"}.`);
+    const message = `Action failed: ${error?.message || "Unknown error"}.`;
+    announce(status, message);
+    return { ok: false, code: error?.code || "action_failed", message, error };
   }
 }
 
@@ -442,6 +531,208 @@ function transportModel(connection) {
   };
 }
 
+function safetyRecordModel(record, content, asOf, freshnessPolicy) {
+  const temporalStatus = classifySafetyRecordTemporalStatus(record, asOf, freshnessPolicy);
+  const assertionVerification = uniqueValues((record.sourceAssertions || [])
+    .map((assertion) => assertion.verificationStatus));
+  const verification = humanize(record.quality?.verificationStatus || "unknown");
+  const verificationDetail = assertionVerification.length
+    ? `${verification}; assertions: ${assertionVerification.map(humanize).join(", ")}`
+    : verification;
+  const freshness = humanize(record.quality?.freshness || "unknown");
+  const sources = uniqueValues([
+    record.authoritySourceId,
+    record.sourceId,
+    ...(record.sourceAssertions || []).map((assertion) => assertion.sourceId),
+  ]);
+  const validity = safetyRecordValidity(record);
+  return {
+    title: displayName(record),
+    temporalStatus,
+    verification,
+    freshness,
+    sources,
+    validity,
+    detail: joinKnown([
+      ...content,
+      `Temporal status: ${humanize(temporalStatus)}`,
+      `Verification: ${verificationDetail}`,
+      `Freshness: ${freshness}`,
+      `Sources: ${sources.length ? sources.join(", ") : "Unknown"}`,
+      `Validity: ${validity}`,
+    ]),
+  };
+}
+
+export function classifySafetyRecordTemporalStatus(record, asOf = new Date(), freshnessPolicy) {
+  if (!record || typeof record !== "object") return "unknown";
+  const now = temporalBoundary(asOf, false);
+  if (!now) return "unknown";
+  const directFromValue = record.effectiveFrom ?? record.validFrom;
+  const directUntilValue = record.effectiveUntil ?? record.validUntil;
+  const directFrom = temporalBoundary(directFromValue, false);
+  const directUntil = temporalBoundary(directUntilValue, true);
+  const state = String(record.state || "").toLowerCase();
+  const verification = String(record.quality?.verificationStatus || "").toLowerCase();
+  const freshness = String(record.quality?.freshness || "").toLowerCase();
+  const invalidDirectBoundary = Boolean(
+    (directFromValue && !directFrom) || (directUntilValue && !directUntil),
+  );
+
+  if ((directUntil && directUntil.getTime() < now.getTime())
+      || state === "expired"
+      || verification === "expired"
+      || freshness === "expired") {
+    return "expired";
+  }
+  if (invalidDirectBoundary) return "unknown";
+  if ((directFrom && directFrom.getTime() > now.getTime()) || state === "scheduled") {
+    return "scheduled";
+  }
+
+  const assertions = record.sourceAssertions || [];
+  const invalidAssertionBoundary = assertions.some((assertion) =>
+    (assertion.validFrom && !temporalBoundary(assertion.validFrom, false))
+    || (assertion.validUntil && !temporalBoundary(assertion.validUntil, true)));
+  const assertionWindows = assertions
+    .map((assertion) => ({
+      from: temporalBoundary(assertion.validFrom, false),
+      until: temporalBoundary(assertion.validUntil, true),
+    }))
+    .filter(({ from, until }) => from || until);
+  const everyAssertionBounded = assertions.length > 0
+    && assertionWindows.length === assertions.length;
+  if (invalidAssertionBoundary) return "unknown";
+  if (everyAssertionBounded
+      && assertionWindows.every(({ until }) => until && until.getTime() < now.getTime())) {
+    return "expired";
+  }
+  if (everyAssertionBounded
+      && assertionWindows.every(({ from }) => from && from.getTime() > now.getTime())) {
+    return "scheduled";
+  }
+
+  const assertionWindowIsCurrent = assertionWindows.some(({ from, until }) =>
+    (!from || from.getTime() <= now.getTime())
+    && (!until || until.getTime() >= now.getTime()));
+  const assertionValidityAllowsCurrent = assertionWindows.length === 0 || assertionWindowIsCurrent;
+  const conditionStateAllowsCurrent = state === "live"
+    || (state === "seasonal"
+      && Boolean(directFrom || directUntil || assertionWindowIsCurrent));
+  const stateAllowsCurrent = record.entityType === "Condition"
+    ? conditionStateAllowsCurrent
+    : !["scheduled", "expired"].includes(state);
+  const verificationAllowsCurrent = ["verified", "partially_verified"].includes(verification);
+  if (stateAllowsCurrent
+      && verificationAllowsCurrent
+      && freshness === "current"
+      && safetyRecordIsFresh(record, now, freshnessPolicy)
+      && assertionValidityAllowsCurrent) {
+    return "current";
+  }
+  return "unknown";
+}
+
+function safetyRecordIsFresh(record, now, rawPolicy) {
+  const policy = normalizeSafetyFreshnessPolicy(rawPolicy);
+  if (!policy) return false;
+  const timestampValues = [
+    record.checkedAt,
+    record.observedAt,
+    record.retrievedAt,
+    record.quality?.assessedAt,
+    ...(record.sourceAssertions || []).flatMap((assertion) => [
+      assertion.observedAt,
+      assertion.retrievedAt,
+    ]),
+  ].filter((value) => value !== undefined && value !== null && value !== "");
+  if (!timestampValues.length) return false;
+  const timestamps = timestampValues.map((value) => temporalBoundary(value, false));
+  if (timestamps.some((value) => !value)) return false;
+  const nowMilliseconds = now.getTime();
+  const futureLimit = nowMilliseconds + policy.maxFutureSkewMilliseconds;
+  if (timestamps.some((value) => value.getTime() > futureLimit)) return false;
+  return timestamps.every((value) =>
+    nowMilliseconds - value.getTime() <= policy.maxAgeMilliseconds);
+}
+
+function normalizeSafetyFreshnessPolicy(rawPolicy) {
+  const policy = rawPolicy && typeof rawPolicy === "object" ? rawPolicy : {};
+  const maxAgeMilliseconds = policy.maxAgeMilliseconds
+    ?? DEFAULT_SAFETY_FRESHNESS_POLICY.maxAgeMilliseconds;
+  const maxFutureSkewMilliseconds = policy.maxFutureSkewMilliseconds
+    ?? DEFAULT_SAFETY_FRESHNESS_POLICY.maxFutureSkewMilliseconds;
+  if (!Number.isFinite(maxAgeMilliseconds) || maxAgeMilliseconds < 0
+      || !Number.isFinite(maxFutureSkewMilliseconds) || maxFutureSkewMilliseconds < 0) {
+    return null;
+  }
+  return { maxAgeMilliseconds, maxFutureSkewMilliseconds };
+}
+
+function safetyRecordValidity(record) {
+  const directFrom = record.effectiveFrom ?? record.validFrom;
+  const directUntil = record.effectiveUntil ?? record.validUntil;
+  if (directFrom || directUntil) return dateRange(directFrom, directUntil);
+  const assertionRanges = (record.sourceAssertions || [])
+    .filter((assertion) => assertion.validFrom || assertion.validUntil)
+    .map((assertion) => {
+      const source = assertion.sourceId || "source unknown";
+      return `${source}: ${dateRange(assertion.validFrom, assertion.validUntil)}`;
+    });
+  return assertionRanges.length ? assertionRanges.join("; ") : "Unknown";
+}
+
+function temporalBoundary(value, endOfDate) {
+  if (!value) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(value))) {
+    const [year, month, day] = String(value).split("-").map(Number);
+    const timestamp = endOfDate
+      ? Date.UTC(year, month - 1, day, 23, 59, 59, 999)
+      : Date.UTC(year, month - 1, day);
+    const date = new Date(timestamp);
+    return date.getUTCFullYear() === year
+      && date.getUTCMonth() === month - 1
+      && date.getUTCDate() === day
+      ? date
+      : null;
+  }
+  return validDate(value);
+}
+
+function validDate(value) {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : new Date(value.getTime());
+  }
+  if (typeof value !== "string") return null;
+  const text = value.trim();
+  if (!text || !/(?:Z|[+-]\d{2}:\d{2})$/i.test(text)) return null;
+  const timestamp = Date.parse(text);
+  return Number.isFinite(timestamp) ? new Date(timestamp) : null;
+}
+
+function geometryDistanceLabel(route) {
+  if (route.geometryCompleteness === "complete" && route.navigationSuitability === true) {
+    return "complete navigation-suitable geometry";
+  }
+  if (route.geometryCompleteness === "complete") {
+    return "complete geometry that is not navigation-suitable";
+  }
+  if (route.geometryCompleteness === "partial") return "partial geometry only";
+  if (route.geometryCompleteness === "overview_only") return "overview/generalized geometry only";
+  return "geometry with unknown completeness and navigation suitability";
+}
+
+function driveCharacterLabel(route) {
+  const direct = Array.isArray(route.driveCharacter)
+    ? route.driveCharacter
+    : route.driveCharacter ? [route.driveCharacter] : [];
+  const classifications = (route.classifications || [])
+    .map((classification) => classification.normalized || classification.original)
+    .filter((value) => value !== "scenic_drive");
+  const values = uniqueValues([...direct, ...(route.themes || []), ...classifications]);
+  return values.length ? values.slice(0, 8).map(humanize).join(", ") : "Unknown";
+}
+
 function fact(term, value) {
   return { term, value };
 }
@@ -477,8 +768,8 @@ function durationLabel(value) {
 }
 
 function distanceMetersLabel(value) {
-  const meters = positiveNumber(value);
-  return meters ? `${Math.round(meters).toLocaleString("en")} m` : "Unknown";
+  const meters = nonNegativeNumber(value);
+  return meters == null ? "Unknown" : `${Math.round(meters).toLocaleString("en")} m`;
 }
 
 function formatDistance(meters) {
@@ -500,6 +791,12 @@ function positiveNumber(value) {
   return Number.isFinite(number) && number > 0 ? number : null;
 }
 
+function nonNegativeNumber(value) {
+  if (value == null || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? number : null;
+}
+
 function percentOrUnknown(value) {
   return Number.isFinite(value) ? `${Math.round(value * 100)}%` : "Unknown";
 }
@@ -509,7 +806,20 @@ function dateRange(from, until) {
   return `Effective ${from ? formatDate(from) : "from unknown"} to ${until ? formatDate(until) : "open-ended"}`;
 }
 
-function formatDate(value) {
+export function formatDate(value) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(value))) {
+    const [year, month, day] = String(value).split("-").map(Number);
+    const dateOnly = new Date(Date.UTC(year, month - 1, day));
+    if (dateOnly.getUTCFullYear() === year
+        && dateOnly.getUTCMonth() === month - 1
+        && dateOnly.getUTCDate() === day) {
+      return dateOnly.toLocaleDateString(
+        "en",
+        { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" },
+      );
+    }
+    return String(value);
+  }
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
   return date.toLocaleDateString("en", { year: "numeric", month: "short", day: "numeric" });

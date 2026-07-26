@@ -64,6 +64,18 @@ const ENTITY_TYPE_SET = new Set(ENTITY_TYPES);
 const EVIDENCE_KIND_SET = new Set(EVIDENCE_KINDS);
 const VERIFICATION_STATE_SET = new Set(VERIFICATION_STATES);
 const SENSITIVITY_ACTION_SET = new Set(SENSITIVITY_ACTIONS);
+const ROUTE_SOURCE_NOTICE_FIELDS = Object.freeze([
+  "sourceId",
+  "sourceRecordId",
+  "publisher",
+  "product",
+  "licenceId",
+  "licenceVersion",
+  "licenceUrl",
+  "attribution",
+  "sourceUrl",
+  "transformationNotice",
+]);
 const GEOMETRY_TYPES = new Set([
   "Point",
   "MultiPoint",
@@ -316,6 +328,7 @@ function validateTrailRoute(route, errors, options) {
   if (route.navigationSuitability == null) {
     errors.push("TrailRoute.navigationSuitability must be explicit");
   }
+  validateRouteExportMetadata(route, errors);
   if (route.routeNature === "established" && route.geometryCompleteness === "complete") {
     const maxGapM = options.maxTrailGeometryGapM ?? 50_000;
     const lines = route.geometry?.type === "LineString"
@@ -329,6 +342,88 @@ function validateTrailRoute(route, errors, options) {
         }
       }
     }
+  }
+}
+
+function validateRouteExportMetadata(route, errors) {
+  if (route.exportMetadata == null) return;
+  const metadata = route.exportMetadata;
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    errors.push("TrailRoute.exportMetadata must be an object when present");
+    return;
+  }
+  const metadataExtraProperties = Object.keys(metadata)
+    .filter((property) => property !== "sourceNotices");
+  if (metadataExtraProperties.length) {
+    errors.push(`TrailRoute.exportMetadata has unsupported properties: ${metadataExtraProperties.join(", ")}`);
+  }
+  if (!Array.isArray(metadata.sourceNotices) || metadata.sourceNotices.length === 0) {
+    errors.push("TrailRoute.exportMetadata.sourceNotices must be a non-empty array");
+    return;
+  }
+
+  const noticeKeys = new Set();
+  for (const [index, notice] of metadata.sourceNotices.entries()) {
+    if (!notice || typeof notice !== "object" || Array.isArray(notice)) {
+      errors.push(`TrailRoute export source notice ${index} must be an object`);
+      continue;
+    }
+    const extraProperties = Object.keys(notice)
+      .filter((property) => !ROUTE_SOURCE_NOTICE_FIELDS.includes(property));
+    if (extraProperties.length) {
+      errors.push(`TrailRoute export source notice ${index} has unsupported properties: ${extraProperties.join(", ")}`);
+    }
+    for (const field of ROUTE_SOURCE_NOTICE_FIELDS) {
+      if (typeof notice[field] !== "string" || !notice[field].trim()) {
+        errors.push(`TrailRoute export source notice ${index}.${field} must be non-empty`);
+      }
+    }
+    for (const field of ["licenceUrl", "sourceUrl"]) {
+      if (typeof notice[field] !== "string" || !validHttpUrl(notice[field])) {
+        errors.push(`TrailRoute export source notice ${index}.${field} must be an absolute HTTP(S) URL`);
+      }
+    }
+    if (typeof notice.sourceId === "string" && typeof notice.sourceRecordId === "string") {
+      const key = `${notice.sourceId}\0${notice.sourceRecordId}`;
+      if (noticeKeys.has(key)) {
+        errors.push(`TrailRoute export source notice ${index} duplicates ${notice.sourceId}/${notice.sourceRecordId}`);
+      }
+      noticeKeys.add(key);
+    }
+  }
+
+  const assertionKeys = new Set((route.sourceAssertions || [])
+    .filter((assertion) => typeof assertion?.sourceId === "string"
+      && typeof assertion?.sourceRecordId === "string"
+      && assertion.sourceRecordId)
+    .map((assertion) => `${assertion.sourceId}\0${assertion.sourceRecordId}`));
+  for (const [index, assertion] of (route.sourceAssertions || []).entries()) {
+    if (typeof assertion?.sourceRecordId !== "string" || !assertion.sourceRecordId.trim()) {
+      errors.push(`TrailRoute export metadata requires sourceAssertions[${index}].sourceRecordId`);
+    }
+  }
+  for (const key of assertionKeys) {
+    if (!noticeKeys.has(key)) {
+      const [sourceId, sourceRecordId] = key.split("\0");
+      errors.push(`TrailRoute export metadata lacks a notice for ${sourceId}/${sourceRecordId}`);
+    }
+  }
+  for (const key of noticeKeys) {
+    if (!assertionKeys.has(key)) {
+      const [sourceId, sourceRecordId] = key.split("\0");
+      errors.push(`TrailRoute export metadata has no matching assertion for ${sourceId}/${sourceRecordId}`);
+    }
+  }
+}
+
+function validHttpUrl(value) {
+  try {
+    const url = new URL(value);
+    return (url.protocol === "http:" || url.protocol === "https:")
+      && !url.username
+      && !url.password;
+  } catch {
+    return false;
   }
 }
 

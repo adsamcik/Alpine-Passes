@@ -10,6 +10,7 @@ import {
 import {
   buildMixedModeItinerary,
   ItineraryError,
+  RETURN_TRANSPORT_ENDPOINT_TOLERANCE_METERS,
 } from "../assets/js/nature/itinerary.mjs";
 import { RoutingGateway } from "../assets/js/nature/routing.mjs";
 
@@ -128,6 +129,35 @@ function assertErrorCode(expectedCode) {
     assert.equal(error.code, expectedCode);
     return true;
   };
+}
+
+async function expectPlanningRefusal(scenario, expectedCode, inspect = null) {
+  const harness = createRoutingHarness();
+  let capturedError = null;
+  await assert.rejects(
+    buildMixedModeItinerary({
+      ...scenario.request,
+      experience: scenario.experience,
+      gateway: harness.gateway,
+    }),
+    (error) => {
+      capturedError = error;
+      assert.ok(error instanceof ItineraryError);
+      assert.equal(error.code, expectedCode);
+      inspect?.(error);
+      return true;
+    },
+  );
+  return { ...harness, error: capturedError };
+}
+
+function clonedReturnScenario(id = "scotland-point-to-point-timed-transport") {
+  return clone(successfulScenarios.get(id));
+}
+
+function onlyReturnConnection(scenario) {
+  assert.equal(scenario.experience.transportConnections.length, 1);
+  return scenario.experience.transportConnections[0];
 }
 
 test("all journey fixtures contain valid canonical entities", () => {
@@ -267,6 +297,157 @@ test("island journey includes a scheduled ferry and returns to the parked vehicl
     "ferry",
   );
   assert.equal(itinerary.legs.at(-1).mode, "drive");
+});
+
+test("return transport geometry must connect route finish to vehicle within tolerance", async () => {
+  const scenario = clonedReturnScenario();
+  const connection = onlyReturnConnection(scenario);
+  connection.geometry.coordinates = [[120, -40], [121, -40]];
+
+  const { error, itineraryRequests } = await expectPlanningRefusal(
+    scenario,
+    "return_transport_geometry_mismatch",
+  );
+  assert.equal(itineraryRequests.length, 1, "only the outbound drive may run before refusal");
+  assert.equal(
+    error.details.toleranceMeters,
+    RETURN_TRANSPORT_ENDPOINT_TOLERANCE_METERS,
+  );
+  assert.ok(error.details.routeFinishDistanceMeters > error.details.toleranceMeters);
+  assert.ok(error.details.vehicleDistanceMeters > error.details.toleranceMeters);
+});
+
+test("bidirectional return geometry may be reversed but still must stay within tolerance", async () => {
+  const scenario = clonedReturnScenario();
+  const connection = onlyReturnConnection(scenario);
+  connection.direction = "both";
+  connection.geometry.coordinates.reverse();
+  connection.geometry.coordinates[0][0] += 0.001;
+  connection.geometry.coordinates[1][0] += 0.001;
+
+  const { itinerary } = await planScenario(scenario);
+  assert.equal(
+    itinerary.legs.find((leg) => leg.routeNature === "scheduled").mode,
+    "bus",
+  );
+});
+
+test("verified cable transport with matching endpoints remains plan-capable", async () => {
+  const scenario = clonedReturnScenario("island-ferry-return");
+  const connection = onlyReturnConnection(scenario);
+  connection.transportMode = "cable_car";
+  connection.names[0].value = "Verified return cable car";
+
+  const { itinerary } = await planScenario(scenario);
+  const scheduled = itinerary.legs.find((leg) => leg.routeNature === "scheduled");
+  assert.equal(scheduled.mode, "cable_car");
+  assert.equal(scheduled.label, "Verified return cable car");
+});
+
+test("stale, expired, and unknown return schedules fail closed", async (t) => {
+  for (const freshness of ["stale", "expired", "unknown"]) {
+    await t.test(freshness, async () => {
+      const scenario = clonedReturnScenario();
+      onlyReturnConnection(scenario).schedule.freshness = freshness;
+      await expectPlanningRefusal(scenario, "return_schedule_not_current");
+    });
+  }
+});
+
+test("stale, expired, and unknown return-connection quality fails closed", async (t) => {
+  for (const freshness of ["stale", "expired", "unknown"]) {
+    await t.test(freshness, async () => {
+      const scenario = clonedReturnScenario();
+      onlyReturnConnection(scenario).quality.freshness = freshness;
+      await expectPlanningRefusal(scenario, "return_transport_quality_not_current");
+    });
+  }
+
+  await t.test("unverified", async () => {
+    const scenario = clonedReturnScenario();
+    onlyReturnConnection(scenario).quality.verificationStatus = "unverified";
+    await expectPlanningRefusal(scenario, "return_transport_unverified");
+  });
+});
+
+test("return schedule and provenance validity are evaluated at the journey time", async (t) => {
+  await t.test("expired schedule window", async () => {
+    const scenario = clonedReturnScenario();
+    onlyReturnConnection(scenario).schedule.validUntil = "2026-07-14";
+    await expectPlanningRefusal(scenario, "return_schedule_out_of_range");
+  });
+
+  await t.test("future schedule window", async () => {
+    const scenario = clonedReturnScenario();
+    onlyReturnConnection(scenario).schedule.validFrom = "2026-07-16";
+    await expectPlanningRefusal(scenario, "return_schedule_out_of_range");
+  });
+
+  await t.test("future quality assessment", async () => {
+    const scenario = clonedReturnScenario();
+    onlyReturnConnection(scenario).quality.assessedAt = "2026-07-16";
+    await expectPlanningRefusal(scenario, "return_transport_quality_invalid");
+  });
+
+  await t.test("expired geometry assertion", async () => {
+    const scenario = clonedReturnScenario();
+    onlyReturnConnection(scenario).sourceAssertions[0].validUntil = "2026-07-14T23:59:59Z";
+    await expectPlanningRefusal(scenario, "return_transport_provenance_unverified");
+  });
+});
+
+test("return departure clocks use the schedule destination timezone", async (t) => {
+  await t.test("service remains available in destination local time", async () => {
+    const scenario = clonedReturnScenario();
+    const schedule = onlyReturnConnection(scenario).schedule;
+    schedule.timezone = "America/New_York";
+    schedule.departuresLocal = ["09:00"];
+    schedule.lastDepartureLocal = "09:00";
+
+    const { itinerary } = await planScenario(scenario);
+    const scheduled = itinerary.legs.find((leg) => leg.routeNature === "scheduled");
+    assert.equal(scheduled.startsAt, "2026-07-15T12:20:00.000Z");
+  });
+
+  await t.test("service is missed in destination local time", async () => {
+    const scenario = clonedReturnScenario();
+    const schedule = onlyReturnConnection(scenario).schedule;
+    schedule.timezone = "Asia/Tokyo";
+    schedule.departuresLocal = ["20:30"];
+    schedule.lastDepartureLocal = "20:30";
+
+    const { error } = await expectPlanningRefusal(scenario, "missed_last_transport");
+    assert.equal(error.details.timezone, "Asia/Tokyo");
+    assert.equal(error.details.plannedArrivalLocal, "21:20");
+  });
+});
+
+test("missing or invalid return schedule timezone fails closed", async (t) => {
+  for (const [label, timezone] of [
+    ["missing", undefined],
+    ["invalid", "Not/A_Timezone"],
+  ]) {
+    await t.test(label, async () => {
+      const scenario = clonedReturnScenario();
+      onlyReturnConnection(scenario).schedule.timezone = timezone;
+      await expectPlanningRefusal(scenario, "return_schedule_timezone_invalid");
+    });
+  }
+});
+
+test("a last-service summary without exact departures cannot promise a return", async () => {
+  const scenario = clonedReturnScenario();
+  const schedule = onlyReturnConnection(scenario).schedule;
+  schedule.departuresLocal = [];
+  schedule.lastDepartureLocal = "23:55";
+  await expectPlanningRefusal(scenario, "return_schedule_unavailable");
+});
+
+test("return transport endpoint identity must be explicit and non-duplicated", async () => {
+  const scenario = clonedReturnScenario();
+  const connection = onlyReturnConnection(scenario);
+  connection.endpointIds = ["transport:same-stop", " transport:same-stop "];
+  await expectPlanningRefusal(scenario, "return_transport_endpoints_invalid");
 });
 
 test("Japanese endonym, romanization, and inactive seasonal condition remain traceable", async () => {

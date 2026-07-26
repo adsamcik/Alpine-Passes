@@ -96,6 +96,8 @@ Production routes should come from an approved source adapter. `data/seeds/natur
 
 3. **Set route semantics.** For a named path, use `routeNature: "established"`, `geometryCompleteness: "complete"`, an explicit `navigationSuitability`, at least one valid activity, a journey shape, optional direction, and access with legal state/modes. “Complete” does not justify `navigationSuitability: true`.
 
+   Downloadable geometry additionally requires `exportMetadata.sourceNotices`: exactly one closed, complete notice for every distinct `sourceAssertions[].sourceId`/`sourceRecordId` pair, with no unmatched notices. Each notice stores publisher, exact product, licence ID/version/URL, required attribution wording, source URL, and a transformation notice. Missing or incomplete notices disable both GeoJSON and GPX; GPX also requires verified current geometry provenance, an unmodified publish-safe line, and explicit navigation suitability.
+
 4. **Supply the whole line.** Use longitude/latitude `LineString` or explained `MultiLineString`, including the intended route/stage endpoints and no fabricated straight-line gaps. A real ferry/cable discontinuity gets a separate connection; missing trail geometry does not.
 
 5. **Preserve difficulty.** Store the authority’s `originalScale` and `originalGrade`. Add a normalized band only with a caveat appropriate to that source/jurisdiction.

@@ -42,6 +42,20 @@ function trail(overrides = {}) {
       observedAt: "2026-06-12T10:00:00Z",
       notes: "Route & alignment <checked>.",
     }],
+    exportMetadata: {
+      sourceNotices: [{
+        sourceId: "fixture:route-source",
+        sourceRecordId: "ridge-loop",
+        publisher: "Fixture Route Authority",
+        product: "Verified Ridge Routes",
+        licenceId: "CC-BY",
+        licenceVersion: "4.0",
+        licenceUrl: "https://creativecommons.org/licenses/by/4.0/",
+        attribution: "Fixture Route Authority",
+        sourceUrl: "https://routes.example.test/ridge-loop",
+        transformationNotice: "Coordinates retained; properties normalized to the Itinera schema.",
+      }],
+    },
     quality: {
       confidence: 0.88,
       geometryConfidence: 0.92,
@@ -128,7 +142,7 @@ test("permit requirements retain booking and source fields in the safety model",
   assert.ok(unknown.safety.unknowns.includes("Restrictions and permit requirements are not supplied."));
 });
 
-test("missing hike facts stay explicit and geometry-derived length is labelled overview-only", () => {
+test("missing hike facts stay explicit and geometry-derived length discloses non-navigation geometry", () => {
   const model = buildHikeDetailModel(trail({
     navigationSuitability: false,
     metrics: undefined,
@@ -145,7 +159,7 @@ test("missing hike facts stay explicit and geometry-derived length is labelled o
   }));
 
   assert.equal(model.atAGlance[0].term, "Geometry length");
-  assert.match(model.atAGlance[0].value, /overview geometry only/);
+  assert.match(model.atAGlance[0].value, /complete geometry that is not navigation-suitable/);
   assert.equal(model.atAGlance.find(({ term }) => term === "Ascent").value, "Unknown");
   assert.equal(model.atAGlance.find(({ term }) => term === "Descent").value, "Unknown");
   assert.equal(model.atAGlance.find(({ term }) => term === "Typical time").value, "Unknown");

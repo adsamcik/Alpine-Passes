@@ -803,8 +803,17 @@ test("delivered route geometry preserves first-class line and establishment inva
 test("package and manifest bytes meet authored budgets and shard metadata is complete", async () => {
   const { manifest, packages } = await loadGeneratedEntities();
   const manifestBytes = (await stat(path.join(GENERATED_ROOT, "manifest.v1.json"))).size;
+  const spatialIndexBytes = (await stat(
+    path.join(REPO_ROOT, ...manifest.spatialIndex.url.split("/")),
+  )).size;
   assert.ok(manifestBytes <= manifest.budgets.manifestBytes);
-  assert.ok(manifestBytes <= manifest.budgets.initialNatureDataBytes);
+  assert.equal(spatialIndexBytes, manifest.spatialIndex.bytes);
+  assert.ok(spatialIndexBytes <= manifest.budgets.spatialIndexBytes);
+  assert.ok(
+    manifestBytes + spatialIndexBytes + manifest.budgets.viewportRequestBytes
+      <= manifest.budgets.initialNatureDataBytes,
+    "manifest + spatial index + maximum initial viewport package bytes must fit the initial budget",
+  );
   const regionGroups = Map.groupBy(manifest.packages, (entry) => entry.regionId);
   for (const [regionId, entries] of regionGroups) {
     const sorted = [...entries].sort((left, right) => left.shardIndex - right.shardIndex);
@@ -831,6 +840,17 @@ test("benchmark report separates deterministic gates from observational timing a
   assert.ok(report.environment.hardware.cpuModel);
   assert.ok(report.deliverySizes.manifest.rawBytes > 0);
   assert.ok(report.deliverySizes.manifest.gzipBytes > 0);
+  assert.equal(
+    report.deliverySizes.initialNatureData.rawBytesUpperBound,
+    report.deliverySizes.manifest.rawBytes
+      + report.deliverySizes.spatialIndex.rawBytes
+      + report.deliverySizes.initialNatureData.viewportCellRawBytesLimit,
+  );
+  assert.ok(
+    report.deliverySizes.initialNatureData.rawBytesUpperBound
+      <= report.deliverySizes.initialNatureData.budgetBytes,
+  );
+  assert.match(report.deliverySizes.initialNatureData.accounting, /upper bound/i);
   assert.equal(
     report.deliverySizes.regionalPackageTotals.rawBytes,
     report.deliverySizes.regionalPackages.reduce((total, item) => total + item.rawBytes, 0),

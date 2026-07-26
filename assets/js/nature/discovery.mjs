@@ -26,17 +26,20 @@ export function buildSearchDocument(entity) {
     ...(entity.jurisdictionIds || []),
     entity.summary,
   ].filter(Boolean);
+  const normalized = normalizeSearchText(terms.join(" "));
   return {
     entity,
     title: displayName(entity),
-    normalized: normalizeSearchText(terms.join(" ")),
+    normalized,
     nameVariants: names.map(normalizeSearchText),
-    trigrams: trigrams(normalizeSearchText(terms.join(" "))),
+    trigrams: trigrams(normalized),
   };
 }
 
 export function searchEntities(entities, query, options = {}) {
   const normalizedQuery = normalizeSearchText(query);
+  const queryTrigrams = normalizedQuery ? trigrams(normalizedQuery) : null;
+  const queryTokens = normalizedQuery ? normalizedQuery.split(" ") : [];
   const documents = (options.documents || entities.map(buildSearchDocument));
   const origin = options.origin;
   const withinMeters = options.withinMeters;
@@ -52,7 +55,8 @@ export function searchEntities(entities, query, options = {}) {
           && !(entity.classifications || []).some((item) => requiredCategories.has(item.normalized))) return null;
       const distanceM = origin ? entityDistanceFrom(entity, origin) : null;
       if (withinMeters != null && (!Number.isFinite(distanceM) || distanceM > withinMeters)) return null;
-      const relevance = normalizedQuery ? textRelevance(document, normalizedQuery) : 1;
+      const relevance = normalizedQuery
+        ? textRelevance(document, normalizedQuery, queryTokens, queryTrigrams) : 1;
       if (normalizedQuery && relevance < (options.minimumRelevance ?? 0.16)) return null;
       return { entity, relevance, distanceM };
     })
@@ -179,14 +183,13 @@ export function discoveryAssessment(entity, context = {}) {
   };
 }
 
-function textRelevance(document, normalizedQuery) {
+function textRelevance(document, normalizedQuery, queryTokens, queryTrigrams) {
   if (document.nameVariants.some((name) => name === normalizedQuery)) return 1;
   if (document.nameVariants.some((name) => name.startsWith(normalizedQuery))) return 0.94;
   if (document.normalized.includes(normalizedQuery)) return 0.82;
-  const queryTokens = normalizedQuery.split(" ");
   const tokenCoverage = queryTokens.filter((token) => document.normalized.includes(token)).length
     / queryTokens.length;
-  const trigramScore = jaccard(document.trigrams, trigrams(normalizedQuery));
+  const trigramScore = jaccard(document.trigrams, queryTrigrams);
   return tokenCoverage * 0.62 + trigramScore * 0.38;
 }
 

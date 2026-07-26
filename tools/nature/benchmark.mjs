@@ -43,6 +43,16 @@ export async function benchmarkNatureData(options = {}) {
   const manifestPath = path.join(natureRoot, "manifest.v1.json");
   const manifestBuffer = await readFile(manifestPath);
   const manifest = JSON.parse(manifestBuffer);
+  if (!manifest.spatialIndex?.url || !Number.isSafeInteger(manifest.budgets?.viewportRequestBytes)) {
+    throw new Error("Benchmark requires a spatial index and viewport request budget");
+  }
+  const spatialIndexPath = path.resolve(repoRoot, manifest.spatialIndex.url);
+  const spatialIndexBuffer = await readFile(spatialIndexPath);
+  if (spatialIndexBuffer.byteLength !== manifest.spatialIndex.bytes) {
+    throw new Error(
+      `Spatial index byte count mismatch: ${spatialIndexBuffer.byteLength} != ${manifest.spatialIndex.bytes}`,
+    );
+  }
   const packageMeasurements = [];
   const currentEntities = [];
   for (const entry of manifest.packages) {
@@ -117,6 +127,10 @@ export async function benchmarkNatureData(options = {}) {
   });
 
   const manifestGzipBytes = gzipSync(manifestBuffer, GZIP_OPTIONS).byteLength;
+  const spatialIndexGzipBytes = gzipSync(spatialIndexBuffer, GZIP_OPTIONS).byteLength;
+  const fixedInitialRawBytes = manifestBuffer.byteLength + spatialIndexBuffer.byteLength;
+  const initialRawBytesUpperBound = fixedInitialRawBytes
+    + manifest.budgets.viewportRequestBytes;
   const packageRawBytes = sum(packageMeasurements.map((item) => item.rawBytes));
   const packageGzipBytes = sum(packageMeasurements.map((item) => item.gzipBytes));
   const maxPackageRawBytes = Math.max(...packageMeasurements.map((item) => item.rawBytes));
@@ -130,11 +144,11 @@ export async function benchmarkNatureData(options = {}) {
       enforced: true,
     },
     {
-      id: "initial_nature_data_raw_bytes",
-      observed: manifestBuffer.byteLength,
+      id: "initial_nature_data_raw_upper_bound_bytes",
+      observed: initialRawBytesUpperBound,
       limit: manifest.budgets.initialNatureDataBytes,
       unit: "bytes",
-      passed: manifestBuffer.byteLength <= manifest.budgets.initialNatureDataBytes,
+      passed: initialRawBytesUpperBound <= manifest.budgets.initialNatureDataBytes,
       enforced: true,
     },
     {
@@ -213,11 +227,24 @@ export async function benchmarkNatureData(options = {}) {
         gzipBytes: manifestGzipBytes,
         gzipToRawRatio: ratio(manifestGzipBytes, manifestBuffer.byteLength),
       },
+      spatialIndex: {
+        file: manifest.spatialIndex.url,
+        rawBytes: spatialIndexBuffer.byteLength,
+        gzipBytes: spatialIndexGzipBytes,
+        gzipToRawRatio: ratio(spatialIndexGzipBytes, spatialIndexBuffer.byteLength),
+      },
       initialNatureData: {
-        components: ["assets/data/nature/manifest.v1.json"],
-        assumption: "Regional packages are lazy-loaded; the manifest is the only initial nature-data artifact.",
-        rawBytes: manifestBuffer.byteLength,
-        gzipBytes: manifestGzipBytes,
+        fixedComponents: [
+          "assets/data/nature/manifest.v1.json",
+          manifest.spatialIndex.url,
+        ],
+        variableComponent: "Spatial-cell packages intersecting the initial map viewport",
+        accounting: "Deterministic raw upper bound: manifest + spatial index + the loader-enforced viewportRequestBytes limit. Actual browser bytes vary with the initial bounds and are measured separately by the Chromium smoke.",
+        fixedRawBytes: fixedInitialRawBytes,
+        fixedGzipBytes: manifestGzipBytes + spatialIndexGzipBytes,
+        viewportCellRawBytesLimit: manifest.budgets.viewportRequestBytes,
+        rawBytesUpperBound: initialRawBytesUpperBound,
+        budgetBytes: manifest.budgets.initialNatureDataBytes,
       },
       regionalPackages: packageMeasurements,
       regionalPackageTotals: {
@@ -267,6 +294,7 @@ export async function benchmarkNatureData(options = {}) {
     limitations: [
       "Node microbenchmark only; it does not measure browser startup, Web Workers, IndexedDB, map rendering, interaction frames, network transfer, or routing.",
       "Measurements use warm local files and an in-process prebuilt search index.",
+      "Initial nature-data accounting is an enforced raw-byte upper bound; actual viewport cell selection and compressed transfer size require browser/CDN measurement.",
       "The synthetic region stresses 5,000 multilingual searchable entities but not complex route geometry, media decoding, or vector-tile rendering.",
       "Process memory includes V8 allocator and garbage-collection noise; the benchmark does not force garbage collection.",
       "Gzip level-9 size is measured locally and does not predict CDN Brotli size or transfer latency.",

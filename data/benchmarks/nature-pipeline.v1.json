@@ -4,7 +4,7 @@
   "generated": true,
   "reproducibility": {
     "command": "node tools/nature/benchmark.mjs",
-    "corpusBuildId": "2413863cfdeb500c",
+    "corpusBuildId": "fe97c08d8d9220be",
     "syntheticFixture": {
       "generator": "createSyntheticActiveRegion",
       "entityCount": 5000,
@@ -33,132 +33,143 @@
     }
   },
   "corpus": {
-    "buildId": "2413863cfdeb500c",
+    "buildId": "fe97c08d8d9220be",
     "currentEntities": 4019,
     "currentPackages": 10,
     "syntheticActiveRegionEntities": 5000
   },
   "deliverySizes": {
     "manifest": {
-      "rawBytes": 6026,
-      "gzipBytes": 1715,
-      "gzipToRawRatio": 0.2846
+      "rawBytes": 6392,
+      "gzipBytes": 1878,
+      "gzipToRawRatio": 0.2938
+    },
+    "spatialIndex": {
+      "file": "assets/data/nature/spatial/index/fd9db36894c597af.json",
+      "rawBytes": 49202,
+      "gzipBytes": 9946,
+      "gzipToRawRatio": 0.2021
     },
     "initialNatureData": {
-      "components": [
-        "assets/data/nature/manifest.v1.json"
+      "fixedComponents": [
+        "assets/data/nature/manifest.v1.json",
+        "assets/data/nature/spatial/index/fd9db36894c597af.json"
       ],
-      "assumption": "Regional packages are lazy-loaded; the manifest is the only initial nature-data artifact.",
-      "rawBytes": 6026,
-      "gzipBytes": 1715
+      "variableComponent": "Spatial-cell packages intersecting the initial map viewport",
+      "accounting": "Deterministic raw upper bound: manifest + spatial index + the loader-enforced viewportRequestBytes limit. Actual browser bytes vary with the initial bounds and are measured separately by the Chromium smoke.",
+      "fixedRawBytes": 55594,
+      "fixedGzipBytes": 11824,
+      "viewportCellRawBytesLimit": 8000000,
+      "rawBytesUpperBound": 8055594,
+      "budgetBytes": 10064000
     },
     "regionalPackages": [
       {
         "regionId": "eu-alps",
         "shardIndex": 0,
         "shardCount": 4,
-        "file": "assets/data/nature/packages/eu-alps/36f6cad989d243eb.json",
-        "entities": 1019,
-        "rawBytes": 2497773,
-        "gzipBytes": 69943,
-        "gzipToRawRatio": 0.028
+        "file": "assets/data/nature/packages/eu-alps/bd637900bf259806.json",
+        "entities": 957,
+        "rawBytes": 2498752,
+        "gzipBytes": 68431,
+        "gzipToRawRatio": 0.0274
       },
       {
         "regionId": "eu-alps",
         "shardIndex": 1,
         "shardCount": 4,
-        "file": "assets/data/nature/packages/eu-alps/052bc9334291d16f.json",
-        "entities": 686,
-        "rawBytes": 2498351,
-        "gzipBytes": 237637,
-        "gzipToRawRatio": 0.0951
+        "file": "assets/data/nature/packages/eu-alps/f84b471429c58950.json",
+        "entities": 678,
+        "rawBytes": 2497868,
+        "gzipBytes": 215797,
+        "gzipToRawRatio": 0.0864
       },
       {
         "regionId": "eu-alps",
         "shardIndex": 2,
         "shardCount": 4,
-        "file": "assets/data/nature/packages/eu-alps/93a507f369c947c4.json",
+        "file": "assets/data/nature/packages/eu-alps/854598d8b46a2aae.json",
         "entities": 589,
-        "rawBytes": 2496603,
-        "gzipBytes": 247808,
-        "gzipToRawRatio": 0.0993
+        "rawBytes": 2496699,
+        "gzipBytes": 241782,
+        "gzipToRawRatio": 0.0968
       },
       {
         "regionId": "eu-alps",
         "shardIndex": 3,
         "shardCount": 4,
-        "file": "assets/data/nature/packages/eu-alps/326aac8175841237.json",
-        "entities": 119,
-        "rawBytes": 531033,
-        "gzipBytes": 52059,
-        "gzipToRawRatio": 0.098
+        "file": "assets/data/nature/packages/eu-alps/8d2d061f425bd749.json",
+        "entities": 189,
+        "rawBytes": 838825,
+        "gzipBytes": 80121,
+        "gzipToRawRatio": 0.0955
       },
       {
         "regionId": "japan",
         "shardIndex": 0,
         "shardCount": 2,
-        "file": "assets/data/nature/packages/japan/13b92d57f01a84bd.json",
-        "entities": 617,
-        "rawBytes": 2498119,
-        "gzipBytes": 219512,
-        "gzipToRawRatio": 0.0879
+        "file": "assets/data/nature/packages/japan/3d6390544ce1d1bd.json",
+        "entities": 615,
+        "rawBytes": 2496343,
+        "gzipBytes": 210399,
+        "gzipToRawRatio": 0.0843
       },
       {
         "regionId": "japan",
         "shardIndex": 1,
         "shardCount": 2,
-        "file": "assets/data/nature/packages/japan/b1d9a81972cdf270.json",
-        "entities": 433,
-        "rawBytes": 1968871,
-        "gzipBytes": 159171,
-        "gzipToRawRatio": 0.0808
+        "file": "assets/data/nature/packages/japan/61bba862d16ddd02.json",
+        "entities": 435,
+        "rawBytes": 1988516,
+        "gzipBytes": 154357,
+        "gzipToRawRatio": 0.0776
       },
       {
         "regionId": "north-america",
         "shardIndex": 0,
         "shardCount": 1,
-        "file": "assets/data/nature/packages/north-america/68f1b65976f4eb00.json",
+        "file": "assets/data/nature/packages/north-america/513ad870f0d0f33a.json",
         "entities": 4,
-        "rawBytes": 6682,
-        "gzipBytes": 1683,
-        "gzipToRawRatio": 0.2519
+        "rawBytes": 240380,
+        "gzipBytes": 77874,
+        "gzipToRawRatio": 0.324
       },
       {
         "regionId": "norway",
         "shardIndex": 0,
         "shardCount": 1,
-        "file": "assets/data/nature/packages/norway/4cf7ee211b39bbc3.json",
+        "file": "assets/data/nature/packages/norway/c8f12c988c59aa91.json",
         "entities": 4,
-        "rawBytes": 5921,
-        "gzipBytes": 1547,
-        "gzipToRawRatio": 0.2613
+        "rawBytes": 6431,
+        "gzipBytes": 1604,
+        "gzipToRawRatio": 0.2494
       },
       {
         "regionId": "switzerland",
         "shardIndex": 0,
         "shardCount": 1,
-        "file": "assets/data/nature/packages/switzerland/374a44b682319a73.json",
+        "file": "assets/data/nature/packages/switzerland/10eacdc29b3d7289.json",
         "entities": 305,
-        "rawBytes": 1382757,
-        "gzipBytes": 104832,
-        "gzipToRawRatio": 0.0758
+        "rawBytes": 1399366,
+        "gzipBytes": 102182,
+        "gzipToRawRatio": 0.073
       },
       {
         "regionId": "uk-ireland",
         "shardIndex": 0,
         "shardCount": 1,
-        "file": "assets/data/nature/packages/uk-ireland/98541b3e84be0a84.json",
+        "file": "assets/data/nature/packages/uk-ireland/26ea8357823daf42.json",
         "entities": 243,
-        "rawBytes": 787764,
-        "gzipBytes": 59778,
-        "gzipToRawRatio": 0.0759
+        "rawBytes": 836052,
+        "gzipBytes": 61157,
+        "gzipToRawRatio": 0.0731
       }
     ],
     "regionalPackageTotals": {
-      "rawBytes": 14673874,
-      "gzipBytes": 1153970,
-      "gzipToRawRatio": 0.0786,
-      "maximumRawBytes": 2498351
+      "rawBytes": 15299232,
+      "gzipBytes": 1213704,
+      "gzipToRawRatio": 0.0793,
+      "maximumRawBytes": 2498752
     }
   },
   "indexedSearch": {
@@ -167,21 +178,21 @@
       "documentCount": 4019,
       "queryCount": 8,
       "measuredSamples": 80,
-      "p50Milliseconds": 30.613,
-      "p95Milliseconds": 54.547,
-      "maximumMilliseconds": 63.902,
-      "minimumMilliseconds": 19.358,
-      "resultChecksum": 45096
+      "p50Milliseconds": 33.338,
+      "p95Milliseconds": 45.252,
+      "maximumMilliseconds": 48.94,
+      "minimumMilliseconds": 19.024,
+      "resultChecksum": 45122
     },
     "syntheticActiveRegion": {
       "entityCount": 5000,
       "documentCount": 5000,
       "queryCount": 8,
       "measuredSamples": 80,
-      "p50Milliseconds": 33.697,
-      "p95Milliseconds": 48.31,
-      "maximumMilliseconds": 59.436,
-      "minimumMilliseconds": 18.124,
+      "p50Milliseconds": 26.416,
+      "p95Milliseconds": 42.126,
+      "maximumMilliseconds": 53.488,
+      "minimumMilliseconds": 13.668,
       "resultChecksum": 217570
     },
     "interpretation": "Timing is observational and is not a build failure gate."
@@ -190,69 +201,69 @@
     "unit": "bytes",
     "snapshots": {
       "baseline": {
-        "rss": 55595008,
-        "heapTotal": 7921664,
-        "heapUsed": 5128392,
-        "external": 1950514,
-        "arrayBuffers": 27861
+        "rss": 51527680,
+        "heapTotal": 7659520,
+        "heapUsed": 5159216,
+        "external": 1958757,
+        "arrayBuffers": 31595
       },
       "afterCurrentCorpusLoad": {
-        "rss": 120418304,
-        "heapTotal": 70230016,
-        "heapUsed": 47796024,
-        "external": 8946463,
-        "arrayBuffers": 7048959
+        "rss": 118366208,
+        "heapTotal": 70848512,
+        "heapUsed": 49359200,
+        "external": 9457899,
+        "arrayBuffers": 7560395
       },
       "afterCurrentSearchIndex": {
-        "rss": 206114816,
-        "heapTotal": 205840384,
-        "heapUsed": 82458320,
-        "external": 5201598,
-        "arrayBuffers": 806285
+        "rss": 175775744,
+        "heapTotal": 189849600,
+        "heapUsed": 99929232,
+        "external": 5300433,
+        "arrayBuffers": 904141
       },
       "beforeSyntheticSearchIndex": {
-        "rss": 265924608,
-        "heapTotal": 210296832,
-        "heapUsed": 108396752,
-        "external": 2703789,
-        "arrayBuffers": 806285
+        "rss": 221069312,
+        "heapTotal": 189849600,
+        "heapUsed": 99789496,
+        "external": 2801645,
+        "arrayBuffers": 904141
       },
       "afterSyntheticSearchIndex": {
-        "rss": 281952256,
-        "heapTotal": 225501184,
-        "heapUsed": 143289592,
-        "external": 2703789,
-        "arrayBuffers": 806285
+        "rss": 272465920,
+        "heapTotal": 220782592,
+        "heapUsed": 126021120,
+        "external": 2801645,
+        "arrayBuffers": 904141
       }
     },
     "deltas": {
       "currentCorpusLoadFromBaseline": {
-        "rss": 64823296,
-        "heapTotal": 62308352,
-        "heapUsed": 42667632,
-        "external": 6995949,
-        "arrayBuffers": 7021098
+        "rss": 66838528,
+        "heapTotal": 63188992,
+        "heapUsed": 44199984,
+        "external": 7499142,
+        "arrayBuffers": 7528800
       },
       "currentIndexFromLoadedCorpus": {
-        "rss": 85696512,
-        "heapTotal": 135610368,
-        "heapUsed": 34662296,
-        "external": -3744865,
-        "arrayBuffers": -6242674
+        "rss": 57409536,
+        "heapTotal": 119001088,
+        "heapUsed": 50570032,
+        "external": -4157466,
+        "arrayBuffers": -6656254
       },
       "syntheticIndex": {
-        "rss": 16027648,
-        "heapTotal": 15204352,
-        "heapUsed": 34892840,
+        "rss": 51396608,
+        "heapTotal": 30932992,
+        "heapUsed": 26231624,
         "external": 0,
         "arrayBuffers": 0
       },
       "totalFromBaseline": {
-        "rss": 226357248,
-        "heapTotal": 217579520,
-        "heapUsed": 138161200,
-        "external": 753275,
-        "arrayBuffers": 778424
+        "rss": 220938240,
+        "heapTotal": 213123072,
+        "heapUsed": 120861904,
+        "external": 842888,
+        "arrayBuffers": 872546
       }
     },
     "observational": true,
@@ -262,23 +273,23 @@
     "authoredDeterministic": [
       {
         "id": "manifest_raw_bytes",
-        "observed": 6026,
+        "observed": 6392,
         "limit": 64000,
         "unit": "bytes",
         "passed": true,
         "enforced": true
       },
       {
-        "id": "initial_nature_data_raw_bytes",
-        "observed": 6026,
-        "limit": 64000,
+        "id": "initial_nature_data_raw_upper_bound_bytes",
+        "observed": 8055594,
+        "limit": 10064000,
         "unit": "bytes",
         "passed": true,
         "enforced": true
       },
       {
         "id": "maximum_regional_package_raw_bytes",
-        "observed": 2498351,
+        "observed": 2498752,
         "limit": 2500000,
         "unit": "bytes",
         "passed": true,
@@ -288,16 +299,16 @@
     "observational": [
       {
         "id": "current_indexed_search_p95",
-        "observed": 54.547,
+        "observed": 45.252,
         "target": 50,
         "unit": "milliseconds",
-        "withinTarget": false,
+        "withinTarget": true,
         "observational": true,
         "enforced": false
       },
       {
         "id": "synthetic_5000_indexed_search_p95",
-        "observed": 48.31,
+        "observed": 42.126,
         "target": 50,
         "unit": "milliseconds",
         "withinTarget": true,
@@ -311,6 +322,7 @@
   "limitations": [
     "Node microbenchmark only; it does not measure browser startup, Web Workers, IndexedDB, map rendering, interaction frames, network transfer, or routing.",
     "Measurements use warm local files and an in-process prebuilt search index.",
+    "Initial nature-data accounting is an enforced raw-byte upper bound; actual viewport cell selection and compressed transfer size require browser/CDN measurement.",
     "The synthetic region stresses 5,000 multilingual searchable entities but not complex route geometry, media decoding, or vector-tile rendering.",
     "Process memory includes V8 allocator and garbage-collection noise; the benchmark does not force garbage collection.",
     "Gzip level-9 size is measured locally and does not predict CDN Brotli size or transfer latency.",

@@ -37,7 +37,7 @@ All values in this section refer to build `502fbdf646728ce8` and the checked-in 
 | Spatial index | 1 | 514 | 331 | One populated z8 cell and one package reference. |
 | Spatial cell packages | 1 | 236,806 | Not recorded | One byte-bounded package for the two public entities. |
 | Retained regional packages | 1 | 236,785 | 76,966 | One North America shard for explicit partition search and compatibility use. |
-| Entire generated nature tree | 10 | 651,418 | Not recorded as one transfer | Includes both delivery layouts, reports, redirects, and the source-release notice. |
+| Entire generated nature tree | 10 | 651,524 | Not recorded as one transfer | Includes both delivery layouts, reports, redirects, and the source-release notice. |
 
 The active index is `assets/data/nature/spatial/index/8a63b90488ae497c.json`. Its only cell, `8/21/74`, references `assets/data/nature/spatial/cells/8/21/74/c23aca411a385509.json`. The retained regional package is `assets/data/nature/packages/north-america/5ce8bb3b81dad269.json`.
 

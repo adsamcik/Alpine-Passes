@@ -17,7 +17,8 @@ Use a hybrid boundary:
 - build canonical entities offline from isolated adapters;
 - publish a small, versioned manifest at `assets/data/nature/manifest.v1.json`;
 - group records by explicit `deliveryRegions`, sort by stable ID, and deterministically shard each region below `assets/data/nature/packages/<region>/` so every content-addressed JSON document fits the raw-byte budget;
-- fetch every advertised shard for only the requested logical region through `RegionalPackageLoader`, validate contiguous shard identity and each document, reject conflicting duplicate IDs, and cache one immutable merged package set;
+- retain those regional shards for explicitly requested search across all advertised records in one selected delivery partition and as an independently validated, user-activated compatibility fallback: when activated, `RegionalPackageLoader` fetches every advertised shard, validates contiguous shard identity and each document, rejects conflicting duplicate IDs, and caches one immutable merged package set; viewport failure never triggers this download automatically;
+- use the fixed spatial-cell layout accepted in [ADR-005](adr-005-spatial-cell-delivery.md) as the active visible-map path, without treating regional package existence or spatial-cell population as coverage evidence;
 - retain static hosting for the UI, manifest, packages, attribution, and reports;
 - use a same-origin dynamic worker only for routing and other future secret-bearing or live operations.
 
@@ -29,13 +30,23 @@ Data and UI can be released independently, and a browser does not need every reg
 
 The manifest is the consistency boundary. A release must publish packages before the manifest that advertises them, and rollback must restore a compatible manifest plus its referenced immutable objects. `tools/nature/build.mjs` stages locally, but its final file-by-file copy is not a cross-filesystem atomic deployment; the hosting release process must provide atomic release promotion.
 
-Cross-border records may appear in more than one delivery region when `deliveryRegions` requires it. The current deterministic sharding is byte-bounded, not viewport-aware: loading a region fetches all of its shards concurrently and merges them. Further spatial/index sharding may therefore be needed for total transfer and retained-memory scale even though individual files fit the budget.
+Cross-border records may appear in more than one delivery region when `deliveryRegions` requires it. Regional sharding is intentionally byte-bounded rather than viewport-aware: explicit retrieval fetches and merges every advertised shard in that selected delivery partition. The active fixed-cell path handles visible-map bounds separately, while the regional representation remains available for search across all advertised partition records and user-activated compatibility use.
 
 The loader requires Web Crypto SHA-256. It fails closed with a typed error if integrity verification is unavailable; the product must render a retry/degraded state instead of using unverified bytes.
 
 ## Current gate status
 
-The manifest authors a 64,000-byte manifest/initial-nature-data budget and a 2,500,000-byte uncompressed shard budget. The builder hard-fails when the manifest, a shard, or one indivisible entity cannot fit the applicable limit. Deterministic build `2413863cfdeb500c` produced a 6,026-byte manifest and 10 shards; the largest is 2,498,351 bytes. EU/Alps is split into four shards and Japan into two. All 4,019 records validated, both adapters succeeded, and all 313 legacy price-cache entries matched. The raw file gates are green, but total-region transfer, parse, integrity, merge, retained memory, and representative browser latency remain unproven.
+The manifest authors separate 64,000-byte manifest, 10,064,000-byte
+initial-nature-data, and 2,500,000-byte uncompressed regional-shard budgets.
+The initial deterministic raw upper bound is 8,001,888 bytes: the 1,374-byte
+manifest, the 514-byte spatial index, and at most 8,000,000 advertised bytes of
+viewport cell packages. Current governed build `502fbdf646728ce8` has one
+236,785-byte North America regional shard containing the two approved NPS
+records. All three adapters process 4,019 candidate records, but the release
+gate withholds the 4,017 records referencing non-approved sources before
+packaging. The deterministic raw gates are green; selected-partition transfer,
+parse, integrity, retained memory, and representative browser latency at future
+scale remain unproven. Spatial measurements are recorded in [ADR-005](adr-005-spatial-cell-delivery.md) and [Performance](../performance.md).
 
 ## Alternatives considered
 
@@ -46,4 +57,4 @@ The manifest authors a 64,000-byte manifest/initial-nature-data budget and a 2,5
 
 ## Follow-up rules
 
-Any partition change must preserve stable entity IDs, source assertions, redirects, attribution, contiguous shard identity, and deterministic membership. Add initial-load, total-region transfer, parse, merge, memory, and viewport interaction measurements to CI before widening coverage. Never derive a coverage status from package existence or entity count.
+Any partition change must preserve stable entity IDs, source assertions, redirects, attribution, contiguous shard identity, and deterministic membership. Keep the explicit selected-delivery-partition retrieval contract covered while measuring initial viewport load, total-region transfer, parse, merge, memory, and viewport interaction in CI before widening coverage. Never derive a coverage status from package existence or entity count.

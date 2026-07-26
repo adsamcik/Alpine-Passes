@@ -51,6 +51,20 @@ Ordinary hosting and compute costs are operational expenses, not licence fees;
 a paid API/data-use entitlement is a prohibited rights dependency. Fair use,
 fair dealing, and similar exceptions are not routine production bases.
 
+## Default public-release gate
+
+`npm run build:nature` is release mode. Adapters may process unapproved
+migration candidates so source counts, IDs, media removals, and drift remain
+auditable, but every record referencing a non-`approved` source is withheld
+before public sensitivity processing and packaging. The generated exact source
+notice is hash-bound to the manifest and must have `releaseEligible: true`.
+
+`node tools/nature/build.mjs --include-unapproved-previews` is an explicit
+non-release diagnostic mode. Its packages can contain unapproved candidates and
+its source notice has `releaseEligible: false`. Do not stage, mirror, deploy, or
+promote those artifacts. A successful preview build never changes a source's
+publication disposition.
+
 ## Facts, geometry, APIs, and media
 
 A bare fact may be manually restated only as a narrow field assertion with an
@@ -194,6 +208,16 @@ snapshots.
 authorize showing time-sensitive facts as current. The UI and API must expose
 freshness.
 
+## Reviewed National Park Service snapshot
+
+`nps-public-trails` is the only currently approved official-source ingestion adapter. Its approval is product- and snapshot-specific: the checked-in Harding Icefield GeoJSON contains six reviewed OBJECTIDs from NPS Public Trails Geographic, and the companion metadata retains the exact ArcGIS query, retrieval time, SHA-256, segment order, feature/source identifiers, visitor/access guidance URLs, and review dates. The adapter refuses changed bytes, unreviewed IDs or fields, and disconnected topology until those changes are reviewed. It emits one verified route and one verified access point.
+
+The recorded rights basis is limited to original U.S. Government structured trail geometry and factual visitor guidance under 17 U.S.C. 105 and the reviewed NPS disclaimer. Publication retains NPS attribution and transformation notices. Approval covers only `discovery`, `fact_evidence`, `bulk_ingest`, and `geometry` for that reviewed material. It does not cover NPS marks or logos, photographs, audiovisual media, maps or other expressive assets, or separately credited third-party material. No such material is included.
+
+Public visibility is not permission. `DATAACCESS=Unrestricted`, `PUBLICDISPLAY=Public Map Display`, a successful ArcGIS query, or an NPS-hosted page does not approve a different product, release, field, feature, geometry, or asset. Each expansion needs its own exact product/terms and third-party review, retained query/snapshot/hash, attribution/transformation record, and promotion decision. The separate `nps-data-api` source remains `lead_only` because its key-protected mixed content and media rights are not cleared for bulk redistribution.
+
+The two Harding records do not establish Alaska, United States, National Park Service network, live-condition, access, or safety coverage. `TRLSTATUS=Existing` is a dataset classification, not proof of current trail condition or absence of closures.
+
 ## OpenStreetMap
 
 Use versioned PBF/replication sources for bulk work. Do not depend on public
@@ -209,11 +233,17 @@ source, not an authoritative declaration of legal/current access.
 `legacy-alps-osm`, `legacy-curated-pois`, `legacy-scenic-drives`, and
 `manual-seed-routes` are isolated migration inputs. The user has confirmed the
 repository MIT licence for project-authored migration material, but that does
-not clear third-party-derived fields or media. Those fields remain quarantined
-or stripped, and the public preview may expose only independently authored,
-minimal, explicitly unverified lead metadata. It cannot expose exact
-third-party geometry or copied descriptions. These inputs do not establish
-verified coverage.
+not clear third-party-derived fields or media. The default nature build
+withholds every record that references these non-approved sources and removes
+uncleared media before packaging. It does not publish a minimal lead merely
+because `publicationDisposition` is `lead_only`.
+
+The explicit `--include-unapproved-previews` mode exists for local migration
+inspection only. It can expose unverified candidate metadata and geometry, so
+its `releaseEligible: false` output must not be distributed. These inputs do
+not establish verified coverage. The separately retained legacy JavaScript
+bundle is outside the nature-package source notice and needs its own clearance
+or exclusion before public promotion.
 
 Promote an individual legacy feature only after:
 

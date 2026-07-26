@@ -1,28 +1,62 @@
 # Third-party data notices
 
-Status date: 2026-07-25.
+Status date: 2026-07-26.
 
-This is a registry-level notice for sources that may contribute to future
-builds. It is not a claim that every listed source has been ingested or that
-the current application has verified coverage. Release tooling should generate
-a snapshot-specific notice containing only sources and media actually shipped.
+This human-readable file separates the exact current nature-package notice from
+source families registered for future work. It is not a claim that every listed
+source has been ingested or that the application has verified territorial
+coverage. The machine-readable release authority is the hash-bound
+`assets/data/nature/source-release-notice.v1.json`.
 
-## Current legacy data
+## Current public nature delivery
 
-The repository contains legacy Alpine pass, curated POI, scenic-drive, and
-manual seed-route material. Its rights and provenance are mixed:
+Nature build `502fbdf646728ce8` delivers exactly one route and one access point,
+both from `nps-public-trails`. Its source notice has `releaseEligible: true`,
+`recordCount: 2`, `media: []`, and the same byte count and SHA-256 as the
+reference in `manifest.v1.json`. No other source contributes a public nature
+record.
 
-- OpenStreetMap-origin facts require ODbL compliance and attribution.
-- Wikipedia/Wikidata references do not determine the rights of copied text,
-  images, or other databases.
+### National Park Service Harding snapshot
+
+The current generated corpus includes six reviewed trail-centerline records
+from **National Park Service Public Trails Geographic** plus dated factual
+visitor/access guidance for Harding Icefield Trail and the Exit Glacier area.
+Those inputs emit one route and one access point. The raw query, OBJECTIDs,
+retrieval time, SHA-256, segment order, source dates, and transformations are
+retained in `data/snapshots/nps-public-trails/`.
+
+Attribution: **National Park Service. No protection is claimed in original
+U.S. Government works.** The reviewed rights basis is 17 U.S.C. 105 and the
+NPS disclaimer. This approval is limited to original government structured
+trail geometry and factual guidance in the reviewed snapshot. NPS marks and
+logos, photographs, audiovisual media, maps or other expressive assets, and
+separately credited third-party material are excluded and are not shipped.
+
+## Legacy application boundary
+
+The repository and retained legacy application bundle contain Alpine pass,
+curated POI, scenic-drive, and manual seed-route material. Their rights and
+provenance are mixed:
+
+- OpenStreetMap-origin data requires ODbL compliance and attribution.
+- Wikipedia/Wikidata references do not determine rights in copied text, images,
+  or other databases.
 - Wikimedia Commons media rights are per file.
-- Maintainer-authored material can be covered by the repository licence, but
-  upstream geometry, facts, and media retain their own conditions.
+- MIT covers only project-authored material; upstream geometry, facts,
+  selections, descriptions, and media retain their own conditions.
 
-These legacy collections remain **Unknown** for coverage and are not approved
-as authoritative source snapshots.
+The default nature builder processes these records to detect migration drift,
+then withholds every record that references an unapproved source. The generated
+nature notice does not clear the separate legacy JS bundle. That bundle must be
+cleared source by source or excluded before public promotion. An explicit
+`--include-unapproved-previews` nature build is non-release-only and marks its
+notice `releaseEligible: false`.
 
-## Registered source notices
+## Registered future source families
+
+The following notices describe researched licence families and possible future
+sources. They are not a statement that those sources appear in the current
+public nature packages.
 
 ### OpenStreetMap
 
@@ -119,6 +153,9 @@ protected-area sources take precedence.
 
 ## Release requirement
 
-Before distribution, generate notices from the exact accepted source snapshots
-and media manifests. If the generated notice and the shipped artifacts differ,
-the release fails.
+Before distribution, generate the exact notice from accepted source snapshots
+and per-file media manifests, verify its bytes and canonical SHA-256 against the
+nature manifest, and package the referenced notice with the application. If the
+notice and public nature artifacts differ, the release fails. Whole-site
+promotion separately requires clearing or excluding material outside that
+notice, including the retained legacy bundle.

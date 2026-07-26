@@ -83,15 +83,16 @@ extract, or another broad source does not silently expand product scope.
 ## Current public release state
 
 The current public release contains one narrowly governed Alaska NPS pilot.
-That pilot does not establish `Verified broad coverage` for Alaska, the United
-States, or any other jurisdiction. No jurisdiction in the current public
-release has `Verified broad coverage`.
+That pilot does not establish **Verified broad coverage** or **Verified partial
+coverage** for Alaska, the United States, or any other jurisdiction. Every
+in-scope jurisdiction roll-up remains **Unknown**.
 
 Scotland has explicit jurisdiction, taxonomy, access-regime, transport, and
-safety structure, but the governed public release is `Structurally supported
-but unpopulated`. Scope rows describe inclusion and operational policy; they do
-not claim that public records, routes, access facts, or transport schedules are
-populated.
+safety structure. Its public-delivery population is **Structurally supported
+but unpopulated**, while its machine-authored overall coverage remains
+**Unknown** and reviewed dimensions remain **Source available but not yet
+ingested**. Scope rows do not claim that public records, routes, access facts,
+or transport schedules are populated.
 
 ## Special operational scopes
 

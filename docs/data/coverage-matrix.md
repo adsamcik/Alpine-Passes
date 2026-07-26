@@ -1,6 +1,6 @@
 # Coverage matrix
 
-Assessment date: 2026-07-25.
+Assessment date: 2026-07-26.
 
 The machine-readable authority for jurisdiction scope and status is
 [`data/jurisdictions/registry.v1.json`](../../data/jurisdictions/registry.v1.json).
@@ -13,15 +13,20 @@ No jurisdiction is currently classified as **Verified broad coverage** or
 **Verified partial coverage**.
 
 The existing Austria, France, Ireland, Italy, Japan, Switzerland, and United
-Kingdom inventories are useful migration inputs, but their coverage remains
-**Unknown**. They do not have sufficiently complete item-level publisher,
-licence, attribution, source identifier, geometry, legal-access, freshness, and
-coverage evidence. A count test or a successful import is not coverage
+Kingdom inventories are useful migration inputs, but the default release gate
+withholds them because their source rights are not approved. The United States
+has one governed NPS route/access pilot; it is the entire current public nature
+delivery. All target jurisdiction roll-ups remain **Unknown**. They do not have
+sufficiently complete item-level publisher, licence, attribution, source
+identifier, geometry, legal-access, freshness, and coverage evidence. A count
+test, successful import, package, cell, or one verified feature is not coverage
 verification.
 
 Reviewed authoritative source availability is recorded as **Source available
 but not yet ingested**. This is intentionally not a claim that the application
-contains that source.
+contains that source. **Structurally supported but unpopulated** describes a
+modeled delivery scope with no approved public record; it does not override the
+registry's authored **Unknown** roll-up.
 
 ## Required status values
 
@@ -87,7 +92,25 @@ These dimensions are independent. For example, a jurisdiction can have an
 authoritative protected-area source while its trail access, closures,
 accessibility, or transport remain Unknown.
 
+## United States NPS pilot
+
+Build `502fbdf646728ce8` includes exactly two verified NPS records in Alaska:
+the complete Harding Icefield Trail out-and-back and its lower access point.
+The approved adapter is limited to one hash-pinned six-segment Public Trails
+Geographic snapshot plus dated official visitor/access guidance. It does not
+ingest the NPS network, other parks, live closures or conditions, or NPS media.
+Marks, logos, photographs, audiovisual media, and separately credited
+third-party material are excluded.
+
+This pilot does not promote `US`, `US-AK`, established routes, access points, trail network, conditions, or any country roll-up to verified partial coverage. One governed route is evidence about that route only. Current access, closures, weather, wildlife, avalanche risk, and other hazards still require current official/local verification.
+
 ## Scotland depth
+
+For public delivery, Scotland is **Structurally supported but unpopulated**.
+Its authored overall coverage remains **Unknown**, while the dimension table
+records reviewed products as **Source available but not yet ingested**. No
+Scottish route, access point, place, scenic drive, or transport connection is
+in the current public nature packages.
 
 Scotland is its own `GB-SCT` jurisdiction rather than an attribute on a generic
 UK record.

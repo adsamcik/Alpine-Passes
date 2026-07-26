@@ -10,6 +10,21 @@ the exact product and version, not merely its publisher or portal.
 This is an engineering release policy, not a substitute for advice on a disputed
 or novel use. It intentionally fails closed when the rights basis is unclear.
 
+## Current release scope
+
+The exact machine-readable notice for the public nature packages is
+`assets/data/nature/source-release-notice.v1.json`, hash-bound by
+`manifest.v1.json`. Build `502fbdf646728ce8` names only
+`nps-public-trails`, contains two records and no media, and has
+`releaseEligible: true`. The default builder processes 4,019 candidates but
+withholds 4,017 records that reference non-approved sources and removes 1,436
+uncleared media items before packaging.
+
+That notice covers the generated nature delivery only. The retained legacy
+JavaScript bundle contains separate migration material and must be cleared
+source by source or excluded before public promotion. A non-release
+`--include-unapproved-previews` build has `releaseEligible: false`.
+
 ## Primary authorities and product implications
 
 - The [MIT licence](https://opensource.org/license/mit) grants rights in the
@@ -122,13 +137,16 @@ The current source schema expresses the closely related values `allowed`,
 
 Unclear rights fail closed: metadata may remain in the research registry, but
 the underlying copied data, text, exact third-party geometry, and media do not
-enter a redistributable public package. A `lead_only` or `link_only` preview may
-contain only independently authored minimal lead metadata: title, outbound URL,
-a coarse/general location when independently verified and rights-safe, and an
-explicit uncertainty label. Project-authored legacy migration material remains
-covered by the user-confirmed repository MIT licence; third-party-derived fields
-and media remain quarantined or stripped. A lead is not a verified quality,
-access, or safety recommendation.
+enter a redistributable public package. The default build withholds records
+that reference `lead_only` or `link_only` sources; it does not infer that
+minimal metadata is independently authored and rights-safe.
+
+An explicit non-release preview may expose candidate material for local
+migration review, but its generated notice is not release eligible.
+Project-authored material can be covered by the user-confirmed repository MIT
+licence only to the extent the project owns it; third-party-derived fields and
+media retain their own terms. A lead is not a verified quality, access, or
+safety recommendation.
 
 ## Common licence families
 

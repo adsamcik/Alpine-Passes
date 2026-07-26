@@ -2,7 +2,9 @@
 
 ## Scope and evidence
 
-This audit records the repository state inspected on **2026-07-25** before the nature-travel redesign. The inspected Git commit was `5bd7636bbdca09bce6a5b36f5825cd7a331da9de` (`chore(poi-prices): refresh cache from Wikidata`, committed 2026-07-23). Measurements below describe that commit unless a section is explicitly labelled “redesign branch”.
+This audit retains the original pre-redesign inspection from **2026-07-25** at Git commit `5bd7636bbdca09bce6a5b36f5825cd7a331da9de` (`chore(poi-prices): refresh cache from Wikidata`, committed 2026-07-23). Measurements below describe that original commit unless a section is explicitly labelled “redesign branch”.
+
+Before making the current architecture and data-governance decisions, latest `main` was re-inspected on **2026-07-26** at `5aad075f92d2b452160a18382375d314677a2b6f` (`Remove ChatGPT Sites configuration`, committed 2026-07-26). That revision already contained the first canonical nature platform, regional loader, routing boundary, Rust/WASM planner, deterministic bundle/site build, tests, and documentation; it deliberately removed `.openai/hosting.json`, so this work preserves local deterministic packaging without claiming or creating a hosted deployment.
 
 The audit is structural, not a claim that every runtime path, external service, data record, licence, or jurisdiction was independently verified. In particular, record counts measure checked-in inventory; they do not establish geographic, thematic, legal-access, or route completeness.
 
@@ -102,11 +104,26 @@ Native controls provide a useful accessibility base, but the map remains visuall
 
 ## Redesign branch observed after the baseline
 
-The redesign branch introduces a versioned canonical schema, registries, an isolated ingestion/build pipeline, content-addressed regional packages and loader, discovery scoring, mixed-mode itinerary composition, a same-origin routing boundary, a routing worker, fixtures, and Node tests. `index.html` now presents Discover by default, loads only the nature manifest at startup, and loads a selected region after explicit activation. It renders evidence/uncertainty in textual cards and route/access geometry on the map while retaining the legacy Plan and Browse paths. A deterministic site packager emits an allowlisted `dist/client`, the worker at `dist/server/index.js`, and a hashed build manifest; CI rebuilds/diffs generated nature artifacts and the legacy bundle and exercises that package.
+The redesign branch retains the versioned canonical schema, registries, isolated ingestion/build pipeline, discovery scoring, mixed-mode itinerary composition, same-origin routing boundary, routing worker, Rust/WASM planner, fixtures, and Node tests. It adds content-addressed fixed zoom-8 spatial cells as the default visible-map data path while retaining byte-bounded regional packages for user-activated search across all advertised records in a selected delivery partition. `index.html` presents Discover by default, provides synchronized textual/map results, renders uncertainty and route/access geometry, and retains the legacy Plan and Browse paths. A deterministic site packager emits an allowlisted `dist/client`, the worker at `dist/server/index.js`, and a hashed build manifest; CI rebuilds/diffs generated artifacts and exercises that package.
 
-That implementation is a scalable migration foundation, not delivered territorial coverage. Deterministic build `2413863cfdeb500c` produced 4,019 valid records in 10 shards with zero invalid records or adapter failures; its 6,026-byte manifest and largest 2,498,351-byte shard pass their authored raw-byte budgets. EU/Alps uses four shards and Japan two. The legacy price migration matched all 313 cache records with no unmatched keys. The quality report records 1,461 AccessPoints, 1,097 NaturalFeatures, 1,052 Places, 313 Prices, 53 ProtectedAreas, 38 TrailRoutes, and five TransportConnections; it also records 3,701 records with unknown legal access, 1,436 with missing attribution, six near-duplicate candidates, eight complete established route geometries, and 30 overview-only scenic routes.
+That implementation is a scalable migration foundation, not delivered
+territorial coverage. Deterministic release build `502fbdf646728ce8` contains
+two approved NPS records: one complete Harding Icefield route and one access
+point. It emits one 236,785-byte regional package, a 514-byte spatial index,
+and one 236,806-byte spatial-cell package. The 1,374-byte manifest hash-binds
+an exact 3,478-byte source-release notice. All three adapters still process
+3,992 legacy migrations, two NPS outputs, and 25 non-superseded canonical seeds
+for drift auditing, but public governance withholds the 4,017 records that
+reference non-approved sources and removes all 1,436 uncleared media items.
 
-Those are pipeline and inventory results, not evidence of territorial completeness. Across 206 registry entries, current overall statuses remain authored as 190 **Unknown** and 16 **Excluded, with reason**. No broad researched source has been approved for ingestion, routing upstreams are unconfigured, there is no scheduled nature refresh, and no route or release has field safety certification. See [Performance](../performance.md) and [Coverage matrix](../data/coverage-matrix.md).
+Those are pipeline and release-governance results, not evidence of territorial
+completeness. Across 206 jurisdiction registry entries, overall statuses remain
+authored as 190 **Unknown** and 16 **Excluded, with reason**; none is
+**Verified broad coverage** or **Verified partial coverage**. Scotland is
+structurally modeled and source-researched but has no approved public record.
+Routing upstreams are unconfigured, there is no scheduled nature refresh, and
+no route or release has field safety certification. The retained legacy bundle
+also lies outside the exact nature source-release notice. See [Performance](../performance.md) and [Coverage matrix](../data/coverage-matrix.md).
 
 ## Migration constraints
 

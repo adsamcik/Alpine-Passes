@@ -1,6 +1,8 @@
 import {
   displayName,
   haversineMeters,
+  isPlanningBlockingQualityFlag,
+  isSafetySensitiveTrailRoute,
   lineDistanceMeters,
   validPosition,
 } from "./domain.mjs";
@@ -37,7 +39,6 @@ const TRANSIT_CONNECTION_MODES = new Set([
   "cog_railway",
   "boat",
 ]);
-const UNSAFE_PLANNING_FLAG_PATTERN = /(unsafe|danger|hazard|closed|closure|blocked|prohibited|stale|expired|unknown|unverified|conflict)/i;
 
 /**
  * Exposes only access choices backed by linked route data. The itinerary
@@ -152,7 +153,14 @@ function routePlanningBlocker(route, asOf) {
   if (route.access?.legal !== "legal") {
     return "Planning is unavailable because legal public route access is not verified.";
   }
-  if (!qualityIsActionable(route.quality, asOf)) {
+  const criticalConditionUnknown =
+    (route.quality?.flags || []).includes("critical_condition_unknown");
+  if (criticalConditionUnknown && isSafetySensitiveTrailRoute(route)) {
+    return "Planning is unavailable because a critical condition is unknown for this safety-sensitive route.";
+  }
+  if (!qualityIsActionable(route.quality, asOf, {
+    ignoredFlags: criticalConditionUnknown ? ["critical_condition_unknown"] : [],
+  })) {
     return "Planning is unavailable because the route record is not verified as current.";
   }
   return "";
@@ -231,12 +239,14 @@ function connectionIsActionable(connection, asOf) {
     && assertionIsCurrent(assertion, asOf));
 }
 
-function qualityIsActionable(quality, asOf) {
+function qualityIsActionable(quality, asOf, { ignoredFlags = [] } = {}) {
   const assessedAt = temporalBoundary(quality?.assessedAt, false);
+  const ignored = new Set(ignoredFlags);
   return quality?.verificationStatus === "verified"
     && quality.freshness === "current"
     && Array.isArray(quality.flags)
-    && !quality.flags.some((flag) => UNSAFE_PLANNING_FLAG_PATTERN.test(String(flag)))
+    && !quality.flags.some((flag) =>
+      !ignored.has(String(flag)) && isPlanningBlockingQualityFlag(flag))
     && assessedAt !== null
     && assessedAt.getTime() <= asOf.getTime();
 }

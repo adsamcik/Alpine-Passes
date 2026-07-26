@@ -60,6 +60,61 @@ export const SENSITIVITY_ACTIONS = Object.freeze([
   "exclude",
 ]);
 
+const PLANNING_BLOCKING_QUALITY_FLAGS = new Set([
+  "access_unknown", "border_conditions_unknown", "conditions_unknown",
+  "critical_access_unknown", "critical_condition_unknown",
+  "generalized_geometry", "generalized_position",
+  "legal_access_unknown", "not_navigation_grade", "operation_unknown",
+  "overview_geometry_only", "parking_rules_unknown", "reservation_status_unknown",
+  "route_geometry_missing", "schedule_unknown", "sensitivity_not_assessed",
+  "stopping_permission_unknown", "transport_schedule_unknown", "transport_stop_unknown",
+]);
+const PLANNING_ADVISORY_QUALITY_FLAGS = new Set([
+  "current_conditions_require_local_verification",
+  "current_road_status_requires_local_verification",
+  "official_centerline",
+  "parking_capacity_unknown",
+  "parking_centroid_not_surveyed",
+  "parking_fee_unknown",
+  "parking_hours_unknown",
+  "source_geometry_surveyed_2016",
+]);
+const UNSAFE_PLANNING_QUALITY_FLAG_TOKEN =
+  /(?:^|_)(?:unsafe|danger|hazard|closed|closure|blocked|prohibited)(?:_|$)/i;
+const NON_CURRENT_PLANNING_QUALITY_FLAG_TOKEN =
+  /(?:^|_)(?:stale|expired|unverified|conflict)(?:_|$)/i;
+const PLANNING_SENSITIVE_QUALITY_FLAG_TOKEN =
+  /(?:^|_)(?:legal|access|stopping|operation|schedule|transport|conditions?|avalanche|fire|flood|hazard|reservation|sensitivity|navigation|geometry)(?:_|$)/i;
+const UNKNOWN_QUALITY_FLAG_TOKEN = /(?:^|_)(?:unknown|unverified)(?:_|$)/i;
+
+export function isUnsafePlanningQualityFlag(value) {
+  return UNSAFE_PLANNING_QUALITY_FLAG_TOKEN.test(String(value ?? "").trim().toLowerCase());
+}
+
+/**
+ * Distinguishes facts that invalidate safe planning from advisory unknowns.
+ * Missing parking capacity, fee, centroid or hours remain visible caveats when
+ * legal access and stopping permission are independently verified.
+ */
+export function isPlanningBlockingQualityFlag(value) {
+  const flag = String(value ?? "").trim().toLowerCase();
+  if (!flag || PLANNING_ADVISORY_QUALITY_FLAGS.has(flag)) return false;
+  return PLANNING_BLOCKING_QUALITY_FLAGS.has(flag)
+    || isUnsafePlanningQualityFlag(flag)
+    || NON_CURRENT_PLANNING_QUALITY_FLAG_TOKEN.test(flag)
+    || (UNKNOWN_QUALITY_FLAG_TOKEN.test(flag)
+      && PLANNING_SENSITIVE_QUALITY_FLAG_TOKEN.test(flag));
+}
+
+export function isSafetySensitiveTrailRoute(route) {
+  const activities = new Set(Array.isArray(route?.activities) ? route.activities : []);
+  return ["technical", "expert"].includes(route?.difficulty?.normalizedBand)
+    || ["scrambling", "via_ferrata", "winter_walking", "snowshoe"]
+      .some((activity) => activities.has(activity))
+    || (Array.isArray(route?.hazards) ? route.hazards : [])
+      .some((hazard) => ["high", "extreme", "unknown"].includes(hazard?.severity));
+}
+
 const ENTITY_TYPE_SET = new Set(ENTITY_TYPES);
 const EVIDENCE_KIND_SET = new Set(EVIDENCE_KINDS);
 const VERIFICATION_STATE_SET = new Set(VERIFICATION_STATES);

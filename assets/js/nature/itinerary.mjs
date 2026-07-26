@@ -1,6 +1,9 @@
 import {
   displayName,
   haversineMeters,
+  isPlanningBlockingQualityFlag,
+  isSafetySensitiveTrailRoute,
+  isUnsafePlanningQualityFlag,
   lineDistanceMeters,
   validPosition,
 } from "./domain.mjs";
@@ -441,8 +444,7 @@ function accessPointIsPlanSafe(point, mode, time) {
   }
   const quality = point.quality;
   const unsafeFlags = Array.isArray(quality?.flags)
-    ? quality.flags.filter((flag) =>
-      /(unsafe|danger|hazard|closed|closure|blocked|prohibited|stale|expired|unknown|unverified|conflict)/i.test(String(flag)))
+    ? quality.flags.filter(isPlanningBlockingQualityFlag)
     : ["quality_flags_missing"];
   const assessedAt = validInstant(quality?.assessedAt);
   return quality?.verificationStatus === "verified"
@@ -824,8 +826,7 @@ function validateOutboundTransportQuality(connection, time, scheduleContext) {
     );
   }
   const unsafeFlags = Array.isArray(quality.flags)
-    ? quality.flags.filter((flag) =>
-      /(unsafe|danger|hazard|closed|closure|blocked|prohibited|stale|expired|unknown|unverified|conflict)/i.test(String(flag)))
+    ? quality.flags.filter(isPlanningBlockingQualityFlag)
     : ["quality_flags_missing"];
   if (quality.freshness !== "current" || unsafeFlags.length) {
     throw new ItineraryError(
@@ -1300,8 +1301,7 @@ function validateReturnTransportQuality(connection, time, scheduleContext) {
     );
   }
   const unsafeFlags = Array.isArray(quality.flags)
-    ? quality.flags.filter((flag) =>
-      /(unsafe|danger|hazard|closed|closure|blocked|prohibited|stale|expired|unknown|unverified|conflict)/i.test(String(flag)))
+    ? quality.flags.filter(isPlanningBlockingQualityFlag)
     : ["quality_flags_missing"];
   if (quality.freshness !== "current" || unsafeFlags.length) {
     throw new ItineraryError(
@@ -1496,7 +1496,7 @@ function ensureRouteAvailable(experience, time) {
   }
 
   if ((experience.quality?.flags || []).includes("critical_condition_unknown")
-      && isSafetySensitive(experience)) {
+      && isSafetySensitiveTrailRoute(experience)) {
     throw new ItineraryError(
       "A critical condition is unknown for this safety-sensitive route",
       "critical_condition_unknown",
@@ -1519,8 +1519,7 @@ function ensureRouteQuality(experience, time) {
       "route_quality_invalid",
     );
   }
-  const unsafeFlags = flags.filter((flag) =>
-    /(unsafe|danger|hazard|closed|closure|blocked|prohibited)/i.test(String(flag)));
+  const unsafeFlags = flags.filter(isUnsafePlanningQualityFlag);
   if (unsafeFlags.length) {
     throw new ItineraryError(
       "The route quality record contains an unsafe or blocking flag",
@@ -1529,8 +1528,7 @@ function ensureRouteQuality(experience, time) {
     );
   }
   const nonCurrentFlags = flags.filter((flag) =>
-    String(flag) !== "critical_condition_unknown"
-    && /(stale|expired|unknown|unverified|conflict)/i.test(String(flag)));
+    String(flag) !== "critical_condition_unknown" && isPlanningBlockingQualityFlag(flag));
   if (quality.freshness !== "current" || nonCurrentFlags.length) {
     throw new ItineraryError(
       "The route record is not verified as current",
@@ -1579,14 +1577,6 @@ function isUnsafeBlocker(record) {
     || (record.blocking === true && ["high", "extreme"].includes(severity))
     || (record.blocking === true
       && ["fire", "avalanche", "flood", "volcanic", "emergency"].includes(kind));
-}
-
-function isSafetySensitive(experience) {
-  const activities = new Set(experience.activities || []);
-  return ["technical", "expert"].includes(experience.difficulty?.normalizedBand)
-    || ["scrambling", "via_ferrata", "winter_walking", "snowshoe"]
-      .some((activity) => activities.has(activity))
-    || (experience.hazards || []).some((hazard) => ["high", "extreme", "unknown"].includes(hazard.severity));
 }
 
 function normalizedState(value) {

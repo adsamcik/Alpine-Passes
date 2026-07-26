@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { validateCanonicalEntity } from "../assets/js/nature/domain.mjs";
+import {
+  isPlanningBlockingQualityFlag,
+  validateCanonicalEntity,
+} from "../assets/js/nature/domain.mjs";
 
 function transportConnection(overrides = {}) {
   return {
@@ -98,4 +101,33 @@ test("JSON schema exposes the same closed TransportConnection field constraints"
   assert.equal(properties.schedule.properties.timezone.type, "string");
   assert.equal(properties.schedule.properties.timezone.minLength, 1);
   assert.equal(properties.schedule.properties.timezone.pattern, "\\S");
+});
+
+test("planning quality flags distinguish safety blockers from disclosed parking unknowns", () => {
+  for (const flag of [
+    "unsafe_access",
+    "legal_access_unknown",
+    "stopping_permission_unknown",
+    "transport_schedule_unverified",
+    "generalized_geometry",
+    "legal_status_unknown",
+    "avalanche_conditions_unknown",
+    "critical_condition_unknown",
+  ]) {
+    assert.equal(isPlanningBlockingQualityFlag(flag), true, flag);
+  }
+
+  for (const flag of [
+    "current_road_status_requires_local_verification",
+    "parking_capacity_unknown",
+    "parking_centroid_not_surveyed",
+    "parking_fee_unknown",
+    "parking_hours_unknown",
+    "current_conditions_require_local_verification",
+    "official_centerline",
+    "source_geometry_surveyed_2016",
+    "enclosed_route_section",
+  ]) {
+    assert.equal(isPlanningBlockingQualityFlag(flag), false, flag);
+  }
 });

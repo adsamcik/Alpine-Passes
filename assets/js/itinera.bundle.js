@@ -2546,12 +2546,23 @@ function photoRightText(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function photoRightBoolean(...values) {
+  const value = firstDefinedPhotoRight(...values);
+  return value === true || value === false ? value : null;
+}
+
+function photoAssetSha256(value) {
+  const match = photoRightText(value).match(/^(?:sha256[:-]?)?([a-f0-9]{64})$/i);
+  return match ? match[1].toLowerCase() : "";
+}
+
 function photoRightsWebUrl(value) {
   const text = photoRightText(value);
   if (!text) return "";
   try {
     const parsed = new URL(text);
-    return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.href : "";
+    return (parsed.protocol === "https:" || parsed.protocol === "http:")
+      && !parsed.username && !parsed.password ? parsed.href : "";
   } catch {
     return "";
   }
@@ -2561,7 +2572,27 @@ function photoImageUrl(value) {
   const text = photoRightText(value);
   if (!text || /[\u0000-\u001f\\]/.test(text)) return "";
   if (/^https?:\/\//i.test(text)) return photoRightsWebUrl(text);
-  return /^(?:\.\/)?assets\/[^/]/.test(text) ? text : "";
+  const localPath = text.startsWith("./") ? text.slice(2) : text;
+  if (!localPath.startsWith("assets/")
+      || /[?#]/.test(localPath)
+      || /%(?:25|2f|5c)/i.test(localPath)) return "";
+  let decodedPath = localPath;
+  for (let depth = 0; depth < 3; depth += 1) {
+    try {
+      const decoded = decodeURIComponent(decodedPath);
+      if (decoded === decodedPath) break;
+      decodedPath = decoded;
+    } catch {
+      return "";
+    }
+  }
+  if (/[\u0000-\u001f\\]/.test(decodedPath)) return "";
+  const segments = decodedPath.split("/");
+  if (segments[0] !== "assets"
+      || segments.slice(1).some((segment) => !segment || segment === "." || segment === "..")) {
+    return "";
+  }
+  return localPath;
 }
 
 function normalizePhotoRights(raw) {
@@ -2573,12 +2604,24 @@ function normalizePhotoRights(raw) {
     reviewStatus: photoRightText(firstDefinedPhotoRight(
       raw.reviewStatus, raw.review, raw.status, raw.rs,
     )).toLowerCase(),
+    reviewedAssetUrl: photoImageUrl(firstDefinedPhotoRight(
+      raw.reviewedAssetUrl, raw.assetUrl, raw.au,
+    )),
+    assetUrlImmutable: photoRightBoolean(
+      raw.assetUrlImmutable, raw.immutableAssetUrl, raw.immutable,
+    ),
+    assetSha256: photoAssetSha256(firstDefinedPhotoRight(
+      raw.assetSha256, raw.contentSha256, raw.sha256, raw.ah,
+    )),
     creator: photoRightText(firstDefinedPhotoRight(raw.creator, raw.author, raw.cr)),
     sourcePageUrl: photoRightsWebUrl(firstDefinedPhotoRight(
       raw.sourcePageUrl, raw.sourceUrl, raw.source, raw.sp,
     )),
     licenceId: photoRightText(firstDefinedPhotoRight(
       raw.licenceId, raw.licenseId, raw.licence, raw.license, raw.li,
+    )),
+    licenceVersion: photoRightText(firstDefinedPhotoRight(
+      raw.licenceVersion, raw.licenseVersion, raw.lv,
     )),
     licenceUrl: photoRightsWebUrl(firstDefinedPhotoRight(
       raw.licenceUrl, raw.licenseUrl, raw.lu,
@@ -2589,40 +2632,59 @@ function normalizePhotoRights(raw) {
     reviewedAt: photoRightText(firstDefinedPhotoRight(
       raw.reviewedAt, raw.reviewDate, raw.ra,
     )),
-    display: firstDefinedPhotoRight(
+    modificationStatement: photoRightText(firstDefinedPhotoRight(
+      raw.modificationStatement, raw.modifications, raw.changes, raw.mf,
+    )),
+    shareAlike: photoRightBoolean(
+      raw.shareAlike, raw.shareAlikeRequired, raw.sa,
+      permissions.shareAlike, rights.shareAlike,
+    ),
+    display: photoRightBoolean(
       raw.display, raw.displayAllowed, raw.mayDisplay, raw.dp,
       permissions.display, permissions.mayDisplay,
       rights.display, rights.mayDisplay,
-    ) === true,
-    commercialUse: firstDefinedPhotoRight(
+    ),
+    commercialUse: photoRightBoolean(
       raw.commercialUse, raw.commercialUseAllowed, raw.allowsCommercialUse, raw.cu,
       permissions.commercialUse, permissions.commercial,
       rights.commercialUse, rights.commercial,
-    ) === true,
-    redistribution: firstDefinedPhotoRight(
+    ),
+    redistribution: photoRightBoolean(
       raw.redistribution, raw.redistributionAllowed, raw.canRedistribute, raw.rd,
       permissions.redistribution, permissions.redistribute,
       rights.redistribution, rights.redistribute,
-    ) === true,
-    derivatives: firstDefinedPhotoRight(
+    ),
+    derivatives: photoRightBoolean(
       raw.derivatives, raw.derivativesAllowed, raw.modificationsAllowed,
       raw.allowsDerivatives, raw.dv, permissions.derivatives, permissions.modify,
       rights.derivatives, rights.modify,
-    ) === true,
+    ),
   };
 }
 
-function hasApprovedPhotoRights(rawRights) {
+function hasApprovedPhotoRights(rawRights, displayedUrl) {
   const rights = normalizePhotoRights(rawRights);
+  const displayedAssetUrl = photoImageUrl(displayedUrl);
+  const assetMatchesReview = Boolean(displayedAssetUrl
+    && rights?.reviewedAssetUrl
+    && displayedAssetUrl === rights.reviewedAssetUrl);
+  const immutableRemoteAsset = rights?.assetUrlImmutable === true
+    && /^https?:\/\//i.test(rights.reviewedAssetUrl);
+  const strongHashBinding = Boolean(rights?.assetSha256);
   return Boolean(rights
+    && assetMatchesReview
+    && (immutableRemoteAsset || strongHashBinding)
     && rights.reviewStatus === "approved"
     && rights.creator
     && rights.sourcePageUrl
     && rights.licenceId
+    && rights.licenceVersion
     && rights.licenceUrl
     && rights.attributionText
     && rights.reviewedAt
     && Number.isFinite(Date.parse(rights.reviewedAt))
+    && rights.modificationStatement
+    && typeof rights.shareAlike === "boolean"
     && rights.display === true
     && rights.commercialUse === true
     && rights.redistribution === true
@@ -2632,7 +2694,7 @@ function hasApprovedPhotoRights(rawRights) {
 function reviewedPhotoCandidate(url, rawRights) {
   const src = photoImageUrl(url);
   const rights = normalizePhotoRights(rawRights);
-  return src && hasApprovedPhotoRights(rights) ? { src, rights } : null;
+  return src && hasApprovedPhotoRights(rights, src) ? { src, rights } : null;
 }
 
 function renderLegacyPhoto(candidates, alt) {
@@ -2643,14 +2705,21 @@ function renderLegacyPhoto(candidates, alt) {
     return `<div class="popup-img placeholder photo-rights-pending" role="img" aria-label="${escapeHtml(PHOTO_RIGHTS_PLACEHOLDER)}">${escapeHtml(PHOTO_RIGHTS_PLACEHOLDER)}</div>`;
   }
   const { src, rights } = approved;
+  const assetBinding = rights.assetSha256
+    ? `Asset SHA-256: ${rights.assetSha256}`
+    : "Immutable reviewed asset URL";
   return `<div class="popup-reviewed-photo">
     <div class="popup-img-wrap is-loading"><img class="popup-img" src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" loading="lazy"></div>
     <div class="popup-photo-attribution popup-meta" aria-label="Photo attribution">
       <span>${escapeHtml(rights.attributionText)}</span> ·
       <span>Creator: ${escapeHtml(rights.creator)}</span> ·
       <a href="${escapeHtml(rights.sourcePageUrl)}" target="_blank" rel="noopener">source</a> ·
-      <a href="${escapeHtml(rights.licenceUrl)}" target="_blank" rel="noopener">${escapeHtml(rights.licenceId)}</a> ·
-      <span>reviewed ${escapeHtml(rights.reviewedAt)}</span>
+      <a href="${escapeHtml(rights.licenceUrl)}" target="_blank" rel="noopener">${escapeHtml(`${rights.licenceId} ${rights.licenceVersion}`)}</a> ·
+      <span>Modification: ${escapeHtml(rights.modificationStatement)}</span> ·
+      <span>Share alike: ${rights.shareAlike ? "required" : "not required"}</span> ·
+      <a href="${escapeHtml(rights.reviewedAssetUrl)}" target="_blank" rel="noopener">reviewed asset</a> ·
+      <span>${escapeHtml(assetBinding)}</span> ·
+      <span>Reviewed ${escapeHtml(rights.reviewedAt)}</span>
     </div>
   </div>`;
 }

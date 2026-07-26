@@ -595,6 +595,36 @@ test("route planning requires exact legal access and current navigation-safe qua
   }
 });
 
+test("novel planning-sensitive unknown flags fail closed while exact parking advisories do not", async (t) => {
+  for (const flag of ["legal_status_unknown", "avalanche_conditions_unknown"]) {
+    await t.test(flag, async () => {
+      const scenario = clone(
+        successfulScenarios.get("scotland-drive-foot-established-loop"),
+      );
+      scenario.experience.quality.flags = [flag];
+      const { itineraryRequests } = await expectPlanningRefusal(
+        scenario,
+        "route_quality_not_current",
+      );
+      assert.equal(itineraryRequests.length, 0);
+    });
+  }
+
+  await t.test("known parking detail advisories", async () => {
+    const scenario = clone(
+      successfulScenarios.get("scotland-drive-foot-established-loop"),
+    );
+    scenario.experience.accessPoints[0].quality.flags = [
+      "parking_capacity_unknown",
+      "parking_centroid_not_surveyed",
+      "parking_fee_unknown",
+      "parking_hours_unknown",
+    ];
+    const { itinerary } = await planScenario(scenario);
+    assert.ok(itinerary.legs.some((leg) => leg.mode === "hike"));
+  });
+});
+
 
 test("only car, foot, and transit are accepted as planner access modes", async () => {
   const scenario = clonedOutboundScenario();

@@ -298,6 +298,48 @@ test("journey options expose only linked car, foot and grouped public transport 
   assert.equal(futureOptions.canPlan, false);
 });
 
+test("critical safety unknowns block matching routes while exact parking caveats stay advisory", () => {
+  const criticalTechnicalRoute = trail({
+    activities: ["hiking", "scrambling"],
+    quality: {
+      ...trail().quality,
+      flags: ["critical_condition_unknown"],
+    },
+    accessPoints: [accessPoint()],
+  });
+  const criticalTechnicalOptions = journeyOptions(criticalTechnicalRoute);
+  assert.equal(criticalTechnicalOptions.canPlan, false);
+  assert.match(criticalTechnicalOptions.unavailableMessage, /critical condition is unknown/i);
+
+  const criticalOrdinaryRoute = trail({
+    quality: {
+      ...trail().quality,
+      flags: ["critical_condition_unknown"],
+    },
+    accessPoints: [accessPoint()],
+  });
+  assert.equal(journeyOptions(criticalOrdinaryRoute).canPlan, true);
+
+  const advisoryParking = accessPoint({
+    quality: {
+      ...accessPoint().quality,
+      flags: [
+        "parking_capacity_unknown",
+        "parking_centroid_not_surveyed",
+        "parking_fee_unknown",
+        "parking_hours_unknown",
+      ],
+    },
+  });
+  assert.equal(journeyOptions(trail({ accessPoints: [advisoryParking] })).canPlan, true);
+  assert.equal(journeyOptions(trail({
+    accessPoints: [accessPoint({
+      legalAccess: "unknown",
+      quality: advisoryParking.quality,
+    })],
+  })).canPlan, false);
+});
+
 test("native journey controls forward the selected access and return values", async () => {
   const { container } = fakeDom();
   const route = trail({

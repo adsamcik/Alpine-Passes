@@ -1,18 +1,21 @@
 // Playwright e2e smoke test for the leisure planner post-migration.
-// Runs against the local dev server (tools/dev_server.py). Verifies:
+// Starts an ephemeral static server by default (or accepts --base). Verifies:
 //   1. App loads with leisure flag enabled (no JS errors)
 //   2. WASM module + graph load without firing leisure-wasm-error
 //   3. A real plan executes through the Rust pipeline and renders a tour
 //   4. _routeAlternatives carry working ensurePhase4 thunks
 //   5. The post-migration result shape (corridor.{autoInclude,suggestions,drawer}) is preserved
 //
-// Invoke: node tools/leisure/e2e-smoke.mjs --base http://127.0.0.1:8765
+// Invoke: node tools/leisure/e2e-smoke.mjs
+//         node tools/leisure/e2e-smoke.mjs --base http://127.0.0.1:8765
+import { createServer } from "node:http";
+import { readFile, stat } from "node:fs/promises";
 import { chromium } from "playwright";
 import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
+import { dirname, extname, resolve, sep } from "node:path";
 
 const args = parseArgs(process.argv.slice(2));
-const baseUrl = args.base ?? "http://127.0.0.1:8765";
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
 function parseArgs(argv) {
   const out = {};
@@ -23,6 +26,143 @@ function parseArgs(argv) {
   return out;
 }
 
+function mimeType(pathname) {
+  return {
+    ".css": "text/css; charset=utf-8",
+    ".html": "text/html; charset=utf-8",
+    ".ico": "image/x-icon",
+    ".js": "text/javascript; charset=utf-8",
+    ".json": "application/json; charset=utf-8",
+    ".mjs": "text/javascript; charset=utf-8",
+    ".png": "image/png",
+    ".svg": "image/svg+xml",
+    ".wasm": "application/wasm",
+    ".webp": "image/webp",
+  }[extname(pathname).toLowerCase()] || "application/octet-stream";
+}
+
+async function readRequestJson(request) {
+  const chunks = [];
+  for await (const chunk of request) chunks.push(chunk);
+  return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+}
+
+function fixtureDistanceMeters(coordinates) {
+  let total = 0;
+  for (let index = 1; index < coordinates.length; index += 1) {
+    const [aLon, aLat] = coordinates[index - 1];
+    const [bLon, bLat] = coordinates[index];
+    const meanLatitude = (aLat + bLat) * Math.PI / 360;
+    const dx = (bLon - aLon) * 111_320 * Math.cos(meanLatitude);
+    const dy = (bLat - aLat) * 110_540;
+    total += Math.hypot(dx, dy);
+  }
+  return Math.max(1, Math.round(total));
+}
+
+async function serveRoutingFixture(request, response) {
+  let payload;
+  try {
+    payload = await readRequestJson(request);
+  } catch {
+    response.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
+    response.end(JSON.stringify({ error: { code: "invalid_json", message: "Invalid JSON" } }));
+    return;
+  }
+  const coordinates = payload.coordinates;
+  let result;
+  if (!Array.isArray(coordinates) || coordinates.length < 2) {
+    result = { error: { code: "invalid_request", message: "At least two coordinates are required" } };
+  } else {
+    const distanceMeters = fixtureDistanceMeters(coordinates);
+    result = {
+      provider: "browser-smoke-fixture",
+      routes: [{
+        geometry: { type: "LineString", coordinates },
+        distanceMeters,
+        durationSeconds: Math.max(60, Math.round(distanceMeters / 14)),
+      }],
+    };
+  }
+  const body = JSON.stringify(result);
+  response.writeHead(result.error ? 400 : 200, {
+    "Cache-Control": "no-store",
+    "Content-Type": "application/json; charset=utf-8",
+    "Content-Length": Buffer.byteLength(body),
+  });
+  response.end(body);
+}
+
+async function createLocalServer() {
+  const server = createServer(async (request, response) => {
+    try {
+      const requestUrl = new URL(request.url || "/", "http://127.0.0.1");
+      if (requestUrl.pathname === "/api/routing/v1/route" && request.method === "POST") {
+        await serveRoutingFixture(request, response);
+        return;
+      }
+      if (!["GET", "HEAD"].includes(request.method || "GET")) {
+        response.writeHead(405, { Allow: "GET, HEAD" });
+        response.end();
+        return;
+      }
+      const decoded = decodeURIComponent(requestUrl.pathname);
+      const requested = decoded === "/" ? "index.html" : decoded.replace(/^\/+/, "");
+      let filePath = resolve(REPO_ROOT, requested);
+      const outsideRoot = filePath !== REPO_ROOT
+        && !filePath.startsWith(`${REPO_ROOT}${sep}`);
+      if (outsideRoot) {
+        response.writeHead(403);
+        response.end();
+        return;
+      }
+
+      let info;
+      try {
+        info = await stat(filePath);
+      } catch {
+        info = null;
+      }
+      if (info?.isDirectory()) {
+        filePath = resolve(filePath, "index.html");
+        try {
+          info = await stat(filePath);
+        } catch {
+          info = null;
+        }
+      }
+      if (!info?.isFile()) {
+        response.writeHead(404);
+        response.end();
+        return;
+      }
+
+      const body = await readFile(filePath);
+      response.writeHead(200, {
+        "Cache-Control": "no-store",
+        "Content-Type": mimeType(filePath),
+        "Content-Length": body.byteLength,
+        "X-Content-Type-Options": "nosniff",
+      });
+      response.end(request.method === "HEAD" ? undefined : body);
+    } catch (error) {
+      response.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
+      response.end(String(error?.message || error));
+    }
+  });
+  await new Promise((accept, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", accept);
+  });
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("Local server did not expose a TCP port");
+  return {
+    baseUrl: `http://127.0.0.1:${address.port}`,
+    close: () => new Promise((accept, reject) =>
+      server.close((error) => error ? reject(error) : accept())),
+  };
+}
+
 const assertions = [];
 function check(name, cond, detail) {
   assertions.push({ name, ok: !!cond, detail });
@@ -30,7 +170,12 @@ function check(name, cond, detail) {
 }
 
 async function run() {
-  const browser = await chromium.launch({ headless: !args.headed });
+  const local = args.base
+    ? { baseUrl: args.base.replace(/\/+$/, ""), close: async () => {} }
+    : await createLocalServer();
+  let browser;
+  try {
+    browser = await chromium.launch({ headless: !args.headed });
   const ctx = await browser.newContext();
   const page = await ctx.newPage();
 
@@ -53,8 +198,9 @@ async function run() {
     window.addEventListener("leisure-wasm-event", (e) => window.__leisureWasmEvents.push(e.detail));
   });
 
-  console.log(`Loading ${baseUrl}…`);
-  await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
+  console.log(`Loading ${local.baseUrl}/index.html…`);
+  await page.goto(`${local.baseUrl}/index.html`, { waitUntil: "domcontentloaded", timeout: 30_000 });
+  await page.click('label[for="sidebarTabPlan"]');
   await page.waitForSelector("#planRun", { timeout: 15_000 });
   await page.waitForFunction(() => {
     const sel = document.getElementById("planStart");
@@ -190,17 +336,21 @@ async function run() {
   const relevantConsole = consoleErrors.filter((e) => !/leaflet|tile|maptiler|favicon|net::ERR|404/i.test(e));
   check("no leisure-related console errors", relevantConsole.length === 0, relevantConsole.join(" | "));
 
-  await browser.close();
+  } finally {
+    const cleanup = [local.close()];
+    if (browser) cleanup.push(browser.close());
+    await Promise.allSettled(cleanup);
+  }
 
   const failed = assertions.filter((a) => !a.ok);
   console.log(`\n${assertions.length - failed.length}/${assertions.length} assertions passed.`);
   if (failed.length) {
     console.log(`Failures:\n${failed.map((f) => `  - ${f.name}: ${f.detail ?? ""}`).join("\n")}`);
-    process.exit(1);
+    process.exitCode = 1;
   }
 }
 
 run().catch((err) => {
   console.error("e2e run errored:", err);
-  process.exit(2);
+  process.exitCode = 2;
 });

@@ -133,6 +133,28 @@ test("every used POI category has its own generated UI icon asset", () => {
   assert.deepEqual([...cssIconIds].filter((id) => !pngIconIds.has(id)), []);
 });
 
+test("POI categories keep a complete, consistent family-color treatment", () => {
+  const appSource = read("assets/js/app.js");
+  const cssSource = read("assets/css/site.css");
+  const familyMap = parseStringMap(appSource, "POI_FAMILY_OF_CATEGORY");
+  const allowedFamilies = new Set(["nature", "heritage", "engineered", "indulgence"]);
+  const usedCategories = new Set(loadPoiData().map((poi) => poi.cat).filter(Boolean));
+
+  for (const category of usedCategories) {
+    assert.ok(allowedFamilies.has(familyMap[category]), `${category} needs a supported POI family`);
+  }
+  for (const family of allowedFamilies) {
+    assert.match(cssSource, new RegExp(`\\[data-family="${family}"\\]\\s*\\{`), `${family} needs a shared UI color token`);
+    assert.match(appSource, new RegExp(`\\b${family}:\\s+\\[`), `${family} needs a WebGL marker color`);
+    assert.match(appSource, new RegExp(`\\b${family}:\\s+\\d`), `${family} needs a cluster pebble style`);
+  }
+
+  assert.match(appSource, /fill = poiMarkerColor\(group\.item\.poiCategory, !plannable\)/);
+  assert.match(appSource, /fill = passMarkerColor\(view\.state\)/);
+  assert.match(appSource, /icon = textureRefForUiIcon\("pass-generic", 0\.68\)/);
+  assert.match(appSource, /vec3 selectedRim = vec3\(1\.0, 0\.820, 0\.400\)/);
+});
+
 test("every declared in-app UI icon is wired across CSS, PNG, and WebGL atlas", () => {
   const appSource = read("assets/js/app.js");
   const cssSource = read("assets/css/site.css");

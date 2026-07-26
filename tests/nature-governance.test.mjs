@@ -878,10 +878,19 @@ test("package and manifest bytes meet authored budgets and shard metadata is com
 });
 
 test("benchmark report separates deterministic gates from observational timing and memory", async () => {
-  const report = await readJson("data/benchmarks/nature-pipeline.v1.json");
+  const [report, manifest, releaseNotice, qualityReport] = await Promise.all([
+    readJson("data/benchmarks/nature-pipeline.v1.json"),
+    readJson("assets/data/nature/manifest.v1.json"),
+    readJson("assets/data/nature/source-release-notice.v1.json"),
+    readJson("assets/data/nature/quality-report.v1.json"),
+  ]);
   assert.equal(report.schemaVersion, "1.0.0");
   assert.equal(report.artifactType, "nature-pipeline-benchmark");
-  assert.equal(report.corpus.currentEntities, 4_019);
+  assert.equal(report.corpus.buildId, manifest.buildId);
+  assert.equal(report.corpus.currentEntities, releaseNotice.recordCount);
+  assert.equal(report.corpus.currentEntities, qualityReport.summary.records);
+  assert.equal(report.corpus.currentPackages, manifest.packages.length);
+  assert.ok(qualityReport.summary.recordsWithheldForRights > 0);
   assert.equal(report.corpus.syntheticActiveRegionEntities, 5_000);
   assert.equal(report.reproducibility.syntheticFixture.entityCount, 5_000);
   assert.ok(report.environment.runtime.node);

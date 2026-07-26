@@ -11,6 +11,13 @@ import {
   createBrowserRoutingGateway,
   installLegacyRoutingBridge,
 } from "./routing.mjs";
+import { renderHikeDetail } from "./hike-detail.mjs";
+import {
+  RouteExportError,
+  routeExportFilename,
+  serializeTrailRouteGeoJson as serializeRouteGeoJson,
+  serializeTrailRouteGpx as serializeRouteGpx,
+} from "./route-export.mjs";
 
 const DISCOVERABLE_TYPES = new Set([
   "Place",
@@ -168,6 +175,12 @@ export function entityCardModel(entity, assessment = {}) {
   const assertions = entity?.sourceAssertions || [];
   const evidenceKinds = [...new Set(assertions.map((item) => item.evidenceKind).filter(Boolean))];
   const duration = entityDurationMinutes(entity);
+  const discoveryLane = assessment.lane || entity?.discovery?.lane || "general";
+  const uncertainties = [...(assessment.uncertainties || [])];
+  if (discoveryLane === "quieter_lead"
+      && !uncertainties.some((value) => /unverified discovery lead/i.test(value))) {
+    uncertainties.push("Less-known status is an unverified discovery lead, not a quality claim.");
+  }
   return {
     id: entity.id,
     title: displayName(entity),
@@ -186,8 +199,10 @@ export function entityCardModel(entity, assessment = {}) {
     evidence: assertions.length
       ? `${assertions.length} source assertion${assertions.length === 1 ? "" : "s"}: ${evidenceKinds.map(humanize).join(", ") || "type unknown"}`
       : "No source assertions supplied",
+    discoveryLane,
+    discoveryLaneLabel: discoveryLaneLabel(discoveryLane),
     reasons: assessment.reasons || [],
-    uncertainties: assessment.uncertainties || [],
+    uncertainties,
     score: Number.isFinite(assessment.score) ? assessment.score : null,
   };
 }
@@ -200,42 +215,53 @@ export function attachLinkedEntities(entity, entitiesById) {
     : new Map(values.map((item) => [item.id, item]));
   const accessIds = new Set(entity.accessPointIds || []);
   const transportIds = new Set(entity.transportConnectionIds || []);
+  const segmentIds = new Set(entity.segmentIds || []);
+  const hazardIds = new Set(entity.hazardRefs || []);
+  const conditionIds = new Set(entity.conditionRefs || []);
+  const restrictionIds = new Set(entity.restrictionRefs || []);
+  const permitRequirementIds = new Set(entity.permitRequirementIds || []);
   for (const candidate of values) {
-    if (candidate.entityType === "AccessPoint" && (candidate.linkedEntityIds || []).includes(entity.id)) {
-      accessIds.add(candidate.id);
-    }
+    if (!(candidate.linkedEntityIds || []).includes(entity.id)) continue;
+    if (candidate.entityType === "AccessPoint") accessIds.add(candidate.id);
+    if (candidate.entityType === "TransportConnection") transportIds.add(candidate.id);
+    if (candidate.entityType === "TrailSegment") segmentIds.add(candidate.id);
+    if (candidate.entityType === "Hazard") hazardIds.add(candidate.id);
+    if (candidate.entityType === "Condition") conditionIds.add(candidate.id);
+    if (candidate.entityType === "Restriction") restrictionIds.add(candidate.id);
+    if (candidate.entityType === "PermitRequirement") permitRequirementIds.add(candidate.id);
   }
   return {
     ...entity,
     accessPoints: [...accessIds].map((id) => lookup.get(id)).filter(Boolean),
     transportConnections: [...transportIds].map((id) => lookup.get(id)).filter(Boolean),
+    trailSegments: [...segmentIds].map((id) => lookup.get(id)).filter(Boolean),
+    hazards: [...hazardIds].map((id) => lookup.get(id)).filter(Boolean),
+    conditions: [...conditionIds].map((id) => lookup.get(id)).filter(Boolean),
+    restrictions: [...restrictionIds].map((id) => lookup.get(id)).filter(Boolean),
+    permitRequirements: [...permitRequirementIds].map((id) => lookup.get(id)).filter(Boolean),
   };
 }
 
 export function serializeTrailRouteGpx(entity) {
-  if (entity?.entityType !== "TrailRoute") {
-    throw new NatureUiError("Only trail routes can be exported", "gpx_not_route");
+  try {
+    return serializeRouteGpx(entity);
+  } catch (error) {
+    if (error instanceof RouteExportError) {
+      throw new NatureUiError(error.message, error.code);
+    }
+    throw error;
   }
-  if (entity.navigationSuitability !== true) {
-    throw new NatureUiError(
-      "GPX export is disabled because this geometry is not verified as navigation-suitable",
-      "gpx_navigation_unsuitable",
-    );
+}
+
+export function serializeTrailRouteGeoJson(entity) {
+  try {
+    return serializeRouteGeoJson(entity);
+  } catch (error) {
+    if (error instanceof RouteExportError) {
+      throw new NatureUiError(error.message, error.code);
+    }
+    throw error;
   }
-  const lines = entity.geometry?.type === "LineString"
-    ? [entity.geometry.coordinates]
-    : entity.geometry?.type === "MultiLineString"
-      ? entity.geometry.coordinates
-      : [];
-  if (!lines.length || lines.some((line) => !Array.isArray(line)
-      || line.length < 2 || line.some((position) => !validPosition(position)))) {
-    throw new NatureUiError("Route geometry is missing or invalid", "gpx_invalid_geometry");
-  }
-  const segments = lines.map((line) => `<trkseg>${line.map((position) => {
-    const elevation = Number.isFinite(position[2]) ? `<ele>${position[2]}</ele>` : "";
-    return `<trkpt lat="${position[1]}" lon="${position[0]}">${elevation}</trkpt>`;
-  }).join("")}</trkseg>`).join("");
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Itinera" xmlns="http://www.topografix.com/GPX/1/1"><metadata><name>${escapeXml(displayName(entity))}</name></metadata><trk><name>${escapeXml(displayName(entity))}</name>${segments}</trk></gpx>\n`;
 }
 
 export function buildMapFeatureCollections(entities, selectedId = null, caps = {}) {
@@ -414,6 +440,12 @@ class NatureDiscoveryApp {
       element("span", "discover-card-summary", model.summary),
     );
     const facts = element("div", "discover-card-facts");
+    if (model.discoveryLaneLabel) {
+      facts.append(chip(
+        model.discoveryLaneLabel,
+        model.discoveryLane === "quieter_lead" ? "warning" : "neutral",
+      ));
+    }
     facts.append(
       chip(model.access, model.accessCode === "unknown" ? "warning" : "neutral"),
       chip(model.duration),
@@ -450,6 +482,25 @@ class NatureDiscoveryApp {
     this.refs.detail.hidden = false;
     const heading = element("h2", "discover-detail-title", model.title);
     heading.tabIndex = -1;
+    if (enriched.entityType === "TrailRoute") {
+      this.refs.detail.append(heading, element("p", "discover-detail-summary", model.summary));
+      renderHikeDetail(this.refs.detail, enriched, {
+        assessment,
+        onPlan: (route, output) => this.planRoute(route, output),
+        onDownloadGpx: (route) => downloadRouteFile(
+          serializeTrailRouteGpx(route),
+          "application/gpx+xml",
+          routeExportFilename(route, "gpx"),
+        ),
+        onDownloadGeoJson: (route) => downloadRouteFile(
+          serializeTrailRouteGeoJson(route),
+          "application/geo+json",
+          routeExportFilename(route, "geojson"),
+        ),
+      });
+      heading.focus({ preventScroll: true });
+      return;
+    }
     const facts = element("dl", "discover-detail-facts");
     addDefinition(facts, "Access", model.access);
     addDefinition(facts, "Geometry", model.geometry);
@@ -469,50 +520,10 @@ class NatureDiscoveryApp {
     }
     uncertainties.append(unknownList);
     this.refs.detail.append(heading, element("p", "discover-detail-summary", model.summary), facts);
-    if (enriched.entityType === "TrailRoute") this.appendRouteDetails(enriched);
     this.refs.detail.append(uncertainties);
     heading.focus({ preventScroll: true });
   }
 
-  appendRouteDetails(route) {
-    const connections = element("section", "discover-connections");
-    connections.append(element("h3", "", "Access and onward connections"));
-    const list = element("ul");
-    for (const point of route.accessPoints || []) {
-      list.append(element("li", "",
-        `${displayName(point)} — ${accessLabel(point.legalAccess || "unknown")}; ${(point.accessModes || []).join(", ") || "modes unknown"}`));
-    }
-    for (const connection of route.transportConnections || []) {
-      list.append(element("li", "",
-        `${displayName(connection)} — ${humanize(connection.transportMode || "mode unknown")}; schedule ${humanize(connection.schedule?.freshness || "unknown")}`));
-    }
-    if (!list.childElementCount) list.append(element("li", "", "No linked access point or transport connection is supplied."));
-    connections.append(list);
-
-    const actions = element("div", "discover-detail-actions");
-    const plan = element("button", "discover-plan-action", "Plan access + route");
-    plan.type = "button";
-    plan.addEventListener("click", () => this.planRoute(route, output));
-    const gpx = element("button", "discover-gpx-action", "Download GPX");
-    gpx.type = "button";
-    const gpxAllowed = route.navigationSuitability === true;
-    gpx.disabled = !gpxAllowed;
-    if (!gpxAllowed) {
-      gpx.title = "Disabled: geometry is not verified as navigation-suitable";
-      gpx.setAttribute("aria-describedby", "discoverGpxSafety");
-    } else {
-      gpx.addEventListener("click", () => downloadGpx(route));
-    }
-    actions.append(plan, gpx);
-    const safety = element("p", "discover-gpx-safety",
-      gpxAllowed
-        ? "GPX is available, but always verify current closures, hazards and local guidance."
-        : "GPX disabled: this geometry is explicitly not navigation-suitable.");
-    safety.id = "discoverGpxSafety";
-    const output = element("div", "discover-itinerary-output");
-    output.setAttribute("aria-live", "polite");
-    this.refs.detail.append(connections, actions, safety, output);
-  }
 
   async planRoute(route, output) {
     output.replaceChildren(element("p", "", "Building explicit journey legs…"));
@@ -751,12 +762,11 @@ function mapCenter(map) {
   return validPosition(point) ? point : null;
 }
 
-function downloadGpx(route) {
-  const payload = serializeTrailRouteGpx(route);
-  const url = URL.createObjectURL(new Blob([payload], { type: "application/gpx+xml" }));
+function downloadRouteFile(payload, type, filename) {
+  const url = URL.createObjectURL(new Blob([payload], { type }));
   const link = document.createElement("a");
   link.href = url;
-  link.download = `${displayName(route).replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() || "route"}.gpx`;
+  link.download = filename;
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
@@ -807,6 +817,15 @@ function accessLabel(value) {
   }
 }
 
+function discoveryLaneLabel(lane) {
+  switch (lane) {
+    case "iconic": return "Iconic";
+    case "quieter_verified": return "Verified quieter place";
+    case "quieter_lead": return "Unverified discovery lead";
+    default: return null;
+  }
+}
+
 function formatMinutes(minutes) {
   if (!Number.isFinite(minutes)) return "Time unknown";
   if (minutes < 60) return `${minutes} min`;
@@ -836,15 +855,6 @@ function roundScore(value) {
   return Math.round(value * 1000) / 1000;
 }
 
-function escapeXml(value) {
-  return String(value).replace(/[&<>"']/g, (character) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&apos;",
-  })[character]);
-}
 
 function initializeAccessibleTabs() {
   const radios = [...document.querySelectorAll(".sidebar-tab-radio")];

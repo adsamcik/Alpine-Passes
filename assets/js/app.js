@@ -20,6 +20,130 @@ function isLeisurePlannerEnabled() {
 }
 if (typeof window !== "undefined") window.isLeisurePlannerEnabled = isLeisurePlannerEnabled;
 
+/* PHOTO_RIGHTS_GATE_START
+   Legacy photo URLs are inventory leads, not rendering permission. Keep this
+   block dependency-light so every legacy popup goes through the same
+   fail-closed, per-file review gate. */
+const PHOTO_RIGHTS_PLACEHOLDER = "Photo unavailable — per-file rights review pending.";
+
+function firstDefinedPhotoRight(...values) {
+  return values.find((value) => value !== undefined && value !== null);
+}
+
+function photoRightText(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function photoRightsWebUrl(value) {
+  const text = photoRightText(value);
+  if (!text) return "";
+  try {
+    const parsed = new URL(text);
+    return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.href : "";
+  } catch {
+    return "";
+  }
+}
+
+function photoImageUrl(value) {
+  const text = photoRightText(value);
+  if (!text || /[\u0000-\u001f\\]/.test(text)) return "";
+  if (/^https?:\/\//i.test(text)) return photoRightsWebUrl(text);
+  return /^(?:\.\/)?assets\/[^/]/.test(text) ? text : "";
+}
+
+function normalizePhotoRights(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const permissions = raw.permissions && typeof raw.permissions === "object"
+    ? raw.permissions : {};
+  const rights = raw.rights && typeof raw.rights === "object" ? raw.rights : {};
+  return {
+    reviewStatus: photoRightText(firstDefinedPhotoRight(
+      raw.reviewStatus, raw.review, raw.status, raw.rs,
+    )).toLowerCase(),
+    creator: photoRightText(firstDefinedPhotoRight(raw.creator, raw.author, raw.cr)),
+    sourcePageUrl: photoRightsWebUrl(firstDefinedPhotoRight(
+      raw.sourcePageUrl, raw.sourceUrl, raw.source, raw.sp,
+    )),
+    licenceId: photoRightText(firstDefinedPhotoRight(
+      raw.licenceId, raw.licenseId, raw.licence, raw.license, raw.li,
+    )),
+    licenceUrl: photoRightsWebUrl(firstDefinedPhotoRight(
+      raw.licenceUrl, raw.licenseUrl, raw.lu,
+    )),
+    attributionText: photoRightText(firstDefinedPhotoRight(
+      raw.attributionText, raw.attribution, raw.creditLine, raw.credit, raw.at,
+    )),
+    reviewedAt: photoRightText(firstDefinedPhotoRight(
+      raw.reviewedAt, raw.reviewDate, raw.ra,
+    )),
+    display: firstDefinedPhotoRight(
+      raw.display, raw.displayAllowed, raw.mayDisplay, raw.dp,
+      permissions.display, permissions.mayDisplay,
+      rights.display, rights.mayDisplay,
+    ) === true,
+    commercialUse: firstDefinedPhotoRight(
+      raw.commercialUse, raw.commercialUseAllowed, raw.allowsCommercialUse, raw.cu,
+      permissions.commercialUse, permissions.commercial,
+      rights.commercialUse, rights.commercial,
+    ) === true,
+    redistribution: firstDefinedPhotoRight(
+      raw.redistribution, raw.redistributionAllowed, raw.canRedistribute, raw.rd,
+      permissions.redistribution, permissions.redistribute,
+      rights.redistribution, rights.redistribute,
+    ) === true,
+    derivatives: firstDefinedPhotoRight(
+      raw.derivatives, raw.derivativesAllowed, raw.modificationsAllowed,
+      raw.allowsDerivatives, raw.dv, permissions.derivatives, permissions.modify,
+      rights.derivatives, rights.modify,
+    ) === true,
+  };
+}
+
+function hasApprovedPhotoRights(rawRights) {
+  const rights = normalizePhotoRights(rawRights);
+  return Boolean(rights
+    && rights.reviewStatus === "approved"
+    && rights.creator
+    && rights.sourcePageUrl
+    && rights.licenceId
+    && rights.licenceUrl
+    && rights.attributionText
+    && rights.reviewedAt
+    && Number.isFinite(Date.parse(rights.reviewedAt))
+    && rights.display === true
+    && rights.commercialUse === true
+    && rights.redistribution === true
+    && rights.derivatives === true);
+}
+
+function reviewedPhotoCandidate(url, rawRights) {
+  const src = photoImageUrl(url);
+  const rights = normalizePhotoRights(rawRights);
+  return src && hasApprovedPhotoRights(rights) ? { src, rights } : null;
+}
+
+function renderLegacyPhoto(candidates, alt) {
+  const approved = (Array.isArray(candidates) ? candidates : [])
+    .map((candidate) => reviewedPhotoCandidate(candidate?.url, candidate?.photoRights))
+    .find(Boolean);
+  if (!approved) {
+    return `<div class="popup-img placeholder photo-rights-pending" role="img" aria-label="${escapeHtml(PHOTO_RIGHTS_PLACEHOLDER)}">${escapeHtml(PHOTO_RIGHTS_PLACEHOLDER)}</div>`;
+  }
+  const { src, rights } = approved;
+  return `<div class="popup-reviewed-photo">
+    <div class="popup-img-wrap is-loading"><img class="popup-img" src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" loading="lazy"></div>
+    <div class="popup-photo-attribution popup-meta" aria-label="Photo attribution">
+      <span>${escapeHtml(rights.attributionText)}</span> ·
+      <span>Creator: ${escapeHtml(rights.creator)}</span> ·
+      <a href="${escapeHtml(rights.sourcePageUrl)}" target="_blank" rel="noopener">source</a> ·
+      <a href="${escapeHtml(rights.licenceUrl)}" target="_blank" rel="noopener">${escapeHtml(rights.licenceId)}</a> ·
+      <span>reviewed ${escapeHtml(rights.reviewedAt)}</span>
+    </div>
+  </div>`;
+}
+/* PHOTO_RIGHTS_GATE_END */
+
 function pointInAlps(lon, lat) {
   let inside = false;
   const poly = ALPS_POLYGON;
@@ -224,6 +348,7 @@ const PASSES = PASSES_RAW_INPUT.map((d, i) => {
     tldrSource: d.ts || "",
     reasoning:  d.rs || "",
     bestPhoto:  d.bp || null,
+    photoRights: normalizePhotoRights(d.photoRights ?? d.pr),
     confidence: d.cf || "",
     wikiLang: d.wl || "en",
     wikiTitle: d.wt || fullName.replace(/\s+/g, "_"),
@@ -308,6 +433,7 @@ const POIS = POI_RAW.map((d, i) => ({
   tldrSource: "agent",
   reasoning:  d.rs || "",
   bestPhoto:  d.bp || null,
+  photoRights: normalizePhotoRights(d.photoRights ?? d.pr),
   confidence: "h",
   wikiLang:   d.wl || "en",
   wikiTitle:  d.wt || (d.n || "").replace(/\s+/g, "_"),
@@ -1716,6 +1842,7 @@ async function fetchWiki(title, primaryLang) {
       if (j.type === "disambiguation") continue;
       const out = {
         thumb: j.thumbnail ? j.thumbnail.source : null,
+        photoRights: null,
         extract: j.extract || "",
         url: j.content_urls ? j.content_urls.desktop.page : `https://${lang}.wikipedia.org/wiki/${title}`,
       };
@@ -1723,7 +1850,7 @@ async function fetchWiki(title, primaryLang) {
       return out;
     } catch {}
   }
-  const out = { thumb: null, extract: "", url: `https://${primaryLang}.wikipedia.org/wiki/${encodeURIComponent(title)}` };
+  const out = { thumb: null, photoRights: null, extract: "", url: `https://${primaryLang}.wikipedia.org/wiki/${encodeURIComponent(title)}` };
   cacheSet(key, out);
   return out;
 }
@@ -5418,12 +5545,10 @@ function buildPopupHtml(p, status, wiki) {
   const statusView = statusDisplay(status);
   const wikiHref = wiki?.url || `https://${p.wikiLang}.wikipedia.org/wiki/${encodeURIComponent(p.wikiTitle)}`;
   const passDetail = p.slug ? `https://www.alpen-paesse.ch/en/alpenpaesse/${p.slug}/` : null;
-  /* Prefer the agent-curated representative photo, fall back to Wikipedia
-     thumbnail (which loads asynchronously after the popup opens). */
-  const photoSrc = p.bestPhoto || wiki?.thumb;
-  const img = photoSrc
-    ? `<div class="popup-img-wrap is-loading"><img class="popup-img" src="${photoSrc}" alt="${p.name}" loading="lazy"></div>`
-    : `<div class="popup-img placeholder">no photo</div>`;
+  const img = renderLegacyPhoto([
+    { url: p.bestPhoto, photoRights: p.photoRights },
+    { url: wiki?.thumb, photoRights: wiki?.photoRights },
+  ], p.name);
 
   const stateLine = status
     ? `<span class="badge ${statusView.className}">${escapeHtml(statusView.label)}</span>` +
@@ -5625,9 +5750,9 @@ refreshProjectedStatuses();
 
 function buildPoiPopupHtml(poi) {
   const wikiHref = `https://${poi.wikiLang}.wikipedia.org/wiki/${encodeURIComponent(poi.wikiTitle)}`;
-  const img = poi.bestPhoto
-    ? `<div class="popup-img-wrap is-loading"><img class="popup-img" src="${escapeHtml(poi.bestPhoto)}" alt="${escapeHtml(poi.name)}" loading="lazy"></div>`
-    : `<div class="popup-img placeholder">no photo</div>`;
+  const img = renderLegacyPhoto([
+    { url: poi.bestPhoto, photoRights: poi.photoRights },
+  ], poi.name);
   const themeBadges = poi.poiThemes.slice(0, 6).map(t =>
     `<span class="poi-theme-chip">${escapeHtml(t)}</span>`).join("");
   const elevLine = poi.elev ? `${poi.elev} m · ` : "";

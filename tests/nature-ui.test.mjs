@@ -9,6 +9,7 @@ import {
   createDiscoveryDataSession,
   entityCardModel,
   filterAndRankEntities,
+  serializeTrailRouteGeoJson,
   serializeTrailRouteGpx,
 } from "../assets/js/nature/app.mjs";
 
@@ -128,6 +129,16 @@ test("cards state unknowns literally and include season plus route effort", () =
   assert.deepEqual(model.uncertainties, ["legal public access is not verified"]);
 });
 
+test("discovery lane labels distinguish verified quieter places from unverified leads", () => {
+  const verified = entityCardModel(entity(), { lane: "quieter_verified" });
+  const lead = entityCardModel(entity(), { lane: "quieter_lead" });
+  assert.equal(verified.discoveryLane, "quieter_verified");
+  assert.equal(verified.discoveryLaneLabel, "Verified quieter place");
+  assert.equal(lead.discoveryLaneLabel, "Unverified discovery lead");
+  assert.ok(lead.uncertainties.some((value) => /unverified discovery lead/i.test(value)));
+  assert.doesNotMatch(lead.uncertainties.join(" "), /worthwhile|recommended/i);
+});
+
 test("linked access points and transport connections remain explicit entities", () => {
   const access = entity({
     id: "access:test",
@@ -181,6 +192,13 @@ test("GPX export is gated strictly by navigation suitability", () => {
   assert.match(gpx, /<trkseg>/);
   assert.match(gpx, /lat="57\.1" lon="-4\.2"/);
   assert.match(gpx, /Ridge &amp; Loch &lt;Loop&gt;/);
+
+  const geojson = JSON.parse(serializeTrailRouteGeoJson(route()));
+  assert.equal(geojson.metadata.routeId, "route:test-hike");
+  assert.throws(
+    () => serializeTrailRouteGeoJson({ ...route(), entityType: "Place" }),
+    (error) => error instanceof NatureUiError && error.code === "geojson_not_route",
+  );
 });
 
 test("static page keeps Discover inside the document and makes it default", async () => {

@@ -48,6 +48,9 @@ Use `wasm_free_graph` and `wasm_free_ears` to release the underlying memory. The
 
 ## Reproducible toolchain
 
+`rust-toolchain.toml` pins Rust and rustfmt to 1.93.1 for both contributors and CI.
+Update that file and both GitHub Actions toolchain pins together.
+
 The Rust dependency versions for WASM glue are pinned in `Cargo.toml` and must match the CLI used to regenerate artifacts.
 
 ```bash

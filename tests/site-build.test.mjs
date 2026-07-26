@@ -10,9 +10,11 @@ import {
   OPTIONAL_RUNTIME_FILES,
   REQUIRED_RUNTIME_FILES,
   SITES_MAX_FILE_BYTES,
+  SOURCE_RELEASE_NOTICE_RUNTIME_PATH,
   buildSite,
   extractHtmlRuntimeAssetPaths,
   validateHtmlReferences,
+  validateNatureSourceReleaseNoticeReference,
 } from "../tools/build-site.mjs";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -54,6 +56,34 @@ test("site package contains only the explicit client runtime allowlist", async (
       || (filename.startsWith("assets/data/nature/spatial/") && filename.endsWith(".json"));
     assert.ok(allowed, `unexpected client runtime file: ${filename}`);
   }
+});
+
+test("site package includes the manifest-referenced source release notice", async () => {
+  const manifest = JSON.parse(await readFile(
+    path.join(REPO_ROOT, "assets", "data", "nature", "manifest.v1.json"),
+    "utf8",
+  ));
+  const reference = manifest.sourceReleaseNotice;
+  assert.equal(reference.url, SOURCE_RELEASE_NOTICE_RUNTIME_PATH);
+  assert.ok(REQUIRED_RUNTIME_FILES.includes(SOURCE_RELEASE_NOTICE_RUNTIME_PATH));
+
+  const [sourceBytes, packagedBytes] = await Promise.all([
+    readFile(path.join(REPO_ROOT, ...SOURCE_RELEASE_NOTICE_RUNTIME_PATH.split("/"))),
+    readFile(
+      path.join(firstDist, "client", ...SOURCE_RELEASE_NOTICE_RUNTIME_PATH.split("/")),
+    ),
+  ]);
+  assert.deepEqual(packagedBytes, sourceBytes);
+
+  const descriptor = firstResult.manifest.files.find(
+    (entry) => entry.path === `client/${SOURCE_RELEASE_NOTICE_RUNTIME_PATH}`,
+  );
+  assert.ok(descriptor, "source release notice is absent from the site build manifest");
+  assert.equal(descriptor.bytes, reference.bytes);
+  assert.equal(
+    descriptor.sha256,
+    createHash("sha256").update(sourceBytes).digest("hex"),
+  );
 });
 
 test("site package excludes design sources and unbundled country arrays", async () => {
@@ -146,6 +176,95 @@ test("site package contains exactly the manifest-referenced spatial artifacts", 
   assert.equal(spatialIndex.contentHash, manifest.spatialIndex.contentHash);
   assert.equal(spatialIndex.cellCount, manifest.spatialIndex.cellCount);
   assert.equal(spatialIndex.packageCount, manifest.spatialIndex.packageCount);
+});
+
+test("source release notice validation rejects missing or mismatched artifacts", async (t) => {
+  const manifest = JSON.parse(await readFile(
+    path.join(REPO_ROOT, "assets", "data", "nature", "manifest.v1.json"),
+    "utf8",
+  ));
+  const runtimeFiles = new Set(REQUIRED_RUNTIME_FILES);
+  await validateNatureSourceReleaseNoticeReference(REPO_ROOT, runtimeFiles, manifest);
+
+  await t.test("missing manifest reference", async () => {
+    const candidate = structuredClone(manifest);
+    delete candidate.sourceReleaseNotice;
+    await assert.rejects(
+      validateNatureSourceReleaseNoticeReference(REPO_ROOT, runtimeFiles, candidate),
+      /must reference a source release notice/,
+    );
+  });
+
+  await t.test("missing notice file", async () => {
+    const missingRoot = path.join(sandboxRoot, "missing-source-release-notice");
+    await mkdir(missingRoot, { recursive: true });
+    await assert.rejects(
+      validateNatureSourceReleaseNoticeReference(missingRoot, runtimeFiles, manifest),
+      /Missing required runtime asset: assets\/data\/nature\/source-release-notice\.v1\.json/,
+    );
+  });
+
+  await t.test("notice outside the runtime allowlist", async () => {
+    const allowlist = new Set(
+      REQUIRED_RUNTIME_FILES.filter((entry) => entry !== SOURCE_RELEASE_NOTICE_RUNTIME_PATH),
+    );
+    await assert.rejects(
+      validateNatureSourceReleaseNoticeReference(REPO_ROOT, allowlist, manifest),
+      /outside the runtime allowlist/,
+    );
+  });
+
+  await t.test("wrong notice URL", async () => {
+    const candidate = structuredClone(manifest);
+    candidate.sourceReleaseNotice.url = "assets/data/nature/quality-report.v1.json";
+    await assert.rejects(
+      validateNatureSourceReleaseNoticeReference(REPO_ROOT, runtimeFiles, candidate),
+      /must resolve to assets\/data\/nature\/source-release-notice\.v1\.json/,
+    );
+  });
+
+  for (const [name, update, pattern] of [
+    ["byte count", (reference) => { reference.bytes += 1; }, /byte count is invalid/],
+    ["content hash", (reference) => {
+      reference.contentHash = `sha256:${"0".repeat(64)}`;
+    }, /identity or declared counts are invalid/],
+    ["source count", (reference) => { reference.sourceCount += 1; }, /declared counts/],
+    ["media count", (reference) => { reference.mediaCount += 1; }, /declared counts/],
+    ["release eligibility", (reference) => {
+      reference.releaseEligible = false;
+    }, /not eligible for production release/],
+  ]) {
+    await t.test(`mismatched ${name}`, async () => {
+      const candidate = structuredClone(manifest);
+      update(candidate.sourceReleaseNotice);
+      await assert.rejects(
+        validateNatureSourceReleaseNoticeReference(REPO_ROOT, runtimeFiles, candidate),
+        pattern,
+      );
+    });
+  }
+
+  await t.test("tampered canonical payload", async () => {
+    const fixtureRoot = path.join(sandboxRoot, "tampered-source-release-notice");
+    const notice = JSON.parse(await readFile(
+      path.join(REPO_ROOT, ...SOURCE_RELEASE_NOTICE_RUNTIME_PATH.split("/")),
+      "utf8",
+    ));
+    notice.scope += " Tampered without updating the stored content hash.";
+    const serialized = Buffer.from(`${JSON.stringify(notice)}\n`);
+    const fixturePath = path.join(
+      fixtureRoot,
+      ...SOURCE_RELEASE_NOTICE_RUNTIME_PATH.split("/"),
+    );
+    await mkdir(path.dirname(fixturePath), { recursive: true });
+    await writeFile(fixturePath, serialized);
+    const candidate = structuredClone(manifest);
+    candidate.sourceReleaseNotice.bytes = serialized.byteLength;
+    await assert.rejects(
+      validateNatureSourceReleaseNoticeReference(fixtureRoot, runtimeFiles, candidate),
+      /failed content-hash validation/,
+    );
+  });
 });
 
 test("every local HTML asset reference resolves inside dist/client", async () => {

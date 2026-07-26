@@ -16,6 +16,8 @@ import { fileURLToPath } from "node:url";
 
 export const SITES_MAX_FILE_BYTES = 25 * 1024 * 1024;
 export const ORIGIN_METADATA_TOKEN = "__ITINERA_ORIGIN__";
+export const SOURCE_RELEASE_NOTICE_RUNTIME_PATH =
+  "assets/data/nature/source-release-notice.v1.json";
 
 const MODULE_PATH = fileURLToPath(import.meta.url);
 const DEFAULT_REPO_ROOT = path.resolve(path.dirname(MODULE_PATH), "..");
@@ -43,6 +45,7 @@ export const REQUIRED_RUNTIME_FILES = Object.freeze([
   "assets/data/nature/sensitivity-report.v1.json",
   "assets/data/nature/ingestion-report.v1.json",
   "assets/data/nature/legacy-id-redirects.v1.json",
+  SOURCE_RELEASE_NOTICE_RUNTIME_PATH,
   "assets/ui-icons/alpine-ui-icons.png",
   "assets/pass-icon-sheets/top-50-icon-sprite-01.png",
   "assets/pass-icon-sheets/top-50-icon-sprite-02.png",
@@ -226,6 +229,7 @@ async function validateNatureManifestReferences(repoRoot, runtimeFiles) {
   if (!Array.isArray(manifest.packages) || manifest.packages.length === 0) {
     throw new Error(`${manifestPath} must advertise at least one regional package`);
   }
+  await validateNatureSourceReleaseNoticeReference(repoRoot, runtimeFiles, manifest);
   for (const entry of manifest.packages) {
     if (typeof entry?.url !== "string" || !entry.url) {
       throw new Error(`${manifestPath} contains a package without a URL`);
@@ -379,6 +383,97 @@ async function validateNatureManifestReferences(repoRoot, runtimeFiles) {
         && !referencedSpatialFiles.has(runtimePath)) {
       throw new Error(`Unreferenced spatial runtime artifact: ${runtimePath}`);
     }
+  }
+}
+
+export async function validateNatureSourceReleaseNoticeReference(
+  repoRoot,
+  runtimeFiles,
+  manifest,
+) {
+  const manifestPath = "assets/data/nature/manifest.v1.json";
+  const reference = manifest?.sourceReleaseNotice;
+  if (!reference || typeof reference !== "object" || Array.isArray(reference)) {
+    throw new Error(`${manifestPath} must reference a source release notice`);
+  }
+  for (const field of [
+    "url",
+    "contentHash",
+    "bytes",
+    "sourceCount",
+    "releaseEligible",
+    "mediaCount",
+  ]) {
+    if (!Object.hasOwn(reference, field)) {
+      throw new Error(`${manifestPath} source release notice reference is missing ${field}`);
+    }
+  }
+
+  const noticePath = normalizeNatureRuntimeUrl(
+    reference.url,
+    "Nature source release notice URL",
+  );
+  if (noticePath !== SOURCE_RELEASE_NOTICE_RUNTIME_PATH) {
+    throw new Error(
+      `${manifestPath} source release notice must resolve to `
+      + SOURCE_RELEASE_NOTICE_RUNTIME_PATH,
+    );
+  }
+  if (!runtimeFiles.has(noticePath)) {
+    throw new Error(
+      `${manifestPath} references a source release notice outside the runtime allowlist`,
+    );
+  }
+  if (!/^sha256:[a-f0-9]{64}$/.test(reference.contentHash)) {
+    throw new Error(`${manifestPath} source release notice content hash is invalid`);
+  }
+  if (!Number.isSafeInteger(reference.bytes) || reference.bytes <= 0) {
+    throw new Error(`${manifestPath} source release notice byte count is invalid`);
+  }
+  if (!Number.isSafeInteger(reference.sourceCount) || reference.sourceCount < 0) {
+    throw new Error(`${manifestPath} source release notice source count is invalid`);
+  }
+  if (!Number.isSafeInteger(reference.mediaCount) || reference.mediaCount < 0) {
+    throw new Error(`${manifestPath} source release notice media count is invalid`);
+  }
+  if (reference.releaseEligible !== true) {
+    throw new Error(`${manifestPath} source release notice is not eligible for production release`);
+  }
+
+  await assertRuntimeFile(path.join(repoRoot, noticePath), noticePath);
+  const noticeBytes = await readFile(path.join(repoRoot, noticePath));
+  if (noticeBytes.byteLength !== reference.bytes) {
+    throw new Error(`${manifestPath} source release notice byte count is invalid`);
+  }
+
+  let notice;
+  try {
+    notice = JSON.parse(noticeBytes.toString("utf8"));
+  } catch (error) {
+    throw new Error(`Unable to parse ${noticePath}: ${error.message}`, { cause: error });
+  }
+  if (notice.schemaVersion !== manifest.schemaVersion
+      || notice.artifactType !== "nature-source-release-notice"
+      || notice.generated !== true
+      || notice.releaseEligible !== reference.releaseEligible
+      || notice.contentHash !== reference.contentHash
+      || !Number.isSafeInteger(notice.recordCount)
+      || notice.recordCount < 0
+      || typeof notice.scope !== "string"
+      || !notice.scope.trim()
+      || !Array.isArray(notice.sources)
+      || notice.sources.length !== reference.sourceCount
+      || !Array.isArray(notice.media)
+      || notice.media.length !== reference.mediaCount) {
+    throw new Error(`${noticePath} identity or declared counts are invalid`);
+  }
+
+  const noticeCore = { ...notice };
+  delete noticeCore.contentHash;
+  const computedHash = "sha256:"
+    + createHash("sha256").update(canonicalJson(noticeCore)).digest("hex");
+  if (computedHash !== reference.contentHash) {
+    throw new Error(`${noticePath} failed content-hash validation`);
   }
 }
 

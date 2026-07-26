@@ -17,12 +17,24 @@ import { fileURLToPath } from "node:url";
 import {
   buildNatureData,
   canonicalJson,
+  normalizeReportPath,
   runIsolatedAdapters,
   shardRegionalPackage,
 } from "../tools/nature/build.mjs";
 import { ingestLegacyRepository } from "../tools/nature/lib/legacy-adapter.mjs";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+test("report paths normalize platform separators to POSIX", () => {
+  assert.equal(
+    normalizeReportPath("data\\seeds\\nature-routes.v1.json"),
+    "data/seeds/nature-routes.v1.json",
+  );
+  assert.equal(
+    normalizeReportPath("data/seeds/nature-routes.v1.json"),
+    "data/seeds/nature-routes.v1.json",
+  );
+});
 
 test("legacy POI cache is joined exactly, preserved losslessly, and never upgrades verification", async (t) => {
   const fixtureRoot = await mkdtemp(path.join(os.tmpdir(), "itinera-legacy-cache-"));

@@ -35,6 +35,10 @@ const DEFAULT_BUDGETS = Object.freeze({
   maxVisibleRouteFeatures: 1_000,
 });
 
+export function normalizeReportPath(value) {
+  return String(value).replaceAll("\\", "/");
+}
+
 export async function buildNatureData(options = {}) {
   const repoRoot = options.repoRoot || REPO_ROOT;
   const outputRoot = options.outputRoot || OUTPUT_ROOT;
@@ -73,7 +77,10 @@ export async function buildNatureData(options = {}) {
         adapterId: "canonical-seeds",
         records: seedInput.entities,
         redirects: {},
-        inventories: [{ source: path.relative(repoRoot, seedPath), records: seedInput.entities.length }],
+        inventories: [{
+          source: normalizeReportPath(path.relative(repoRoot, seedPath)),
+          records: seedInput.entities.length,
+        }],
       }),
     },
   ];

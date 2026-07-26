@@ -43,6 +43,8 @@ const MAP_IDS = Object.freeze({
   pointLayer: "nature-discovery-place-points",
   accessLayer: "nature-discovery-access-points",
 });
+const DISCOVERY_RESULT_BATCH_SIZE = 36;
+const DEFAULT_MAP_CAPS = Object.freeze({ routes: 180, points: 500 });
 
 export class NatureUiError extends Error {
   constructor(message, code = "nature_ui_error") {
@@ -89,8 +91,9 @@ export function buildRegionOptions(manifest) {
 }
 
 /**
- * Separates the <=64 KB manifest bootstrap from explicit regional activation.
- * Browser startup calls initialize(); only the Load region button calls load().
+ * Separates the <=64 KB manifest bootstrap from explicit regional search loads.
+ * Viewport cells support the map; the Load region button remains the deliberate
+ * path for complete regional search/list data during the compatibility period.
  */
 export function createDiscoveryDataSession(loader) {
   if (!loader?.loadManifest || !loader?.loadRegion) {
@@ -116,6 +119,19 @@ export function createDiscoveryDataSession(loader) {
           (entity.jurisdictionIds || []).includes(chosen.jurisdictionId))
         : packageSet.entities;
       return { selection: chosen, packageSet, entities };
+    },
+    async loadViewport(bounds, loadOptions = {}) {
+      if (typeof loader.loadViewport !== "function") {
+        throw new NatureUiError(
+          "This data loader does not support viewport packages",
+          "viewport_loading_unavailable",
+        );
+      }
+      const packageSet = await loader.loadViewport(bounds, loadOptions);
+      return {
+        packageSet,
+        entities: packageSet.entities || [],
+      };
     },
   });
 }
@@ -166,7 +182,13 @@ export function filterAndRankEntities(entities, filters = {}) {
   }));
   assessments.sort((a, b) => b.score - a.score
     || displayName(a.entity).localeCompare(displayName(b.entity)));
-  const maximum = Math.max(1, Math.min(50, Number(filters.limit) || 36));
+  const requested = Number(filters.limit);
+  const maximum = Math.max(1, Math.min(
+    assessments.length || 1,
+    Number.isFinite(requested) && requested > 0
+      ? Math.floor(requested)
+      : DISCOVERY_RESULT_BATCH_SIZE,
+  ));
   return assessments.slice(0, maximum);
 }
 
@@ -264,34 +286,103 @@ export function serializeTrailRouteGeoJson(entity) {
   }
 }
 
-export function buildMapFeatureCollections(entities, selectedId = null, caps = {}) {
-  const routeLimit = Math.max(1, Math.min(1000, Number(caps.routes) || 180));
-  const pointLimit = Math.max(1, Math.min(5000, Number(caps.points) || 500));
-  const routes = [];
-  const points = [];
+export function rankMapEntitiesForDisplay(entities, selectedId = null) {
+  const unique = new Map();
   for (const entity of entities || []) {
-    const properties = {
+    if (!entity?.id || unique.has(entity.id)) continue;
+    unique.set(entity.id, entity);
+  }
+  return [...unique.values()].sort((left, right) =>
+    mapEvidencePriority(right, selectedId) - mapEvidencePriority(left, selectedId)
+      || displayName(left).localeCompare(displayName(right))
+      || left.id.localeCompare(right.id));
+}
+
+export function buildMapFeatureCollections(entities, selectedId = null, caps = {}) {
+  const routeLimit = Math.max(1, Math.min(1000,
+    Number(caps.routes) || DEFAULT_MAP_CAPS.routes));
+  const pointLimit = Math.max(1, Math.min(5000,
+    Number(caps.points) || DEFAULT_MAP_CAPS.points));
+  const ranked = rankMapEntitiesForDisplay(entities, selectedId);
+  const routeCandidates = [];
+  const pointCandidates = [];
+  for (const entity of ranked) {
+    if (entity.entityType === "TrailRoute"
+        && ["LineString", "MultiLineString"].includes(entity.geometry?.type)) {
+      routeCandidates.push(entity);
+    } else if (entity.geometry?.type === "Point"
+        && validPosition(entity.geometry.coordinates)) {
+      pointCandidates.push(entity);
+    }
+  }
+  const feature = (entity) => ({
+    type: "Feature",
+    id: entity.id,
+    properties: {
       id: entity.id,
       entityType: entity.entityType,
       title: displayName(entity),
       selected: entity.id === selectedId,
       completeness: entity.geometryCompleteness || "not_applicable",
       navigationSuitable: entity.navigationSuitability === true,
-    };
-    if (entity.entityType === "TrailRoute"
-        && ["LineString", "MultiLineString"].includes(entity.geometry?.type)
-        && routes.length < routeLimit) {
-      routes.push({ type: "Feature", id: entity.id, properties, geometry: entity.geometry });
-    } else if (entity.geometry?.type === "Point"
-        && validPosition(entity.geometry.coordinates)
-        && points.length < pointLimit) {
-      points.push({ type: "Feature", id: entity.id, properties, geometry: entity.geometry });
-    }
-  }
+      evidencePriority: roundScore(mapEvidencePriority(entity, selectedId)),
+    },
+    geometry: entity.geometry,
+  });
+  const routes = routeCandidates.slice(0, routeLimit).map(feature);
+  const points = pointCandidates.slice(0, pointLimit).map(feature);
+  const rendered = routes.length + points.length;
+  const mappable = routeCandidates.length + pointCandidates.length;
   return {
     routes: { type: "FeatureCollection", features: routes },
     points: { type: "FeatureCollection", features: points },
+    counts: {
+      loaded: ranked.length,
+      mappable,
+      rendered,
+      capped: Math.max(0, mappable - rendered),
+      unsupported: Math.max(0, ranked.length - mappable),
+      routes: { loaded: routeCandidates.length, rendered: routes.length, limit: routeLimit },
+      points: { loaded: pointCandidates.length, rendered: points.length, limit: pointLimit },
+    },
   };
+}
+
+function mapEvidencePriority(entity, selectedId) {
+  const verification = {
+    verified: 3,
+    partially_verified: 2,
+    unverified: 1,
+  }[entity?.quality?.verificationStatus] || 0;
+  const freshness = {
+    current: 3,
+    recent: 2,
+    stale: 1,
+  }[entity?.quality?.freshness] || 0;
+  const access = {
+    legal: 3,
+    restricted: 2,
+    unknown: 1,
+    private: 0,
+  }[entity?.access?.legal || entity?.legalAccess] || 0;
+  const assertions = entity?.sourceAssertions || [];
+  const verifiedAssertions = assertions.filter((assertion) =>
+    assertion?.verificationStatus === "verified"
+      || assertion?.evidenceKind === "verified_official").length;
+  const assertionRatio = assertions.length ? verifiedAssertions / assertions.length : 0;
+  const evidence = unitInterval(entity?.discovery?.evidenceQuality,
+    entity?.quality?.confidence || 0);
+  const confidence = unitInterval(entity?.quality?.confidence, 0);
+  const criticalUnknowns = (entity?.quality?.flags || []).filter((flag) =>
+    flag === "critical_access_unknown" || flag === "critical_condition_unknown").length;
+  return (entity?.id === selectedId ? 1000 : 0)
+    + verification * 100
+    + evidence * 40
+    + confidence * 30
+    + assertionRatio * 20
+    + freshness * 8
+    + access * 4
+    - criticalUnknowns * 25;
 }
 
 class NatureDiscoveryApp {
@@ -302,13 +393,24 @@ class NatureDiscoveryApp {
     this.session = createDiscoveryDataSession(this.loader);
     this.options = [];
     this.entities = [];
+    this.viewportEntities = [];
+    this.regionEntitiesById = new Map();
     this.entitiesById = new Map();
     this.assessments = [];
+    this.viewportResultLimit = DISCOVERY_RESULT_BATCH_SIZE;
+    this.viewportResultTotal = 0;
+    this.currentMapEntities = [];
+    this.mapRenderCounts = null;
     this.selection = null;
     this.selectedId = null;
     this.map = null;
     this.mapEventsBound = false;
+    this.viewportEventsBound = false;
     this.loadController = null;
+    this.viewportController = null;
+    this.viewportRequestId = 0;
+    this.viewportTimer = 0;
+    this.viewportState = "idle";
     this.refs = findRefs();
   }
 
@@ -320,7 +422,10 @@ class NatureDiscoveryApp {
       const initialized = await this.session.initialize();
       this.options = initialized.options;
       this.populateRegions();
-      this.setStatus("Choose a region, then load it. Regional data is not downloaded until you ask.", "ready");
+      this.setStatus(
+        "Choose a region for full search; map places stream from verified visible cells as you pan or zoom.",
+        "ready",
+      );
     } catch (error) {
       this.showError(error, () => this.initialize());
     } finally {
@@ -333,25 +438,44 @@ class NatureDiscoveryApp {
     this.refs.form.addEventListener("submit", (event) => event.preventDefault());
     this.refs.load.addEventListener("click", () => this.loadSelectedRegion());
     this.refs.region.addEventListener("change", () => {
+      this.selection = null;
       this.entities = [];
-      this.entitiesById.clear();
+      this.regionEntitiesById.clear();
+      this.rebuildEntityLookup();
       this.assessments = [];
       this.currentMapEntities = [];
       this.selectedId = null;
-      this.refs.results.replaceChildren();
       this.refs.detail.hidden = true;
-      this.refs.count.textContent = "Not loaded";
-      this.renderMap();
+      this.viewportResultLimit = DISCOVERY_RESULT_BATCH_SIZE;
+      this.renderResults();
       this.updateLoadButton();
-      this.setStatus("Region changed. Activate Load region to download its package.", "ready");
+      this.setStatus("Region changed. Activate Load region for full search; visible map cells remain available.", "ready");
     });
     for (const ref of [this.refs.activity, this.refs.time, this.refs.interest, this.refs.hidden, this.refs.verified]) {
-      ref.addEventListener("change", () => this.renderResults());
+      ref.addEventListener("change", () => {
+        if (!this.selection) this.viewportResultLimit = DISCOVERY_RESULT_BATCH_SIZE;
+        this.renderResults();
+      });
     }
     let searchTimer = 0;
     this.refs.search.addEventListener("input", () => {
       clearTimeout(searchTimer);
-      searchTimer = setTimeout(() => this.renderResults(), 160);
+      searchTimer = setTimeout(() => {
+        if (!this.selection) this.viewportResultLimit = DISCOVERY_RESULT_BATCH_SIZE;
+        this.renderResults();
+      }, 160);
+    });
+    this.refs.showMore.addEventListener("click", () => {
+      if (this.selection) return;
+      const firstNewIndex = this.assessments.length;
+      this.viewportResultLimit = Math.min(
+        this.viewportResultTotal || this.viewportEntities.length,
+        this.viewportResultLimit + DISCOVERY_RESULT_BATCH_SIZE,
+      );
+      this.renderResults();
+      this.refs.results
+        .querySelector(`[data-result-index="${firstNewIndex}"] .discover-card-select`)
+        ?.focus();
     });
   }
 
@@ -384,7 +508,8 @@ class NatureDiscoveryApp {
       const loaded = await this.session.load(selection, { signal: this.loadController.signal });
       this.selection = loaded.selection;
       this.entities = loaded.entities;
-      this.entitiesById = new Map(loaded.packageSet.entities.map((entity) => [entity.id, entity]));
+      this.regionEntitiesById = new Map(loaded.packageSet.entities.map((entity) => [entity.id, entity]));
+      this.rebuildEntityLookup();
       this.setStatus(`${selection.label} loaded. Coverage is evolving and is not a completeness claim.`, "ready");
       this.renderResults();
     } catch (error) {
@@ -397,7 +522,7 @@ class NatureDiscoveryApp {
     }
   }
 
-  filters() {
+  filters(limit = DISCOVERY_RESULT_BATCH_SIZE) {
     return {
       query: this.refs.search.value,
       activity: this.refs.activity.value,
@@ -405,30 +530,76 @@ class NatureDiscoveryApp {
       interest: this.refs.interest.value,
       hiddenOnly: this.refs.hidden.checked,
       requireVerifiedAccess: this.refs.verified.checked,
-      limit: 36,
+      limit,
     };
   }
 
   renderResults() {
-    if (!this.entities.length) return;
-    this.assessments = filterAndRankEntities(this.entities, this.filters());
+    const isRegionSearch = Boolean(this.selection);
+    const source = isRegionSearch ? this.entities : this.viewportEntities;
+    const title = isRegionSearch ? "Evidence-ranked region results" : "Visible map results";
+    this.refs.resultsTitle.textContent = title;
+    this.refs.results.setAttribute("aria-label", title);
+    this.refs.results.removeAttribute("aria-busy");
     this.refs.results.replaceChildren();
-    this.refs.count.textContent = `${this.assessments.length} result${this.assessments.length === 1 ? "" : "s"} shown (maximum 36)`;
+    this.refs.showMore.hidden = true;
+    this.viewportResultTotal = 0;
+
+    if (!source.length) {
+      this.assessments = [];
+      this.currentMapEntities = [];
+      this.refs.count.textContent = isRegionSearch
+        ? "0 region results shown"
+        : "0 visible results shown";
+      const message = !isRegionSearch && this.viewportState === "loading"
+        ? "Visible-cell results are loading."
+        : !isRegionSearch
+          ? "No visible-cell results are available. Zoom or pan to retry, or explore a region for full search."
+          : "No evidence-qualified places match these filters.";
+      this.refs.results.append(element("li", "discover-empty", message));
+      this.renderMap();
+      return;
+    }
+
+    const ranked = filterAndRankEntities(source, this.filters(
+      isRegionSearch ? DISCOVERY_RESULT_BATCH_SIZE : source.length,
+    ));
+    this.viewportResultTotal = isRegionSearch ? 0 : ranked.length;
+    this.assessments = isRegionSearch
+      ? ranked
+      : ranked.slice(0, this.viewportResultLimit);
+    this.refs.count.textContent = isRegionSearch
+      ? `${this.assessments.length} result${this.assessments.length === 1 ? "" : "s"} shown (maximum ${DISCOVERY_RESULT_BATCH_SIZE})`
+      : `${this.assessments.length} of ${ranked.length} visible result${ranked.length === 1 ? "" : "s"} shown`;
     if (!this.assessments.length) {
-      const empty = element("li", "discover-empty", "No evidence-qualified places match these filters.");
-      this.refs.results.append(empty);
+      this.refs.results.append(element(
+        "li",
+        "discover-empty",
+        "No evidence-qualified places match these filters.",
+      ));
     }
-    for (const assessment of this.assessments) {
-      this.refs.results.append(this.createCard(assessment));
+    this.assessments.forEach((assessment, index) => {
+      this.refs.results.append(this.createCard(assessment, index));
+    });
+    if (!isRegionSearch && this.assessments.length < ranked.length) {
+      const remaining = ranked.length - this.assessments.length;
+      this.refs.showMore.hidden = false;
+      this.refs.showMore.textContent = `Show next ${Math.min(DISCOVERY_RESULT_BATCH_SIZE, remaining)} visible results (${remaining} remaining)`;
     }
-    const mapEntities = linkedMapEntities(this.assessments.map((item) => item.entity), this.entitiesById);
-    this.currentMapEntities = mapEntities;
+    this.currentMapEntities = isRegionSearch
+      ? linkedMapEntities(
+        this.assessments.map((item) => item.entity),
+        this.entitiesById,
+      )
+      : ranked.map((item) => item.entity);
     this.renderMap();
   }
 
-  createCard(assessment) {
+  createCard(assessment, index = 0) {
     const model = entityCardModel(assessment.entity, assessment);
     const item = element("li", "discover-result");
+    item.dataset.entityId = model.id;
+    item.dataset.resultIndex = String(index);
     const article = element("article", "discover-card");
     if (model.accessCode === "unknown") article.classList.add("is-uncertain");
     const select = element("button", "discover-card-select");
@@ -546,10 +717,13 @@ class NatureDiscoveryApp {
       }
       output.replaceChildren(heading, list,
         element("p", "discover-safety-note", itinerary.safetyNotice));
+      return { ok: true, itinerary };
     } catch (error) {
       const code = error?.code || "itinerary_error";
+      const message = `Planning refused [${code}]: ${error?.message || "Unknown itinerary failure"}`;
       output.replaceChildren(element("p", "discover-refusal",
-        `Planning refused [${code}]: ${error?.message || "Unknown itinerary failure"}`));
+        message));
+      return { ok: false, code, message };
     }
   }
 
@@ -568,12 +742,111 @@ class NatureDiscoveryApp {
     map.on("idle", () => {
       if (!hasNatureMapState(map)) this.renderMap();
     });
+    if (!this.viewportEventsBound) {
+      map.on("moveend", () => this.scheduleViewportLoad());
+      this.viewportEventsBound = true;
+    }
     this.renderMap();
+    this.scheduleViewportLoad(0);
+  }
+
+  scheduleViewportLoad(delayMilliseconds = 140) {
+    clearTimeout(this.viewportTimer);
+    this.viewportTimer = setTimeout(() => {
+      this.loadVisibleViewport();
+    }, Math.max(0, Number(delayMilliseconds) || 0));
+  }
+
+  async loadVisibleViewport() {
+    const bounds = mapViewportBounds(this.map);
+    if (!bounds) return;
+    const requestId = ++this.viewportRequestId;
+    this.viewportController?.abort();
+    this.viewportController = new AbortController();
+    this.setViewportState("loading");
+    if (!this.selection) this.refs.results.setAttribute("aria-busy", "true");
+    if (!this.selection && !this.refs.panel.hasAttribute("aria-busy")) {
+      this.setStatus(
+        "Loading nature places in the visible map. Choose a region for full search.",
+        "loading",
+      );
+    }
+    try {
+      const loaded = await this.session.loadViewport(bounds, {
+        signal: this.viewportController.signal,
+      });
+      if (requestId !== this.viewportRequestId) return;
+      this.viewportEntities = loaded.entities;
+      this.viewportResultLimit = DISCOVERY_RESULT_BATCH_SIZE;
+      this.rebuildEntityLookup();
+      this.clearUnavailableViewportSelection();
+      this.setViewportState("ready");
+      if (!this.selection && !this.refs.panel.hasAttribute("aria-busy")) {
+        const count = this.viewportEntities.length;
+        this.setStatus(
+          `${count} visible-map record${count === 1 ? "" : "s"} loaded from spatial cells. Choose a region for full search; inventory is not a completeness claim.`,
+          "ready",
+        );
+      }
+      if (!this.selection) this.renderResults();
+      else this.renderMap();
+    } catch (error) {
+      if (requestId !== this.viewportRequestId
+          || error?.code === "aborted"
+          || error?.name === "AbortError") return;
+      const tooBroad = error?.code === "viewport_request_limit_exceeded";
+      this.viewportEntities = [];
+      this.viewportResultLimit = DISCOVERY_RESULT_BATCH_SIZE;
+      this.rebuildEntityLookup();
+      this.clearUnavailableViewportSelection();
+      this.setViewportState(tooBroad ? "too-broad" : "error");
+      if (!this.selection) this.renderResults();
+      else this.renderMap();
+      if (!this.selection && !this.refs.panel.hasAttribute("aria-busy")) {
+        this.setStatus(
+          tooBroad
+            ? "The visible area is too broad for detailed cell loading. Zoom in, or choose a region for full search."
+            : "Visible-map data is unavailable. Pan to retry, or choose a region for the compatibility search path.",
+          tooBroad ? "ready" : "error",
+        );
+      }
+    }
+  }
+
+  rebuildEntityLookup() {
+    this.entitiesById = new Map(this.regionEntitiesById);
+    for (const entity of this.viewportEntities) {
+      if (!this.entitiesById.has(entity.id)) this.entitiesById.set(entity.id, entity);
+    }
+  }
+
+  clearUnavailableViewportSelection() {
+    if (this.selection || !this.selectedId || this.entitiesById.has(this.selectedId)) return;
+    this.selectedId = null;
+    this.refs.detail.replaceChildren();
+    this.refs.detail.hidden = true;
+  }
+
+  setViewportState(state) {
+    this.viewportState = state;
+    this.root.dataset.viewportState = state;
+  }
+
+  mapEntities() {
+    if (!this.selection) return [...(this.currentMapEntities || [])];
+    const combined = new Map();
+    for (const entity of this.currentMapEntities || []) combined.set(entity.id, entity);
+    for (const entity of this.viewportEntities) {
+      if (!combined.has(entity.id)) combined.set(entity.id, entity);
+    }
+    return [...combined.values()];
   }
 
   renderMap() {
     if (!this.map || typeof this.map.getSource !== "function") return;
-    const collections = buildMapFeatureCollections(this.currentMapEntities || [], this.selectedId);
+    const collections = buildMapFeatureCollections(this.mapEntities(), this.selectedId);
+    this.mapRenderCounts = collections.counts;
+    this.updateMapDisclosure(collections.counts);
     try {
       setSource(this.map, MAP_IDS.routesSource, collections.routes);
       setSource(this.map, MAP_IDS.pointsSource, collections.points);
@@ -594,9 +867,40 @@ class NatureDiscoveryApp {
     }
   }
 
+  updateMapDisclosure(counts) {
+    const loaded = counts?.loaded || 0;
+    const rendered = counts?.rendered || 0;
+    const capped = counts?.capped || 0;
+    const unsupported = counts?.unsupported || 0;
+    const available = this.selection ? loaded : this.viewportEntities.length;
+    const excluded = Math.max(0, available - loaded);
+    const parts = [
+      `${counts?.points?.rendered || 0} point${counts?.points?.rendered === 1 ? "" : "s"}`,
+      `${counts?.routes?.rendered || 0} route${counts?.routes?.rendered === 1 ? "" : "s"}`,
+    ];
+    const lead = this.selection
+      ? `Map renders ${rendered} of ${loaded} loaded record${loaded === 1 ? "" : "s"}`
+      : `Map renders ${rendered} of ${loaded} filter-eligible loaded record${loaded === 1 ? "" : "s"}; ${available} visible-cell record${available === 1 ? " is" : "s are"} loaded`;
+    let explanation = "Evidence, verification, access, and the selected record determine map priority; names only break ties.";
+    if (excluded) {
+      explanation = `${excluded} loaded record${excluded === 1 ? " is" : "s are"} excluded by current discovery eligibility or filters. ${explanation}`;
+    }
+    if (capped) {
+      explanation = `${capped} lower-priority mappable record${capped === 1 ? " is" : "s are"} outside the evidence-aware map caps. ${explanation}`;
+    }
+    if (unsupported) {
+      explanation += ` ${unsupported} loaded record${unsupported === 1 ? " has" : "s have"} no supported point or route geometry.`;
+    }
+    this.refs.mapCount.textContent = `${lead} (${parts.join(", ")}). ${explanation}`;
+    this.refs.mapCount.dataset.loaded = String(loaded);
+    this.refs.mapCount.dataset.available = String(available);
+    this.refs.mapCount.dataset.rendered = String(rendered);
+    this.refs.mapCount.dataset.capped = String(capped);
+  }
+
   setStatus(message, state) {
     this.refs.status.className = `discover-status is-${state}`;
-    this.refs.status.setAttribute("aria-live", "polite");
+    this.refs.status.setAttribute("aria-live", state === "error" ? "assertive" : "polite");
     this.refs.status.textContent = message;
   }
 
@@ -735,8 +1039,11 @@ function findRefs() {
     hidden: id("discoverHidden"),
     verified: id("discoverVerified"),
     status: id("discoverStatus"),
+    mapCount: id("discoverMapCount"),
+    resultsTitle: id("discoverResultsTitle"),
     count: id("discoverCount"),
     results: id("discoverResults"),
+    showMore: id("discoverShowMore"),
     detail: id("discoverDetail"),
   };
 }
@@ -754,6 +1061,36 @@ function chip(text, kind = "neutral") {
 
 function addDefinition(list, term, value) {
   list.append(element("dt", "", term), element("dd", "", value));
+}
+
+export function mapViewportBounds(map) {
+  const bounds = map?.getBounds?.();
+  if (!bounds) return null;
+  const array = typeof bounds.toArray === "function" ? bounds.toArray() : null;
+  const west = Number(bounds.getWest?.() ?? array?.[0]?.[0]);
+  const southRaw = Number(bounds.getSouth?.() ?? array?.[0]?.[1]);
+  const east = Number(bounds.getEast?.() ?? array?.[1]?.[0]);
+  const northRaw = Number(bounds.getNorth?.() ?? array?.[1]?.[1]);
+  if (![west, southRaw, east, northRaw].every(Number.isFinite)) return null;
+
+  const mercatorLimit = 85.0511287798066;
+  const south = Math.max(-mercatorLimit, Math.min(mercatorLimit, southRaw));
+  const north = Math.max(-mercatorLimit, Math.min(mercatorLimit, northRaw));
+  if (south >= north) return null;
+
+  let longitudeSpan = east - west;
+  while (longitudeSpan < 0) longitudeSpan += 360;
+  if (longitudeSpan >= 360) return [-180, south, 180, north];
+
+  const normalizedWest = wrapLongitude(west);
+  let normalizedEast = normalizedWest + longitudeSpan;
+  if (normalizedEast > 180) normalizedEast -= 360;
+  return [normalizedWest, south, normalizedEast, north];
+}
+
+function wrapLongitude(value) {
+  const wrapped = ((value + 180) % 360 + 360) % 360 - 180;
+  return Object.is(wrapped, -0) ? 0 : wrapped;
 }
 
 function mapCenter(map) {
@@ -851,6 +1188,11 @@ function finitePositive(value) {
   return Number.isFinite(number) && number > 0 ? number : null;
 }
 
+function unitInterval(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(0, Math.min(1, number)) : fallback;
+}
+
 function roundScore(value) {
   return Math.round(value * 1000) / 1000;
 }
@@ -925,6 +1267,15 @@ function startBrowserApp() {
       region: app.selection?.value || null,
       entityCount: app.entities.length,
       resultCount: app.assessments.length,
+      viewportResultTotal: app.viewportResultTotal,
+      viewportEntityCount: app.viewportEntities.length,
+      viewportState: app.viewportState,
+      mapLoadedCount: app.mapRenderCounts?.loaded || 0,
+      mapAvailableCount: app.selection
+        ? app.mapRenderCounts?.loaded || 0
+        : app.viewportEntities.length,
+      mapRenderedCount: app.mapRenderCounts?.rendered || 0,
+      mapCappedCount: app.mapRenderCounts?.capped || 0,
     }),
   });
   app.initialize();

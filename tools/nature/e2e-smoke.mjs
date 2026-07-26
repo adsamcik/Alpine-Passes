@@ -1,4 +1,4 @@
-// Deterministic browser smoke test for the manifest-first nature discovery UI.
+// Deterministic browser smoke test for manifest + visible-cell nature discovery.
 //
 // Starts an ephemeral static server, uses the repository's installed Playwright,
 // and replaces only the remote basemap style with a valid empty style. All other
@@ -150,6 +150,9 @@ async function createLocalServer() {
 
 async function loadFixture() {
   const manifest = JSON.parse(await readFile(MANIFEST_PATH, "utf8"));
+  if (!manifest.spatialIndex?.url) {
+    throw new Error("Manifest has no spatial index URL");
+  }
   const ukEntries = manifest.packages.filter((entry) => entry.regionId === "uk-ireland");
   if (!ukEntries.length) throw new Error("Manifest has no uk-ireland regional package");
   const ukDocuments = await Promise.all(ukEntries.map(async (entry) => ({
@@ -175,8 +178,13 @@ async function loadFixture() {
   if (!name) throw new Error(`Route ${route.id} has no displayable name`);
   return {
     manifest,
+    spatialIndexPath: `/${manifest.spatialIndex.url}`,
     ukPackagePaths: ukEntries.map((entry) => `/${entry.url}`),
-    route: { id: route.id, name },
+    route: {
+      id: route.id,
+      name,
+      sourceNoticeCount: route.exportMetadata?.sourceNotices?.length || 0,
+    },
   };
 }
 
@@ -194,6 +202,24 @@ async function sourceGeoJson(page, sourceId) {
     }
     return data;
   }, sourceId);
+}
+
+async function rawNatureRequestBytes(pathnames) {
+  const natureRoot = resolve(REPO_ROOT, "assets/data/nature");
+  const files = [];
+  let total = 0;
+  for (const pathname of [...new Set(pathnames)].sort()) {
+    const decoded = decodeURIComponent(new URL(pathname, "http://localhost").pathname);
+    const filePath = resolve(REPO_ROOT, decoded.replace(/^\/+/, ""));
+    const outsideNatureRoot = filePath !== natureRoot
+      && !filePath.startsWith(natureRoot + sep);
+    if (outsideNatureRoot) throw new Error("Nature request escaped data root: " + pathname);
+    const info = await stat(filePath);
+    if (!info.isFile()) throw new Error("Nature request is not a file: " + pathname);
+    total += info.size;
+    files.push({ path: pathname, bytes: info.size });
+  }
+  return { total, files };
 }
 
 async function run() {
@@ -253,11 +279,89 @@ async function run() {
       waitUntil: "domcontentloaded",
       timeout: 30_000,
     });
-    await page.waitForFunction(() =>
-      window.ItineraNature?.getStatus
-      && document.querySelector("#discoverStatus")?.textContent?.includes("Choose a region"),
-    null, { timeout: 20_000 });
+    await page.waitForFunction(() => {
+      const status = window.ItineraNature?.getStatus?.();
+      return status?.viewportState === "ready"
+        && status.viewportEntityCount > 0
+        && status.resultCount > 0
+        && document.querySelectorAll(".discover-card-select").length === status.resultCount;
+    }, null, { timeout: 20_000 });
     await page.waitForTimeout(250);
+
+    const initialViewportState = await page.evaluate(() => {
+      const status = window.ItineraNature.getStatus();
+      const bounds = window.ItineraApp?.map?.getBounds?.();
+      const cards = [...document.querySelectorAll(".discover-card-select")];
+      const mapCount = document.querySelector("#discoverMapCount");
+      const showMore = document.querySelector("#discoverShowMore");
+      return {
+        ...status,
+        mapBounds: bounds
+          ? [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()]
+          : null,
+        accessibleCardCount: cards.length,
+        focusableCardCount: cards.filter((card) => !card.disabled && card.tabIndex >= 0).length,
+        resultsTitle: document.querySelector("#discoverResultsTitle")?.textContent?.trim(),
+        resultsLabelledBy: document.querySelector("#discoverResults")?.getAttribute("aria-labelledby"),
+        resultsDescribedBy: document.querySelector("#discoverResults")?.getAttribute("aria-describedby"),
+        countText: document.querySelector("#discoverCount")?.textContent?.trim(),
+        mapCountText: mapCount?.textContent?.trim(),
+        mapCountLoaded: Number(mapCount?.dataset.loaded),
+        mapCountAvailable: Number(mapCount?.dataset.available),
+        mapCountRendered: Number(mapCount?.dataset.rendered),
+        mapCountCapped: Number(mapCount?.dataset.capped),
+        showMoreVisible: Boolean(showMore && !showMore.hidden),
+      };
+    });
+    check(
+      "initial visible-cell viewport reaches ready with entities and reports actual bounds",
+      initialViewportState.viewportState === "ready"
+        && initialViewportState.viewportEntityCount > 0
+        && initialViewportState.mapBounds?.length === 4
+        && initialViewportState.mapBounds.every(Number.isFinite),
+      JSON.stringify(initialViewportState),
+    );
+
+    check(
+      "dense default viewport has a synchronized keyboard and screen-reader result list",
+      initialViewportState.region == null
+        && initialViewportState.entityCount === 0
+        && initialViewportState.viewportResultTotal > initialViewportState.resultCount
+        && initialViewportState.resultCount === initialViewportState.accessibleCardCount
+        && initialViewportState.resultCount === initialViewportState.focusableCardCount
+        && initialViewportState.resultsTitle === "Visible map results"
+        && initialViewportState.resultsLabelledBy === "discoverResultsTitle"
+        && initialViewportState.resultsDescribedBy === "discoverCount discoverMapCount"
+        && initialViewportState.showMoreVisible,
+      JSON.stringify(initialViewportState),
+    );
+    check(
+      "dense map cap is evidence-aware and discloses rendered versus loaded counts",
+      initialViewportState.mapLoadedCount === initialViewportState.viewportResultTotal
+        && initialViewportState.mapAvailableCount === initialViewportState.viewportEntityCount
+        && initialViewportState.mapRenderedCount < initialViewportState.mapLoadedCount
+        && initialViewportState.mapCappedCount > 0
+        && initialViewportState.mapCountLoaded === initialViewportState.mapLoadedCount
+        && initialViewportState.mapCountAvailable === initialViewportState.mapAvailableCount
+        && initialViewportState.mapCountRendered === initialViewportState.mapRenderedCount
+        && initialViewportState.mapCountCapped === initialViewportState.mapCappedCount
+        && initialViewportState.mapCountText?.startsWith(
+          "Map renders " + initialViewportState.mapRenderedCount
+            + " of " + initialViewportState.mapLoadedCount + " filter-eligible loaded",
+        )
+        && initialViewportState.mapCountText?.includes(
+          initialViewportState.mapAvailableCount + " visible-cell records are loaded",
+        )
+        && /Evidence, verification, access/.test(initialViewportState.mapCountText || ""),
+      JSON.stringify(initialViewportState),
+    );
+    const firstVisibleCard = page.locator(".discover-card-select").first();
+    await firstVisibleCard.focus();
+    check(
+      "visible-map result cards are keyboard focusable before any region is loaded",
+      await firstVisibleCard.evaluate((card) => document.activeElement === card),
+      await firstVisibleCard.getAttribute("aria-label") || "first card missing",
+    );
 
     const initialTabState = await page.evaluate(() => ({
       discoverChecked: document.querySelector("#sidebarTabDiscover")?.checked,
@@ -277,13 +381,39 @@ async function run() {
     );
 
     const initialNaturePaths = [...new Set(natureRequests)];
+    const initialNatureBytes = await rawNatureRequestBytes(initialNaturePaths);
+    const initialNatureBudget = Number(fixture.manifest.budgets?.initialNatureDataBytes);
+    check(
+      "unique initial nature request raw bytes fit the manifest budget",
+      Number.isFinite(initialNatureBudget)
+        && initialNatureBudget > 0
+        && initialNatureBytes.total <= initialNatureBudget,
+      JSON.stringify({
+        rawBytes: initialNatureBytes.total,
+        budgetBytes: initialNatureBudget,
+        mapBounds: initialViewportState.mapBounds,
+        files: initialNatureBytes.files,
+      }),
+    );
     check(
       "initial nature request includes the manifest",
       initialNaturePaths.includes("/assets/data/nature/manifest.v1.json"),
       initialNaturePaths.join(", "),
     );
     check(
-      "initial nature bootstrap downloads no regional package",
+      "initial nature bootstrap fetches the manifest-advertised spatial index",
+      initialNaturePaths.includes(fixture.spatialIndexPath),
+      initialNaturePaths.join(", "),
+    );
+    const initialCellPaths = initialNaturePaths.filter((path) =>
+      path.startsWith("/assets/data/nature/spatial/cells/"));
+    check(
+      "initial nature bootstrap fetches visible spatial cell packages",
+      initialCellPaths.length > 0,
+      initialCellPaths.join(", "),
+    );
+    check(
+      "initial nature bootstrap downloads no regional package before Explore",
       initialNaturePaths.every((path) => !path.startsWith("/assets/data/nature/packages/")),
       initialNaturePaths.join(", "),
     );
@@ -299,6 +429,36 @@ async function run() {
         && /Scotland/.test(regionState.label || "")
         && regionState.button === "Explore Scotland",
       JSON.stringify(regionState),
+    );
+
+    const initialVisibleResultCount = initialViewportState.resultCount;
+    await page.locator("#discoverShowMore").click();
+    await page.waitForFunction((previousCount) => {
+      const status = window.ItineraNature?.getStatus?.();
+      return status?.resultCount > previousCount
+        && document.querySelectorAll(".discover-card-select").length === status.resultCount;
+    }, initialVisibleResultCount, { timeout: 10_000 });
+    const pagedViewportState = await page.evaluate(() => {
+      const status = window.ItineraNature.getStatus();
+      const focused = document.activeElement;
+      return {
+        ...status,
+        cardCount: document.querySelectorAll(".discover-card-select").length,
+        focusedResultIndex: focused?.closest("[data-result-index]")?.dataset.resultIndex,
+        focusedCard: focused?.classList.contains("discover-card-select"),
+        showMoreVisible: !document.querySelector("#discoverShowMore")?.hidden,
+      };
+    });
+    check(
+      "Show more progressively exposes dense visible results and focuses the first new card",
+      pagedViewportState.resultCount > initialVisibleResultCount
+        && pagedViewportState.resultCount <= pagedViewportState.viewportResultTotal
+        && pagedViewportState.cardCount === pagedViewportState.resultCount
+        && pagedViewportState.focusedCard
+        && pagedViewportState.focusedResultIndex === String(initialVisibleResultCount)
+        && pagedViewportState.showMoreVisible
+          === (pagedViewportState.resultCount < pagedViewportState.viewportResultTotal),
+      JSON.stringify(pagedViewportState),
     );
 
     const requestCountBeforeExplore = natureRequests.length;
@@ -320,12 +480,19 @@ async function run() {
       JSON.stringify(packageRequests) === JSON.stringify(expectedUkRequests),
       `requested=${packageRequests.join(", ")} expected=${expectedUkRequests.join(", ")}`,
     );
-    const loadedState = await page.evaluate(() => window.ItineraNature.getStatus());
+    const loadedState = await page.evaluate(() => ({
+      ...window.ItineraNature.getStatus(),
+      resultsTitle: document.querySelector("#discoverResultsTitle")?.textContent?.trim(),
+      showMoreHidden: document.querySelector("#discoverShowMore")?.hidden,
+    }));
     check(
-      "Scotland renders evidence-ranked results",
+      "Scotland preserves explicit evidence-ranked regional search",
       loadedState.region === "scotland"
         && loadedState.entityCount > 0
-        && loadedState.resultCount > 0,
+        && loadedState.resultCount > 0
+        && loadedState.resultCount <= 36
+        && loadedState.resultsTitle === "Evidence-ranked region results"
+        && loadedState.showMoreHidden,
       JSON.stringify(loadedState),
     );
 
@@ -356,21 +523,90 @@ async function run() {
       Boolean(window.ItineraApp?.map?.getSource?.("nature-discovery-routes")),
     null, { timeout: 10_000 });
 
-    const detailState = await page.evaluate(() => ({
-      title: document.querySelector(".discover-detail-title")?.textContent,
-      focused: document.activeElement?.classList.contains("discover-detail-title"),
-      gpxDisabled: document.querySelector(".discover-gpx-action")?.disabled,
-      gpxSafety: document.querySelector(".discover-gpx-safety")?.textContent,
-    }));
+    const detailState = await page.evaluate(() => {
+      const action = (label) => {
+        const button = [...document.querySelectorAll(".hike-action")]
+          .find((candidate) => candidate.textContent?.trim() === label);
+        return {
+          exists: Boolean(button),
+          ariaDisabled: button?.getAttribute("aria-disabled"),
+          describedBy: button?.getAttribute("aria-describedby"),
+          nativeDisabled: button?.disabled,
+          tabIndex: button?.tabIndex,
+        };
+      };
+      return {
+        title: document.querySelector(".discover-detail-title")?.textContent,
+        focused: document.activeElement?.classList.contains("discover-detail-title"),
+        sectionTitles: [...document.querySelectorAll(".hike-detail > section > h3")]
+          .map((heading) => heading.textContent?.trim()),
+        statusId: document.querySelector(".hike-action-status")?.id,
+        geojson: action("Download GeoJSON"),
+        gpx: action("Download GPX"),
+      };
+    });
     check(
       "selecting a route opens and focuses its detail",
       detailState.title === fixture.route.name && detailState.focused,
       JSON.stringify(detailState),
     );
+    const expectedHikeSections = [
+      "At a glance",
+      "Route character",
+      "Getting there",
+      "Safety & conditions",
+      "Data confidence",
+    ];
     check(
-      "GPX stays disabled for generalized non-navigation geometry",
-      detailState.gpxDisabled && /GPX disabled/.test(detailState.gpxSafety || ""),
-      JSON.stringify(detailState),
+      "hike detail renders all five readable information sections in order",
+      JSON.stringify(detailState.sectionTitles.slice(0, 5))
+        === JSON.stringify(expectedHikeSections),
+      detailState.sectionTitles.join(" | "),
+    );
+    const focusableAriaDisabled = (control) => control.exists
+      && control.ariaDisabled === "true"
+      && control.nativeDisabled === false
+      && control.tabIndex >= 0
+      && control.describedBy === detailState.statusId;
+    check(
+      "current route without complete source notices keeps both downloads focusable and aria-disabled",
+      fixture.route.sourceNoticeCount === 0
+        && focusableAriaDisabled(detailState.geojson)
+        && focusableAriaDisabled(detailState.gpx),
+      JSON.stringify({ sourceNoticeCount: fixture.route.sourceNoticeCount, ...detailState }),
+    );
+
+    const actionStatus = page.locator(".hike-action-status");
+    const geojsonAction = page.getByRole("button", { name: "Download GeoJSON", exact: true });
+    await geojsonAction.focus();
+    const geojsonFocused = await geojsonAction.evaluate((button) =>
+      document.activeElement === button);
+    await page.keyboard.press("Enter");
+    await page.waitForFunction(() =>
+      /GEOJSON download requires complete publisher, product, licence, attribution, source, and transformation notices/i
+        .test(document.querySelector(".hike-action-status")?.textContent || ""),
+    null, { timeout: 5_000 });
+    const geojsonStatus = await actionStatus.textContent();
+    check(
+      "activating unavailable GeoJSON announces the missing source-notice requirements",
+      geojsonFocused && /complete publisher, product, licence, attribution, source, and transformation notices/i
+        .test(geojsonStatus || ""),
+      geojsonStatus || "status missing",
+    );
+
+    const gpxAction = page.getByRole("button", { name: "Download GPX", exact: true });
+    await gpxAction.focus();
+    const gpxFocused = await gpxAction.evaluate((button) => document.activeElement === button);
+    await page.keyboard.press("Enter");
+    await page.waitForFunction(() =>
+      /^GPX /i.test(document.querySelector(".hike-action-status")?.textContent || ""),
+    null, { timeout: 5_000 });
+    const gpxStatus = await actionStatus.textContent();
+    check(
+      "activating unavailable GPX announces why no navigation file is emitted",
+      gpxFocused
+        && /not verified as navigation-suitable|requires complete .*notices/i.test(gpxStatus || ""),
+      gpxStatus || "status missing",
     );
 
     const routeGeoJson = await sourceGeoJson(page, "nature-discovery-routes");

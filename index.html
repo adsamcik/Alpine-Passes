@@ -58,7 +58,7 @@
         <span class="sidebar-tab-sub"><strong><span id="passCount">…</span></strong> passes · <strong><span id="poiCount">…</span></strong> sights (legacy)</span>
       </label>
     </div>
-    <p class="sidebar-source-note">Nature packages load only when requested · evidence and uncertainty stay visible</p>
+    <p class="sidebar-source-note">Visible map cells stream on demand · full regional search loads only when requested · uncertainty stays visible</p>
   </nav>
 
   <div class="banner hidden" id="banner" role="status" aria-live="polite"></div>
@@ -82,7 +82,7 @@
               </select>
               <button id="discoverLoadRegion" type="button">Explore region</button>
             </div>
-            <small id="discoverRegionHint">Only the small manifest loads initially. A regional package downloads after you activate Explore region.</small>
+            <small id="discoverRegionHint">The small manifest loads first, then the map requests only visible spatial cells. Explore region loads the larger compatibility package for full regional search.</small>
           </fieldset>
 
           <label class="discover-search-field" for="discoverSearch">
@@ -136,11 +136,13 @@
         </form>
 
         <div class="discover-status is-loading" id="discoverStatus" role="status" aria-live="polite">Loading the regional manifest…</div>
+        <p class="discover-map-count" id="discoverMapCount" role="status" aria-live="polite" aria-atomic="true">Map rendering waits for visible-cell data.</p>
         <div class="discover-results-head">
-          <h2>Evidence-ranked results</h2>
-          <span id="discoverCount">Not loaded</span>
+          <h2 id="discoverResultsTitle">Visible map results</h2>
+          <span id="discoverCount" aria-live="polite" aria-atomic="true">Not loaded</span>
         </div>
-        <ol class="discover-results" id="discoverResults" aria-label="Nature discovery results"></ol>
+        <ol class="discover-results" id="discoverResults" aria-labelledby="discoverResultsTitle" aria-describedby="discoverCount discoverMapCount" aria-busy="true"></ol>
+        <button class="discover-show-more" id="discoverShowMore" type="button" aria-describedby="discoverCount" hidden>Show more visible results</button>
         <section class="discover-detail" id="discoverDetail" aria-label="Selected place or route details" aria-live="polite" hidden></section>
       </section>
 

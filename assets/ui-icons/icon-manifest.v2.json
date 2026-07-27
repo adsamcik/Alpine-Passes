@@ -1,0 +1,91 @@
+{
+  "version": 2,
+  "style": "itinera-alpine-contour-enamel",
+  "atlas": {
+    "columns": 5,
+    "rows": 13,
+    "cellSize": 128
+  },
+  "sourceSheets": {
+    "columns": 4,
+    "rows": 2,
+    "directory": "assets/ui-icons/imagegen-v2/transparent"
+  },
+  "icons": [
+    { "index": 0, "id": "status-open", "family": "status", "sheet": "sheet-01-status-core.png", "cell": 0 },
+    { "index": 1, "id": "status-restricted", "family": "status", "sheet": "sheet-01-status-core.png", "cell": 1 },
+    { "index": 2, "id": "status-closed", "family": "status", "sheet": "sheet-01-status-core.png", "cell": 2 },
+    { "index": 3, "id": "status-estimated", "family": "status", "sheet": "sheet-01-status-core.png", "cell": 3 },
+    { "index": 4, "id": "status-unknown", "family": "status", "sheet": "sheet-01-status-core.png", "cell": 4 },
+    { "index": 5, "id": "poi-generic", "family": "poi", "sheet": "sheet-01-status-core.png", "cell": 5 },
+    { "index": 6, "id": "not-by-car", "family": "access", "sheet": "sheet-01-status-core.png", "cell": 6 },
+    { "index": 7, "id": "poi-mountain-summit", "family": "poi", "sheet": "sheet-01-status-core.png", "cell": 7 },
+
+    { "index": 8, "id": "poi-alpine-lake", "family": "poi", "sheet": "sheet-02-alpine-heritage.png", "cell": 0 },
+    { "index": 9, "id": "poi-waterfall-gorge", "family": "poi", "sheet": "sheet-02-alpine-heritage.png", "cell": 1 },
+    { "index": 10, "id": "poi-glacier", "family": "poi", "sheet": "sheet-02-alpine-heritage.png", "cell": 2 },
+    { "index": 11, "id": "poi-old-town", "family": "poi", "sheet": "sheet-02-alpine-heritage.png", "cell": 3 },
+    { "index": 12, "id": "poi-castle-fortress", "family": "poi", "sheet": "sheet-02-alpine-heritage.png", "cell": 4 },
+    { "index": 13, "id": "poi-monastery-church", "family": "poi", "sheet": "sheet-02-alpine-heritage.png", "cell": 5 },
+    { "index": 14, "id": "poi-scenic-railway", "family": "poi", "sheet": "sheet-02-alpine-heritage.png", "cell": 6 },
+    { "index": 15, "id": "poi-bridge-engineering", "family": "poi", "sheet": "sheet-02-alpine-heritage.png", "cell": 7 },
+
+    { "index": 16, "id": "poi-village", "family": "poi", "sheet": "sheet-03-nature-culture.png", "cell": 0 },
+    { "index": 17, "id": "poi-national-park", "family": "poi", "sheet": "sheet-03-nature-culture.png", "cell": 1 },
+    { "index": 18, "id": "poi-spa-wellness", "family": "poi", "sheet": "sheet-03-nature-culture.png", "cell": 2 },
+    { "index": 19, "id": "poi-viewpoint-panorama", "family": "poi", "sheet": "sheet-03-nature-culture.png", "cell": 3 },
+    { "index": 20, "id": "poi-museum-cultural", "family": "poi", "sheet": "sheet-03-nature-culture.png", "cell": 4 },
+    { "index": 21, "id": "poi-geology-cave", "family": "poi", "sheet": "sheet-03-nature-culture.png", "cell": 5 },
+    { "index": 22, "id": "poi-wine-region", "family": "poi", "sheet": "sheet-03-nature-culture.png", "cell": 6 },
+    { "index": 23, "id": "poi-special-experience", "family": "poi", "sheet": "sheet-03-nature-culture.png", "cell": 7 },
+
+    { "index": 24, "id": "pass-generic", "family": "pass", "sheet": "sheet-04-travel-japan.png", "cell": 0 },
+    { "index": 25, "id": "poi-funicular", "family": "poi", "sheet": "sheet-04-travel-japan.png", "cell": 1 },
+    { "index": 26, "id": "poi-art-island", "family": "poi", "sheet": "sheet-04-travel-japan.png", "cell": 2 },
+    { "index": 27, "id": "poi-buddhist-temple", "family": "poi", "sheet": "sheet-04-travel-japan.png", "cell": 3 },
+    { "index": 28, "id": "poi-food-market", "family": "poi", "sheet": "sheet-04-travel-japan.png", "cell": 4 },
+    { "index": 29, "id": "poi-historic-district", "family": "poi", "sheet": "sheet-04-travel-japan.png", "cell": 5 },
+    { "index": 30, "id": "poi-observation-tower", "family": "poi", "sheet": "sheet-04-travel-japan.png", "cell": 6 },
+    { "index": 31, "id": "poi-onsen-town", "family": "poi", "sheet": "sheet-04-travel-japan.png", "cell": 7 },
+
+    { "index": 32, "id": "poi-pop-culture-site", "family": "poi", "sheet": "sheet-05-modes-japan.png", "cell": 0 },
+    { "index": 33, "id": "poi-post-town", "family": "poi", "sheet": "sheet-05-modes-japan.png", "cell": 1 },
+    { "index": 34, "id": "poi-shinto-shrine", "family": "poi", "sheet": "sheet-05-modes-japan.png", "cell": 2 },
+    { "index": 35, "id": "poi-traditional-garden", "family": "poi", "sheet": "sheet-05-modes-japan.png", "cell": 3 },
+    { "index": 36, "id": "poi-volcano", "family": "poi", "sheet": "sheet-05-modes-japan.png", "cell": 4 },
+    { "index": 37, "id": "layer-survey", "family": "mode", "sheet": "sheet-05-modes-japan.png", "cell": 5 },
+    { "index": 38, "id": "layer-plan", "family": "mode", "sheet": "sheet-05-modes-japan.png", "cell": 6 },
+    { "index": 39, "id": "layer-explore", "family": "mode", "sheet": "sheet-05-modes-japan.png", "cell": 7 },
+
+    { "index": 40, "id": "weather-sunny", "family": "weather", "sheet": "sheet-06-weather.png", "cell": 0 },
+    { "index": 41, "id": "weather-partly-cloudy", "family": "weather", "sheet": "sheet-06-weather.png", "cell": 1 },
+    { "index": 42, "id": "weather-cloudy", "family": "weather", "sheet": "sheet-06-weather.png", "cell": 2 },
+    { "index": 43, "id": "weather-fog", "family": "weather", "sheet": "sheet-06-weather.png", "cell": 3 },
+    { "index": 44, "id": "weather-rain", "family": "weather", "sheet": "sheet-06-weather.png", "cell": 4 },
+    { "index": 45, "id": "weather-snow", "family": "weather", "sheet": "sheet-06-weather.png", "cell": 5 },
+    { "index": 46, "id": "weather-showers", "family": "weather", "sheet": "sheet-06-weather.png", "cell": 6 },
+    { "index": 47, "id": "weather-storm", "family": "weather", "sheet": "sheet-06-weather.png", "cell": 7 },
+
+    { "index": 48, "id": "weather-wind", "family": "weather", "sheet": "sheet-07-breaks-utility.png", "cell": 0 },
+    { "index": 49, "id": "break-coffee", "family": "break", "sheet": "sheet-07-breaks-utility.png", "cell": 1 },
+    { "index": 50, "id": "break-restroom", "family": "break", "sheet": "sheet-07-breaks-utility.png", "cell": 2 },
+    { "index": 51, "id": "break-viewpoint", "family": "break", "sheet": "sheet-07-breaks-utility.png", "cell": 3 },
+    { "index": 52, "id": "utility-parking", "family": "utility", "sheet": "sheet-07-breaks-utility.png", "cell": 4 },
+    { "index": 53, "id": "utility-warning", "family": "utility", "sheet": "sheet-07-breaks-utility.png", "cell": 5 },
+    { "index": 54, "id": "utility-external-link", "family": "utility", "sheet": "sheet-07-breaks-utility.png", "cell": 6 },
+    { "index": 55, "id": "utility-lock", "family": "utility", "sheet": "sheet-07-breaks-utility.png", "cell": 7 },
+
+    { "index": 56, "id": "utility-unlock", "family": "utility", "sheet": "sheet-08-utility-reserve.png", "cell": 0 },
+    { "index": 57, "id": "utility-star", "family": "utility", "sheet": "sheet-08-utility-reserve.png", "cell": 1 },
+    { "index": 58, "id": "utility-check", "family": "utility", "sheet": "sheet-08-utility-reserve.png", "cell": 2 },
+    { "index": 59, "id": "utility-add", "family": "utility", "sheet": "sheet-08-utility-reserve.png", "cell": 3 },
+    { "index": 60, "id": "utility-close", "family": "utility", "sheet": "sheet-08-utility-reserve.png", "cell": 4 },
+    { "index": 61, "id": "utility-more", "family": "utility", "sheet": "sheet-08-utility-reserve.png", "cell": 5 },
+    { "index": 62, "id": "utility-calendar", "family": "utility", "sheet": "sheet-08-utility-reserve.png", "cell": 6 }
+  ],
+  "reserve": {
+    "id": "brand-compass-trail",
+    "sheet": "sheet-08-utility-reserve.png",
+    "cell": 7
+  }
+}

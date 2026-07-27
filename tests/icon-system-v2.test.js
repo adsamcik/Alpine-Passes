@@ -83,6 +83,8 @@ test("v2 image-generated icon system covers the complete runtime atlas", () => {
     assert.ok(normalizedFiles.includes(fileName), `${icon.id} normalized cell is missing`);
     assert.deepEqual(pngSize(relPath), [128, 128]);
     assert.equal(sha256File(relPath), icon.fileSha256, `${icon.id} generated-cell hash is stale`);
+    assert.equal(icon.sourceEdgePixels, 0, `${icon.id} touches its detected source crop edge`);
+    assert.ok(Math.min(...icon.sourceMargins) >= 16, `${icon.id} source crop lacks safe padding`);
     assert.equal(icon.chromaPixels, 0, `${icon.id} retains chroma-key pixels`);
     assert.ok(icon.coverage128 >= 0.08 && icon.coverage128 <= 0.62, `${icon.id} optical coverage drifted`);
     for (const size of ["12", "16", "24"]) {

@@ -13,7 +13,7 @@
   },
   "atlas": {
     "path": "assets/ui-icons/alpine-ui-icons.png",
-    "sha256": "58bd2533c0a56a9039c8c9ed15f8311da04de7ff9cd40eebfc9ee680436c7fb1",
+    "sha256": "aa8c6e042bdf58c6887ebf50de98543f4e495fa801446480e5570cad122664d1",
     "width": 640,
     "height": 1664,
     "cellSize": 128,
@@ -22,29 +22,29 @@
   },
   "icons": [
     {
-      "coverage128": 0.4678,
+      "coverage128": 0.4576,
       "bounds128": [
         13,
-        15,
-        116,
+        16,
+        115,
         112
       ],
       "chromaPixels": 0,
       "tiny": {
         "12": {
-          "visiblePixels": 82,
-          "opaquePixels": 59,
-          "coverage": 0.5694
+          "visiblePixels": 80,
+          "opaquePixels": 57,
+          "coverage": 0.5556
         },
         "16": {
-          "visiblePixels": 136,
-          "opaquePixels": 113,
-          "coverage": 0.5312
+          "visiblePixels": 132,
+          "opaquePixels": 111,
+          "coverage": 0.5156
         },
         "24": {
-          "visiblePixels": 289,
-          "opaquePixels": 257,
-          "coverage": 0.5017
+          "visiblePixels": 286,
+          "opaquePixels": 248,
+          "coverage": 0.4965
         }
       },
       "index": 0,
@@ -52,7 +52,20 @@
       "family": "status",
       "sourceSheet": "sheet-01-status-core.png",
       "sourceCell": 0,
-      "fileSha256": "44cbab4fa193e9c0c2f8138b4de33ac70750de32577d86d86dd236625bf72b84"
+      "sourceCropBox": [
+        78,
+        80,
+        454,
+        436
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
+      "fileSha256": "a1ed08b560f95c923f344ac39edbcc18cd6fff77db41c52a0a3bb5b8416fcd92"
     },
     {
       "coverage128": 0.4744,
@@ -85,6 +98,19 @@
       "family": "status",
       "sourceSheet": "sheet-01-status-core.png",
       "sourceCell": 1,
+      "sourceCropBox": [
+        482,
+        80,
+        844,
+        435
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "c9f65a8470800e3aea904627cbdd9c7d9bc3ed413ba3a817c1759089a62c8caa"
     },
     {
@@ -118,10 +144,23 @@
       "family": "status",
       "sourceSheet": "sheet-01-status-core.png",
       "sourceCell": 2,
+      "sourceCropBox": [
+        870,
+        80,
+        1229,
+        435
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "bbf4bc54648305f21e949ce8b93e7af4240fdba4d72881187c2b56ecce405a01"
     },
     {
-      "coverage128": 0.3564,
+      "coverage128": 0.3547,
       "bounds128": [
         14,
         13,
@@ -141,9 +180,9 @@
           "coverage": 0.4531
         },
         "24": {
-          "visiblePixels": 241,
+          "visiblePixels": 240,
           "opaquePixels": 179,
-          "coverage": 0.4184
+          "coverage": 0.4167
         }
       },
       "index": 3,
@@ -151,7 +190,20 @@
       "family": "status",
       "sourceSheet": "sheet-01-status-core.png",
       "sourceCell": 3,
-      "fileSha256": "e62c4e33f38c82a41c6444bb53385de912b2575817f02413290b64c6a8ec5b49"
+      "sourceCropBox": [
+        1267,
+        86,
+        1626,
+        453
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
+      "fileSha256": "570fb85fdfd7d30fdbec2b08db3096c9708f39c37eec2a5aa07331e9f24de6d4"
     },
     {
       "coverage128": 0.2546,
@@ -184,6 +236,19 @@
       "family": "status",
       "sourceSheet": "sheet-01-status-core.png",
       "sourceCell": 4,
+      "sourceCropBox": [
+        77,
+        474,
+        446,
+        819
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "a42a0a11c9c7b5a237b059b51968cb57ea1b72ae78892d4e2398905e8f195478"
     },
     {
@@ -217,32 +282,45 @@
       "family": "poi",
       "sourceSheet": "sheet-01-status-core.png",
       "sourceCell": 5,
+      "sourceCropBox": [
+        524,
+        475,
+        780,
+        834
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "8f1140ff7796f63aefbef8663d43e9d47be7f50aff6bc1b21e3376db97a87aa4"
     },
     {
-      "coverage128": 0.2548,
+      "coverage128": 0.4678,
       "bounds128": [
         13,
-        26,
-        116,
-        101
+        13,
+        115,
+        115
       ],
       "chromaPixels": 0,
       "tiny": {
         "12": {
-          "visiblePixels": 50,
-          "opaquePixels": 31,
-          "coverage": 0.3472
+          "visiblePixels": 79,
+          "opaquePixels": 63,
+          "coverage": 0.5486
         },
         "16": {
-          "visiblePixels": 81,
-          "opaquePixels": 58,
-          "coverage": 0.3164
+          "visiblePixels": 143,
+          "opaquePixels": 110,
+          "coverage": 0.5586
         },
         "24": {
-          "visiblePixels": 167,
-          "opaquePixels": 131,
-          "coverage": 0.2899
+          "visiblePixels": 300,
+          "opaquePixels": 247,
+          "coverage": 0.5208
         }
       },
       "index": 6,
@@ -250,32 +328,45 @@
       "family": "access",
       "sourceSheet": "sheet-01-status-core.png",
       "sourceCell": 6,
-      "fileSha256": "9d6b1b5cdc78a89b5424094d7c88459eb7e004f8b0be930d5694f1905d63bfa4"
+      "sourceCropBox": [
+        881,
+        500,
+        1208,
+        827
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
+      "fileSha256": "c432db97eb8a80e5298873212c35e2517f87fd5230d51c074b2c00344d889d38"
     },
     {
-      "coverage128": 0.3,
+      "coverage128": 0.269,
       "bounds128": [
-        12,
-        16,
+        13,
+        19,
         115,
-        112
+        109
       ],
       "chromaPixels": 0,
       "tiny": {
         "12": {
-          "visiblePixels": 58,
-          "opaquePixels": 35,
-          "coverage": 0.4028
+          "visiblePixels": 55,
+          "opaquePixels": 32,
+          "coverage": 0.3819
         },
         "16": {
-          "visiblePixels": 89,
-          "opaquePixels": 73,
-          "coverage": 0.3477
+          "visiblePixels": 88,
+          "opaquePixels": 55,
+          "coverage": 0.3438
         },
         "24": {
-          "visiblePixels": 193,
-          "opaquePixels": 160,
-          "coverage": 0.3351
+          "visiblePixels": 183,
+          "opaquePixels": 137,
+          "coverage": 0.3177
         }
       },
       "index": 7,
@@ -283,7 +374,20 @@
       "family": "poi",
       "sourceSheet": "sheet-01-status-core.png",
       "sourceCell": 7,
-      "fileSha256": "76980f11f02895aa84c6a5df3fc8f3715c4a3153901cc4e2d366615c8643371f"
+      "sourceCropBox": [
+        1248,
+        474,
+        1642,
+        828
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
+      "fileSha256": "f3f9ba0ffafe85d3af59517e5c944f58eb59086e4732c16f531babe494724d62"
     },
     {
       "coverage128": 0.4205,
@@ -316,6 +420,19 @@
       "family": "poi",
       "sourceSheet": "sheet-02-alpine-heritage.png",
       "sourceCell": 0,
+      "sourceCropBox": [
+        84,
+        88,
+        449,
+        435
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "b05ae48f1d068039f389596be4aea8b37e2954c1ad2eb96f71c7893c34482d62"
     },
     {
@@ -349,32 +466,45 @@
       "family": "poi",
       "sourceSheet": "sheet-02-alpine-heritage.png",
       "sourceCell": 1,
+      "sourceCropBox": [
+        489,
+        102,
+        832,
+        440
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "206e26bb758e9c0aef14b3bf7c1dd539e85f5cbaff3aa24083a7311155913ba1"
     },
     {
-      "coverage128": 0.3086,
+      "coverage128": 0.4882,
       "bounds128": [
         13,
-        24,
-        116,
-        104
+        13,
+        115,
+        114
       ],
       "chromaPixels": 0,
       "tiny": {
         "12": {
-          "visiblePixels": 53,
-          "opaquePixels": 42,
-          "coverage": 0.3681
+          "visiblePixels": 85,
+          "opaquePixels": 65,
+          "coverage": 0.5903
         },
         "16": {
-          "visiblePixels": 88,
-          "opaquePixels": 74,
-          "coverage": 0.3438
+          "visiblePixels": 145,
+          "opaquePixels": 119,
+          "coverage": 0.5664
         },
         "24": {
-          "visiblePixels": 200,
-          "opaquePixels": 161,
-          "coverage": 0.3472
+          "visiblePixels": 309,
+          "opaquePixels": 258,
+          "coverage": 0.5365
         }
       },
       "index": 10,
@@ -382,32 +512,45 @@
       "family": "poi",
       "sourceSheet": "sheet-02-alpine-heritage.png",
       "sourceCell": 2,
-      "fileSha256": "64d151a1b35fe83540a4e4b06a001bca6c08b46709e2a17de1aab932007dc818"
+      "sourceCropBox": [
+        874,
+        89,
+        1228,
+        439
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
+      "fileSha256": "ea2623c8da99e3f5667bd84b94024fa84b71a3bfc28a6541ef328711a0c105d5"
     },
     {
-      "coverage128": 0.4532,
+      "coverage128": 0.4363,
       "bounds128": [
-        12,
-        15,
+        13,
+        16,
         115,
-        113
+        112
       ],
       "chromaPixels": 0,
       "tiny": {
         "12": {
-          "visiblePixels": 79,
-          "opaquePixels": 53,
-          "coverage": 0.5486
+          "visiblePixels": 78,
+          "opaquePixels": 52,
+          "coverage": 0.5417
         },
         "16": {
-          "visiblePixels": 136,
+          "visiblePixels": 122,
           "opaquePixels": 108,
-          "coverage": 0.5312
+          "coverage": 0.4766
         },
         "24": {
-          "visiblePixels": 293,
-          "opaquePixels": 246,
-          "coverage": 0.5087
+          "visiblePixels": 269,
+          "opaquePixels": 244,
+          "coverage": 0.467
         }
       },
       "index": 11,
@@ -415,7 +558,20 @@
       "family": "poi",
       "sourceSheet": "sheet-02-alpine-heritage.png",
       "sourceCell": 3,
-      "fileSha256": "a7ccbf1b341c27b7a46a6a1dcc6984f000acde39180910c1d3ab98ac433113b4"
+      "sourceCropBox": [
+        1262,
+        94,
+        1622,
+        435
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
+      "fileSha256": "1ccfa0d1edf58cd1e61ec828ca8697a74c6f745f485d38dfe341c40fda4d788b"
     },
     {
       "coverage128": 0.3721,
@@ -448,6 +604,19 @@
       "family": "poi",
       "sourceSheet": "sheet-02-alpine-heritage.png",
       "sourceCell": 4,
+      "sourceCropBox": [
+        75,
+        494,
+        449,
+        818
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "ac1a15349ada1229f289277e289f6620454cfff024a3b3c61b3b52aa3955f883"
     },
     {
@@ -481,45 +650,25 @@
       "family": "poi",
       "sourceSheet": "sheet-02-alpine-heritage.png",
       "sourceCell": 5,
+      "sourceCropBox": [
+        491,
+        481,
+        813,
+        820
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "add0c2feebd4d79507f02e83e95de6d74ed2728c11ac0a738bc48585dacb5e82"
     },
     {
-      "coverage128": 0.2621,
+      "coverage128": 0.4204,
       "bounds128": [
         13,
-        27,
-        116,
-        100
-      ],
-      "chromaPixels": 0,
-      "tiny": {
-        "12": {
-          "visiblePixels": 48,
-          "opaquePixels": 31,
-          "coverage": 0.3333
-        },
-        "16": {
-          "visiblePixels": 80,
-          "opaquePixels": 59,
-          "coverage": 0.3125
-        },
-        "24": {
-          "visiblePixels": 168,
-          "opaquePixels": 143,
-          "coverage": 0.2917
-        }
-      },
-      "index": 14,
-      "id": "poi-scenic-railway",
-      "family": "poi",
-      "sourceSheet": "sheet-02-alpine-heritage.png",
-      "sourceCell": 6,
-      "fileSha256": "c84e7b1721a98660e58a5681a8edea7b58ff295c6f845f5025172186f1388796"
-    },
-    {
-      "coverage128": 0.4401,
-      "bounds128": [
-        12,
         17,
         115,
         110
@@ -527,19 +676,65 @@
       "chromaPixels": 0,
       "tiny": {
         "12": {
-          "visiblePixels": 80,
+          "visiblePixels": 73,
           "opaquePixels": 57,
-          "coverage": 0.5556
+          "coverage": 0.5069
         },
         "16": {
-          "visiblePixels": 137,
+          "visiblePixels": 127,
           "opaquePixels": 101,
-          "coverage": 0.5352
+          "coverage": 0.4961
         },
         "24": {
-          "visiblePixels": 281,
-          "opaquePixels": 233,
-          "coverage": 0.4878
+          "visiblePixels": 266,
+          "opaquePixels": 219,
+          "coverage": 0.4618
+        }
+      },
+      "index": 14,
+      "id": "poi-scenic-railway",
+      "family": "poi",
+      "sourceSheet": "sheet-02-alpine-heritage.png",
+      "sourceCell": 6,
+      "sourceCropBox": [
+        873,
+        493,
+        1223,
+        817
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
+      "fileSha256": "c21ca45b84ecfc7e0cff5cad51a9f756faf1ced1f2114d32da4eb6605ee8f659"
+    },
+    {
+      "coverage128": 0.4251,
+      "bounds128": [
+        13,
+        18,
+        115,
+        109
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 79,
+          "opaquePixels": 55,
+          "coverage": 0.5486
+        },
+        "16": {
+          "visiblePixels": 135,
+          "opaquePixels": 89,
+          "coverage": 0.5273
+        },
+        "24": {
+          "visiblePixels": 278,
+          "opaquePixels": 217,
+          "coverage": 0.4826
         }
       },
       "index": 15,
@@ -547,32 +742,45 @@
       "family": "poi",
       "sourceSheet": "sheet-02-alpine-heritage.png",
       "sourceCell": 7,
-      "fileSha256": "19e5b0d6ca743d541b6f498e72fe98f47a96ec11683c8d45390c461fcad5eeea"
+      "sourceCropBox": [
+        1261,
+        486,
+        1627,
+        817
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
+      "fileSha256": "897ac8b75c4d18ed678208b9a364d358a3c9dc866e9c9985f353f250e4c2f7ef"
     },
     {
-      "coverage128": 0.3865,
+      "coverage128": 0.364,
       "bounds128": [
         13,
-        21,
-        116,
-        106
+        23,
+        115,
+        105
       ],
       "chromaPixels": 0,
       "tiny": {
         "12": {
           "visiblePixels": 62,
-          "opaquePixels": 53,
+          "opaquePixels": 44,
           "coverage": 0.4306
         },
         "16": {
-          "visiblePixels": 116,
-          "opaquePixels": 91,
-          "coverage": 0.4531
+          "visiblePixels": 106,
+          "opaquePixels": 90,
+          "coverage": 0.4141
         },
         "24": {
-          "visiblePixels": 242,
-          "opaquePixels": 215,
-          "coverage": 0.4201
+          "visiblePixels": 231,
+          "opaquePixels": 191,
+          "coverage": 0.401
         }
       },
       "index": 16,
@@ -580,32 +788,45 @@
       "family": "poi",
       "sourceSheet": "sheet-03-nature-culture.png",
       "sourceCell": 0,
-      "fileSha256": "d52ce36ba828e359eff1cd1acd95290c2da41ee740ad715a7f1766627aa76547"
+      "sourceCropBox": [
+        75,
+        123,
+        460,
+        443
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
+      "fileSha256": "c771091a13856606cd6f9e96bf6c234d80eb06d27babad2391000b88e6bbf443"
     },
     {
-      "coverage128": 0.2912,
+      "coverage128": 0.5005,
       "bounds128": [
-        12,
-        25,
-        115,
-        103
+        14,
+        13,
+        114,
+        115
       ],
       "chromaPixels": 0,
       "tiny": {
         "12": {
-          "visiblePixels": 54,
-          "opaquePixels": 36,
-          "coverage": 0.375
+          "visiblePixels": 82,
+          "opaquePixels": 70,
+          "coverage": 0.5694
         },
         "16": {
-          "visiblePixels": 88,
-          "opaquePixels": 71,
-          "coverage": 0.3438
+          "visiblePixels": 151,
+          "opaquePixels": 118,
+          "coverage": 0.5898
         },
         "24": {
-          "visiblePixels": 191,
-          "opaquePixels": 156,
-          "coverage": 0.3316
+          "visiblePixels": 319,
+          "opaquePixels": 267,
+          "coverage": 0.5538
         }
       },
       "index": 17,
@@ -613,32 +834,45 @@
       "family": "poi",
       "sourceSheet": "sheet-03-nature-culture.png",
       "sourceCell": 1,
-      "fileSha256": "cfc78ba2236700cb31bbca5e638cef4ee3cda40ea6d66b842d46d4f5415921dd"
+      "sourceCropBox": [
+        506,
+        108,
+        834,
+        441
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
+      "fileSha256": "5319918b2d7ba05c5a4a4a43e6959db77a3b3360636149e07d31f4f7047e20b9"
     },
     {
-      "coverage128": 0.2705,
+      "coverage128": 0.4255,
       "bounds128": [
         13,
-        25,
-        116,
-        102
+        14,
+        115,
+        113
       ],
       "chromaPixels": 0,
       "tiny": {
         "12": {
-          "visiblePixels": 52,
-          "opaquePixels": 32,
-          "coverage": 0.3611
+          "visiblePixels": 74,
+          "opaquePixels": 55,
+          "coverage": 0.5139
         },
         "16": {
-          "visiblePixels": 87,
-          "opaquePixels": 60,
-          "coverage": 0.3398
+          "visiblePixels": 126,
+          "opaquePixels": 104,
+          "coverage": 0.4922
         },
         "24": {
-          "visiblePixels": 180,
-          "opaquePixels": 143,
-          "coverage": 0.3125
+          "visiblePixels": 273,
+          "opaquePixels": 228,
+          "coverage": 0.474
         }
       },
       "index": 18,
@@ -646,32 +880,45 @@
       "family": "poi",
       "sourceSheet": "sheet-03-nature-culture.png",
       "sourceCell": 2,
-      "fileSha256": "42f3930f6d65928d38d38e7df3069a88b4ce9bfdf80c0ba651cdc3ad5c7eb5b2"
+      "sourceCropBox": [
+        865,
+        104,
+        1219,
+        449
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
+      "fileSha256": "d014363893d70beb38fca7f981719af596969598a4b52e0a5857e499f087f2a7"
     },
     {
-      "coverage128": 0.3745,
+      "coverage128": 0.3189,
       "bounds128": [
-        12,
-        27,
+        13,
+        31,
         115,
-        101
+        97
       ],
       "chromaPixels": 0,
       "tiny": {
         "12": {
-          "visiblePixels": 69,
-          "opaquePixels": 51,
-          "coverage": 0.4792
+          "visiblePixels": 56,
+          "opaquePixels": 44,
+          "coverage": 0.3889
         },
         "16": {
-          "visiblePixels": 114,
-          "opaquePixels": 83,
-          "coverage": 0.4453
+          "visiblePixels": 96,
+          "opaquePixels": 76,
+          "coverage": 0.375
         },
         "24": {
-          "visiblePixels": 234,
-          "opaquePixels": 205,
-          "coverage": 0.4062
+          "visiblePixels": 204,
+          "opaquePixels": 168,
+          "coverage": 0.3542
         }
       },
       "index": 19,
@@ -679,7 +926,20 @@
       "family": "poi",
       "sourceSheet": "sheet-03-nature-culture.png",
       "sourceCell": 3,
-      "fileSha256": "a71f4b45ae1cebde4c1244250be2acc4d52dac0f3661152f1cc8d7120f49bb4d"
+      "sourceCropBox": [
+        1234,
+        152,
+        1624,
+        422
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
+      "fileSha256": "b6f839b014295c52231d953bc2029d79080036c055527531922a2a730015fbf0"
     },
     {
       "coverage128": 0.4342,
@@ -712,6 +972,19 @@
       "family": "poi",
       "sourceSheet": "sheet-03-nature-culture.png",
       "sourceCell": 4,
+      "sourceCropBox": [
+        86,
+        480,
+        442,
+        801
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "0fa78d7a4759c52d5ee2f1dca94c75d8136f49a96d2bec1b401a8cba42058a4a"
     },
     {
@@ -745,32 +1018,45 @@
       "family": "poi",
       "sourceSheet": "sheet-03-nature-culture.png",
       "sourceCell": 5,
+      "sourceCropBox": [
+        476,
+        486,
+        837,
+        794
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "74b1caeb35063f118dd1d4ab4bd2c1aa941fbade554b7a4a66b64db1dac83f65"
     },
     {
-      "coverage128": 0.2622,
+      "coverage128": 0.4177,
       "bounds128": [
         13,
-        30,
-        116,
-        97
+        21,
+        115,
+        106
       ],
       "chromaPixels": 0,
       "tiny": {
         "12": {
-          "visiblePixels": 47,
-          "opaquePixels": 34,
-          "coverage": 0.3264
+          "visiblePixels": 69,
+          "opaquePixels": 56,
+          "coverage": 0.4792
         },
         "16": {
-          "visiblePixels": 80,
-          "opaquePixels": 60,
-          "coverage": 0.3125
+          "visiblePixels": 125,
+          "opaquePixels": 99,
+          "coverage": 0.4883
         },
         "24": {
-          "visiblePixels": 173,
-          "opaquePixels": 135,
-          "coverage": 0.3003
+          "visiblePixels": 260,
+          "opaquePixels": 226,
+          "coverage": 0.4514
         }
       },
       "index": 22,
@@ -778,32 +1064,45 @@
       "family": "poi",
       "sourceSheet": "sheet-03-nature-culture.png",
       "sourceCell": 6,
-      "fileSha256": "585263cbe96912d9ed5b653157587a2f87c9e8728b9712444424bdf5e8855f60"
+      "sourceCropBox": [
+        864,
+        492,
+        1221,
+        797
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
+      "fileSha256": "99f72e4fe2810337debaf8e377f518fe006a5f08610b6a15c02fecc8236a9635"
     },
     {
-      "coverage128": 0.4035,
+      "coverage128": 0.4094,
       "bounds128": [
-        14,
         13,
-        112,
+        13,
+        114,
         115
       ],
       "chromaPixels": 0,
       "tiny": {
         "12": {
           "visiblePixels": 72,
-          "opaquePixels": 54,
+          "opaquePixels": 56,
           "coverage": 0.5
         },
         "16": {
-          "visiblePixels": 124,
-          "opaquePixels": 92,
-          "coverage": 0.4844
+          "visiblePixels": 130,
+          "opaquePixels": 91,
+          "coverage": 0.5078
         },
         "24": {
-          "visiblePixels": 261,
-          "opaquePixels": 213,
-          "coverage": 0.4531
+          "visiblePixels": 273,
+          "opaquePixels": 208,
+          "coverage": 0.474
         }
       },
       "index": 23,
@@ -811,32 +1110,45 @@
       "family": "poi",
       "sourceSheet": "sheet-03-nature-culture.png",
       "sourceCell": 7,
-      "fileSha256": "5e8659a4e84d2c7943f152ff7bcc16e6aabb37865c4eadc7c2a197c2492a9e7b"
+      "sourceCropBox": [
+        1256,
+        454,
+        1602,
+        802
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
+      "fileSha256": "3b705c58f81bec07cab32cc1b6e40ae2aba3d91a3085df6c9c73a83a3fb7e237"
     },
     {
-      "coverage128": 0.3896,
+      "coverage128": 0.3738,
       "bounds128": [
         13,
-        27,
-        116,
-        100
+        28,
+        115,
+        99
       ],
       "chromaPixels": 0,
       "tiny": {
         "12": {
-          "visiblePixels": 68,
-          "opaquePixels": 51,
-          "coverage": 0.4722
+          "visiblePixels": 65,
+          "opaquePixels": 48,
+          "coverage": 0.4514
         },
         "16": {
-          "visiblePixels": 117,
-          "opaquePixels": 87,
-          "coverage": 0.457
+          "visiblePixels": 114,
+          "opaquePixels": 85,
+          "coverage": 0.4453
         },
         "24": {
-          "visiblePixels": 244,
-          "opaquePixels": 219,
-          "coverage": 0.4236
+          "visiblePixels": 238,
+          "opaquePixels": 192,
+          "coverage": 0.4132
         }
       },
       "index": 24,
@@ -844,32 +1156,45 @@
       "family": "pass",
       "sourceSheet": "sheet-04-travel-japan.png",
       "sourceCell": 0,
-      "fileSha256": "800a3a587911e99d31dc9fcfa4dabfa4fc9ecf13627ba776b91f7e13fd264c16"
+      "sourceCropBox": [
+        84,
+        168,
+        457,
+        442
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
+      "fileSha256": "05c5dc68e093f61bb586deb0428358a4dd73db1871bec23f55225d27632c6dbb"
     },
     {
-      "coverage128": 0.3059,
+      "coverage128": 0.5039,
       "bounds128": [
-        12,
-        27,
+        13,
+        16,
         115,
-        101
+        112
       ],
       "chromaPixels": 0,
       "tiny": {
         "12": {
-          "visiblePixels": 55,
-          "opaquePixels": 39,
-          "coverage": 0.3819
+          "visiblePixels": 84,
+          "opaquePixels": 67,
+          "coverage": 0.5833
         },
         "16": {
-          "visiblePixels": 92,
-          "opaquePixels": 63,
-          "coverage": 0.3594
+          "visiblePixels": 144,
+          "opaquePixels": 120,
+          "coverage": 0.5625
         },
         "24": {
-          "visiblePixels": 194,
-          "opaquePixels": 163,
-          "coverage": 0.3368
+          "visiblePixels": 312,
+          "opaquePixels": 272,
+          "coverage": 0.5417
         }
       },
       "index": 25,
@@ -877,32 +1202,45 @@
       "family": "poi",
       "sourceSheet": "sheet-04-travel-japan.png",
       "sourceCell": 1,
-      "fileSha256": "21bc874c9a017faff7b1ec763a953d209f7300b7aade7717a6e785d387df0b72"
+      "sourceCropBox": [
+        492,
+        126,
+        826,
+        442
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
+      "fileSha256": "698c7f0adff3fabccd72fbc27f42e61b30b7d16b5ad384020c27d0e66df155fd"
     },
     {
-      "coverage128": 0.2009,
+      "coverage128": 0.3114,
       "bounds128": [
         13,
-        26,
-        116,
-        101
+        17,
+        115,
+        111
       ],
       "chromaPixels": 0,
       "tiny": {
         "12": {
-          "visiblePixels": 40,
-          "opaquePixels": 24,
-          "coverage": 0.2778
+          "visiblePixels": 60,
+          "opaquePixels": 39,
+          "coverage": 0.4167
         },
         "16": {
-          "visiblePixels": 64,
-          "opaquePixels": 43,
-          "coverage": 0.25
+          "visiblePixels": 92,
+          "opaquePixels": 73,
+          "coverage": 0.3594
         },
         "24": {
-          "visiblePixels": 129,
-          "opaquePixels": 105,
-          "coverage": 0.224
+          "visiblePixels": 200,
+          "opaquePixels": 164,
+          "coverage": 0.3472
         }
       },
       "index": 26,
@@ -910,32 +1248,45 @@
       "family": "poi",
       "sourceSheet": "sheet-04-travel-japan.png",
       "sourceCell": 2,
-      "fileSha256": "43c07fae79e07382435f635f9de232b75f870c00148dfb13b253c952bcc0d86c"
+      "sourceCropBox": [
+        858,
+        104,
+        1227,
+        447
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
+      "fileSha256": "866d977fddc7481e4862932d904169bbe97d2c9dca69ce2e5563fb29fd01e187"
     },
     {
-      "coverage128": 0.3914,
+      "coverage128": 0.392,
       "bounds128": [
         13,
         13,
-        113,
+        114,
         115
       ],
       "chromaPixels": 0,
       "tiny": {
         "12": {
-          "visiblePixels": 70,
+          "visiblePixels": 68,
           "opaquePixels": 53,
-          "coverage": 0.4861
+          "coverage": 0.4722
         },
         "16": {
           "visiblePixels": 124,
-          "opaquePixels": 87,
+          "opaquePixels": 86,
           "coverage": 0.4844
         },
         "24": {
-          "visiblePixels": 254,
+          "visiblePixels": 256,
           "opaquePixels": 200,
-          "coverage": 0.441
+          "coverage": 0.4444
         }
       },
       "index": 27,
@@ -943,7 +1294,20 @@
       "family": "poi",
       "sourceSheet": "sheet-04-travel-japan.png",
       "sourceCell": 3,
-      "fileSha256": "a31f981fb85ab8c5f62cf0984e72b43f061ac89f2415b1aad64cc598545e10f6"
+      "sourceCropBox": [
+        1261,
+        104,
+        1598,
+        443
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
+      "fileSha256": "91c782f1e4b1608d2de9fd62897efad89c5999af21b84eb9bd5aaa221c87529a"
     },
     {
       "coverage128": 0.4769,
@@ -976,6 +1340,19 @@
       "family": "poi",
       "sourceSheet": "sheet-04-travel-japan.png",
       "sourceCell": 4,
+      "sourceCropBox": [
+        91,
+        490,
+        449,
+        803
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "05a90a8963deb59d20d825d55a4c7ffec06386bd065daf1e3b42056ff18174ca"
     },
     {
@@ -1009,32 +1386,45 @@
       "family": "poi",
       "sourceSheet": "sheet-04-travel-japan.png",
       "sourceCell": 5,
+      "sourceCropBox": [
+        485,
+        497,
+        842,
+        804
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "57a3b96a5338a031e8b098eea1c273dfb64463079dd1fa97b7a36ac434a084b5"
     },
     {
-      "coverage128": 0.193,
+      "coverage128": 0.3118,
       "bounds128": [
+        22,
         13,
-        25,
-        116,
-        103
+        106,
+        115
       ],
       "chromaPixels": 0,
       "tiny": {
         "12": {
-          "visiblePixels": 41,
-          "opaquePixels": 20,
-          "coverage": 0.2847
+          "visiblePixels": 56,
+          "opaquePixels": 39,
+          "coverage": 0.3889
         },
         "16": {
-          "visiblePixels": 67,
-          "opaquePixels": 44,
-          "coverage": 0.2617
+          "visiblePixels": 101,
+          "opaquePixels": 68,
+          "coverage": 0.3945
         },
         "24": {
-          "visiblePixels": 141,
-          "opaquePixels": 97,
-          "coverage": 0.2448
+          "visiblePixels": 205,
+          "opaquePixels": 160,
+          "coverage": 0.3559
         }
       },
       "index": 30,
@@ -1042,32 +1432,45 @@
       "family": "poi",
       "sourceSheet": "sheet-04-travel-japan.png",
       "sourceCell": 6,
-      "fileSha256": "f79e7a441232848ac74e10ad836a720677e43a95d948c684818e8b9a0056bddc"
+      "sourceCropBox": [
+        888,
+        472,
+        1169,
+        803
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
+      "fileSha256": "f6db2c4b5e4fdbd87e4dd810cd8373b3b950f1b7428441a2481b9d6dc1b44a6a"
     },
     {
-      "coverage128": 0.4946,
+      "coverage128": 0.4274,
       "bounds128": [
-        12,
-        14,
+        13,
+        18,
         115,
-        114
+        109
       ],
       "chromaPixels": 0,
       "tiny": {
         "12": {
-          "visiblePixels": 85,
-          "opaquePixels": 64,
-          "coverage": 0.5903
+          "visiblePixels": 78,
+          "opaquePixels": 57,
+          "coverage": 0.5417
         },
         "16": {
-          "visiblePixels": 147,
-          "opaquePixels": 115,
-          "coverage": 0.5742
+          "visiblePixels": 127,
+          "opaquePixels": 98,
+          "coverage": 0.4961
         },
         "24": {
-          "visiblePixels": 309,
-          "opaquePixels": 275,
-          "coverage": 0.5365
+          "visiblePixels": 268,
+          "opaquePixels": 232,
+          "coverage": 0.4653
         }
       },
       "index": 31,
@@ -1075,7 +1478,20 @@
       "family": "poi",
       "sourceSheet": "sheet-04-travel-japan.png",
       "sourceCell": 7,
-      "fileSha256": "676e3dbef8aada241cd1296caf7ee11f6ca6e4bc888f89a5cbd02a1c020653d8"
+      "sourceCropBox": [
+        1239,
+        468,
+        1616,
+        809
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
+      "fileSha256": "590bb3d03041c54558045c0513055d536a3a72d73fafa4a264068eefc88b4bc3"
     },
     {
       "coverage128": 0.3587,
@@ -1108,6 +1524,19 @@
       "family": "poi",
       "sourceSheet": "sheet-05-modes-japan.png",
       "sourceCell": 0,
+      "sourceCropBox": [
+        70,
+        121,
+        431,
+        444
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "29779b395770bb0804870d5d82f8b659a4eb7c19749834c6226c43b65e094579"
     },
     {
@@ -1141,32 +1570,45 @@
       "family": "poi",
       "sourceSheet": "sheet-05-modes-japan.png",
       "sourceCell": 1,
+      "sourceCropBox": [
+        459,
+        137,
+        853,
+        455
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "5a98428a34b7f8ab4743d072e2a4502b5cb25a325d47ed13099d3fa73deee51a"
     },
     {
-      "coverage128": 0.2438,
+      "coverage128": 0.3792,
       "bounds128": [
         13,
-        28,
-        116,
-        99
+        18,
+        115,
+        109
       ],
       "chromaPixels": 0,
       "tiny": {
         "12": {
-          "visiblePixels": 51,
-          "opaquePixels": 28,
-          "coverage": 0.3542
+          "visiblePixels": 76,
+          "opaquePixels": 50,
+          "coverage": 0.5278
         },
         "16": {
-          "visiblePixels": 89,
-          "opaquePixels": 51,
-          "coverage": 0.3477
+          "visiblePixels": 121,
+          "opaquePixels": 80,
+          "coverage": 0.4727
         },
         "24": {
-          "visiblePixels": 173,
-          "opaquePixels": 119,
-          "coverage": 0.3003
+          "visiblePixels": 253,
+          "opaquePixels": 190,
+          "coverage": 0.4392
         }
       },
       "index": 34,
@@ -1174,32 +1616,45 @@
       "family": "poi",
       "sourceSheet": "sheet-05-modes-japan.png",
       "sourceCell": 2,
-      "fileSha256": "dee56c7541d5b24c62ed0b5d13b837bfddce84c37a7b23b5eec36f165214e0cb"
+      "sourceCropBox": [
+        869,
+        132,
+        1219,
+        450
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
+      "fileSha256": "5b5d8aa746942c91c7a44aebd3a3c1efdd0bfc875162b772b5ddac052811e8a7"
     },
     {
-      "coverage128": 0.3999,
+      "coverage128": 0.3439,
       "bounds128": [
-        12,
-        26,
+        13,
+        30,
         115,
-        101
+        98
       ],
       "chromaPixels": 0,
       "tiny": {
         "12": {
-          "visiblePixels": 72,
-          "opaquePixels": 52,
-          "coverage": 0.5
+          "visiblePixels": 58,
+          "opaquePixels": 45,
+          "coverage": 0.4028
         },
         "16": {
-          "visiblePixels": 120,
-          "opaquePixels": 90,
-          "coverage": 0.4688
+          "visiblePixels": 100,
+          "opaquePixels": 86,
+          "coverage": 0.3906
         },
         "24": {
-          "visiblePixels": 249,
-          "opaquePixels": 220,
-          "coverage": 0.4323
+          "visiblePixels": 216,
+          "opaquePixels": 190,
+          "coverage": 0.375
         }
       },
       "index": 35,
@@ -1207,7 +1662,20 @@
       "family": "poi",
       "sourceSheet": "sheet-05-modes-japan.png",
       "sourceCell": 3,
-      "fileSha256": "49370f53da1506c4dd9dd99b689f0e12399854ed7fb1e0f75c794a2b47576f62"
+      "sourceCropBox": [
+        1234,
+        178,
+        1639,
+        462
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
+      "fileSha256": "6ad5046c21db1a11d940b94c080026b0d3e95feeb773c39271d0381efa1e9174"
     },
     {
       "coverage128": 0.3124,
@@ -1240,6 +1708,19 @@
       "family": "poi",
       "sourceSheet": "sheet-05-modes-japan.png",
       "sourceCell": 4,
+      "sourceCropBox": [
+        74,
+        485,
+        435,
+        793
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "6040ebb8a459dbaddce4fe1f63f23f292e8bac133cf5123d4206473a716837ee"
     },
     {
@@ -1273,32 +1754,45 @@
       "family": "mode",
       "sourceSheet": "sheet-05-modes-japan.png",
       "sourceCell": 5,
+      "sourceCropBox": [
+        470,
+        493,
+        815,
+        800
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "2441e990c5145cd93cc1d034b5ac0c94863bf53c60ae243a579d25968abd08ec"
     },
     {
-      "coverage128": 0.2709,
+      "coverage128": 0.4986,
       "bounds128": [
         13,
-        30,
-        116,
-        98
+        17,
+        115,
+        110
       ],
       "chromaPixels": 0,
       "tiny": {
         "12": {
-          "visiblePixels": 51,
-          "opaquePixels": 36,
-          "coverage": 0.3542
+          "visiblePixels": 84,
+          "opaquePixels": 71,
+          "coverage": 0.5833
         },
         "16": {
-          "visiblePixels": 85,
-          "opaquePixels": 62,
-          "coverage": 0.332
+          "visiblePixels": 150,
+          "opaquePixels": 116,
+          "coverage": 0.5859
         },
         "24": {
-          "visiblePixels": 179,
-          "opaquePixels": 140,
-          "coverage": 0.3108
+          "visiblePixels": 316,
+          "opaquePixels": 262,
+          "coverage": 0.5486
         }
       },
       "index": 38,
@@ -1306,32 +1800,45 @@
       "family": "mode",
       "sourceSheet": "sheet-05-modes-japan.png",
       "sourceCell": 6,
-      "fileSha256": "d9ea9c0173eea52fc7ccdf14762c3ccab6fb53f70766582230235dee5fbc9cd8"
+      "sourceCropBox": [
+        873,
+        496,
+        1203,
+        800
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
+      "fileSha256": "5e8e5c45f5a38fe72db9855d44bcd5321890e31a1168aee8318e68cb7422c9f7"
     },
     {
-      "coverage128": 0.3596,
+      "coverage128": 0.3087,
       "bounds128": [
-        12,
-        14,
+        13,
+        18,
         115,
-        113
+        109
       ],
       "chromaPixels": 0,
       "tiny": {
         "12": {
-          "visiblePixels": 67,
-          "opaquePixels": 43,
-          "coverage": 0.4653
+          "visiblePixels": 61,
+          "opaquePixels": 36,
+          "coverage": 0.4236
         },
         "16": {
-          "visiblePixels": 115,
-          "opaquePixels": 81,
-          "coverage": 0.4492
+          "visiblePixels": 93,
+          "opaquePixels": 67,
+          "coverage": 0.3633
         },
         "24": {
-          "visiblePixels": 239,
-          "opaquePixels": 196,
-          "coverage": 0.4149
+          "visiblePixels": 211,
+          "opaquePixels": 160,
+          "coverage": 0.3663
         }
       },
       "index": 39,
@@ -1339,7 +1846,20 @@
       "family": "mode",
       "sourceSheet": "sheet-05-modes-japan.png",
       "sourceCell": 7,
-      "fileSha256": "7f3e8cbabb3bfec58122a566e2761f7e63b73f5f0cbe362949bc28497f5ddf4c"
+      "sourceCropBox": [
+        1242,
+        468,
+        1602,
+        795
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
+      "fileSha256": "233c371fe0d33681f11d851141a790b30d95314320e4ee37ada281c50e67a101"
     },
     {
       "coverage128": 0.2542,
@@ -1372,6 +1892,19 @@
       "family": "weather",
       "sourceSheet": "sheet-06-weather.png",
       "sourceCell": 0,
+      "sourceCropBox": [
+        92,
+        123,
+        427,
+        443
+      ],
+      "sourceMargins": [
+        24,
+        23,
+        24,
+        23
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "3d8fa07d942e6e390fc883749d1e752861def169d8cec93030d913e023b94df5"
     },
     {
@@ -1405,6 +1938,19 @@
       "family": "weather",
       "sourceSheet": "sheet-06-weather.png",
       "sourceCell": 1,
+      "sourceCropBox": [
+        494,
+        125,
+        823,
+        427
+      ],
+      "sourceMargins": [
+        23,
+        23,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "909b6219993cebb727b508b046fbc471217f12a2327623c6920adfc9c446866e"
     },
     {
@@ -1438,12 +1984,25 @@
       "family": "weather",
       "sourceSheet": "sheet-06-weather.png",
       "sourceCell": 2,
+      "sourceCropBox": [
+        873,
+        180,
+        1231,
+        428
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "c4dc0362eeb7f2fd26015cc057d8b11a66bb167163327c4f42ad8b2848409e00"
     },
     {
-      "coverage128": 0.343,
+      "coverage128": 0.342,
       "bounds128": [
-        12,
+        13,
         23,
         115,
         104
@@ -1456,14 +2015,14 @@
           "coverage": 0.4028
         },
         "16": {
-          "visiblePixels": 101,
+          "visiblePixels": 100,
           "opaquePixels": 82,
-          "coverage": 0.3945
+          "coverage": 0.3906
         },
         "24": {
-          "visiblePixels": 222,
-          "opaquePixels": 182,
-          "coverage": 0.3854
+          "visiblePixels": 221,
+          "opaquePixels": 181,
+          "coverage": 0.3837
         }
       },
       "index": 43,
@@ -1471,7 +2030,20 @@
       "family": "weather",
       "sourceSheet": "sheet-06-weather.png",
       "sourceCell": 3,
-      "fileSha256": "96976421f60da949d50d90b7bd98c54802a8db352fb0c1a10ac391f98cae52f5"
+      "sourceCropBox": [
+        1267,
+        144,
+        1622,
+        434
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        23,
+        24
+      ],
+      "sourceEdgePixels": 0,
+      "fileSha256": "cd9b63503e193107e96fa14de9b23999eb126e60bc4432a36311c8e98b68b828"
     },
     {
       "coverage128": 0.4142,
@@ -1504,6 +2076,19 @@
       "family": "weather",
       "sourceSheet": "sheet-06-weather.png",
       "sourceCell": 4,
+      "sourceCropBox": [
+        94,
+        493,
+        403,
+        788
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        23
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "cb905ca45357053a1d26a0cd56af0d59377b25862c8e47345f8f00a14970f30a"
     },
     {
@@ -1537,6 +2122,19 @@
       "family": "weather",
       "sourceSheet": "sheet-06-weather.png",
       "sourceCell": 5,
+      "sourceCropBox": [
+        492,
+        493,
+        802,
+        797
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "0e52491a972c56e75487f3c9286ae986cc93bda425f8f93a3e85b9228f226bfe"
     },
     {
@@ -1570,6 +2168,19 @@
       "family": "weather",
       "sourceSheet": "sheet-06-weather.png",
       "sourceCell": 6,
+      "sourceCropBox": [
+        878,
+        470,
+        1214,
+        802
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        23
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "d20d481c152dd3b30ed7575efe6c812af739ac1389063f6eafcac3dc80dab95a"
     },
     {
@@ -1603,6 +2214,19 @@
       "family": "weather",
       "sourceSheet": "sheet-06-weather.png",
       "sourceCell": 7,
+      "sourceCropBox": [
+        1286,
+        493,
+        1590,
+        797
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "f1d1ab1c757177a8afa848da8ab67667b79f721746a7c2984eb9d12111568f54"
     },
     {
@@ -1636,6 +2260,19 @@
       "family": "weather",
       "sourceSheet": "sheet-07-breaks-utility.png",
       "sourceCell": 0,
+      "sourceCropBox": [
+        105,
+        153,
+        429,
+        448
+      ],
+      "sourceMargins": [
+        24,
+        23,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "9dec66b384f2a3c6d7e051e7be783fa12d64312e7cdccdf441762c907aed2a8e"
     },
     {
@@ -1669,6 +2306,19 @@
       "family": "break",
       "sourceSheet": "sheet-07-breaks-utility.png",
       "sourceCell": 1,
+      "sourceCropBox": [
+        530,
+        120,
+        810,
+        442
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "d18a63dbb7aff4ca678a2098af206b857f0a221b3e1652b0558f1e3c1df815fd"
     },
     {
@@ -1702,6 +2352,19 @@
       "family": "break",
       "sourceSheet": "sheet-07-breaks-utility.png",
       "sourceCell": 2,
+      "sourceCropBox": [
+        885,
+        143,
+        1210,
+        431
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "d0a12eb7e9c88f1ba08a2cb63d5a81c3ecb60c3285214f28d84610dfbce969be"
     },
     {
@@ -1735,6 +2398,19 @@
       "family": "break",
       "sourceSheet": "sheet-07-breaks-utility.png",
       "sourceCell": 3,
+      "sourceCropBox": [
+        1270,
+        145,
+        1603,
+        425
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "f44fffe7695839228b6f23bb50b380eb96a7cd866bc4953a8180eff2c075b759"
     },
     {
@@ -1768,6 +2444,19 @@
       "family": "utility",
       "sourceSheet": "sheet-07-breaks-utility.png",
       "sourceCell": 4,
+      "sourceCropBox": [
+        97,
+        490,
+        435,
+        791
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "130eb8f711709b64ad8e352994d393485aa2ba452185ba69e399a42a033ab30d"
     },
     {
@@ -1801,6 +2490,19 @@
       "family": "utility",
       "sourceSheet": "sheet-07-breaks-utility.png",
       "sourceCell": 5,
+      "sourceCropBox": [
+        505,
+        492,
+        815,
+        779
+      ],
+      "sourceMargins": [
+        23,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "34cd1622eca477aa5129ef4834e52765d483988d2ad36995140ec995d37f0d78"
     },
     {
@@ -1834,6 +2536,19 @@
       "family": "utility",
       "sourceSheet": "sheet-07-breaks-utility.png",
       "sourceCell": 6,
+      "sourceCropBox": [
+        887,
+        502,
+        1179,
+        789
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "040a3e0105741149433aaf282e53afd8b160867042721263ff3d59da22053a2c"
     },
     {
@@ -1867,6 +2582,19 @@
       "family": "utility",
       "sourceSheet": "sheet-07-breaks-utility.png",
       "sourceCell": 7,
+      "sourceCropBox": [
+        1304,
+        491,
+        1550,
+        798
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        23,
+        24
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "b75c072340ae3a454602c2b969f055db3c8470b620ccc8a7f46786810bfd5fc1"
     },
     {
@@ -1900,6 +2628,19 @@
       "family": "utility",
       "sourceSheet": "sheet-08-utility-reserve.png",
       "sourceCell": 0,
+      "sourceCropBox": [
+        157,
+        125,
+        401,
+        440
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        23
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "83726e2b10ffbe1ae608dd337dcbc1a8eb37c71d0e85f185a97eaa6fbdb846c9"
     },
     {
@@ -1933,6 +2674,19 @@
       "family": "utility",
       "sourceSheet": "sheet-08-utility-reserve.png",
       "sourceCell": 1,
+      "sourceCropBox": [
+        516,
+        143,
+        810,
+        432
+      ],
+      "sourceMargins": [
+        24,
+        23,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "ce57cb454c34be8d8ce62e0daa6ddd169789c3bdf0ffe44b5804fc9a68d8dfc5"
     },
     {
@@ -1966,6 +2720,19 @@
       "family": "utility",
       "sourceSheet": "sheet-08-utility-reserve.png",
       "sourceCell": 2,
+      "sourceCropBox": [
+        893,
+        142,
+        1186,
+        439
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "1e5f65e55a7259fb198ae7293d841470ce77d44103951195f1289ab13e971569"
     },
     {
@@ -1999,6 +2766,19 @@
       "family": "utility",
       "sourceSheet": "sheet-08-utility-reserve.png",
       "sourceCell": 3,
+      "sourceCropBox": [
+        1270,
+        147,
+        1570,
+        432
+      ],
+      "sourceMargins": [
+        23,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "186d4177947100d77c221a5a5b57ebdf69bd2c0e3f96fb5484ccb3a0097e700b"
     },
     {
@@ -2032,6 +2812,19 @@
       "family": "utility",
       "sourceSheet": "sheet-08-utility-reserve.png",
       "sourceCell": 4,
+      "sourceCropBox": [
+        127,
+        507,
+        421,
+        790
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "1941343c701bcd92a553254a324b2c1e4b6ece24521de631bd4e5428eec9d520"
     },
     {
@@ -2065,6 +2858,19 @@
       "family": "utility",
       "sourceSheet": "sheet-08-utility-reserve.png",
       "sourceCell": 5,
+      "sourceCropBox": [
+        501,
+        577,
+        801,
+        756
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        23,
+        24
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "25b225873d34a0f699c8b50d9929d589e91db36384de808a539af229f03ba050"
     },
     {
@@ -2098,6 +2904,19 @@
       "family": "utility",
       "sourceSheet": "sheet-08-utility-reserve.png",
       "sourceCell": 6,
+      "sourceCropBox": [
+        892,
+        498,
+        1182,
+        790
+      ],
+      "sourceMargins": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
       "fileSha256": "1b202f5e4aec72af268500d7019904ea4e2a920449c92f9d5b399b1b88f2bb32"
     }
   ]

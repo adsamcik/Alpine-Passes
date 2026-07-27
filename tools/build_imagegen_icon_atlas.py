@@ -75,16 +75,96 @@ def load_manifest(path: Path) -> dict[str, Any]:
     return manifest
 
 
-def crop_grid_cell(image: Image.Image, cell_index: int, columns: int, rows: int) -> Image.Image:
-    row, column = divmod(cell_index, columns)
-    if row >= rows:
-        raise ValueError(f"cell {cell_index} is outside a {columns}x{rows} source sheet")
-    left = round(column * image.width / columns)
-    right = round((column + 1) * image.width / columns)
-    top = round(row * image.height / rows)
-    bottom = round((row + 1) * image.height / rows)
-    return image.crop((left, top, right, bottom)).convert("RGBA")
+def projection_runs(values: list[int], minimum: int = 5) -> list[tuple[int, int]]:
+    runs: list[tuple[int, int]] = []
+    start: int | None = None
+    for index, value in enumerate([*values, 0]):
+        if value >= minimum and start is None:
+            start = index
+        elif value < minimum and start is not None:
+            runs.append((start, index))
+            start = None
+    return runs
 
+
+def merge_runs_to_count(
+    runs: list[tuple[int, int]], expected: int
+) -> list[tuple[int, int]]:
+    merged = list(runs)
+    while len(merged) > expected:
+        gaps = [merged[index + 1][0] - merged[index][1] for index in range(len(merged) - 1)]
+        merge_at = min(range(len(gaps)), key=gaps.__getitem__)
+        merged[merge_at : merge_at + 2] = [
+            (merged[merge_at][0], merged[merge_at + 1][1])
+        ]
+    if len(merged) != expected:
+        raise ValueError(f"detected {len(merged)} content bands, expected {expected}")
+    return merged
+
+
+def detect_content_boxes(
+    image: Image.Image, columns: int, rows: int, padding: int = 24
+) -> list[tuple[int, int, int, int]]:
+    """Find complete glyph bounds from transparent gaps between generated icons."""
+    cleaned = remove_residual_chroma(image)
+    alpha = cleaned.getchannel("A")
+    pixels = alpha.load()
+    y_projection = [
+        sum(pixels[x, y] > ALPHA_BOUNDS_THRESHOLD for x in range(alpha.width))
+        for y in range(alpha.height)
+    ]
+    row_runs = merge_runs_to_count(projection_runs(y_projection), rows)
+    boxes: list[tuple[int, int, int, int]] = []
+
+    for row_top, row_bottom in row_runs:
+        x_projection = [
+            sum(
+                pixels[x, y] > ALPHA_BOUNDS_THRESHOLD
+                for y in range(row_top, row_bottom)
+            )
+            for x in range(alpha.width)
+        ]
+        column_runs = merge_runs_to_count(projection_runs(x_projection), columns)
+        for column_left, column_right in column_runs:
+            search_box = (
+                max(0, column_left - padding),
+                max(0, row_top - padding),
+                min(cleaned.width, column_right + padding),
+                min(cleaned.height, row_bottom + padding),
+            )
+            search = cleaned.crop(search_box)
+            left, top, right, bottom = alpha_bounds(search)
+            boxes.append(
+                (
+                    max(0, search_box[0] + left - padding),
+                    max(0, search_box[1] + top - padding),
+                    min(cleaned.width, search_box[0] + right + padding),
+                    min(cleaned.height, search_box[1] + bottom + padding),
+                )
+            )
+
+    if len(boxes) != columns * rows:
+        raise ValueError(f"detected {len(boxes)} content cells, expected {columns * rows}")
+    return boxes
+
+
+def source_crop_metrics(image: Image.Image) -> dict[str, Any]:
+    alpha = image.getchannel("A")
+    bounds = alpha.point(
+        lambda value: 255 if value > ALPHA_BOUNDS_THRESHOLD else 0
+    ).getbbox()
+    if bounds is None:
+        raise ValueError("source crop is empty")
+    left, top, right, bottom = bounds
+    margins = [left, top, image.width - right, image.height - bottom]
+    edge_pixels = 0
+    for x in range(image.width):
+        edge_pixels += int(alpha.getpixel((x, 0)) > ALPHA_BOUNDS_THRESHOLD)
+        edge_pixels += int(alpha.getpixel((x, image.height - 1)) > ALPHA_BOUNDS_THRESHOLD)
+    for y in range(1, image.height - 1):
+        edge_pixels += int(alpha.getpixel((0, y)) > ALPHA_BOUNDS_THRESHOLD)
+        edge_pixels += int(alpha.getpixel((image.width - 1, y)) > ALPHA_BOUNDS_THRESHOLD)
+    return {"sourceMargins": margins, "sourceEdgePixels": edge_pixels}
 
 def remove_residual_chroma(image: Image.Image) -> Image.Image:
     """Remove magenta pixels that survived soft chroma-key extraction."""
@@ -251,6 +331,7 @@ def build(args: argparse.Namespace) -> None:
     source_dir = REPO_ROOT / source_config["directory"]
 
     source_cache: dict[str, Image.Image] = {}
+    source_box_cache: dict[str, list[tuple[int, int, int, int]]] = {}
     source_hashes: dict[str, str] = {}
     normalized_icons: list[tuple[dict[str, Any], Image.Image]] = []
     quality_icons: list[dict[str, Any]] = []
@@ -262,14 +343,14 @@ def build(args: argparse.Namespace) -> None:
             if not source_path.exists():
                 raise FileNotFoundError(f"missing transparent source sheet: {source_path}")
             source_cache[sheet_name] = Image.open(source_path).convert("RGBA")
+            source_box_cache[sheet_name] = detect_content_boxes(
+                source_cache[sheet_name], source_columns, source_rows
+            )
             source_hashes[sheet_name] = sha256(source_path)
 
-        source_cell = crop_grid_cell(
-            source_cache[sheet_name],
-            int(entry["cell"]),
-            source_columns,
-            source_rows,
-        )
+        source_box = source_box_cache[sheet_name][int(entry["cell"])]
+        source_cell = source_cache[sheet_name].crop(source_box).convert("RGBA")
+        source_metrics = source_crop_metrics(source_cell)
         normalized = normalize_icon(source_cell, cell_size)
         normalized_path = args.cells_dir / f"{entry['index']:02d}-{entry['id']}.png"
         save_png(normalized, normalized_path)
@@ -281,9 +362,15 @@ def build(args: argparse.Namespace) -> None:
                 "family": entry["family"],
                 "sourceSheet": sheet_name,
                 "sourceCell": int(entry["cell"]),
+                "sourceCropBox": list(source_box),
+                **source_metrics,
                 "fileSha256": sha256(normalized_path),
             }
         )
+        if metrics["sourceEdgePixels"]:
+            raise ValueError(f"{entry['id']} touches its detected source crop edge")
+        if min(metrics["sourceMargins"]) < 16:
+            raise ValueError(f"{entry['id']} source crop has insufficient safety margin")
         if metrics["chromaPixels"]:
             raise ValueError(f"{entry['id']} retains {metrics['chromaPixels']} chroma pixels")
         if not 0.08 <= metrics["coverage128"] <= 0.62:
@@ -313,12 +400,12 @@ def build(args: argparse.Namespace) -> None:
         if source_image is None:
             source_image = Image.open(source_path).convert("RGBA")
             source_hashes[reserve["sheet"]] = sha256(source_path)
-        reserve_cell = crop_grid_cell(
-            source_image,
-            int(reserve["cell"]),
-            source_columns,
-            source_rows,
-        )
+        reserve_boxes = source_box_cache.get(reserve["sheet"])
+        if reserve_boxes is None:
+            reserve_boxes = detect_content_boxes(source_image, source_columns, source_rows)
+        reserve_cell = source_image.crop(
+            reserve_boxes[int(reserve["cell"])]
+        ).convert("RGBA")
         reserve_icon = normalize_icon(reserve_cell, cell_size)
         save_png(reserve_icon, args.reserve_dir / f"{reserve['id']}.png")
 

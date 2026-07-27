@@ -1,0 +1,2104 @@
+{
+  "manifestVersion": 2,
+  "style": "itinera-alpine-contour-enamel",
+  "sourceHashes": {
+    "sheet-01-status-core.png": "9ccf84d90d3e3865ad861cbc71c8b01aa989171e98a28a6ddbe98c28ed2a20c1",
+    "sheet-02-alpine-heritage.png": "ddea54e636f3da0b58dff9251a90ac73172b460c6a4b9c49c156e7a7bb12808b",
+    "sheet-03-nature-culture.png": "421778e93dcc527741b5256da8b83b024596c9f191784f5677ce17290c9a9bd3",
+    "sheet-04-travel-japan.png": "0e7407257b9bd95476664b613e1597efd2c81062f4fd31e407fca9b079eebf86",
+    "sheet-05-modes-japan.png": "7816f3253a6c7019d6e89e43c06503be8fe9b8782b18b7c325576994ad60c4c7",
+    "sheet-06-weather.png": "c98e43a7f2aba4871a0f2368136d2bc7e4e023df892207746161f25fd6e1d9ca",
+    "sheet-07-breaks-utility.png": "a897cac82603c3e617ac23032a0f7971ad1cf031f0cfc61fa1e959825450e965",
+    "sheet-08-utility-reserve.png": "fc052363d52538cef116d4e4e45dba483d05d982bb0b71b41390d01591afeb25"
+  },
+  "atlas": {
+    "path": "assets/ui-icons/alpine-ui-icons.png",
+    "sha256": "58bd2533c0a56a9039c8c9ed15f8311da04de7ff9cd40eebfc9ee680436c7fb1",
+    "width": 640,
+    "height": 1664,
+    "cellSize": 128,
+    "columns": 5,
+    "rows": 13
+  },
+  "icons": [
+    {
+      "coverage128": 0.4678,
+      "bounds128": [
+        13,
+        15,
+        116,
+        112
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 82,
+          "opaquePixels": 59,
+          "coverage": 0.5694
+        },
+        "16": {
+          "visiblePixels": 136,
+          "opaquePixels": 113,
+          "coverage": 0.5312
+        },
+        "24": {
+          "visiblePixels": 289,
+          "opaquePixels": 257,
+          "coverage": 0.5017
+        }
+      },
+      "index": 0,
+      "id": "status-open",
+      "family": "status",
+      "sourceSheet": "sheet-01-status-core.png",
+      "sourceCell": 0,
+      "fileSha256": "44cbab4fa193e9c0c2f8138b4de33ac70750de32577d86d86dd236625bf72b84"
+    },
+    {
+      "coverage128": 0.4744,
+      "bounds128": [
+        13,
+        14,
+        115,
+        114
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 81,
+          "opaquePixels": 59,
+          "coverage": 0.5625
+        },
+        "16": {
+          "visiblePixels": 148,
+          "opaquePixels": 113,
+          "coverage": 0.5781
+        },
+        "24": {
+          "visiblePixels": 308,
+          "opaquePixels": 253,
+          "coverage": 0.5347
+        }
+      },
+      "index": 1,
+      "id": "status-restricted",
+      "family": "status",
+      "sourceSheet": "sheet-01-status-core.png",
+      "sourceCell": 1,
+      "fileSha256": "c9f65a8470800e3aea904627cbdd9c7d9bc3ed413ba3a817c1759089a62c8caa"
+    },
+    {
+      "coverage128": 0.4796,
+      "bounds128": [
+        13,
+        13,
+        115,
+        114
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 82,
+          "opaquePixels": 59,
+          "coverage": 0.5694
+        },
+        "16": {
+          "visiblePixels": 150,
+          "opaquePixels": 115,
+          "coverage": 0.5859
+        },
+        "24": {
+          "visiblePixels": 312,
+          "opaquePixels": 257,
+          "coverage": 0.5417
+        }
+      },
+      "index": 2,
+      "id": "status-closed",
+      "family": "status",
+      "sourceSheet": "sheet-01-status-core.png",
+      "sourceCell": 2,
+      "fileSha256": "bbf4bc54648305f21e949ce8b93e7af4240fdba4d72881187c2b56ecce405a01"
+    },
+    {
+      "coverage128": 0.3564,
+      "bounds128": [
+        14,
+        13,
+        113,
+        115
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 69,
+          "opaquePixels": 42,
+          "coverage": 0.4792
+        },
+        "16": {
+          "visiblePixels": 116,
+          "opaquePixels": 83,
+          "coverage": 0.4531
+        },
+        "24": {
+          "visiblePixels": 241,
+          "opaquePixels": 179,
+          "coverage": 0.4184
+        }
+      },
+      "index": 3,
+      "id": "status-estimated",
+      "family": "status",
+      "sourceSheet": "sheet-01-status-core.png",
+      "sourceCell": 3,
+      "fileSha256": "e62c4e33f38c82a41c6444bb53385de912b2575817f02413290b64c6a8ec5b49"
+    },
+    {
+      "coverage128": 0.2546,
+      "bounds128": [
+        13,
+        17,
+        115,
+        111
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 50,
+          "opaquePixels": 30,
+          "coverage": 0.3472
+        },
+        "16": {
+          "visiblePixels": 85,
+          "opaquePixels": 56,
+          "coverage": 0.332
+        },
+        "24": {
+          "visiblePixels": 172,
+          "opaquePixels": 129,
+          "coverage": 0.2986
+        }
+      },
+      "index": 4,
+      "id": "status-unknown",
+      "family": "status",
+      "sourceSheet": "sheet-01-status-core.png",
+      "sourceCell": 4,
+      "fileSha256": "a42a0a11c9c7b5a237b059b51968cb57ea1b72ae78892d4e2398905e8f195478"
+    },
+    {
+      "coverage128": 0.3096,
+      "bounds128": [
+        30,
+        13,
+        98,
+        115
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 54,
+          "opaquePixels": 40,
+          "coverage": 0.375
+        },
+        "16": {
+          "visiblePixels": 92,
+          "opaquePixels": 74,
+          "coverage": 0.3594
+        },
+        "24": {
+          "visiblePixels": 202,
+          "opaquePixels": 164,
+          "coverage": 0.3507
+        }
+      },
+      "index": 5,
+      "id": "poi-generic",
+      "family": "poi",
+      "sourceSheet": "sheet-01-status-core.png",
+      "sourceCell": 5,
+      "fileSha256": "8f1140ff7796f63aefbef8663d43e9d47be7f50aff6bc1b21e3376db97a87aa4"
+    },
+    {
+      "coverage128": 0.2548,
+      "bounds128": [
+        13,
+        26,
+        116,
+        101
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 50,
+          "opaquePixels": 31,
+          "coverage": 0.3472
+        },
+        "16": {
+          "visiblePixels": 81,
+          "opaquePixels": 58,
+          "coverage": 0.3164
+        },
+        "24": {
+          "visiblePixels": 167,
+          "opaquePixels": 131,
+          "coverage": 0.2899
+        }
+      },
+      "index": 6,
+      "id": "not-by-car",
+      "family": "access",
+      "sourceSheet": "sheet-01-status-core.png",
+      "sourceCell": 6,
+      "fileSha256": "9d6b1b5cdc78a89b5424094d7c88459eb7e004f8b0be930d5694f1905d63bfa4"
+    },
+    {
+      "coverage128": 0.3,
+      "bounds128": [
+        12,
+        16,
+        115,
+        112
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 58,
+          "opaquePixels": 35,
+          "coverage": 0.4028
+        },
+        "16": {
+          "visiblePixels": 89,
+          "opaquePixels": 73,
+          "coverage": 0.3477
+        },
+        "24": {
+          "visiblePixels": 193,
+          "opaquePixels": 160,
+          "coverage": 0.3351
+        }
+      },
+      "index": 7,
+      "id": "poi-mountain-summit",
+      "family": "poi",
+      "sourceSheet": "sheet-01-status-core.png",
+      "sourceCell": 7,
+      "fileSha256": "76980f11f02895aa84c6a5df3fc8f3715c4a3153901cc4e2d366615c8643371f"
+    },
+    {
+      "coverage128": 0.4205,
+      "bounds128": [
+        13,
+        16,
+        115,
+        112
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 76,
+          "opaquePixels": 56,
+          "coverage": 0.5278
+        },
+        "16": {
+          "visiblePixels": 123,
+          "opaquePixels": 103,
+          "coverage": 0.4805
+        },
+        "24": {
+          "visiblePixels": 264,
+          "opaquePixels": 229,
+          "coverage": 0.4583
+        }
+      },
+      "index": 8,
+      "id": "poi-alpine-lake",
+      "family": "poi",
+      "sourceSheet": "sheet-02-alpine-heritage.png",
+      "sourceCell": 0,
+      "fileSha256": "b05ae48f1d068039f389596be4aea8b37e2954c1ad2eb96f71c7893c34482d62"
+    },
+    {
+      "coverage128": 0.5547,
+      "bounds128": [
+        13,
+        14,
+        115,
+        114
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 96,
+          "opaquePixels": 65,
+          "coverage": 0.6667
+        },
+        "16": {
+          "visiblePixels": 165,
+          "opaquePixels": 133,
+          "coverage": 0.6445
+        },
+        "24": {
+          "visiblePixels": 350,
+          "opaquePixels": 299,
+          "coverage": 0.6076
+        }
+      },
+      "index": 9,
+      "id": "poi-waterfall-gorge",
+      "family": "poi",
+      "sourceSheet": "sheet-02-alpine-heritage.png",
+      "sourceCell": 1,
+      "fileSha256": "206e26bb758e9c0aef14b3bf7c1dd539e85f5cbaff3aa24083a7311155913ba1"
+    },
+    {
+      "coverage128": 0.3086,
+      "bounds128": [
+        13,
+        24,
+        116,
+        104
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 53,
+          "opaquePixels": 42,
+          "coverage": 0.3681
+        },
+        "16": {
+          "visiblePixels": 88,
+          "opaquePixels": 74,
+          "coverage": 0.3438
+        },
+        "24": {
+          "visiblePixels": 200,
+          "opaquePixels": 161,
+          "coverage": 0.3472
+        }
+      },
+      "index": 10,
+      "id": "poi-glacier",
+      "family": "poi",
+      "sourceSheet": "sheet-02-alpine-heritage.png",
+      "sourceCell": 2,
+      "fileSha256": "64d151a1b35fe83540a4e4b06a001bca6c08b46709e2a17de1aab932007dc818"
+    },
+    {
+      "coverage128": 0.4532,
+      "bounds128": [
+        12,
+        15,
+        115,
+        113
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 79,
+          "opaquePixels": 53,
+          "coverage": 0.5486
+        },
+        "16": {
+          "visiblePixels": 136,
+          "opaquePixels": 108,
+          "coverage": 0.5312
+        },
+        "24": {
+          "visiblePixels": 293,
+          "opaquePixels": 246,
+          "coverage": 0.5087
+        }
+      },
+      "index": 11,
+      "id": "poi-old-town",
+      "family": "poi",
+      "sourceSheet": "sheet-02-alpine-heritage.png",
+      "sourceCell": 3,
+      "fileSha256": "a7ccbf1b341c27b7a46a6a1dcc6984f000acde39180910c1d3ab98ac433113b4"
+    },
+    {
+      "coverage128": 0.3721,
+      "bounds128": [
+        13,
+        21,
+        115,
+        107
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 64,
+          "opaquePixels": 48,
+          "coverage": 0.4444
+        },
+        "16": {
+          "visiblePixels": 115,
+          "opaquePixels": 82,
+          "coverage": 0.4492
+        },
+        "24": {
+          "visiblePixels": 228,
+          "opaquePixels": 201,
+          "coverage": 0.3958
+        }
+      },
+      "index": 12,
+      "id": "poi-castle-fortress",
+      "family": "poi",
+      "sourceSheet": "sheet-02-alpine-heritage.png",
+      "sourceCell": 4,
+      "fileSha256": "ac1a15349ada1229f289277e289f6620454cfff024a3b3c61b3b52aa3955f883"
+    },
+    {
+      "coverage128": 0.3051,
+      "bounds128": [
+        16,
+        13,
+        112,
+        115
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 55,
+          "opaquePixels": 43,
+          "coverage": 0.3819
+        },
+        "16": {
+          "visiblePixels": 96,
+          "opaquePixels": 69,
+          "coverage": 0.375
+        },
+        "24": {
+          "visiblePixels": 201,
+          "opaquePixels": 153,
+          "coverage": 0.349
+        }
+      },
+      "index": 13,
+      "id": "poi-monastery-church",
+      "family": "poi",
+      "sourceSheet": "sheet-02-alpine-heritage.png",
+      "sourceCell": 5,
+      "fileSha256": "add0c2feebd4d79507f02e83e95de6d74ed2728c11ac0a738bc48585dacb5e82"
+    },
+    {
+      "coverage128": 0.2621,
+      "bounds128": [
+        13,
+        27,
+        116,
+        100
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 48,
+          "opaquePixels": 31,
+          "coverage": 0.3333
+        },
+        "16": {
+          "visiblePixels": 80,
+          "opaquePixels": 59,
+          "coverage": 0.3125
+        },
+        "24": {
+          "visiblePixels": 168,
+          "opaquePixels": 143,
+          "coverage": 0.2917
+        }
+      },
+      "index": 14,
+      "id": "poi-scenic-railway",
+      "family": "poi",
+      "sourceSheet": "sheet-02-alpine-heritage.png",
+      "sourceCell": 6,
+      "fileSha256": "c84e7b1721a98660e58a5681a8edea7b58ff295c6f845f5025172186f1388796"
+    },
+    {
+      "coverage128": 0.4401,
+      "bounds128": [
+        12,
+        17,
+        115,
+        110
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 80,
+          "opaquePixels": 57,
+          "coverage": 0.5556
+        },
+        "16": {
+          "visiblePixels": 137,
+          "opaquePixels": 101,
+          "coverage": 0.5352
+        },
+        "24": {
+          "visiblePixels": 281,
+          "opaquePixels": 233,
+          "coverage": 0.4878
+        }
+      },
+      "index": 15,
+      "id": "poi-bridge-engineering",
+      "family": "poi",
+      "sourceSheet": "sheet-02-alpine-heritage.png",
+      "sourceCell": 7,
+      "fileSha256": "19e5b0d6ca743d541b6f498e72fe98f47a96ec11683c8d45390c461fcad5eeea"
+    },
+    {
+      "coverage128": 0.3865,
+      "bounds128": [
+        13,
+        21,
+        116,
+        106
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 62,
+          "opaquePixels": 53,
+          "coverage": 0.4306
+        },
+        "16": {
+          "visiblePixels": 116,
+          "opaquePixels": 91,
+          "coverage": 0.4531
+        },
+        "24": {
+          "visiblePixels": 242,
+          "opaquePixels": 215,
+          "coverage": 0.4201
+        }
+      },
+      "index": 16,
+      "id": "poi-village",
+      "family": "poi",
+      "sourceSheet": "sheet-03-nature-culture.png",
+      "sourceCell": 0,
+      "fileSha256": "d52ce36ba828e359eff1cd1acd95290c2da41ee740ad715a7f1766627aa76547"
+    },
+    {
+      "coverage128": 0.2912,
+      "bounds128": [
+        12,
+        25,
+        115,
+        103
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 54,
+          "opaquePixels": 36,
+          "coverage": 0.375
+        },
+        "16": {
+          "visiblePixels": 88,
+          "opaquePixels": 71,
+          "coverage": 0.3438
+        },
+        "24": {
+          "visiblePixels": 191,
+          "opaquePixels": 156,
+          "coverage": 0.3316
+        }
+      },
+      "index": 17,
+      "id": "poi-national-park",
+      "family": "poi",
+      "sourceSheet": "sheet-03-nature-culture.png",
+      "sourceCell": 1,
+      "fileSha256": "cfc78ba2236700cb31bbca5e638cef4ee3cda40ea6d66b842d46d4f5415921dd"
+    },
+    {
+      "coverage128": 0.2705,
+      "bounds128": [
+        13,
+        25,
+        116,
+        102
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 52,
+          "opaquePixels": 32,
+          "coverage": 0.3611
+        },
+        "16": {
+          "visiblePixels": 87,
+          "opaquePixels": 60,
+          "coverage": 0.3398
+        },
+        "24": {
+          "visiblePixels": 180,
+          "opaquePixels": 143,
+          "coverage": 0.3125
+        }
+      },
+      "index": 18,
+      "id": "poi-spa-wellness",
+      "family": "poi",
+      "sourceSheet": "sheet-03-nature-culture.png",
+      "sourceCell": 2,
+      "fileSha256": "42f3930f6d65928d38d38e7df3069a88b4ce9bfdf80c0ba651cdc3ad5c7eb5b2"
+    },
+    {
+      "coverage128": 0.3745,
+      "bounds128": [
+        12,
+        27,
+        115,
+        101
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 69,
+          "opaquePixels": 51,
+          "coverage": 0.4792
+        },
+        "16": {
+          "visiblePixels": 114,
+          "opaquePixels": 83,
+          "coverage": 0.4453
+        },
+        "24": {
+          "visiblePixels": 234,
+          "opaquePixels": 205,
+          "coverage": 0.4062
+        }
+      },
+      "index": 19,
+      "id": "poi-viewpoint-panorama",
+      "family": "poi",
+      "sourceSheet": "sheet-03-nature-culture.png",
+      "sourceCell": 3,
+      "fileSha256": "a71f4b45ae1cebde4c1244250be2acc4d52dac0f3661152f1cc8d7120f49bb4d"
+    },
+    {
+      "coverage128": 0.4342,
+      "bounds128": [
+        13,
+        19,
+        115,
+        109
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 76,
+          "opaquePixels": 58,
+          "coverage": 0.5278
+        },
+        "16": {
+          "visiblePixels": 125,
+          "opaquePixels": 100,
+          "coverage": 0.4883
+        },
+        "24": {
+          "visiblePixels": 277,
+          "opaquePixels": 230,
+          "coverage": 0.4809
+        }
+      },
+      "index": 20,
+      "id": "poi-museum-cultural",
+      "family": "poi",
+      "sourceSheet": "sheet-03-nature-culture.png",
+      "sourceCell": 4,
+      "fileSha256": "0fa78d7a4759c52d5ee2f1dca94c75d8136f49a96d2bec1b401a8cba42058a4a"
+    },
+    {
+      "coverage128": 0.3977,
+      "bounds128": [
+        13,
+        21,
+        115,
+        106
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 66,
+          "opaquePixels": 52,
+          "coverage": 0.4583
+        },
+        "16": {
+          "visiblePixels": 122,
+          "opaquePixels": 96,
+          "coverage": 0.4766
+        },
+        "24": {
+          "visiblePixels": 243,
+          "opaquePixels": 220,
+          "coverage": 0.4219
+        }
+      },
+      "index": 21,
+      "id": "poi-geology-cave",
+      "family": "poi",
+      "sourceSheet": "sheet-03-nature-culture.png",
+      "sourceCell": 5,
+      "fileSha256": "74b1caeb35063f118dd1d4ab4bd2c1aa941fbade554b7a4a66b64db1dac83f65"
+    },
+    {
+      "coverage128": 0.2622,
+      "bounds128": [
+        13,
+        30,
+        116,
+        97
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 47,
+          "opaquePixels": 34,
+          "coverage": 0.3264
+        },
+        "16": {
+          "visiblePixels": 80,
+          "opaquePixels": 60,
+          "coverage": 0.3125
+        },
+        "24": {
+          "visiblePixels": 173,
+          "opaquePixels": 135,
+          "coverage": 0.3003
+        }
+      },
+      "index": 22,
+      "id": "poi-wine-region",
+      "family": "poi",
+      "sourceSheet": "sheet-03-nature-culture.png",
+      "sourceCell": 6,
+      "fileSha256": "585263cbe96912d9ed5b653157587a2f87c9e8728b9712444424bdf5e8855f60"
+    },
+    {
+      "coverage128": 0.4035,
+      "bounds128": [
+        14,
+        13,
+        112,
+        115
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 72,
+          "opaquePixels": 54,
+          "coverage": 0.5
+        },
+        "16": {
+          "visiblePixels": 124,
+          "opaquePixels": 92,
+          "coverage": 0.4844
+        },
+        "24": {
+          "visiblePixels": 261,
+          "opaquePixels": 213,
+          "coverage": 0.4531
+        }
+      },
+      "index": 23,
+      "id": "poi-special-experience",
+      "family": "poi",
+      "sourceSheet": "sheet-03-nature-culture.png",
+      "sourceCell": 7,
+      "fileSha256": "5e8659a4e84d2c7943f152ff7bcc16e6aabb37865c4eadc7c2a197c2492a9e7b"
+    },
+    {
+      "coverage128": 0.3896,
+      "bounds128": [
+        13,
+        27,
+        116,
+        100
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 68,
+          "opaquePixels": 51,
+          "coverage": 0.4722
+        },
+        "16": {
+          "visiblePixels": 117,
+          "opaquePixels": 87,
+          "coverage": 0.457
+        },
+        "24": {
+          "visiblePixels": 244,
+          "opaquePixels": 219,
+          "coverage": 0.4236
+        }
+      },
+      "index": 24,
+      "id": "pass-generic",
+      "family": "pass",
+      "sourceSheet": "sheet-04-travel-japan.png",
+      "sourceCell": 0,
+      "fileSha256": "800a3a587911e99d31dc9fcfa4dabfa4fc9ecf13627ba776b91f7e13fd264c16"
+    },
+    {
+      "coverage128": 0.3059,
+      "bounds128": [
+        12,
+        27,
+        115,
+        101
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 55,
+          "opaquePixels": 39,
+          "coverage": 0.3819
+        },
+        "16": {
+          "visiblePixels": 92,
+          "opaquePixels": 63,
+          "coverage": 0.3594
+        },
+        "24": {
+          "visiblePixels": 194,
+          "opaquePixels": 163,
+          "coverage": 0.3368
+        }
+      },
+      "index": 25,
+      "id": "poi-funicular",
+      "family": "poi",
+      "sourceSheet": "sheet-04-travel-japan.png",
+      "sourceCell": 1,
+      "fileSha256": "21bc874c9a017faff7b1ec763a953d209f7300b7aade7717a6e785d387df0b72"
+    },
+    {
+      "coverage128": 0.2009,
+      "bounds128": [
+        13,
+        26,
+        116,
+        101
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 40,
+          "opaquePixels": 24,
+          "coverage": 0.2778
+        },
+        "16": {
+          "visiblePixels": 64,
+          "opaquePixels": 43,
+          "coverage": 0.25
+        },
+        "24": {
+          "visiblePixels": 129,
+          "opaquePixels": 105,
+          "coverage": 0.224
+        }
+      },
+      "index": 26,
+      "id": "poi-art-island",
+      "family": "poi",
+      "sourceSheet": "sheet-04-travel-japan.png",
+      "sourceCell": 2,
+      "fileSha256": "43c07fae79e07382435f635f9de232b75f870c00148dfb13b253c952bcc0d86c"
+    },
+    {
+      "coverage128": 0.3914,
+      "bounds128": [
+        13,
+        13,
+        113,
+        115
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 70,
+          "opaquePixels": 53,
+          "coverage": 0.4861
+        },
+        "16": {
+          "visiblePixels": 124,
+          "opaquePixels": 87,
+          "coverage": 0.4844
+        },
+        "24": {
+          "visiblePixels": 254,
+          "opaquePixels": 200,
+          "coverage": 0.441
+        }
+      },
+      "index": 27,
+      "id": "poi-buddhist-temple",
+      "family": "poi",
+      "sourceSheet": "sheet-04-travel-japan.png",
+      "sourceCell": 3,
+      "fileSha256": "a31f981fb85ab8c5f62cf0984e72b43f061ac89f2415b1aad64cc598545e10f6"
+    },
+    {
+      "coverage128": 0.4769,
+      "bounds128": [
+        13,
+        20,
+        115,
+        107
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 80,
+          "opaquePixels": 66,
+          "coverage": 0.5556
+        },
+        "16": {
+          "visiblePixels": 146,
+          "opaquePixels": 110,
+          "coverage": 0.5703
+        },
+        "24": {
+          "visiblePixels": 293,
+          "opaquePixels": 260,
+          "coverage": 0.5087
+        }
+      },
+      "index": 28,
+      "id": "poi-food-market",
+      "family": "poi",
+      "sourceSheet": "sheet-04-travel-japan.png",
+      "sourceCell": 4,
+      "fileSha256": "05a90a8963deb59d20d825d55a4c7ffec06386bd065daf1e3b42056ff18174ca"
+    },
+    {
+      "coverage128": 0.4376,
+      "bounds128": [
+        13,
+        21,
+        115,
+        107
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 73,
+          "opaquePixels": 56,
+          "coverage": 0.5069
+        },
+        "16": {
+          "visiblePixels": 132,
+          "opaquePixels": 104,
+          "coverage": 0.5156
+        },
+        "24": {
+          "visiblePixels": 268,
+          "opaquePixels": 244,
+          "coverage": 0.4653
+        }
+      },
+      "index": 29,
+      "id": "poi-historic-district",
+      "family": "poi",
+      "sourceSheet": "sheet-04-travel-japan.png",
+      "sourceCell": 5,
+      "fileSha256": "57a3b96a5338a031e8b098eea1c273dfb64463079dd1fa97b7a36ac434a084b5"
+    },
+    {
+      "coverage128": 0.193,
+      "bounds128": [
+        13,
+        25,
+        116,
+        103
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 41,
+          "opaquePixels": 20,
+          "coverage": 0.2847
+        },
+        "16": {
+          "visiblePixels": 67,
+          "opaquePixels": 44,
+          "coverage": 0.2617
+        },
+        "24": {
+          "visiblePixels": 141,
+          "opaquePixels": 97,
+          "coverage": 0.2448
+        }
+      },
+      "index": 30,
+      "id": "poi-observation-tower",
+      "family": "poi",
+      "sourceSheet": "sheet-04-travel-japan.png",
+      "sourceCell": 6,
+      "fileSha256": "f79e7a441232848ac74e10ad836a720677e43a95d948c684818e8b9a0056bddc"
+    },
+    {
+      "coverage128": 0.4946,
+      "bounds128": [
+        12,
+        14,
+        115,
+        114
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 85,
+          "opaquePixels": 64,
+          "coverage": 0.5903
+        },
+        "16": {
+          "visiblePixels": 147,
+          "opaquePixels": 115,
+          "coverage": 0.5742
+        },
+        "24": {
+          "visiblePixels": 309,
+          "opaquePixels": 275,
+          "coverage": 0.5365
+        }
+      },
+      "index": 31,
+      "id": "poi-onsen-town",
+      "family": "poi",
+      "sourceSheet": "sheet-04-travel-japan.png",
+      "sourceCell": 7,
+      "fileSha256": "676e3dbef8aada241cd1296caf7ee11f6ca6e4bc888f89a5cbd02a1c020653d8"
+    },
+    {
+      "coverage128": 0.3587,
+      "bounds128": [
+        13,
+        19,
+        115,
+        109
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 62,
+          "opaquePixels": 45,
+          "coverage": 0.4306
+        },
+        "16": {
+          "visiblePixels": 110,
+          "opaquePixels": 80,
+          "coverage": 0.4297
+        },
+        "24": {
+          "visiblePixels": 232,
+          "opaquePixels": 189,
+          "coverage": 0.4028
+        }
+      },
+      "index": 32,
+      "id": "poi-pop-culture-site",
+      "family": "poi",
+      "sourceSheet": "sheet-05-modes-japan.png",
+      "sourceCell": 0,
+      "fileSha256": "29779b395770bb0804870d5d82f8b659a4eb7c19749834c6226c43b65e094579"
+    },
+    {
+      "coverage128": 0.3654,
+      "bounds128": [
+        13,
+        24,
+        115,
+        104
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 65,
+          "opaquePixels": 44,
+          "coverage": 0.4514
+        },
+        "16": {
+          "visiblePixels": 109,
+          "opaquePixels": 86,
+          "coverage": 0.4258
+        },
+        "24": {
+          "visiblePixels": 228,
+          "opaquePixels": 199,
+          "coverage": 0.3958
+        }
+      },
+      "index": 33,
+      "id": "poi-post-town",
+      "family": "poi",
+      "sourceSheet": "sheet-05-modes-japan.png",
+      "sourceCell": 1,
+      "fileSha256": "5a98428a34b7f8ab4743d072e2a4502b5cb25a325d47ed13099d3fa73deee51a"
+    },
+    {
+      "coverage128": 0.2438,
+      "bounds128": [
+        13,
+        28,
+        116,
+        99
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 51,
+          "opaquePixels": 28,
+          "coverage": 0.3542
+        },
+        "16": {
+          "visiblePixels": 89,
+          "opaquePixels": 51,
+          "coverage": 0.3477
+        },
+        "24": {
+          "visiblePixels": 173,
+          "opaquePixels": 119,
+          "coverage": 0.3003
+        }
+      },
+      "index": 34,
+      "id": "poi-shinto-shrine",
+      "family": "poi",
+      "sourceSheet": "sheet-05-modes-japan.png",
+      "sourceCell": 2,
+      "fileSha256": "dee56c7541d5b24c62ed0b5d13b837bfddce84c37a7b23b5eec36f165214e0cb"
+    },
+    {
+      "coverage128": 0.3999,
+      "bounds128": [
+        12,
+        26,
+        115,
+        101
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 72,
+          "opaquePixels": 52,
+          "coverage": 0.5
+        },
+        "16": {
+          "visiblePixels": 120,
+          "opaquePixels": 90,
+          "coverage": 0.4688
+        },
+        "24": {
+          "visiblePixels": 249,
+          "opaquePixels": 220,
+          "coverage": 0.4323
+        }
+      },
+      "index": 35,
+      "id": "poi-traditional-garden",
+      "family": "poi",
+      "sourceSheet": "sheet-05-modes-japan.png",
+      "sourceCell": 3,
+      "fileSha256": "49370f53da1506c4dd9dd99b689f0e12399854ed7fb1e0f75c794a2b47576f62"
+    },
+    {
+      "coverage128": 0.3124,
+      "bounds128": [
+        13,
+        21,
+        115,
+        106
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 53,
+          "opaquePixels": 41,
+          "coverage": 0.3681
+        },
+        "16": {
+          "visiblePixels": 102,
+          "opaquePixels": 70,
+          "coverage": 0.3984
+        },
+        "24": {
+          "visiblePixels": 197,
+          "opaquePixels": 172,
+          "coverage": 0.342
+        }
+      },
+      "index": 36,
+      "id": "poi-volcano",
+      "family": "poi",
+      "sourceSheet": "sheet-05-modes-japan.png",
+      "sourceCell": 4,
+      "fileSha256": "6040ebb8a459dbaddce4fe1f63f23f292e8bac133cf5123d4206473a716837ee"
+    },
+    {
+      "coverage128": 0.4304,
+      "bounds128": [
+        13,
+        19,
+        115,
+        108
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 76,
+          "opaquePixels": 58,
+          "coverage": 0.5278
+        },
+        "16": {
+          "visiblePixels": 126,
+          "opaquePixels": 100,
+          "coverage": 0.4922
+        },
+        "24": {
+          "visiblePixels": 274,
+          "opaquePixels": 233,
+          "coverage": 0.4757
+        }
+      },
+      "index": 37,
+      "id": "layer-survey",
+      "family": "mode",
+      "sourceSheet": "sheet-05-modes-japan.png",
+      "sourceCell": 5,
+      "fileSha256": "2441e990c5145cd93cc1d034b5ac0c94863bf53c60ae243a579d25968abd08ec"
+    },
+    {
+      "coverage128": 0.2709,
+      "bounds128": [
+        13,
+        30,
+        116,
+        98
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 51,
+          "opaquePixels": 36,
+          "coverage": 0.3542
+        },
+        "16": {
+          "visiblePixels": 85,
+          "opaquePixels": 62,
+          "coverage": 0.332
+        },
+        "24": {
+          "visiblePixels": 179,
+          "opaquePixels": 140,
+          "coverage": 0.3108
+        }
+      },
+      "index": 38,
+      "id": "layer-plan",
+      "family": "mode",
+      "sourceSheet": "sheet-05-modes-japan.png",
+      "sourceCell": 6,
+      "fileSha256": "d9ea9c0173eea52fc7ccdf14762c3ccab6fb53f70766582230235dee5fbc9cd8"
+    },
+    {
+      "coverage128": 0.3596,
+      "bounds128": [
+        12,
+        14,
+        115,
+        113
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 67,
+          "opaquePixels": 43,
+          "coverage": 0.4653
+        },
+        "16": {
+          "visiblePixels": 115,
+          "opaquePixels": 81,
+          "coverage": 0.4492
+        },
+        "24": {
+          "visiblePixels": 239,
+          "opaquePixels": 196,
+          "coverage": 0.4149
+        }
+      },
+      "index": 39,
+      "id": "layer-explore",
+      "family": "mode",
+      "sourceSheet": "sheet-05-modes-japan.png",
+      "sourceCell": 7,
+      "fileSha256": "7f3e8cbabb3bfec58122a566e2761f7e63b73f5f0cbe362949bc28497f5ddf4c"
+    },
+    {
+      "coverage128": 0.2542,
+      "bounds128": [
+        13,
+        15,
+        115,
+        112
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 54,
+          "opaquePixels": 31,
+          "coverage": 0.375
+        },
+        "16": {
+          "visiblePixels": 92,
+          "opaquePixels": 54,
+          "coverage": 0.3594
+        },
+        "24": {
+          "visiblePixels": 182,
+          "opaquePixels": 131,
+          "coverage": 0.316
+        }
+      },
+      "index": 40,
+      "id": "weather-sunny",
+      "family": "weather",
+      "sourceSheet": "sheet-06-weather.png",
+      "sourceCell": 0,
+      "fileSha256": "3d8fa07d942e6e390fc883749d1e752861def169d8cec93030d913e023b94df5"
+    },
+    {
+      "coverage128": 0.3715,
+      "bounds128": [
+        13,
+        18,
+        115,
+        110
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 76,
+          "opaquePixels": 47,
+          "coverage": 0.5278
+        },
+        "16": {
+          "visiblePixels": 116,
+          "opaquePixels": 90,
+          "coverage": 0.4531
+        },
+        "24": {
+          "visiblePixels": 242,
+          "opaquePixels": 185,
+          "coverage": 0.4201
+        }
+      },
+      "index": 41,
+      "id": "weather-partly-cloudy",
+      "family": "weather",
+      "sourceSheet": "sheet-06-weather.png",
+      "sourceCell": 1,
+      "fileSha256": "909b6219993cebb727b508b046fbc471217f12a2327623c6920adfc9c446866e"
+    },
+    {
+      "coverage128": 0.2859,
+      "bounds128": [
+        13,
+        31,
+        115,
+        97
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 54,
+          "opaquePixels": 39,
+          "coverage": 0.375
+        },
+        "16": {
+          "visiblePixels": 90,
+          "opaquePixels": 67,
+          "coverage": 0.3516
+        },
+        "24": {
+          "visiblePixels": 185,
+          "opaquePixels": 152,
+          "coverage": 0.3212
+        }
+      },
+      "index": 42,
+      "id": "weather-cloudy",
+      "family": "weather",
+      "sourceSheet": "sheet-06-weather.png",
+      "sourceCell": 2,
+      "fileSha256": "c4dc0362eeb7f2fd26015cc057d8b11a66bb167163327c4f42ad8b2848409e00"
+    },
+    {
+      "coverage128": 0.343,
+      "bounds128": [
+        12,
+        23,
+        115,
+        104
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 58,
+          "opaquePixels": 49,
+          "coverage": 0.4028
+        },
+        "16": {
+          "visiblePixels": 101,
+          "opaquePixels": 82,
+          "coverage": 0.3945
+        },
+        "24": {
+          "visiblePixels": 222,
+          "opaquePixels": 182,
+          "coverage": 0.3854
+        }
+      },
+      "index": 43,
+      "id": "weather-fog",
+      "family": "weather",
+      "sourceSheet": "sheet-06-weather.png",
+      "sourceCell": 3,
+      "fileSha256": "96976421f60da949d50d90b7bd98c54802a8db352fb0c1a10ac391f98cae52f5"
+    },
+    {
+      "coverage128": 0.4142,
+      "bounds128": [
+        13,
+        15,
+        115,
+        112
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 77,
+          "opaquePixels": 51,
+          "coverage": 0.5347
+        },
+        "16": {
+          "visiblePixels": 130,
+          "opaquePixels": 97,
+          "coverage": 0.5078
+        },
+        "24": {
+          "visiblePixels": 273,
+          "opaquePixels": 215,
+          "coverage": 0.474
+        }
+      },
+      "index": 44,
+      "id": "weather-rain",
+      "family": "weather",
+      "sourceSheet": "sheet-06-weather.png",
+      "sourceCell": 4,
+      "fileSha256": "cb905ca45357053a1d26a0cd56af0d59377b25862c8e47345f8f00a14970f30a"
+    },
+    {
+      "coverage128": 0.466,
+      "bounds128": [
+        13,
+        14,
+        115,
+        114
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 85,
+          "opaquePixels": 57,
+          "coverage": 0.5903
+        },
+        "16": {
+          "visiblePixels": 144,
+          "opaquePixels": 109,
+          "coverage": 0.5625
+        },
+        "24": {
+          "visiblePixels": 302,
+          "opaquePixels": 246,
+          "coverage": 0.5243
+        }
+      },
+      "index": 45,
+      "id": "weather-snow",
+      "family": "weather",
+      "sourceSheet": "sheet-06-weather.png",
+      "sourceCell": 5,
+      "fileSha256": "0e52491a972c56e75487f3c9286ae986cc93bda425f8f93a3e85b9228f226bfe"
+    },
+    {
+      "coverage128": 0.347,
+      "bounds128": [
+        13,
+        13,
+        115,
+        114
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 67,
+          "opaquePixels": 46,
+          "coverage": 0.4653
+        },
+        "16": {
+          "visiblePixels": 115,
+          "opaquePixels": 77,
+          "coverage": 0.4492
+        },
+        "24": {
+          "visiblePixels": 229,
+          "opaquePixels": 179,
+          "coverage": 0.3976
+        }
+      },
+      "index": 46,
+      "id": "weather-showers",
+      "family": "weather",
+      "sourceSheet": "sheet-06-weather.png",
+      "sourceCell": 6,
+      "fileSha256": "d20d481c152dd3b30ed7575efe6c812af739ac1389063f6eafcac3dc80dab95a"
+    },
+    {
+      "coverage128": 0.4423,
+      "bounds128": [
+        13,
+        13,
+        115,
+        115
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 79,
+          "opaquePixels": 54,
+          "coverage": 0.5486
+        },
+        "16": {
+          "visiblePixels": 137,
+          "opaquePixels": 103,
+          "coverage": 0.5352
+        },
+        "24": {
+          "visiblePixels": 289,
+          "opaquePixels": 233,
+          "coverage": 0.5017
+        }
+      },
+      "index": 47,
+      "id": "weather-storm",
+      "family": "weather",
+      "sourceSheet": "sheet-06-weather.png",
+      "sourceCell": 7,
+      "fileSha256": "f1d1ab1c757177a8afa848da8ab67667b79f721746a7c2984eb9d12111568f54"
+    },
+    {
+      "coverage128": 0.36,
+      "bounds128": [
+        13,
+        18,
+        115,
+        109
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 64,
+          "opaquePixels": 46,
+          "coverage": 0.4444
+        },
+        "16": {
+          "visiblePixels": 112,
+          "opaquePixels": 84,
+          "coverage": 0.4375
+        },
+        "24": {
+          "visiblePixels": 229,
+          "opaquePixels": 193,
+          "coverage": 0.3976
+        }
+      },
+      "index": 48,
+      "id": "weather-wind",
+      "family": "weather",
+      "sourceSheet": "sheet-07-breaks-utility.png",
+      "sourceCell": 0,
+      "fileSha256": "9dec66b384f2a3c6d7e051e7be783fa12d64312e7cdccdf441762c907aed2a8e"
+    },
+    {
+      "coverage128": 0.3748,
+      "bounds128": [
+        21,
+        13,
+        107,
+        115
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 65,
+          "opaquePixels": 49,
+          "coverage": 0.4514
+        },
+        "16": {
+          "visiblePixels": 114,
+          "opaquePixels": 88,
+          "coverage": 0.4453
+        },
+        "24": {
+          "visiblePixels": 232,
+          "opaquePixels": 202,
+          "coverage": 0.4028
+        }
+      },
+      "index": 49,
+      "id": "break-coffee",
+      "family": "break",
+      "sourceSheet": "sheet-07-breaks-utility.png",
+      "sourceCell": 1,
+      "fileSha256": "d18a63dbb7aff4ca678a2098af206b857f0a221b3e1652b0558f1e3c1df815fd"
+    },
+    {
+      "coverage128": 0.3802,
+      "bounds128": [
+        13,
+        20,
+        115,
+        108
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 73,
+          "opaquePixels": 51,
+          "coverage": 0.5069
+        },
+        "16": {
+          "visiblePixels": 122,
+          "opaquePixels": 85,
+          "coverage": 0.4766
+        },
+        "24": {
+          "visiblePixels": 255,
+          "opaquePixels": 193,
+          "coverage": 0.4427
+        }
+      },
+      "index": 50,
+      "id": "break-restroom",
+      "family": "break",
+      "sourceSheet": "sheet-07-breaks-utility.png",
+      "sourceCell": 2,
+      "fileSha256": "d0a12eb7e9c88f1ba08a2cb63d5a81c3ecb60c3285214f28d84610dfbce969be"
+    },
+    {
+      "coverage128": 0.3022,
+      "bounds128": [
+        13,
+        22,
+        115,
+        105
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 54,
+          "opaquePixels": 38,
+          "coverage": 0.375
+        },
+        "16": {
+          "visiblePixels": 102,
+          "opaquePixels": 71,
+          "coverage": 0.3984
+        },
+        "24": {
+          "visiblePixels": 198,
+          "opaquePixels": 163,
+          "coverage": 0.3438
+        }
+      },
+      "index": 51,
+      "id": "break-viewpoint",
+      "family": "break",
+      "sourceSheet": "sheet-07-breaks-utility.png",
+      "sourceCell": 3,
+      "fileSha256": "f44fffe7695839228b6f23bb50b380eb96a7cd866bc4953a8180eff2c075b759"
+    },
+    {
+      "coverage128": 0.3439,
+      "bounds128": [
+        13,
+        19,
+        115,
+        108
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 61,
+          "opaquePixels": 47,
+          "coverage": 0.4236
+        },
+        "16": {
+          "visiblePixels": 106,
+          "opaquePixels": 78,
+          "coverage": 0.4141
+        },
+        "24": {
+          "visiblePixels": 221,
+          "opaquePixels": 185,
+          "coverage": 0.3837
+        }
+      },
+      "index": 52,
+      "id": "utility-parking",
+      "family": "utility",
+      "sourceSheet": "sheet-07-breaks-utility.png",
+      "sourceCell": 4,
+      "fileSha256": "130eb8f711709b64ad8e352994d393485aa2ba452185ba69e399a42a033ab30d"
+    },
+    {
+      "coverage128": 0.1997,
+      "bounds128": [
+        13,
+        17,
+        115,
+        110
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 54,
+          "opaquePixels": 14,
+          "coverage": 0.375
+        },
+        "16": {
+          "visiblePixels": 91,
+          "opaquePixels": 42,
+          "coverage": 0.3555
+        },
+        "24": {
+          "visiblePixels": 152,
+          "opaquePixels": 104,
+          "coverage": 0.2639
+        }
+      },
+      "index": 53,
+      "id": "utility-warning",
+      "family": "utility",
+      "sourceSheet": "sheet-07-breaks-utility.png",
+      "sourceCell": 5,
+      "fileSha256": "34cd1622eca477aa5129ef4834e52765d483988d2ad36995140ec995d37f0d78"
+    },
+    {
+      "coverage128": 0.4564,
+      "bounds128": [
+        13,
+        14,
+        115,
+        114
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 85,
+          "opaquePixels": 58,
+          "coverage": 0.5903
+        },
+        "16": {
+          "visiblePixels": 152,
+          "opaquePixels": 100,
+          "coverage": 0.5938
+        },
+        "24": {
+          "visiblePixels": 310,
+          "opaquePixels": 238,
+          "coverage": 0.5382
+        }
+      },
+      "index": 54,
+      "id": "utility-external-link",
+      "family": "utility",
+      "sourceSheet": "sheet-07-breaks-utility.png",
+      "sourceCell": 6,
+      "fileSha256": "040a3e0105741149433aaf282e53afd8b160867042721263ff3d59da22053a2c"
+    },
+    {
+      "coverage128": 0.3999,
+      "bounds128": [
+        25,
+        13,
+        103,
+        115
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 70,
+          "opaquePixels": 54,
+          "coverage": 0.4861
+        },
+        "16": {
+          "visiblePixels": 118,
+          "opaquePixels": 94,
+          "coverage": 0.4609
+        },
+        "24": {
+          "visiblePixels": 261,
+          "opaquePixels": 214,
+          "coverage": 0.4531
+        }
+      },
+      "index": 55,
+      "id": "utility-lock",
+      "family": "utility",
+      "sourceSheet": "sheet-07-breaks-utility.png",
+      "sourceCell": 7,
+      "fileSha256": "b75c072340ae3a454602c2b969f055db3c8470b620ccc8a7f46786810bfd5fc1"
+    },
+    {
+      "coverage128": 0.3712,
+      "bounds128": [
+        26,
+        13,
+        101,
+        115
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 68,
+          "opaquePixels": 46,
+          "coverage": 0.4722
+        },
+        "16": {
+          "visiblePixels": 114,
+          "opaquePixels": 85,
+          "coverage": 0.4453
+        },
+        "24": {
+          "visiblePixels": 239,
+          "opaquePixels": 197,
+          "coverage": 0.4149
+        }
+      },
+      "index": 56,
+      "id": "utility-unlock",
+      "family": "utility",
+      "sourceSheet": "sheet-08-utility-reserve.png",
+      "sourceCell": 0,
+      "fileSha256": "83726e2b10ffbe1ae608dd337dcbc1a8eb37c71d0e85f185a97eaa6fbdb846c9"
+    },
+    {
+      "coverage128": 0.3865,
+      "bounds128": [
+        13,
+        14,
+        115,
+        114
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 68,
+          "opaquePixels": 50,
+          "coverage": 0.4722
+        },
+        "16": {
+          "visiblePixels": 121,
+          "opaquePixels": 88,
+          "coverage": 0.4727
+        },
+        "24": {
+          "visiblePixels": 248,
+          "opaquePixels": 207,
+          "coverage": 0.4306
+        }
+      },
+      "index": 57,
+      "id": "utility-star",
+      "family": "utility",
+      "sourceSheet": "sheet-08-utility-reserve.png",
+      "sourceCell": 1,
+      "fileSha256": "ce57cb454c34be8d8ce62e0daa6ddd169789c3bdf0ffe44b5804fc9a68d8dfc5"
+    },
+    {
+      "coverage128": 0.4186,
+      "bounds128": [
+        14,
+        13,
+        114,
+        115
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 80,
+          "opaquePixels": 54,
+          "coverage": 0.5556
+        },
+        "16": {
+          "visiblePixels": 136,
+          "opaquePixels": 99,
+          "coverage": 0.5312
+        },
+        "24": {
+          "visiblePixels": 278,
+          "opaquePixels": 218,
+          "coverage": 0.4826
+        }
+      },
+      "index": 58,
+      "id": "utility-check",
+      "family": "utility",
+      "sourceSheet": "sheet-08-utility-reserve.png",
+      "sourceCell": 2,
+      "fileSha256": "1e5f65e55a7259fb198ae7293d841470ce77d44103951195f1289ab13e971569"
+    },
+    {
+      "coverage128": 0.4354,
+      "bounds128": [
+        13,
+        16,
+        115,
+        112
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 74,
+          "opaquePixels": 57,
+          "coverage": 0.5139
+        },
+        "16": {
+          "visiblePixels": 124,
+          "opaquePixels": 108,
+          "coverage": 0.4844
+        },
+        "24": {
+          "visiblePixels": 268,
+          "opaquePixels": 240,
+          "coverage": 0.4653
+        }
+      },
+      "index": 59,
+      "id": "utility-add",
+      "family": "utility",
+      "sourceSheet": "sheet-08-utility-reserve.png",
+      "sourceCell": 3,
+      "fileSha256": "186d4177947100d77c221a5a5b57ebdf69bd2c0e3f96fb5484ccb3a0097e700b"
+    },
+    {
+      "coverage128": 0.4449,
+      "bounds128": [
+        13,
+        15,
+        115,
+        112
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 74,
+          "opaquePixels": 59,
+          "coverage": 0.5139
+        },
+        "16": {
+          "visiblePixels": 127,
+          "opaquePixels": 107,
+          "coverage": 0.4961
+        },
+        "24": {
+          "visiblePixels": 275,
+          "opaquePixels": 248,
+          "coverage": 0.4774
+        }
+      },
+      "index": 60,
+      "id": "utility-close",
+      "family": "utility",
+      "sourceSheet": "sheet-08-utility-reserve.png",
+      "sourceCell": 4,
+      "fileSha256": "1941343c701bcd92a553254a324b2c1e4b6ece24521de631bd4e5428eec9d520"
+    },
+    {
+      "coverage128": 0.1763,
+      "bounds128": [
+        13,
+        37,
+        115,
+        90
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 36,
+          "opaquePixels": 18,
+          "coverage": 0.25
+        },
+        "16": {
+          "visiblePixels": 58,
+          "opaquePixels": 38,
+          "coverage": 0.2266
+        },
+        "24": {
+          "visiblePixels": 120,
+          "opaquePixels": 92,
+          "coverage": 0.2083
+        }
+      },
+      "index": 61,
+      "id": "utility-more",
+      "family": "utility",
+      "sourceSheet": "sheet-08-utility-reserve.png",
+      "sourceCell": 5,
+      "fileSha256": "25b225873d34a0f699c8b50d9929d589e91db36384de808a539af229f03ba050"
+    },
+    {
+      "coverage128": 0.5604,
+      "bounds128": [
+        13,
+        13,
+        114,
+        115
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 91,
+          "opaquePixels": 78,
+          "coverage": 0.6319
+        },
+        "16": {
+          "visiblePixels": 168,
+          "opaquePixels": 133,
+          "coverage": 0.6562
+        },
+        "24": {
+          "visiblePixels": 355,
+          "opaquePixels": 298,
+          "coverage": 0.6163
+        }
+      },
+      "index": 62,
+      "id": "utility-calendar",
+      "family": "utility",
+      "sourceSheet": "sheet-08-utility-reserve.png",
+      "sourceCell": 6,
+      "fileSha256": "1b202f5e4aec72af268500d7019904ea4e2a920449c92f9d5b399b1b88f2bb32"
+    }
+  ]
+}

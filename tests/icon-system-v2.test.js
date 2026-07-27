@@ -37,8 +37,8 @@ test("v2 image-generated icon system covers the complete runtime atlas", () => {
   assert.equal(manifest.version, 2);
   assert.equal(manifest.style, "itinera-alpine-contour-enamel");
   assert.deepEqual(manifest.atlas, { columns: 5, rows: 13, cellSize: 128 });
-  assert.equal(icons.length, 63);
-  assert.deepEqual(icons.map((icon) => icon.index), Array.from({ length: 63 }, (_, index) => index));
+  assert.equal(icons.length, 64);
+  assert.deepEqual(icons.map((icon) => icon.index), Array.from({ length: 64 }, (_, index) => index));
   assert.equal(new Set(icons.map((icon) => icon.id)).size, icons.length);
   assert.deepEqual(
     icons.map((icon) => icon.id).sort(),
@@ -47,13 +47,14 @@ test("v2 image-generated icon system covers the complete runtime atlas", () => {
   );
 
   const sourceSheetNames = [...new Set(icons.map((icon) => icon.sheet))].sort();
-  assert.equal(sourceSheetNames.length, 8);
+  assert.equal(sourceSheetNames.length, 9);
   for (const stage of ["source", "transparent"]) {
     const directory = path.join(repoRoot, `assets/ui-icons/imagegen-v2/${stage}`);
     const files = fs.readdirSync(directory).filter((name) => name.endsWith(".png")).sort();
-    assert.deepEqual(files, sourceSheetNames, `${stage} must contain exactly the eight manifested sheets`);
+    assert.deepEqual(files, sourceSheetNames, `${stage} must contain exactly the nine manifested sources`);
     for (const fileName of files) {
-      assert.deepEqual(pngSize(`assets/ui-icons/imagegen-v2/${stage}/${fileName}`), [1718, 916]);
+      const expectedSize = fileName === "utility-refresh.png" ? [1254, 1254] : [1718, 916];
+      assert.deepEqual(pngSize(`assets/ui-icons/imagegen-v2/${stage}/${fileName}`), expectedSize);
     }
   }
 
@@ -75,7 +76,7 @@ test("v2 image-generated icon system covers the complete runtime atlas", () => {
   const normalizedFiles = fs.readdirSync(path.join(repoRoot, "assets/ui-icons/normalized-png"))
     .filter((name) => name.endsWith(".png"))
     .sort();
-  assert.equal(normalizedFiles.length, 63);
+  assert.equal(normalizedFiles.length, 64);
 
   for (const icon of report.icons) {
     const fileName = `${String(icon.index).padStart(2, "0")}-${icon.id}.png`;
@@ -95,4 +96,29 @@ test("v2 image-generated icon system covers the complete runtime atlas", () => {
 
   assert.deepEqual(pngSize("assets/ui-icons/reserve/brand-compass-trail.png"), [128, 128]);
   assert.deepEqual(pngSize("docs/design/icon-system-v2-preview.png"), [1120, 1976]);
+});
+
+
+test("legacy icon paths and helpers remain removed", () => {
+  const obsoletePaths = [
+    "assets/icons.svg",
+    "assets/ui-icons/alpine-ui-icons-source.png",
+    "assets/ui-icons/imagegen",
+    "assets/ui-icons/svg",
+    "tools/normalize_sprite_sheet_icons.py",
+    "tools/rebuild_sprite_from_svgs.py",
+    "tools/render_compare_grid.py",
+    "tools/render_svg_grid.py",
+    "tools/vectorize_ui_icon_sheet.py",
+  ];
+  for (const relPath of obsoletePaths) {
+    assert.equal(fs.existsSync(path.join(repoRoot, relPath)), false, `${relPath} must stay removed`);
+  }
+
+  const runtimeSource = ["index.html", "assets/js/app.js", "tools/build-site.mjs"]
+    .map(read)
+    .join("\n");
+  for (const pattern of [/assets\/icons\.svg/, /ICON_SPRITE/, /function iconSvg\(/]) {
+    assert.doesNotMatch(runtimeSource, pattern);
+  }
 });

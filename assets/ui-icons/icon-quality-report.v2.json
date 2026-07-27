@@ -9,11 +9,12 @@
     "sheet-05-modes-japan.png": "7816f3253a6c7019d6e89e43c06503be8fe9b8782b18b7c325576994ad60c4c7",
     "sheet-06-weather.png": "c98e43a7f2aba4871a0f2368136d2bc7e4e023df892207746161f25fd6e1d9ca",
     "sheet-07-breaks-utility.png": "a897cac82603c3e617ac23032a0f7971ad1cf031f0cfc61fa1e959825450e965",
-    "sheet-08-utility-reserve.png": "fc052363d52538cef116d4e4e45dba483d05d982bb0b71b41390d01591afeb25"
+    "sheet-08-utility-reserve.png": "fc052363d52538cef116d4e4e45dba483d05d982bb0b71b41390d01591afeb25",
+    "utility-refresh.png": "64688797182214cb6a3d3889f3d61d8044b66803811029aca561359c53d1dfcd"
   },
   "atlas": {
     "path": "assets/ui-icons/alpine-ui-icons.png",
-    "sha256": "aa8c6e042bdf58c6887ebf50de98543f4e495fa801446480e5570cad122664d1",
+    "sha256": "831cd3c95c5e0fdaf40e048fb52998c23779d339d1f15e00c68a618218580241",
     "width": 640,
     "height": 1664,
     "cellSize": 128,
@@ -2918,6 +2919,52 @@
       ],
       "sourceEdgePixels": 0,
       "fileSha256": "1b202f5e4aec72af268500d7019904ea4e2a920449c92f9d5b399b1b88f2bb32"
+    },
+    {
+      "coverage128": 0.3343,
+      "bounds128": [
+        18,
+        13,
+        110,
+        115
+      ],
+      "chromaPixels": 0,
+      "tiny": {
+        "12": {
+          "visiblePixels": 70,
+          "opaquePixels": 38,
+          "coverage": 0.4861
+        },
+        "16": {
+          "visiblePixels": 117,
+          "opaquePixels": 73,
+          "coverage": 0.457
+        },
+        "24": {
+          "visiblePixels": 236,
+          "opaquePixels": 164,
+          "coverage": 0.4097
+        }
+      },
+      "index": 63,
+      "id": "utility-refresh",
+      "family": "utility",
+      "sourceSheet": "utility-refresh.png",
+      "sourceCell": 0,
+      "sourceCropBox": [
+        236,
+        190,
+        1021,
+        1058
+      ],
+      "sourceMargins": [
+        23,
+        24,
+        24,
+        24
+      ],
+      "sourceEdgePixels": 0,
+      "fileSha256": "b0589360a7ecc92ce5734e832b010ee587ff0742e130c62eebcc45acfad8ee40"
     }
   ]
 }

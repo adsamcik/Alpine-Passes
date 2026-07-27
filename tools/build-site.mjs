@@ -28,7 +28,6 @@ export const REQUIRED_RUNTIME_FILES = Object.freeze([
   "assets/favicon-32.png",
   "assets/favicon-512.png",
   "assets/apple-touch-icon.png",
-  "assets/icons.svg",
   "assets/css/site.css",
   "assets/css/nature-hike-detail.css",
   "assets/vendor/maplibre/5.6.1/maplibre-gl.css",

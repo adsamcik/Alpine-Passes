@@ -3375,7 +3375,6 @@ const STATUS_SOURCE_META = {
   estimate: { className: "est",  label: "Estimate", title: "Elevation/month seasonal estimate" },
   unknown:  { className: "unknown", label: "Unknown", title: "No status source" },
 };
-const ICON_SPRITE = "assets/icons.svg";
 const UI_ICON_IDS = new Set([
   "status-open", "status-restricted", "status-closed", "status-estimated", "status-unknown",
   "poi-generic", "not-by-car", "poi-mountain-summit", "poi-alpine-lake", "poi-waterfall-gorge",
@@ -3389,12 +3388,8 @@ const UI_ICON_IDS = new Set([
   "weather-snow", "weather-showers", "weather-storm", "weather-wind", "break-coffee",
   "break-restroom", "break-viewpoint", "utility-parking", "utility-warning", "utility-external-link",
   "utility-lock", "utility-unlock", "utility-star", "utility-check", "utility-add",
-  "utility-close", "utility-more", "utility-calendar",
+  "utility-close", "utility-more", "utility-calendar", "utility-refresh",
 ]);
-
-function iconSvg(id, className = "app-icon") {
-  return `<svg class="${className}" aria-hidden="true"><use href="${ICON_SPRITE}#${id}"></use></svg>`;
-}
 
 function uiIconHtml(id, className = "app-icon", label = "") {
   const safeId = UI_ICON_IDS.has(id) ? id : "poi-generic";
@@ -5203,6 +5198,7 @@ const UI_ATLAS_CELLS = {
   "utility-close": [0, 12],
   "utility-more": [1, 12],
   "utility-calendar": [2, 12],
+  "utility-refresh": [3, 12],
 };
 
 function lngLatToMercatorNorm(lng, lat) {

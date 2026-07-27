@@ -103,7 +103,7 @@ button:not(:disabled):active { transform: translateY(1px); }
   opacity: .24;
   filter: grayscale(.7);
 }
-/* Sprite grid: 5 columns x 13 rows (63 cells). X% step = 25 (cols), Y% step = 100/12 = 8.333 (rows). */
+/* Sprite grid: 5 columns x 13 rows (64 cells). X% step = 25 (cols), Y% step = 100/12 = 8.333 (rows). */
 .ui-icon-status-open { --ui-icon-x: 0%; --ui-icon-y: 0%; }
 .ui-icon-status-restricted { --ui-icon-x: 25.0000%; --ui-icon-y: 0%; }
 .ui-icon-status-closed { --ui-icon-x: 50.0000%; --ui-icon-y: 0%; }
@@ -167,6 +167,7 @@ button:not(:disabled):active { transform: translateY(1px); }
 .ui-icon-utility-close { --ui-icon-x: 0%; --ui-icon-y: 100%; }
 .ui-icon-utility-more { --ui-icon-x: 25.0000%; --ui-icon-y: 100%; }
 .ui-icon-utility-calendar { --ui-icon-x: 50.0000%; --ui-icon-y: 100%; }
+.ui-icon-utility-refresh { --ui-icon-x: 75.0000%; --ui-icon-y: 100%; }
 input::placeholder { color: #768894; opacity: 1; }
 input[type="checkbox"] { accent-color: var(--accent); }
 select, input[type="search"], input[type="date"], input[type="time"] { color-scheme: dark; }

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Build the Itinera v2 UI icon cells and runtime atlas.
 
-The image generator produces eight 4x2 transparent source sheets. This tool
-uses the checked-in manifest as the single source of truth, crops every source
-cell, removes any residual chroma pixels, normalizes optical scale without
-distorting aspect ratio, and writes the 63 128px runtime cells plus the 5x13
-atlas consumed by CSS and WebGL.
+The image generator produces transparent source sheets and standalone glyphs.
+This tool uses the checked-in manifest as the single source of truth, crops
+every source glyph, removes any residual chroma pixels, normalizes optical
+scale without distorting aspect ratio, and writes the 64 128px runtime cells
+plus the 5x13 atlas consumed by CSS and WebGL.
 """
 
 from __future__ import annotations
@@ -23,7 +23,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MANIFEST = REPO_ROOT / "assets/ui-icons/icon-manifest.v2.json"
 DEFAULT_CELLS_DIR = REPO_ROOT / "assets/ui-icons/normalized-png"
 DEFAULT_ATLAS = REPO_ROOT / "assets/ui-icons/alpine-ui-icons.png"
-DEFAULT_SOURCE_ATLAS = REPO_ROOT / "assets/ui-icons/alpine-ui-icons-source.png"
 DEFAULT_RESERVE_DIR = REPO_ROOT / "assets/ui-icons/reserve"
 DEFAULT_PREVIEW = REPO_ROOT / "docs/design/icon-system-v2-preview.png"
 DEFAULT_REPORT = REPO_ROOT / "assets/ui-icons/icon-quality-report.v2.json"
@@ -55,8 +54,8 @@ def load_manifest(path: Path) -> dict[str, Any]:
     source = manifest.get("sourceSheets", {})
     capacity = int(atlas["columns"]) * int(atlas["rows"])
 
-    if len(icons) != 63:
-        raise ValueError(f"manifest must define exactly 63 runtime icons, found {len(icons)}")
+    if len(icons) != 64:
+        raise ValueError(f"manifest must define exactly 64 runtime icons, found {len(icons)}")
     if capacity < len(icons):
         raise ValueError(f"atlas capacity {capacity} is smaller than {len(icons)} icons")
     if [entry["index"] for entry in icons] != list(range(len(icons))):
@@ -67,7 +66,12 @@ def load_manifest(path: Path) -> dict[str, Any]:
 
     source_capacity = int(source["columns"]) * int(source["rows"])
     for entry in icons:
-        if not 0 <= int(entry["cell"]) < source_capacity:
+        source_type = entry.get("sourceType", "sheet")
+        if source_type not in {"sheet", "single"}:
+            raise ValueError(f"{entry['id']} has unsupported source type {source_type}")
+        if source_type == "single" and int(entry["cell"]) != 0:
+            raise ValueError(f"{entry['id']} standalone source cell must be 0")
+        if source_type == "sheet" and not 0 <= int(entry["cell"]) < source_capacity:
             raise ValueError(f"{entry['id']} source cell is outside the source-sheet grid")
     reserve = manifest.get("reserve")
     if reserve and not 0 <= int(reserve["cell"]) < source_capacity:
@@ -146,6 +150,20 @@ def detect_content_boxes(
     if len(boxes) != columns * rows:
         raise ValueError(f"detected {len(boxes)} content cells, expected {columns * rows}")
     return boxes
+
+
+def detect_single_content_box(
+    image: Image.Image, padding: int = 24
+) -> tuple[int, int, int, int]:
+    """Find one complete glyph and retain transparent safety padding."""
+    cleaned = remove_residual_chroma(image)
+    left, top, right, bottom = alpha_bounds(cleaned)
+    return (
+        max(0, left - padding),
+        max(0, top - padding),
+        min(cleaned.width, right + padding),
+        min(cleaned.height, bottom + padding),
+    )
 
 
 def source_crop_metrics(image: Image.Image) -> dict[str, Any]:
@@ -343,9 +361,14 @@ def build(args: argparse.Namespace) -> None:
             if not source_path.exists():
                 raise FileNotFoundError(f"missing transparent source sheet: {source_path}")
             source_cache[sheet_name] = Image.open(source_path).convert("RGBA")
-            source_box_cache[sheet_name] = detect_content_boxes(
-                source_cache[sheet_name], source_columns, source_rows
-            )
+            if entry.get("sourceType", "sheet") == "single":
+                source_box_cache[sheet_name] = [
+                    detect_single_content_box(source_cache[sheet_name])
+                ]
+            else:
+                source_box_cache[sheet_name] = detect_content_boxes(
+                    source_cache[sheet_name], source_columns, source_rows
+                )
             source_hashes[sheet_name] = sha256(source_path)
 
         source_box = source_box_cache[sheet_name][int(entry["cell"])]
@@ -391,7 +414,6 @@ def build(args: argparse.Namespace) -> None:
         row, column = divmod(int(entry["index"]), atlas_columns)
         atlas.alpha_composite(icon, (column * cell_size, row * cell_size))
     save_png(atlas, args.atlas)
-    save_png(atlas, args.source_atlas)
 
     reserve = manifest.get("reserve")
     if reserve:
@@ -444,7 +466,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     parser.add_argument("--cells-dir", type=Path, default=DEFAULT_CELLS_DIR)
     parser.add_argument("--atlas", type=Path, default=DEFAULT_ATLAS)
-    parser.add_argument("--source-atlas", type=Path, default=DEFAULT_SOURCE_ATLAS)
     parser.add_argument("--reserve-dir", type=Path, default=DEFAULT_RESERVE_DIR)
     parser.add_argument("--preview", type=Path, default=DEFAULT_PREVIEW)
     parser.add_argument("--report", type=Path, default=DEFAULT_REPORT)

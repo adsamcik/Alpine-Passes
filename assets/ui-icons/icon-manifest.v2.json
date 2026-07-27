@@ -81,7 +81,8 @@
     { "index": 59, "id": "utility-add", "family": "utility", "sheet": "sheet-08-utility-reserve.png", "cell": 3 },
     { "index": 60, "id": "utility-close", "family": "utility", "sheet": "sheet-08-utility-reserve.png", "cell": 4 },
     { "index": 61, "id": "utility-more", "family": "utility", "sheet": "sheet-08-utility-reserve.png", "cell": 5 },
-    { "index": 62, "id": "utility-calendar", "family": "utility", "sheet": "sheet-08-utility-reserve.png", "cell": 6 }
+    { "index": 62, "id": "utility-calendar", "family": "utility", "sheet": "sheet-08-utility-reserve.png", "cell": 6 },
+    { "index": 63, "id": "utility-refresh", "family": "utility", "sourceType": "single", "sheet": "utility-refresh.png", "cell": 0 }
   ],
   "reserve": {
     "id": "brand-compass-trail",
